@@ -439,6 +439,7 @@ export default function Chapter4() {
   const [sidechain, setSidechain] = useState(false);
   const [lookahead, setLookahead] = useState(false);
   const [gainReduction, setGR]    = useState(0);
+  const [wetDry,        setWetDry] = useState(1);   // 0 = dry, 1 = wet
   const [tasks, setTasks]         = useState([false, false, false, false]);
 
   // Challenge state
@@ -465,6 +466,9 @@ export default function Chapter4() {
   const dryAnalRef          = useRef<AnalyserNode | null>(null);
   const wetAnalRef          = useRef<AnalyserNode | null>(null);
   const mixRef              = useRef<GainNode | null>(null);
+  const dryBlendRef         = useRef<GainNode | null>(null);        // wet/dry: dry leg
+  const wetBlendRef         = useRef<GainNode | null>(null);        // wet/dry: wet leg
+  const outputRef           = useRef<GainNode | null>(null);        // final sum before destination
   const sidechainGainRef    = useRef<GainNode | null>(null);       // sidechain duck node
   const lookaheadDelayRef   = useRef<DelayNode | null>(null);       // lookahead delay node
   const sidechainEnabledRef = useRef(false);                        // live ref, no re-render needed
@@ -531,6 +535,14 @@ export default function Chapter4() {
     ]);
   }, [params]);
 
+  // ── Wet/dry blend sync ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!ctxRef.current) return;
+    const t = ctxRef.current.currentTime;
+    dryBlendRef.current?.gain.setTargetAtTime(1 - wetDry, t, 0.01);
+    wetBlendRef.current?.gain.setTargetAtTime(wetDry,     t, 0.01);
+  }, [wetDry]);
+
   // ── Sidechain ref sync (no re-render, read from scheduler) ───────────────
   useEffect(() => { sidechainEnabledRef.current = sidechain; }, [sidechain]);
 
@@ -581,8 +593,8 @@ export default function Chapter4() {
   const startAudio = useCallback(() => {
     const ctx = new AudioContext(); ctxRef.current = ctx;
 
-    // mix → sidechainGain → dryAnal (tap)
-    //                     → lookaheadDelay → comp → makeup → wetAnal → destination
+    // mix → scGain → dryAnal (viz tap) → dryBlend ─┐
+    //             → delay → comp → makeup → wetAnal → wetBlend → output → destination
     const mix = ctx.createGain(); mix.gain.value = 0.85; mixRef.current = mix;
     const scGain = ctx.createGain(); scGain.gain.value = 1; sidechainGainRef.current = scGain;
     const dryAnal = ctx.createAnalyser(); dryAnal.fftSize = 1024; dryAnal.smoothingTimeConstant = 0.4; dryAnalRef.current = dryAnal;
@@ -594,11 +606,19 @@ export default function Chapter4() {
     const makeup = ctx.createGain(); makeup.gain.value = 10 ** (params.makeup / 20); makeupRef.current = makeup;
     const wetAnal = ctx.createAnalyser(); wetAnal.fftSize = 1024; wetAnal.smoothingTimeConstant = 0.4; wetAnalRef.current = wetAnal;
 
+    // Wet/dry blend nodes
+    const dryBlend = ctx.createGain(); dryBlend.gain.value = 1 - wetDry; dryBlendRef.current = dryBlend;
+    const wetBlend = ctx.createGain(); wetBlend.gain.value = wetDry;     wetBlendRef.current = wetBlend;
+    const output   = ctx.createGain(); output.gain.value   = 1;          outputRef.current   = output;
+
     mix.connect(scGain);
     scGain.connect(dryAnal);        // tap for dry waveform visualisation
-    scGain.connect(delay);
+    scGain.connect(dryBlend);       // dry leg (skips compressor)
+    scGain.connect(delay);          // wet leg
     delay.connect(comp);
-    comp.connect(makeup); makeup.connect(wetAnal); wetAnal.connect(ctx.destination);
+    comp.connect(makeup); makeup.connect(wetAnal); wetAnal.connect(wetBlend);
+    dryBlend.connect(output); wetBlend.connect(output);
+    output.connect(ctx.destination);
 
     nextNoteRef.current = ctx.currentTime + 0.05; currentStepRef.current = 0;
     runScheduler(); animRef.current = requestAnimationFrame(animate);
@@ -662,6 +682,7 @@ export default function Chapter4() {
     ctxRef.current = null; compRef.current = null; makeupRef.current = null;
     dryAnalRef.current = null; wetAnalRef.current = null; mixRef.current = null;
     sidechainGainRef.current = null; lookaheadDelayRef.current = null;
+    dryBlendRef.current = null; wetBlendRef.current = null; outputRef.current = null;
     setGR(0); setIsPlaying(false); setHearingMode('none');
     [dryRef, wetRef].forEach(r => {
       if (!r.current) return;
@@ -828,6 +849,32 @@ export default function Chapter4() {
             <div className="compare-row">
               <div className="compare-lbl" style={{ color: 'var(--purple)' }}>WET</div>
               <div className="mini-wave" style={{ borderColor: 'rgba(167,139,250,0.3)' }}><canvas ref={wetRef} width={300} height={30} style={{ width: '100%', height: '100%', display: 'block' }} /></div>
+            </div>
+          </div>
+
+          {/* Wet / Dry mix slider */}
+          <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="canvas-label" style={{ margin: 0 }}>WET / DRY MIX</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: '0.65rem', color: 'var(--purple)' }}>
+                {wetDry === 1 ? '100% WET' : wetDry === 0 ? '100% DRY' : `${Math.round(wetDry * 100)}% WET · ${Math.round((1 - wetDry) * 100)}% DRY`}
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <span style={{ fontFamily: 'var(--mono)', fontSize: '0.6rem', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>DRY</span>
+              <input
+                type="range"
+                min={0} max={1} step={0.01}
+                value={wetDry}
+                onChange={e => setWetDry(parseFloat(e.target.value))}
+                style={{
+                  flex: 1,
+                  accentColor: 'var(--purple)',
+                  cursor: 'pointer',
+                  height: 4,
+                }}
+              />
+              <span style={{ fontFamily: 'var(--mono)', fontSize: '0.6rem', color: 'var(--purple)', whiteSpace: 'nowrap' }}>WET</span>
             </div>
           </div>
           <div style={{ marginTop: '1rem' }}>
