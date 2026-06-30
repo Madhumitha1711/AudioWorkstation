@@ -193,6 +193,20 @@ function drawTransfer(canvas: HTMLCanvasElement, params: CompParams) {
 
   curve(params, 'rgb(167,139,250)', 0.08);
 
+  // Operating point crosshairs (example input: 12 dB above threshold)
+  const exampleInput  = Math.min(-1, params.threshold + 12);
+  const exampleOutput = applyCompression(exampleInput, params);
+  const px = toX(exampleInput);
+  const py = toY(exampleOutput);
+
+  ctx.strokeStyle = 'rgba(167,139,250,0.4)'; ctx.lineWidth = 1; ctx.setLineDash([2, 2]);
+  ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, H); ctx.stroke(); // vertical
+  ctx.beginPath(); ctx.moveTo(0, py);  ctx.lineTo(px, py); ctx.stroke(); // horizontal
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = 'rgba(167,139,250,0.9)';
+  ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fill();
+
   // Labels
   ctx.fillStyle = '#8A8A9A'; ctx.font = '10px "JetBrains Mono", monospace';
   ctx.fillText('INPUT →', W - 54, H - 5);
@@ -732,7 +746,7 @@ export default function Chapter4() {
           <div className="lab-icon" style={{ background: 'var(--purple-dim)', border: '1px solid rgba(167,139,250,0.4)' }}>⬡</div>
           <div>
             <div className="lab-name">Compressor Studio</div>
-            <div className="lab-subtitle">LAB · CH 04 · DYNAMICS · DRUM GROOVE @ {BPM} BPM</div>
+            <div className="lab-subtitle">LAB · CH 04 · DYNAMICS</div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
