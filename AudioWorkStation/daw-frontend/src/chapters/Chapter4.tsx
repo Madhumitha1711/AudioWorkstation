@@ -437,7 +437,6 @@ export default function Chapter4() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [bypass,    setBypass]    = useState(false);
   const [sidechain, setSidechain] = useState(false);
-  const [lookahead, setLookahead] = useState(false);
   const [gainReduction, setGR]    = useState(0);
   const [wetDry,        setWetDry] = useState(1);   // 0 = dry, 1 = wet
   const [tasks, setTasks]         = useState([false, false, false, false]);
@@ -470,7 +469,6 @@ export default function Chapter4() {
   const wetBlendRef         = useRef<GainNode | null>(null);        // wet/dry: wet leg
   const outputRef           = useRef<GainNode | null>(null);        // final sum before destination
   const sidechainGainRef    = useRef<GainNode | null>(null);       // sidechain duck node
-  const lookaheadDelayRef   = useRef<DelayNode | null>(null);       // lookahead delay node
   const sidechainEnabledRef = useRef(false);                        // live ref, no re-render needed
   const animRef             = useRef<number>(0);
   const schedulerRef        = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -546,21 +544,6 @@ export default function Chapter4() {
   // ── Sidechain ref sync (no re-render, read from scheduler) ───────────────
   useEffect(() => { sidechainEnabledRef.current = sidechain; }, [sidechain]);
 
-  // ── Lookahead: insert/remove 10ms pre-delay, force near-zero attack ───────
-  useEffect(() => {
-    const delay = lookaheadDelayRef.current;
-    const comp  = compRef.current;
-    if (!delay || !comp || !ctxRef.current) return;
-    const t = ctxRef.current.currentTime;
-    if (lookahead) {
-      delay.delayTime.setTargetAtTime(0.010, t, 0.005); // 10ms delay = 10ms advance notice
-      comp.attack.setTargetAtTime(0.0005, t, 0.005);    // near-zero attack: compressor reacts instantly
-    } else {
-      delay.delayTime.setTargetAtTime(0, t, 0.005);
-      comp.attack.setTargetAtTime(params.attack / 1000, t, 0.005);
-    }
-  }, [lookahead, params.attack]);
-
   // ── Scheduler ─────────────────────────────────────────────────────────────
   const runScheduler = useCallback(() => {
     const ctx = ctxRef.current; const mix = mixRef.current;
@@ -598,7 +581,6 @@ export default function Chapter4() {
     const mix = ctx.createGain(); mix.gain.value = 0.85; mixRef.current = mix;
     const scGain = ctx.createGain(); scGain.gain.value = 1; sidechainGainRef.current = scGain;
     const dryAnal = ctx.createAnalyser(); dryAnal.fftSize = 1024; dryAnal.smoothingTimeConstant = 0.4; dryAnalRef.current = dryAnal;
-    const delay = ctx.createDelay(0.1); delay.delayTime.value = 0; lookaheadDelayRef.current = delay;
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = params.threshold; comp.ratio.value = params.ratio;
     comp.attack.value    = params.attack / 1000; comp.release.value = params.release / 1000;
@@ -614,8 +596,7 @@ export default function Chapter4() {
     mix.connect(scGain);
     scGain.connect(dryAnal);        // tap for dry waveform visualisation
     scGain.connect(dryBlend);       // dry leg (skips compressor)
-    scGain.connect(delay);          // wet leg
-    delay.connect(comp);
+    scGain.connect(comp);           // wet leg
     comp.connect(makeup); makeup.connect(wetAnal); wetAnal.connect(wetBlend);
     dryBlend.connect(output); wetBlend.connect(output);
     output.connect(ctx.destination);
@@ -681,7 +662,7 @@ export default function Chapter4() {
     ctxRef.current?.close();
     ctxRef.current = null; compRef.current = null; makeupRef.current = null;
     dryAnalRef.current = null; wetAnalRef.current = null; mixRef.current = null;
-    sidechainGainRef.current = null; lookaheadDelayRef.current = null;
+    sidechainGainRef.current = null;
     dryBlendRef.current = null; wetBlendRef.current = null; outputRef.current = null;
     setGR(0); setIsPlaying(false); setHearingMode('none');
     [dryRef, wetRef].forEach(r => {
@@ -752,7 +733,6 @@ export default function Chapter4() {
               {bypass ? 'BYPASS: ON' : 'BYPASS: OFF'}
             </button>
             <button className={`toggle-btn${sidechain ? ' on' : ''}`} onClick={() => setSidechain(s => !s)}>SIDECHAIN</button>
-            <button className={`toggle-btn${lookahead ? ' on' : ''}`} onClick={() => setLookahead(l => !l)}>LOOKAHEAD</button>
           </div>
           <div className="lab-status" style={{ color: isPlaying ? 'var(--purple)' : 'var(--text-dim)' }}>
             <div className="status-dot" style={{
@@ -824,7 +804,6 @@ export default function Chapter4() {
             </div>
           </div>
           {sidechain && <div className="tip-box" style={{ marginTop: '0.75rem', background: 'rgba(77,158,255,0.08)', borderColor: 'rgba(77,158,255,0.2)' }}><strong style={{ color: 'var(--blue)' }}>Sidechain:</strong> Compressor triggered by a separate control signal — voice-over ducking or kick-triggered bass pumping.</div>}
-          {lookahead && <div className="tip-box" style={{ marginTop: '0.75rem', background: 'rgba(0,255,135,0.06)', borderColor: 'rgba(0,255,135,0.15)' }}><strong style={{ color: 'var(--green)' }}>Lookahead:</strong> Reads a few ms ahead so it reacts before a transient peak hits — zero attack overshoot.</div>}
         </div>
 
         {/* Right: transfer + waveforms */}
