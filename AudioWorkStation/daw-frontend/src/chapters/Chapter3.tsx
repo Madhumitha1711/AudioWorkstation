@@ -53,7 +53,6 @@ function faderTop(pos: number): string { return `${pos * 100}%`; }
 
 // ── Audio synthesis ───────────────────────────────────────────────────────────
 // All tracks share a 4 s / 2-bar loop at 120 BPM
-const SR_ASSUMED = 44100; // only used for additive math; real sr used in buffers
 const LOOP_DUR = 4;       // seconds
 const BEAT = 0.5;         // seconds per beat at 120 BPM
 
@@ -579,13 +578,6 @@ export default function Chapter3() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <span className="badge" style={{
-            background: isPlaying ? 'rgba(0,255,135,0.12)' : 'var(--red-dim)',
-            borderColor: isPlaying ? 'rgba(0,255,135,0.3)' : 'rgba(255,77,106,0.3)',
-            color: isPlaying ? 'var(--green)' : 'var(--red)',
-          }}>
-            {isPlaying ? '● LIVE' : '⏺ REC READY'}
-          </span>
           <div className="lab-status" style={{ color: isPlaying ? 'var(--green)' : 'var(--text-dim)' }}>
             <div className="status-dot" style={{
               background: isPlaying ? 'var(--green)' : 'var(--text-faint)',
@@ -599,30 +591,6 @@ export default function Chapter3() {
 
       {/* ── Mix body ── */}
       <div className="mix-body">
-
-        {/* Transport */}
-        <div className="transport-bar">
-          <div className="transport-btns">
-            <div className="t-btn" onClick={handleStop} title="Stop">⏮</div>
-            <div
-              className={`t-btn${isPlaying ? ' active' : ''}`}
-              onClick={handlePlay}
-              style={isPlaying ? { background: 'rgba(0,255,135,0.15)', borderColor: 'var(--green)', color: 'var(--green)' } : {}}
-              title="Play"
-            >▶</div>
-            <div className="t-btn" onClick={handleStop} title="Pause">⏸</div>
-            <div className="t-btn active">⏺</div>
-          </div>
-          <div className="time-display">{timeStr}</div>
-          <div className="bpm-display">
-            <span style={{ fontSize: '0.5rem', color: 'var(--text-faint)' }}>BPM</span>
-            <span className="bpm-val">120</span>
-          </div>
-          <div style={{ flex: 1 }} />
-          <div className="hint-text" style={{ fontSize: '0.7rem' }}>
-            Track: <span style={{ color: 'var(--amber)' }}>Pop Session — Verse A</span>
-          </div>
-        </div>
 
         {/* Channel strips + master */}
         <div className="tracks-grid">
