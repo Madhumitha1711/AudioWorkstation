@@ -52,10 +52,25 @@ function arc(r: number, start: number, end: number) {
   return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 ${lg} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
 }
 
+// ── HiDPI canvas helper ───────────────────────────────────────────────────────
+function hiDpi(canvas: HTMLCanvasElement) {
+  const dpr = window.devicePixelRatio || 1;
+  const W   = canvas.clientWidth  || canvas.width;
+  const H   = canvas.clientHeight || canvas.height;
+  if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) {
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+  }
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, W, H };
+}
+
 // ── IR Canvas drawing ──────────────────────────────────────────────────────────
 function drawIR(canvas: HTMLCanvasElement, preset: RoomPreset) {
-  const ctx = canvas.getContext('2d'); if (!ctx) return;
-  const W = canvas.width, H = canvas.height;
+  const hd = hiDpi(canvas); if (!hd) return;
+  const { ctx, W, H } = hd;
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = '#0D0D0F'; ctx.fillRect(0, 0, W, H);
 
@@ -108,22 +123,22 @@ function drawIR(canvas: HTMLCanvasElement, preset: RoomPreset) {
   }
 
   // ─ Stage label background bands ─
-  ctx.font = '8px JetBrains Mono, monospace'; ctx.textBaseline = 'top';
+  ctx.font = '10px "JetBrains Mono", monospace'; ctx.textBaseline = 'top';
 
   // Direct
-  ctx.fillStyle = 'rgba(245,166,35,0.15)'; ctx.fillRect(8, 6, 44, 14);
+  ctx.fillStyle = 'rgba(245,166,35,0.15)'; ctx.fillRect(8, 6, 56, 18);
   ctx.fillStyle = '#F5A623'; ctx.fillText('DIRECT', 10, 8);
 
   // Early
-  ctx.fillStyle = 'rgba(77,158,255,0.12)'; ctx.fillRect(55, 6, 110, 14);
-  ctx.fillStyle = '#4D9EFF'; ctx.fillText('EARLY REFLECTIONS', 58, 8);
+  ctx.fillStyle = 'rgba(77,158,255,0.12)'; ctx.fillRect(68, 6, 142, 18);
+  ctx.fillStyle = '#4D9EFF'; ctx.fillText('EARLY REFLECTIONS', 70, 8);
 
   // Late
-  ctx.fillStyle = 'rgba(45,212,191,0.12)'; ctx.fillRect(tailStart - 5, 6, tailEnd - tailStart + 10, 14);
+  ctx.fillStyle = 'rgba(45,212,191,0.12)'; ctx.fillRect(tailStart - 5, 6, tailEnd - tailStart + 10, 18);
   ctx.fillStyle = '#2DD4BF'; ctx.fillText('LATE DECAY (TAIL)', tailStart, 8);
 
   // ─ Time labels ─
-  ctx.fillStyle = '#4A4A5A'; ctx.font = '8px JetBrains Mono, monospace'; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = '#8A8A9A'; ctx.font = '10px "JetBrains Mono", monospace'; ctx.textBaseline = 'alphabetic';
   const timeLabels = ['0ms', '50ms', '200ms', '500ms', '1s', `${preset.rt60.toFixed(1)}s`];
   const labelX     = [8, 55, 150, 330, 480, Math.min(W - 30, tailEnd - 5)];
   timeLabels.forEach((lbl, i) => { if (labelX[i] < W - 10) ctx.fillText(lbl, labelX[i], H - 4); });

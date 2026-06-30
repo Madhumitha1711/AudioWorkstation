@@ -125,6 +125,21 @@ interface OscilloscopeOpts {
   sampleRate: number;
 }
 
+// HiDPI helper — scales canvas backing store to physical pixels
+function hiDpi(canvas: HTMLCanvasElement) {
+  const dpr = window.devicePixelRatio || 1;
+  const W   = canvas.clientWidth  || canvas.width;
+  const H   = canvas.clientHeight || canvas.height;
+  if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) {
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+  }
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, W, H };
+}
+
 // Draw the oscilloscope frame using a mathematically-computed wave so that
 // phase shift is immediately visible as horizontal displacement.
 // When phaseShift != 0 a dim blue reference at 0° is drawn underneath.
@@ -133,9 +148,8 @@ function drawOscilloscope(
   opts: OscilloscopeOpts
 ) {
   const { waveType, harmonics, phaseShift, amplitude, frequency, sampleRate } = opts;
-  const ctx = canvas.getContext('2d')!;
-  const W = canvas.width;
-  const H = canvas.height;
+  const hd = hiDpi(canvas); if (!hd) return;
+  const { ctx, W, H } = hd;
 
   // ── Background ─────────────────────────────────────────────────────────────
   ctx.fillStyle = '#0D0D0F';
@@ -251,9 +265,8 @@ function drawOscilloscope(
 }
 
 function clearCanvas(canvas: HTMLCanvasElement) {
-  const ctx = canvas.getContext('2d')!;
-  const W = canvas.width;
-  const H = canvas.height;
+  const hd = hiDpi(canvas); if (!hd) return;
+  const { ctx, W, H } = hd;
   ctx.fillStyle = '#0D0D0F';
   ctx.fillRect(0, 0, W, H);
 

@@ -47,13 +47,27 @@ function pathThrough(ctx: CanvasRenderingContext2D, pts: { x: number; y: number 
   }
 }
 
+function hiDpi(canvas: HTMLCanvasElement) {
+  const dpr = window.devicePixelRatio || 1;
+  const W   = canvas.clientWidth  || canvas.width;
+  const H   = canvas.clientHeight || canvas.height;
+  if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) {
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+  }
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, W, H };
+}
+
 function drawSpectrum(
   canvas: HTMLCanvasElement,
   userGains: number[],
   showTarget: boolean,
 ) {
-  const ctx = canvas.getContext('2d')!;
-  const W = canvas.width, H = canvas.height;
+  const hd = hiDpi(canvas); if (!hd) return;
+  const { ctx, W, H } = hd;
 
   ctx.fillStyle = '#0D0D0F';
   ctx.fillRect(0, 0, W, H);
@@ -78,7 +92,7 @@ function drawSpectrum(
   ctx.setLineDash([]);
 
   // dB labels
-  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
   ctx.font = '10px "JetBrains Mono", monospace';
   for (const db of [-12, -6, 0, 6, 12]) {
     ctx.fillText(`${db > 0 ? '+' : ''}${db}`, 4, gainToY(db, H) + 4);
@@ -122,7 +136,7 @@ function drawSpectrum(
   drawCurve(userGains, '#4D9EFF', 0.9, '#4D9EFF', 0.06);
 
   // Freq labels
-  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
   ctx.font = '9px "JetBrains Mono", monospace';
   const lbls: [number, string][] = [
     [20,'20'],[50,'50'],[100,'100'],[200,'200'],[500,'500'],

@@ -115,11 +115,25 @@ function computeSourceSample(srcType: SrcType, t: number): number {
   }
 }
 
+// ── HiDPI canvas helper ───────────────────────────────────────────────────────
+function hiDpi(canvas: HTMLCanvasElement) {
+  const dpr = window.devicePixelRatio || 1;
+  const W   = canvas.clientWidth  || canvas.width;
+  const H   = canvas.clientHeight || canvas.height;
+  if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) {
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+  }
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, W, H };
+}
+
 // ── Canvas: transfer curve ─────────────────────────────────────────────────────
 function drawTransferCurve(canvas: HTMLCanvasElement, type: SatType, driveDb: number) {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  const W = canvas.width, H = canvas.height;
+  const hd = hiDpi(canvas); if (!hd) return;
+  const { ctx, W, H } = hd;
 
   ctx.fillStyle = '#0D0D0F';
   ctx.fillRect(0, 0, W, H);
@@ -158,9 +172,9 @@ function drawTransferCurve(canvas: HTMLCanvasElement, type: SatType, driveDb: nu
   }
   ctx.stroke();
 
-  ctx.fillStyle = '#4A4A5A'; ctx.font = '9px "JetBrains Mono", monospace';
-  ctx.fillText('INPUT →', W - 58, H - 6);
-  ctx.save(); ctx.translate(10, H * 0.42); ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#8A8A9A'; ctx.font = '10px "JetBrains Mono", monospace';
+  ctx.fillText('INPUT →', W - 62, H - 6);
+  ctx.save(); ctx.translate(12, H * 0.42); ctx.rotate(-Math.PI / 2);
   ctx.fillText('↑ OUTPUT', 0, 0); ctx.restore();
 }
 
@@ -172,9 +186,8 @@ function drawStaticOscilloscope(
   satType: SatType,
   driveDb: number,
 ) {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  const W = canvas.width, H = canvas.height;
+  const hd = hiDpi(canvas); if (!hd) return;
+  const { ctx, W, H } = hd;
 
   ctx.fillStyle = '#0D0D0F';
   ctx.fillRect(0, 0, W, H);
@@ -209,10 +222,10 @@ function drawStaticOscilloscope(
   drawLine(8, glow);
   drawLine(2, color);
 
-  ctx.font = 'bold 9px "JetBrains Mono", monospace'; ctx.fillStyle = color;
+  ctx.font = 'bold 10px "JetBrains Mono", monospace'; ctx.fillStyle = color;
   ctx.fillText(mode === 'dry' ? 'DRY' : 'SATURATED', 8, 14);
 
-  ctx.font = '9px "JetBrains Mono", monospace'; ctx.fillStyle = '#4A4A5A';
+  ctx.font = '10px "JetBrains Mono", monospace'; ctx.fillStyle = '#8A8A9A';
   ctx.fillText(
     mode === 'dry'
       ? 'original signal — before the waveshaper'
@@ -220,7 +233,7 @@ function drawStaticOscilloscope(
     8, H - 6,
   );
 
-  ctx.fillStyle = 'rgba(74,74,90,0.7)'; ctx.font = '8px "JetBrains Mono", monospace';
+  ctx.fillStyle = '#7A7A8A'; ctx.font = '9px "JetBrains Mono", monospace';
   ctx.fillText('◉ PREVIEW', W - 76, 12);
 }
 
@@ -232,9 +245,8 @@ function drawLiveOscilloscope(
   mode: 'dry' | 'sat',
   satType: SatType,
 ) {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  const W = canvas.width, H = canvas.height;
+  const hd = hiDpi(canvas); if (!hd) return;
+  const { ctx, W, H } = hd;
 
   ctx.fillStyle = '#0D0D0F';
   ctx.fillRect(0, 0, W, H);
@@ -270,10 +282,10 @@ function drawLiveOscilloscope(
   drawLine(8, glow);
   drawLine(2, color);
 
-  ctx.font = 'bold 9px "JetBrains Mono", monospace'; ctx.fillStyle = color;
+  ctx.font = 'bold 10px "JetBrains Mono", monospace'; ctx.fillStyle = color;
   ctx.fillText(mode === 'dry' ? 'DRY' : 'SATURATED', 8, 14);
 
-  ctx.font = '9px "JetBrains Mono", monospace'; ctx.fillStyle = '#4A4A5A';
+  ctx.font = '10px "JetBrains Mono", monospace'; ctx.fillStyle = '#8A8A9A';
   ctx.fillText(
     mode === 'dry'
       ? 'original — pre-shaper input'
@@ -281,7 +293,7 @@ function drawLiveOscilloscope(
     8, H - 6,
   );
 
-  ctx.fillStyle = '#00FF87'; ctx.font = '8px "JetBrains Mono", monospace';
+  ctx.fillStyle = '#00FF87'; ctx.font = '9px "JetBrains Mono", monospace';
   ctx.fillText('● LIVE', W - 44, 12);
 }
 

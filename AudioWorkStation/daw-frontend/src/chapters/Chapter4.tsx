@@ -125,10 +125,25 @@ function paramAccuracy(
   return { pct, diff: label };
 }
 
+// ── HiDPI canvas helper ───────────────────────────────────────────────────────
+function hiDpi(canvas: HTMLCanvasElement) {
+  const dpr = window.devicePixelRatio || 1;
+  const W   = canvas.clientWidth  || canvas.width;
+  const H   = canvas.clientHeight || canvas.height;
+  if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) {
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+  }
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, W, H };
+}
+
 // ── Canvas: main transfer function ────────────────────────────────────────────
 function drawTransfer(canvas: HTMLCanvasElement, params: CompParams) {
-  const ctx = canvas.getContext('2d'); if (!ctx) return;
-  const W = canvas.width, H = canvas.height;
+  const hd = hiDpi(canvas); if (!hd) return;
+  const { ctx, W, H } = hd;
   const DB_MIN = -60, DB_MAX = 0;
   const toX = (db: number) => ((db - DB_MIN) / (DB_MAX - DB_MIN)) * W;
   const toY = (db: number) => H - ((db - DB_MIN) / (DB_MAX - DB_MIN)) * H;
@@ -152,7 +167,7 @@ function drawTransfer(canvas: HTMLCanvasElement, params: CompParams) {
   const tx = toX(params.threshold);
   ctx.beginPath(); ctx.moveTo(tx, 0); ctx.lineTo(tx, H); ctx.stroke();
   ctx.setLineDash([]);
-  ctx.fillStyle = '#4A4A5A'; ctx.font = '8px JetBrains Mono, monospace';
+  ctx.fillStyle = '#8A8A9A'; ctx.font = '10px "JetBrains Mono", monospace';
   ctx.fillText('THRESH', tx + 3, H - 5);
 
   // Fill + stroke
@@ -179,9 +194,9 @@ function drawTransfer(canvas: HTMLCanvasElement, params: CompParams) {
   curve(params, 'rgb(167,139,250)', 0.08);
 
   // Labels
-  ctx.fillStyle = '#4A4A5A'; ctx.font = '7px JetBrains Mono, monospace';
-  ctx.fillText('INPUT →', W - 46, H - 5);
-  ctx.save(); ctx.translate(9, H * 0.38); ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#8A8A9A'; ctx.font = '10px "JetBrains Mono", monospace';
+  ctx.fillText('INPUT →', W - 54, H - 5);
+  ctx.save(); ctx.translate(11, H * 0.38); ctx.rotate(-Math.PI / 2);
   ctx.fillText('↑ OUT', 0, 0); ctx.restore();
 }
 
@@ -194,8 +209,8 @@ function drawChallenge(
   user:   ChallengeParams,
   showTarget: boolean,
 ) {
-  const ctx = canvas.getContext('2d'); if (!ctx) return;
-  const W = canvas.width, H = canvas.height;
+  const hd = hiDpi(canvas); if (!hd) return;
+  const { ctx, W, H } = hd;
   const DB_MIN = -60, DB_MAX = 0;
   const toX = (db: number) => ((db - DB_MIN) / (DB_MAX - DB_MIN)) * W;
   const toY = (db: number) => H - ((db - DB_MIN) / (DB_MAX - DB_MIN)) * H;
@@ -214,9 +229,9 @@ function drawChallenge(
   ctx.setLineDash([]);
 
   // dB axis labels
-  ctx.fillStyle = '#3D3D52'; ctx.font = '7px JetBrains Mono, monospace';
+  ctx.fillStyle = '#6A6A7A'; ctx.font = '10px "JetBrains Mono", monospace';
   for (let db = -60; db <= 0; db += 10) {
-    ctx.fillText(`${db}`, toX(db) + 2, H - 3);
+    ctx.fillText(`${db}`, toX(db) + 2, H - 4);
   }
 
   const drawCurve = (p: ShapeParams, strokeColor: string, fillColor: string, lineW: number, dash: number[]) => {
@@ -243,8 +258,8 @@ function drawChallenge(
     drawCurve(target, '#F5A623', 'rgba(245,166,35,0.07)', 2, [6, 4]);
   } else {
     // "Match by ear" hint watermark
-    ctx.fillStyle = 'rgba(245,166,35,0.22)';
-    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.fillStyle = 'rgba(245,166,35,0.65)';
+    ctx.font = '10px "JetBrains Mono", monospace';
     ctx.fillText('TARGET HIDDEN — USE HEAR TARGET TO LISTEN & MATCH', W / 2 - 196, 18);
   }
 
@@ -252,16 +267,16 @@ function drawChallenge(
   drawCurve(user, '#A78BFA', 'rgba(167,139,250,0.08)', 2.5, []);
 
   // Axis labels
-  ctx.fillStyle = '#4A4A5A'; ctx.font = '7px JetBrains Mono, monospace';
-  ctx.fillText('INPUT →', W - 46, H - 5);
-  ctx.save(); ctx.translate(9, H * 0.38); ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#8A8A9A'; ctx.font = '10px "JetBrains Mono", monospace';
+  ctx.fillText('INPUT →', W - 54, H - 5);
+  ctx.save(); ctx.translate(11, H * 0.38); ctx.rotate(-Math.PI / 2);
   ctx.fillText('↑ OUT', 0, 0); ctx.restore();
 }
 
 // ── Canvas: waveform ──────────────────────────────────────────────────────────
 function drawWaveform(canvas: HTMLCanvasElement, data: Float32Array, color: string) {
-  const ctx = canvas.getContext('2d'); if (!ctx) return;
-  const W = canvas.width, H = canvas.height;
+  const hd = hiDpi(canvas); if (!hd) return;
+  const { ctx, W, H } = hd;
   ctx.fillStyle = '#22222E'; ctx.fillRect(0, 0, W, H);
   ctx.strokeStyle = color; ctx.lineWidth = 1.5;
   ctx.beginPath();
