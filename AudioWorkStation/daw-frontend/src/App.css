@@ -26,6 +26,14 @@
   --purple:       #A78BFA;
   --purple-dim:   rgba(167,139,250,0.15);
 
+  --sat:          #FF7A45;
+  --sat-dim:      rgba(255,122,69,0.15);
+  --sat-glow:     rgba(255,122,69,0.4);
+
+  --teal:         #2DD4BF;
+  --teal-dim:     rgba(45,212,191,0.15);
+  --teal-glow:    rgba(45,212,191,0.4);
+
   --text:         #E8E8EC;
   --text-dim:     #8A8A9A;
   --text-faint:   #4A4A5A;
@@ -869,3 +877,285 @@ body {
 }
 
 /* (challenge panel reuses .comp-lab, .comp-body, .comp-controls, .comp-visual) */
+
+/* ════════════════════════════════════════════════════════════════════
+   CHAPTER 7 — SATURATION LAB
+════════════════════════════════════════════════════════════════════ */
+
+.sat-lab {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.sat-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.sat-left {
+  padding: 1.25rem;
+  border-right: 1px solid var(--border);
+}
+
+.sat-right {
+  padding: 1.25rem;
+}
+
+/* Saturation type selector */
+.sat-type-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.sat-type-btn {
+  padding: 0.6rem 0.4rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.sat-type-btn.active  { background: var(--sat-dim); border-color: var(--sat); }
+.sat-type-btn:hover:not(.active) { border-color: var(--border-bright); }
+
+.sat-type-name { font-family: var(--mono); font-size: 0.6rem; color: var(--text-dim); letter-spacing: 0.04em; }
+.sat-type-btn.active .sat-type-name { color: var(--sat); }
+.sat-type-desc { font-family: var(--mono); font-size: 0.45rem; color: var(--text-faint); margin-top: 0.15rem; }
+
+/* Transfer curve canvas container */
+.curve-display {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  height: 180px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+/* Input / output level meters */
+.sat-input-output {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.io-meter-block {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.io-meter-label {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--text-faint);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.io-meter-bar {
+  height: 8px;
+  background: var(--surface);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.io-meter-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 80ms ease-out;
+}
+
+/* Harmonic spectrum display */
+.harmonics-display {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.75rem;
+}
+
+.harmonics-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 70px;
+  margin-bottom: 0.5rem;
+}
+
+.harmonic-bar-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.harmonic-bar {
+  width: 100%;
+  border-radius: 2px 2px 0 0;
+  transition: height 120ms ease-out;
+}
+
+.harmonic-label {
+  font-family: var(--mono);
+  font-size: 0.5rem;
+  color: var(--text-faint);
+}
+
+/* Sat knob — uses CSS custom property for dynamic needle rotation */
+.sat-knob {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #5C2E1A, var(--console));
+  border: 2px solid var(--border-bright);
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+  cursor: default;
+}
+
+.sat-knob::after {
+  content: '';
+  position: absolute;
+  width: 3px;
+  height: 16px;
+  background: var(--text);
+  border-radius: 2px;
+  top: 6px;
+  left: 50%;
+  transform-origin: bottom center;
+  transform: translateX(-50%) rotate(var(--knob-rot, -135deg));
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   CHAPTER 6 — REVERB DESIGNER
+════════════════════════════════════════════════════════════════════ */
+.reverb-lab {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.reverb-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.reverb-left {
+  padding: 1.25rem;
+  border-right: 1px solid var(--border);
+}
+
+.reverb-right {
+  padding: 1.25rem;
+}
+
+/* Impulse response display */
+.ir-display {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  height: 160px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+/* Room preset row */
+.room-preset-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.room-preset {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.6rem 0.4rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.room-preset.active {
+  background: var(--teal-dim);
+  border-color: var(--teal);
+}
+
+.room-preset:hover:not(.active) {
+  border-color: var(--border-bright);
+}
+
+.room-preset-icon {
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.room-preset-name {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+
+.room-preset.active .room-preset-name {
+  color: var(--teal);
+}
+
+/* RT60 decay visualiser */
+.reverb-decay-viz {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.decay-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 60px;
+  margin-bottom: 0.5rem;
+}
+
+.decay-bar {
+  flex: 1;
+  background: var(--teal);
+  border-radius: 1px 1px 0 0;
+  opacity: 0.9;
+  transition: height 0.4s ease;
+}
+
+.decay-readout {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+}
+
+.decay-readout strong { color: var(--teal); }
+
+/* 4-column knob grid for reverb */
+.reverb-knob-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}

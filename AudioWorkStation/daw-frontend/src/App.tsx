@@ -1,6 +1,8 @@
 import Chapter1 from './chapters/Chapter1';
 import Chapter2 from './chapters/Chapter2';
 import Chapter4 from './chapters/Chapter4';
+import Chapter6 from './chapters/Chapter6';
+import Chapter7 from './chapters/Chapter7';
 import './App.css';
 
 export default function App() {
@@ -51,6 +53,38 @@ export default function App() {
 
       <div className="screen">
         <Chapter4 />
+      </div>
+
+      {/* ── Chapter 6 ── */}
+      <div className="chapter-divider">
+        <div className="chapter-tag">Chapter 06 · Reverb &amp; Room Acoustics</div>
+        <h2 className="chapter-title">Design a Reverb Space</h2>
+        <p className="chapter-desc">
+          Reverb is the sum of thousands of reflections decaying over time. Shape the impulse
+          response — early reflections, density, and decay — to place a sound inside a believable
+          physical space.
+        </p>
+        <hr className="lab-separator" />
+      </div>
+
+      <div className="screen">
+        <Chapter6 />
+      </div>
+
+      {/* ── Chapter 7 ── */}
+      <div className="chapter-divider">
+        <div className="chapter-tag">Chapter 07 · Saturation & Harmonic Distortion</div>
+        <h2 className="chapter-title">Add Warmth with Saturation</h2>
+        <p className="chapter-desc">
+          Saturation adds harmonic content by softly clipping a signal, the way analog tape
+          and tube circuits do. Compare clipping curves and see exactly which harmonics each
+          type generates.
+        </p>
+        <hr className="lab-separator" />
+      </div>
+
+      <div className="screen">
+        <Chapter7 />
       </div>
     </div>
   );
