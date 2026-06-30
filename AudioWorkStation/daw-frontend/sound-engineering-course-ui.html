@@ -1,0 +1,2154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SoundCraft Academy — Interactive Lab Screens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --black: #0D0D0F;
+    --console: #141418;
+    --panel: #1A1A22;
+    --surface: #22222E;
+    --border: #2E2E3D;
+    --border-bright: #3D3D52;
+    --amber: #F5A623;
+    --amber-dim: rgba(245,166,35,0.15);
+    --amber-glow: rgba(245,166,35,0.4);
+    --green: #00FF87;
+    --green-dim: rgba(0,255,135,0.12);
+    --blue: #4D9EFF;
+    --blue-dim: rgba(77,158,255,0.15);
+    --red: #FF4D6A;
+    --red-dim: rgba(255,77,106,0.15);
+    --purple: #A78BFA;
+    --purple-dim: rgba(167,139,250,0.15);
+    --text: #E8E8EC;
+    --text-dim: #8A8A9A;
+    --text-faint: #4A4A5A;
+    --mono: 'JetBrains Mono', monospace;
+    --display: 'Space Grotesk', sans-serif;
+    --body: 'Inter', sans-serif;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--black);
+    color: var(--text);
+    font-family: var(--body);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── SITE HEADER ── */
+  .site-header {
+    background: var(--console);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: 0.04em;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+  .nav-pills { display: flex; gap: 0.25rem; }
+  .nav-pill {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    padding: 0.3rem 0.75rem;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+  .nav-pill:hover, .nav-pill.active { background: var(--amber-dim); color: var(--amber); }
+  .progress-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--text-dim);
+  }
+  .progress-track { width: 80px; height: 3px; background: var(--border); border-radius: 2px; }
+  .progress-fill { width: 40%; height: 100%; background: var(--amber); border-radius: 2px; }
+
+  /* ── CHAPTER DIVIDER ── */
+  .chapter-divider {
+    padding: 3rem 2rem 0;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .chapter-tag {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--amber);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .chapter-title {
+    font-family: var(--display);
+    font-size: clamp(1.5rem, 3vw, 2.2rem);
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.2;
+    margin-bottom: 0.5rem;
+  }
+  .chapter-desc {
+    font-size: 0.875rem;
+    color: var(--text-dim);
+    max-width: 560px;
+    margin-bottom: 2rem;
+  }
+  .lab-separator {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0 0 2.5rem;
+    position: relative;
+  }
+  .lab-separator::before {
+    content: 'LAB';
+    position: absolute;
+    top: -10px;
+    left: 0;
+    background: var(--black);
+    padding: 0 0.75rem 0 0;
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.14em;
+    color: var(--amber);
+  }
+
+  /* ── SCREEN WRAPPER ── */
+  .screen {
+    max-width: 1100px;
+    margin: 0 auto 5rem;
+    padding: 0 2rem;
+  }
+
+  /* ═══════════════════════════════════════════
+     SCREEN 1 — WAVEFORM BUILDER
+  ═══════════════════════════════════════════ */
+  .waveform-lab {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .lab-topbar {
+    background: var(--console);
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .lab-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .lab-icon {
+    width: 28px;
+    height: 28px;
+    background: var(--amber-dim);
+    border: 1px solid var(--amber-glow);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+  }
+  .lab-name {
+    font-family: var(--display);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+  .lab-subtitle {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+  }
+  .lab-status {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--green);
+  }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s ease infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .waveform-body { display: grid; grid-template-columns: 1fr 280px; }
+
+  .waveform-canvas-area {
+    padding: 1.5rem;
+    border-right: 1px solid var(--border);
+  }
+  .canvas-label {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--text-faint);
+    letter-spacing: 0.1em;
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+  }
+  .waveform-display {
+    background: var(--black);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    height: 140px;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 1rem;
+  }
+  .waveform-grid-h {
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(255,255,255,0.03) 28px);
+  }
+  .waveform-grid-v {
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255,255,255,0.03) 40px);
+  }
+  .waveform-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .waveform-baseline {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--border-bright);
+  }
+  .axis-label-y {
+    position: absolute;
+    left: 6px;
+    font-family: var(--mono);
+    font-size: 0.5rem;
+    color: var(--text-faint);
+  }
+  .axis-label-y.top { top: 6px; }
+  .axis-label-y.mid { top: 50%; transform: translateY(-50%); }
+  .axis-label-y.bot { bottom: 6px; }
+
+  .wave-type-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  .wave-btn {
+    flex: 1;
+    padding: 0.5rem 0.25rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .wave-btn.active { background: var(--amber-dim); border-color: var(--amber); color: var(--amber); }
+  .wave-btn:hover:not(.active) { border-color: var(--border-bright); color: var(--text); }
+  .wave-shape { height: 20px; width: 36px; }
+
+  .param-sliders { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .param-group { display: flex; flex-direction: column; gap: 0.35rem; }
+  .param-label {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .param-val { color: var(--amber); }
+  .param-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  .param-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--amber);
+    box-shadow: 0 0 8px var(--amber-glow);
+    cursor: pointer;
+  }
+
+  .waveform-sidebar { padding: 1.25rem; display: flex; flex-direction: column; gap: 1.25rem; }
+
+  .meter-block { display: flex; flex-direction: column; gap: 0.6rem; }
+  .meter-label {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .vu-meter {
+    display: flex;
+    gap: 3px;
+    align-items: flex-end;
+    height: 50px;
+  }
+  .vu-bar {
+    flex: 1;
+    border-radius: 2px 2px 0 0;
+    transition: height 0.1s;
+  }
+  .vu-bar.green { background: var(--green); box-shadow: 0 0 4px rgba(0,255,135,0.4); }
+  .vu-bar.amber { background: var(--amber); box-shadow: 0 0 4px rgba(245,166,35,0.4); }
+  .vu-bar.red { background: var(--red); box-shadow: 0 0 4px rgba(255,77,106,0.4); }
+
+  .freq-readout {
+    background: var(--black);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.75rem;
+    font-family: var(--mono);
+  }
+  .freq-big { font-size: 1.5rem; color: var(--green); font-weight: 500; letter-spacing: 0.02em; }
+  .freq-unit { font-size: 0.65rem; color: var(--text-dim); margin-left: 0.25rem; }
+  .freq-row { display: flex; justify-content: space-between; margin-top: 0.5rem; }
+  .freq-item { text-align: center; }
+  .freq-item-val { font-size: 0.75rem; color: var(--blue); }
+  .freq-item-lbl { font-size: 0.5rem; color: var(--text-faint); letter-spacing: 0.08em; text-transform: uppercase; }
+
+  .concept-callout {
+    background: var(--green-dim);
+    border: 1px solid rgba(0,255,135,0.2);
+    border-radius: 4px;
+    padding: 0.75rem;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+  .concept-callout strong { color: var(--green); font-weight: 500; }
+
+  .lab-footer {
+    border-top: 1px solid var(--border);
+    padding: 0.875rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--console);
+  }
+  .hint-text { font-size: 0.75rem; color: var(--text-faint); display: flex; align-items: center; gap: 0.4rem; }
+  .hint-key {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.1rem 0.4rem;
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--text-dim);
+  }
+  .btn-row { display: flex; gap: 0.5rem; }
+  .btn-secondary {
+    padding: 0.5rem 1rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-family: var(--display);
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-secondary:hover { border-color: var(--border-bright); color: var(--text); }
+  .btn-primary {
+    padding: 0.5rem 1.25rem;
+    background: var(--amber);
+    border: none;
+    border-radius: 4px;
+    color: var(--black);
+    font-family: var(--display);
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: all 0.15s;
+  }
+  .btn-primary:hover { background: #FFB83D; box-shadow: 0 0 16px var(--amber-glow); }
+
+  /* ═══════════════════════════════════════════
+     SCREEN 2 — EQ MATCHING LAB
+  ═══════════════════════════════════════════ */
+  .eq-lab {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .eq-body { display: grid; grid-template-columns: 1fr 220px; }
+  .eq-main { padding: 1.25rem; border-right: 1px solid var(--border); }
+
+  .spectrum-display {
+    background: var(--black);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    height: 180px;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 1rem;
+  }
+  .spectrum-bg-grid {
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(90deg, transparent, transparent 49px, rgba(255,255,255,0.03) 50px),
+                      repeating-linear-gradient(0deg, transparent, transparent 35px, rgba(255,255,255,0.03) 36px);
+  }
+  .freq-labels {
+    position: absolute;
+    bottom: 4px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-around;
+    padding: 0 0.5rem;
+    font-family: var(--mono);
+    font-size: 0.5rem;
+    color: var(--text-faint);
+  }
+  .spectrum-target-curve {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .legend-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--text-dim);
+  }
+  .legend-line {
+    width: 24px;
+    height: 2px;
+    border-radius: 1px;
+  }
+
+  .eq-bands {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 0.5rem;
+    align-items: end;
+  }
+  .eq-band { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; }
+  .eq-band-label { font-family: var(--mono); font-size: 0.55rem; color: var(--text-faint); text-align: center; }
+  .eq-fader-track {
+    width: 8px;
+    height: 80px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    position: relative;
+    cursor: ns-resize;
+  }
+  .eq-fader-thumb {
+    width: 16px;
+    height: 6px;
+    background: var(--blue);
+    border-radius: 2px;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    box-shadow: 0 0 6px rgba(77,158,255,0.5);
+    cursor: ns-resize;
+  }
+  .eq-gain-val { font-family: var(--mono); font-size: 0.55rem; color: var(--blue); }
+
+  .eq-sidebar { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+  .score-ring-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+  .score-ring {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: conic-gradient(var(--amber) 0% 72%, var(--surface) 72% 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .score-ring-inner {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .score-num { font-family: var(--display); font-size: 1.1rem; font-weight: 700; color: var(--amber); }
+  .score-lbl { font-family: var(--mono); font-size: 0.45rem; color: var(--text-faint); letter-spacing: 0.08em; text-transform: uppercase; }
+  .score-label { font-family: var(--mono); font-size: 0.6rem; color: var(--text-dim); letter-spacing: 0.08em; }
+
+  .band-analysis { display: flex; flex-direction: column; gap: 0.4rem; }
+  .band-item { display: flex; align-items: center; gap: 0.5rem; justify-content: space-between; }
+  .band-name { font-family: var(--mono); font-size: 0.6rem; color: var(--text-dim); flex: 1; }
+  .band-bar-track { flex: 2; height: 4px; background: var(--surface); border-radius: 2px; }
+  .band-bar-fill { height: 100%; border-radius: 2px; }
+  .band-diff { font-family: var(--mono); font-size: 0.6rem; width: 32px; text-align: right; }
+
+  /* ═══════════════════════════════════════════
+     SCREEN 3 — MIXING BOARD
+  ═══════════════════════════════════════════ */
+  .mix-lab {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .mix-body { padding: 1.25rem; }
+  .transport-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: var(--console);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .transport-btns { display: flex; gap: 0.25rem; }
+  .t-btn {
+    width: 32px; height: 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    transition: all 0.15s;
+  }
+  .t-btn.active { background: var(--red-dim); border-color: var(--red); color: var(--red); }
+  .t-btn:hover:not(.active) { color: var(--text); border-color: var(--border-bright); }
+  .time-display {
+    font-family: var(--mono);
+    font-size: 1rem;
+    color: var(--green);
+    letter-spacing: 0.1em;
+    background: var(--black);
+    border: 1px solid var(--border);
+    padding: 0.3rem 0.75rem;
+    border-radius: 3px;
+  }
+  .bpm-display {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    background: var(--black);
+    border: 1px solid var(--border);
+    padding: 0.3rem 0.6rem;
+    border-radius: 3px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+  .bpm-val { color: var(--amber); font-size: 0.9rem; }
+
+  .tracks-grid { display: grid; grid-template-columns: repeat(6, 1fr) 180px; gap: 0.5rem; align-items: end; }
+
+  .channel-strip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.75rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    transition: border-color 0.15s;
+  }
+  .channel-strip:hover { border-color: var(--border-bright); }
+  .channel-strip.selected { border-color: var(--blue); box-shadow: 0 0 12px rgba(77,158,255,0.15); }
+  .channel-name {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+    text-align: center;
+    text-transform: uppercase;
+  }
+  .channel-btns { display: flex; gap: 0.25rem; }
+  .ch-btn {
+    width: 20px; height: 16px;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+    background: var(--console);
+    font-family: var(--mono);
+    font-size: 0.45rem;
+    color: var(--text-faint);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  .ch-btn.m-active { background: rgba(255,77,106,0.2); border-color: var(--red); color: var(--red); }
+  .ch-btn.s-active { background: rgba(0,255,135,0.15); border-color: var(--green); color: var(--green); }
+
+  .pan-knob-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
+  .pan-knob {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, var(--border-bright), var(--console));
+    border: 1px solid var(--border-bright);
+    position: relative;
+    cursor: pointer;
+  }
+  .pan-knob::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 8px;
+    background: var(--text-dim);
+    border-radius: 1px;
+  }
+  .pan-knob.left::after { transform: translateX(-50%) rotate(-40deg); transform-origin: bottom center; top: 5px; }
+  .pan-knob.right::after { transform: translateX(-50%) rotate(40deg); transform-origin: bottom center; top: 5px; }
+  .pan-label { font-family: var(--mono); font-size: 0.5rem; color: var(--text-faint); }
+
+  .channel-fader-track {
+    width: 12px;
+    height: 90px;
+    background: var(--console);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    position: relative;
+    cursor: ns-resize;
+  }
+  .channel-fader-thumb {
+    width: 22px;
+    height: 8px;
+    background: linear-gradient(135deg, var(--border-bright), var(--surface));
+    border: 1px solid var(--text-faint);
+    border-radius: 2px;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    cursor: ns-resize;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+  .db-val { font-family: var(--mono); font-size: 0.55rem; color: var(--text-faint); }
+
+  .level-meter-strip {
+    display: flex;
+    gap: 2px;
+    height: 90px;
+    align-items: flex-end;
+  }
+  .level-col { width: 6px; display: flex; flex-direction: column; gap: 1px; justify-content: flex-end; }
+  .level-seg { height: 3px; border-radius: 1px; }
+  .level-seg.g { background: var(--green); }
+  .level-seg.a { background: var(--amber); }
+  .level-seg.r { background: var(--red); }
+
+  .master-strip {
+    background: var(--console);
+    border: 1px solid var(--border-bright);
+    border-radius: 6px;
+    padding: 0.75rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .master-label { font-family: var(--mono); font-size: 0.6rem; color: var(--amber); letter-spacing: 0.1em; }
+  .master-meters { display: flex; gap: 4px; height: 90px; align-items: flex-end; }
+  .master-col {
+    width: 14px;
+    background: var(--surface);
+    border-radius: 2px 2px 0 0;
+    overflow: hidden;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  .master-col-fill { border-radius: 0; }
+  .loudness-label { font-family: var(--mono); font-size: 0.6rem; color: var(--text-faint); text-align: center; }
+
+  /* ═══════════════════════════════════════════
+     SCREEN 4 — COMPRESSION LAB
+  ═══════════════════════════════════════════ */
+  .comp-lab {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .comp-body { display: grid; grid-template-columns: 1fr 1fr; }
+  .comp-controls { padding: 1.25rem; border-right: 1px solid var(--border); }
+  .comp-visual { padding: 1.25rem; }
+
+  .knob-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 1.25rem; }
+  .knob-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
+  .big-knob {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #2E2E40, var(--console));
+    border: 2px solid var(--border-bright);
+    position: relative;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+  .big-knob::after {
+    content: '';
+    position: absolute;
+    width: 3px;
+    height: 16px;
+    background: var(--text);
+    border-radius: 2px;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    transform-origin: bottom center;
+  }
+  .big-knob.pos-1::after { transform: translateX(-50%) rotate(-70deg); }
+  .big-knob.pos-2::after { transform: translateX(-50%) rotate(-20deg); }
+  .big-knob.pos-3::after { transform: translateX(-50%) rotate(30deg); }
+  .big-knob.pos-4::after { transform: translateX(-50%) rotate(60deg); }
+  .big-knob.pos-5::after { transform: translateX(-50%) rotate(-50deg); }
+  .big-knob.pos-6::after { transform: translateX(-50%) rotate(10deg); }
+  .knob-name { font-family: var(--mono); font-size: 0.6rem; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; text-align: center; }
+  .knob-val { font-family: var(--mono); font-size: 0.7rem; color: var(--purple); }
+
+  .comp-toggles { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+  .toggle-btn {
+    padding: 0.35rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--surface);
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    transition: all 0.15s;
+  }
+  .toggle-btn.on { background: var(--purple-dim); border-color: var(--purple); color: var(--purple); }
+
+  .gr-display {
+    background: var(--black);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .gr-meter { flex: 1; height: 8px; background: var(--surface); border-radius: 4px; position: relative; overflow: hidden; }
+  .gr-fill { height: 100%; background: linear-gradient(90deg, var(--green), var(--amber), var(--red)); border-radius: 4px; width: 45%; }
+  .gr-needle { position: absolute; top: 0; bottom: 0; right: 55%; width: 2px; background: var(--text); }
+  .gr-label { font-family: var(--mono); font-size: 0.65rem; color: var(--text-dim); white-space: nowrap; }
+  .gr-val { color: var(--purple); }
+
+  .transfer-graph {
+    background: var(--black);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    height: 200px;
+    position: relative;
+    overflow: hidden;
+  }
+  .transfer-graph-grid {
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255,255,255,0.03) 40px),
+                      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.03) 40px);
+  }
+  .transfer-graph svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .tg-axis-x { position: absolute; bottom: 4px; right: 6px; font-family: var(--mono); font-size: 0.5rem; color: var(--text-faint); }
+  .tg-axis-y { position: absolute; top: 6px; left: 6px; font-family: var(--mono); font-size: 0.5rem; color: var(--text-faint); }
+
+  .waveform-compare {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .compare-row { display: flex; align-items: center; gap: 0.5rem; }
+  .compare-lbl { font-family: var(--mono); font-size: 0.55rem; color: var(--text-faint); width: 28px; text-align: right; letter-spacing: 0.06em; }
+  .mini-wave {
+    flex: 1;
+    height: 30px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .mini-wave svg { width: 100%; height: 100%; }
+
+  /* ═══════════════════════════════════════════
+     SCREEN 5 — SPATIAL AUDIO
+  ═══════════════════════════════════════════ */
+  .spatial-lab {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .spatial-body { display: grid; grid-template-columns: 300px 1fr; }
+  .spatial-stage-wrap { border-right: 1px solid var(--border); padding: 1.25rem; }
+  .stage-display {
+    background: var(--black);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    aspect-ratio: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  .stage-rings {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .stage-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+  .listener-icon {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px; height: 20px;
+    background: var(--blue-dim);
+    border: 2px solid var(--blue);
+    border-radius: 50%;
+    box-shadow: 0 0 12px rgba(77,158,255,0.4);
+    font-size: 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--blue);
+    z-index: 2;
+  }
+  .sound-source {
+    position: absolute;
+    width: 16px; height: 16px;
+    border-radius: 3px;
+    border: 1.5px solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.55rem;
+    cursor: move;
+    z-index: 3;
+    transform: translate(-50%, -50%);
+  }
+  .source-line {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform-origin: left center;
+    height: 1px;
+    opacity: 0.3;
+    z-index: 1;
+  }
+  .azimuth-indicator {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1px dashed rgba(77,158,255,0.15);
+  }
+  .compass-label {
+    position: absolute;
+    font-family: var(--mono);
+    font-size: 0.5rem;
+    color: var(--text-faint);
+  }
+  .compass-label.top { top: 4px; left: 50%; transform: translateX(-50%); }
+  .compass-label.bot { bottom: 4px; left: 50%; transform: translateX(-50%); }
+  .compass-label.lft { left: 4px; top: 50%; transform: translateY(-50%); }
+  .compass-label.rgt { right: 4px; top: 50%; transform: translateY(-50%); }
+
+  .sources-list { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+  .source-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .source-item.active { border-color: var(--blue); background: var(--blue-dim); }
+  .source-swatch { width: 10px; height: 10px; border-radius: 2px; }
+  .source-item-name { font-family: var(--mono); font-size: 0.65rem; color: var(--text-dim); flex: 1; }
+  .source-item-pos { font-family: var(--mono); font-size: 0.6rem; color: var(--text-faint); }
+
+  .spatial-params { padding: 1.25rem; display: flex; flex-direction: column; gap: 1.25rem; }
+  .param-block { display: flex; flex-direction: column; gap: 0.75rem; }
+  .param-block-title { font-family: var(--mono); font-size: 0.6rem; color: var(--text-dim); letter-spacing: 0.1em; text-transform: uppercase; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+
+  .hrtf-display {
+    background: var(--black);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.75rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+  .ear-channel { display: flex; flex-direction: column; gap: 0.35rem; }
+  .ear-label { font-family: var(--mono); font-size: 0.55rem; color: var(--text-faint); letter-spacing: 0.08em; }
+  .ear-waveform { height: 36px; background: var(--surface); border-radius: 2px; overflow: hidden; }
+  .ear-waveform svg { width: 100%; height: 100%; }
+
+  .reverb-tank {
+    background: var(--black);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.75rem;
+  }
+  .reverb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+  .reverb-param { display: flex; flex-direction: column; gap: 0.25rem; }
+  .reverb-param-label { font-family: var(--mono); font-size: 0.55rem; color: var(--text-faint); letter-spacing: 0.06em; text-transform: uppercase; }
+  .reverb-param-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 3px; background: var(--border); border-radius: 2px; cursor: pointer; }
+  .reverb-param-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%; background: var(--purple); box-shadow: 0 0 6px rgba(167,139,250,0.5); cursor: pointer; }
+  .reverb-param-val { font-family: var(--mono); font-size: 0.55rem; color: var(--purple); text-align: right; }
+
+  /* ═══════════════════════════════════════════
+     GLOBAL HELPERS
+  ═══════════════════════════════════════════ */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: var(--amber-dim);
+    border: 1px solid var(--amber-glow);
+    border-radius: 3px;
+    padding: 0.25rem 0.6rem;
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--amber);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .task-list { display: flex; flex-direction: column; gap: 0.3rem; }
+  .task-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+  }
+  .task-check {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    border: 1.5px solid var(--border-bright);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 0.5rem;
+    color: var(--green);
+  }
+  .task-check.done { background: var(--green-dim); border-color: var(--green); }
+
+  .tip-box {
+    background: var(--blue-dim);
+    border: 1px solid rgba(77,158,255,0.25);
+    border-radius: 4px;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+  .tip-box strong { color: var(--blue); font-weight: 500; }
+
+</style>
+</head>
+<body>
+
+<!-- ── SITE HEADER ── -->
+<header class="site-header">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    SoundCraft Academy
+  </div>
+  <nav class="nav-pills">
+    <div class="nav-pill active">Waveforms</div>
+    <div class="nav-pill">EQ</div>
+    <div class="nav-pill">Mixing</div>
+    <div class="nav-pill">Compression</div>
+    <div class="nav-pill">Spatial</div>
+  </nav>
+  <div class="progress-bar">
+    <span>CH 1–4 of 10</span>
+    <div class="progress-track"><div class="progress-fill"></div></div>
+    <span>40%</span>
+  </div>
+</header>
+
+
+<!-- ════════════════════════════════════════
+     SCREEN 1 — WAVEFORM BUILDER
+═════════════════════════════════════════ -->
+<div class="chapter-divider">
+  <div class="chapter-tag">Chapter 01 · Sound Fundamentals</div>
+  <h2 class="chapter-title">Anatomy of a Sound Wave</h2>
+  <p class="chapter-desc">You've learned how waves carry energy through air. Now build one from scratch — observe how frequency, amplitude, and shape transform sound in real time.</p>
+  <hr class="lab-separator" />
+</div>
+
+<div class="screen">
+  <div class="waveform-lab">
+    <div class="lab-topbar">
+      <div class="lab-title-row">
+        <div class="lab-icon">〜</div>
+        <div>
+          <div class="lab-name">Waveform Builder</div>
+          <div class="lab-subtitle">LAB · CH 01 · INTERACTIVE</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.75rem;align-items:center;">
+        <span class="badge">● OBJECTIVE</span>
+        <div class="lab-status"><div class="status-dot"></div>LIVE</div>
+      </div>
+    </div>
+
+    <div class="waveform-body">
+      <div class="waveform-canvas-area">
+        <div class="canvas-label">OSCILLOSCOPE VIEW — TIME DOMAIN</div>
+        <div class="waveform-display">
+          <div class="waveform-grid-h"></div>
+          <div class="waveform-grid-v"></div>
+          <div class="waveform-baseline"></div>
+          <span class="axis-label-y top">+1.0</span>
+          <span class="axis-label-y mid">0</span>
+          <span class="axis-label-y bot">−1.0</span>
+          <svg class="waveform-svg" viewBox="0 0 600 140" preserveAspectRatio="none">
+            <path d="M0,70 C30,20 60,20 90,70 C120,120 150,120 180,70 C210,20 240,20 270,70 C300,120 330,120 360,70 C390,20 420,20 450,70 C480,120 510,120 540,70 C570,20 600,20 600,70" fill="none" stroke="#F5A623" stroke-width="2" opacity="0.9"/>
+            <path d="M0,70 C30,20 60,20 90,70 C120,120 150,120 180,70 C210,20 240,20 270,70 C300,120 330,120 360,70 C390,20 420,20 450,70 C480,120 510,120 540,70 C570,20 600,20 600,70" fill="none" stroke="#F5A623" stroke-width="8" opacity="0.08"/>
+          </svg>
+        </div>
+        <div class="canvas-label" style="margin-top:0.75rem;">WAVEFORM TYPE</div>
+        <div class="wave-type-row">
+          <button class="wave-btn active">
+            <svg class="wave-shape" viewBox="0 0 36 20"><path d="M0,10 C5,2 9,2 13,10 C17,18 21,18 25,10 C29,2 33,2 36,10" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+            SINE
+          </button>
+          <button class="wave-btn">
+            <svg class="wave-shape" viewBox="0 0 36 20"><polyline points="0,10 9,10 9,2 18,2 18,18 27,18 27,10 36,10" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+            SQUARE
+          </button>
+          <button class="wave-btn">
+            <svg class="wave-shape" viewBox="0 0 36 20"><polyline points="0,18 9,2 9,18 18,2 18,18 27,2 27,18 36,2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+            SAW
+          </button>
+          <button class="wave-btn">
+            <svg class="wave-shape" viewBox="0 0 36 20"><polyline points="0,10 9,2 18,18 27,2 36,10" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+            TRIANGLE
+          </button>
+        </div>
+        <div class="param-sliders">
+          <div class="param-group">
+            <div class="param-label"><span>FREQUENCY</span><span class="param-val">440 Hz</span></div>
+            <input type="range" class="param-slider" min="20" max="2000" value="440" />
+          </div>
+          <div class="param-group">
+            <div class="param-label"><span>AMPLITUDE</span><span class="param-val">0.75</span></div>
+            <input type="range" class="param-slider" min="0" max="100" value="75" />
+          </div>
+          <div class="param-group">
+            <div class="param-label"><span>PHASE SHIFT</span><span class="param-val">0°</span></div>
+            <input type="range" class="param-slider" min="0" max="360" value="0" />
+          </div>
+          <div class="param-group">
+            <div class="param-label"><span>HARMONICS</span><span class="param-val">1st</span></div>
+            <input type="range" class="param-slider" min="1" max="8" value="1" />
+          </div>
+        </div>
+      </div>
+
+      <div class="waveform-sidebar">
+        <div class="meter-block">
+          <div class="meter-label">VU METER</div>
+          <div class="vu-meter">
+            <div class="vu-bar green" style="height:55%"></div>
+            <div class="vu-bar green" style="height:70%"></div>
+            <div class="vu-bar green" style="height:80%"></div>
+            <div class="vu-bar green" style="height:90%"></div>
+            <div class="vu-bar amber" style="height:95%"></div>
+            <div class="vu-bar amber" style="height:85%"></div>
+            <div class="vu-bar red" style="height:40%"></div>
+            <div class="vu-bar red" style="height:15%"></div>
+          </div>
+        </div>
+        <div class="freq-readout">
+          <div><span class="freq-big">440</span><span class="freq-unit">Hz</span></div>
+          <div class="freq-row">
+            <div class="freq-item"><div class="freq-item-val">A4</div><div class="freq-item-lbl">NOTE</div></div>
+            <div class="freq-item"><div class="freq-item-val">2.27ms</div><div class="freq-item-lbl">PERIOD</div></div>
+            <div class="freq-item"><div class="freq-item-val">77cm</div><div class="freq-item-lbl">λ</div></div>
+          </div>
+        </div>
+        <div class="concept-callout">
+          <strong>Concept check:</strong> At 440Hz, wavelength ≈ 77cm. Double the frequency → halve the wavelength. Try 880Hz.
+        </div>
+        <div class="task-list">
+          <div class="task-item"><div class="task-check done">✓</div>Select sine wave</div>
+          <div class="task-item"><div class="task-check done">✓</div>Set frequency to 440 Hz</div>
+          <div class="task-item"><div class="task-check"></div>Add 2nd harmonic</div>
+          <div class="task-item"><div class="task-check"></div>Observe waveform change</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lab-footer">
+      <div class="hint-text">💡 Tip: Press <span class="hint-key">Space</span> to play / pause your waveform</div>
+      <div class="btn-row">
+        <button class="btn-secondary">Reset</button>
+        <button class="btn-primary">Submit & Continue →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════
+     SCREEN 2 — EQ MATCHING LAB
+═════════════════════════════════════════ -->
+<div class="chapter-divider">
+  <div class="chapter-tag">Chapter 02 · Equalization</div>
+  <h2 class="chapter-title">Match the Frequency Curve</h2>
+  <p class="chapter-desc">An EQ shapes the tonal balance of a sound. Adjust each frequency band to match the reference curve — your score updates live as you dial in.</p>
+  <hr class="lab-separator" />
+</div>
+
+<div class="screen">
+  <div class="eq-lab">
+    <div class="lab-topbar">
+      <div class="lab-title-row">
+        <div class="lab-icon" style="background:var(--blue-dim);border-color:rgba(77,158,255,0.4);">≋</div>
+        <div>
+          <div class="lab-name">EQ Matching Challenge</div>
+          <div class="lab-subtitle">LAB · CH 02 · CHALLENGE MODE</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.75rem;align-items:center;">
+        <span class="badge" style="background:var(--blue-dim);border-color:rgba(77,158,255,0.3);color:var(--blue);">★ CHALLENGE</span>
+        <div class="lab-status" style="color:var(--blue);"><div class="status-dot" style="background:var(--blue);box-shadow:0 0 6px var(--blue);"></div>SCORE: 72%</div>
+      </div>
+    </div>
+
+    <div class="eq-body">
+      <div class="eq-main">
+        <div class="legend-row">
+          <div class="legend-item"><div class="legend-line" style="background:var(--amber);"></div>TARGET CURVE</div>
+          <div class="legend-item"><div class="legend-line" style="background:var(--blue);"></div>YOUR EQ</div>
+          <div class="legend-item"><div class="legend-line" style="background:var(--text-faint);height:1px;"></div>FLAT (0 dB)</div>
+        </div>
+        <div class="spectrum-display">
+          <div class="spectrum-bg-grid"></div>
+          <div class="freq-labels">
+            <span>20Hz</span><span>50</span><span>100</span><span>200</span><span>500</span><span>1k</span><span>2k</span><span>5k</span><span>10k</span><span>20kHz</span>
+          </div>
+          <svg class="spectrum-target-curve" viewBox="0 0 800 170" preserveAspectRatio="none">
+            <!-- flat line -->
+            <line x1="0" y1="85" x2="800" y2="85" stroke="#3D3D52" stroke-width="1" stroke-dasharray="4,4"/>
+            <!-- target curve (amber) -->
+            <path d="M0,100 C50,100 80,120 100,110 C130,100 160,60 200,55 C240,50 280,65 320,75 C360,85 390,75 430,55 C470,35 510,45 560,70 C610,95 680,100 800,95" fill="none" stroke="#F5A623" stroke-width="2" opacity="0.8"/>
+            <path d="M0,100 C50,100 80,120 100,110 C130,100 160,60 200,55 C240,50 280,65 320,75 C360,85 390,75 430,55 C470,35 510,45 560,70 C610,95 680,100 800,95" fill="rgba(245,166,35,0.06)" stroke="none"/>
+            <!-- user curve (blue) -->
+            <path d="M0,102 C50,102 80,115 100,108 C130,100 160,70 200,65 C240,58 280,70 320,78 C360,85 390,80 430,65 C470,50 510,55 560,72 C610,90 680,100 800,97" fill="none" stroke="#4D9EFF" stroke-width="2" opacity="0.9"/>
+          </svg>
+        </div>
+        <div class="canvas-label" style="margin-bottom:0.75rem;">8-BAND PARAMETRIC EQ · DRAG FADERS VERTICALLY</div>
+        <div class="eq-bands">
+          <div class="eq-band">
+            <div class="eq-gain-val">−2</div>
+            <div class="eq-fader-track"><div class="eq-fader-thumb" style="top:55%;"></div></div>
+            <div class="eq-band-label">60Hz<br/>SUB</div>
+          </div>
+          <div class="eq-band">
+            <div class="eq-gain-val">+4</div>
+            <div class="eq-fader-track"><div class="eq-fader-thumb" style="top:25%;"></div></div>
+            <div class="eq-band-label">120Hz<br/>BASS</div>
+          </div>
+          <div class="eq-band">
+            <div class="eq-gain-val">+1</div>
+            <div class="eq-fader-track"><div class="eq-fader-thumb" style="top:42%;"></div></div>
+            <div class="eq-band-label">250Hz<br/>LO-MID</div>
+          </div>
+          <div class="eq-band">
+            <div class="eq-gain-val">0</div>
+            <div class="eq-fader-track"><div class="eq-fader-thumb" style="top:50%;"></div></div>
+            <div class="eq-band-label">500Hz<br/>MID</div>
+          </div>
+          <div class="eq-band">
+            <div class="eq-gain-val">+3</div>
+            <div class="eq-fader-track"><div class="eq-fader-thumb" style="top:32%;"></div></div>
+            <div class="eq-band-label">1kHz<br/>HI-MID</div>
+          </div>
+          <div class="eq-band">
+            <div class="eq-gain-val">−1</div>
+            <div class="eq-fader-track"><div class="eq-fader-thumb" style="top:55%;"></div></div>
+            <div class="eq-band-label">3kHz<br/>PRESENCE</div>
+          </div>
+          <div class="eq-band">
+            <div class="eq-gain-val">+5</div>
+            <div class="eq-fader-track"><div class="eq-fader-thumb" style="top:15%;"></div></div>
+            <div class="eq-band-label">8kHz<br/>AIR</div>
+          </div>
+          <div class="eq-band">
+            <div class="eq-gain-val">+2</div>
+            <div class="eq-fader-track"><div class="eq-fader-thumb" style="top:38%;"></div></div>
+            <div class="eq-band-label">16kHz<br/>SHEEN</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="eq-sidebar">
+        <div class="score-ring-wrap">
+          <div class="score-ring">
+            <div class="score-ring-inner">
+              <div class="score-num">72</div>
+              <div class="score-lbl">SCORE</div>
+            </div>
+          </div>
+          <div class="score-label">MATCH ACCURACY</div>
+        </div>
+
+        <div class="band-analysis">
+          <div class="canvas-label">BAND ACCURACY</div>
+          <div class="band-item">
+            <div class="band-name">SUB</div>
+            <div class="band-bar-track"><div class="band-bar-fill" style="width:80%;background:var(--green);"></div></div>
+            <div class="band-diff" style="color:var(--green);">−0.5</div>
+          </div>
+          <div class="band-item">
+            <div class="band-name">BASS</div>
+            <div class="band-bar-track"><div class="band-bar-fill" style="width:60%;background:var(--amber);"></div></div>
+            <div class="band-diff" style="color:var(--amber);">+1.8</div>
+          </div>
+          <div class="band-item">
+            <div class="band-name">LO-MID</div>
+            <div class="band-bar-track"><div class="band-bar-fill" style="width:90%;background:var(--green);"></div></div>
+            <div class="band-diff" style="color:var(--green);">−0.2</div>
+          </div>
+          <div class="band-item">
+            <div class="band-name">MID</div>
+            <div class="band-bar-track"><div class="band-bar-fill" style="width:95%;background:var(--green);"></div></div>
+            <div class="band-diff" style="color:var(--green);">0.0</div>
+          </div>
+          <div class="band-item">
+            <div class="band-name">PRESENCE</div>
+            <div class="band-bar-track"><div class="band-bar-fill" style="width:40%;background:var(--red);"></div></div>
+            <div class="band-diff" style="color:var(--red);">−3.1</div>
+          </div>
+          <div class="band-item">
+            <div class="band-name">AIR</div>
+            <div class="band-bar-track"><div class="band-bar-fill" style="width:55%;background:var(--amber);"></div></div>
+            <div class="band-diff" style="color:var(--amber);">+2.0</div>
+          </div>
+        </div>
+
+        <div class="tip-box">
+          <strong>Tip:</strong> The presence dip at 3kHz is where most instruments compete. Subtle cuts here open up the mix.
+        </div>
+      </div>
+    </div>
+
+    <div class="lab-footer">
+      <div class="hint-text">Reach <strong style="color:var(--amber);">90%+</strong> accuracy to unlock the next chapter</div>
+      <div class="btn-row">
+        <button class="btn-secondary">Hear Target</button>
+        <button class="btn-secondary">Hear Mine</button>
+        <button class="btn-primary">Submit Score →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════
+     SCREEN 3 — MIXING BOARD
+═════════════════════════════════════════ -->
+<div class="chapter-divider">
+  <div class="chapter-tag">Chapter 03 · Mixing Fundamentals</div>
+  <h2 class="chapter-title">Balance a Six-Track Session</h2>
+  <p class="chapter-desc">Apply fader, pan, mute, and solo controls on a real multi-track session. Your goal: craft a balanced mix where every element is heard clearly.</p>
+  <hr class="lab-separator" />
+</div>
+
+<div class="screen">
+  <div class="mix-lab">
+    <div class="lab-topbar">
+      <div class="lab-title-row">
+        <div class="lab-icon" style="background:var(--red-dim);border-color:rgba(255,77,106,0.4);">⊞</div>
+        <div>
+          <div class="lab-name">Mixing Console</div>
+          <div class="lab-subtitle">LAB · CH 03 · SESSION MIX</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.75rem;align-items:center;">
+        <span class="badge" style="background:var(--red-dim);border-color:rgba(255,77,106,0.3);color:var(--red);">⏺ REC READY</span>
+        <div class="lab-status" style="color:var(--text-dim);"><div class="status-dot" style="background:var(--text-faint);box-shadow:none;animation:none;"></div>STOPPED</div>
+      </div>
+    </div>
+
+    <div class="mix-body">
+      <div class="transport-bar">
+        <div class="transport-btns">
+          <div class="t-btn">⏮</div>
+          <div class="t-btn">▶</div>
+          <div class="t-btn">⏸</div>
+          <div class="t-btn active">⏺</div>
+        </div>
+        <div class="time-display">00:00:00:00</div>
+        <div class="bpm-display"><span style="font-size:0.5rem;color:var(--text-faint);">BPM</span><span class="bpm-val">120</span></div>
+        <div style="flex:1"></div>
+        <div class="hint-text" style="font-size:0.7rem;">Track: <span style="color:var(--amber);">Pop Session — Verse A</span></div>
+      </div>
+
+      <div class="tracks-grid">
+        <!-- KICK -->
+        <div class="channel-strip">
+          <div class="channel-name">KICK</div>
+          <div class="channel-btns">
+            <div class="ch-btn m-active">M</div>
+            <div class="ch-btn">S</div>
+          </div>
+          <div class="pan-knob-wrap">
+            <div class="pan-knob"></div>
+            <div class="pan-label">C</div>
+          </div>
+          <div class="channel-fader-track"><div class="channel-fader-thumb" style="top:25%;"></div></div>
+          <div class="db-val">0.0</div>
+          <div class="level-meter-strip">
+            <div class="level-col">
+              <div class="level-seg r" style="height:3px;"></div>
+              <div class="level-seg a" style="height:3px;"></div>
+              <div class="level-seg a" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;opacity:0.3;"></div>
+            </div>
+            <div class="level-col">
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;opacity:0.3;"></div>
+            </div>
+          </div>
+        </div>
+        <!-- SNARE -->
+        <div class="channel-strip">
+          <div class="channel-name">SNARE</div>
+          <div class="channel-btns">
+            <div class="ch-btn">M</div>
+            <div class="ch-btn">S</div>
+          </div>
+          <div class="pan-knob-wrap">
+            <div class="pan-knob"></div>
+            <div class="pan-label">C</div>
+          </div>
+          <div class="channel-fader-track"><div class="channel-fader-thumb" style="top:30%;"></div></div>
+          <div class="db-val">−1.5</div>
+          <div class="level-meter-strip">
+            <div class="level-col">
+              <div class="level-seg a" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+            </div>
+            <div class="level-col">
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+            </div>
+          </div>
+        </div>
+        <!-- BASS -->
+        <div class="channel-strip selected">
+          <div class="channel-name" style="color:var(--blue);">BASS GTR</div>
+          <div class="channel-btns">
+            <div class="ch-btn">M</div>
+            <div class="ch-btn s-active">S</div>
+          </div>
+          <div class="pan-knob-wrap">
+            <div class="pan-knob"></div>
+            <div class="pan-label">C</div>
+          </div>
+          <div class="channel-fader-track"><div class="channel-fader-thumb" style="top:35%;border-color:var(--blue);"></div></div>
+          <div class="db-val" style="color:var(--blue);">−3.0</div>
+          <div class="level-meter-strip">
+            <div class="level-col">
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+            </div>
+            <div class="level-col">
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+            </div>
+          </div>
+        </div>
+        <!-- LEAD VOX -->
+        <div class="channel-strip">
+          <div class="channel-name">LEAD VOX</div>
+          <div class="channel-btns">
+            <div class="ch-btn">M</div>
+            <div class="ch-btn">S</div>
+          </div>
+          <div class="pan-knob-wrap">
+            <div class="pan-knob"></div>
+            <div class="pan-label">C</div>
+          </div>
+          <div class="channel-fader-track"><div class="channel-fader-thumb" style="top:20%;"></div></div>
+          <div class="db-val">+2.0</div>
+          <div class="level-meter-strip">
+            <div class="level-col">
+              <div class="level-seg r" style="height:3px;"></div>
+              <div class="level-seg r" style="height:3px;"></div>
+              <div class="level-seg a" style="height:3px;"></div>
+              <div class="level-seg a" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+            </div>
+            <div class="level-col">
+              <div class="level-seg a" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+            </div>
+          </div>
+        </div>
+        <!-- PAD -->
+        <div class="channel-strip">
+          <div class="channel-name">SYNTH PAD</div>
+          <div class="channel-btns">
+            <div class="ch-btn">M</div>
+            <div class="ch-btn">S</div>
+          </div>
+          <div class="pan-knob-wrap">
+            <div class="pan-knob left"></div>
+            <div class="pan-label">L20</div>
+          </div>
+          <div class="channel-fader-track"><div class="channel-fader-thumb" style="top:55%;"></div></div>
+          <div class="db-val">−6.0</div>
+          <div class="level-meter-strip">
+            <div class="level-col">
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+            </div>
+            <div class="level-col">
+              <div class="level-seg g" style="height:3px;"></div>
+            </div>
+          </div>
+        </div>
+        <!-- GUITAR -->
+        <div class="channel-strip">
+          <div class="channel-name">AC. GTR</div>
+          <div class="channel-btns">
+            <div class="ch-btn">M</div>
+            <div class="ch-btn">S</div>
+          </div>
+          <div class="pan-knob-wrap">
+            <div class="pan-knob right"></div>
+            <div class="pan-label">R25</div>
+          </div>
+          <div class="channel-fader-track"><div class="channel-fader-thumb" style="top:40%;"></div></div>
+          <div class="db-val">−4.5</div>
+          <div class="level-meter-strip">
+            <div class="level-col">
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+            </div>
+            <div class="level-col">
+              <div class="level-seg g" style="height:3px;"></div>
+              <div class="level-seg g" style="height:3px;"></div>
+            </div>
+          </div>
+        </div>
+        <!-- MASTER -->
+        <div class="master-strip">
+          <div class="master-label">MASTER</div>
+          <div class="master-meters">
+            <div class="master-col">
+              <div class="master-col-fill" style="height:75%;background:linear-gradient(to top, var(--green) 0%, var(--green) 70%, var(--amber) 70%, var(--amber) 88%, var(--red) 88%);"></div>
+            </div>
+            <div class="master-col">
+              <div class="master-col-fill" style="height:68%;background:linear-gradient(to top, var(--green) 0%, var(--green) 70%, var(--amber) 70%, var(--amber) 88%, var(--red) 88%);"></div>
+            </div>
+          </div>
+          <div class="loudness-label">−8 LUFS</div>
+          <div class="channel-fader-track" style="width:16px;height:60px;"><div class="channel-fader-thumb" style="top:28%;width:28px;height:10px;background:var(--amber);"></div></div>
+          <div class="db-val" style="color:var(--amber);">0.0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lab-footer">
+      <div class="task-list" style="flex-direction:row;gap:1rem;">
+        <div class="task-item"><div class="task-check done">✓</div>Pan stereo elements</div>
+        <div class="task-item"><div class="task-check"></div>Level lead vocal</div>
+        <div class="task-item"><div class="task-check"></div>Achieve −14 LUFS master</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-secondary">A/B Reference</button>
+        <button class="btn-primary">Submit Mix →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════
+     SCREEN 4 — COMPRESSION LAB
+═════════════════════════════════════════ -->
+<div class="chapter-divider">
+  <div class="chapter-tag">Chapter 04 · Dynamics Processing</div>
+  <h2 class="chapter-title">Shape the Dynamic Range</h2>
+  <p class="chapter-desc">A compressor controls the loudest and softest moments of a recording. Dial in threshold, ratio, attack, and release — then compare the uncompressed vs. compressed waveform.</p>
+  <hr class="lab-separator" />
+</div>
+
+<div class="screen">
+  <div class="comp-lab">
+    <div class="lab-topbar">
+      <div class="lab-title-row">
+        <div class="lab-icon" style="background:var(--purple-dim);border-color:rgba(167,139,250,0.4);">⬡</div>
+        <div>
+          <div class="lab-name">Compressor Studio</div>
+          <div class="lab-subtitle">LAB · CH 04 · DYNAMICS</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.75rem;align-items:center;">
+        <div class="comp-toggles" style="margin:0;">
+          <div class="toggle-btn on">BYPASS: OFF</div>
+          <div class="toggle-btn">SIDECHAIN</div>
+          <div class="toggle-btn">LOOKAHEAD</div>
+        </div>
+        <div class="lab-status" style="color:var(--purple);"><div class="status-dot" style="background:var(--purple);box-shadow:0 0 6px var(--purple);"></div>ACTIVE</div>
+      </div>
+    </div>
+
+    <div class="comp-body">
+      <div class="comp-controls">
+        <div class="canvas-label" style="margin-bottom:1rem;">COMPRESSOR PARAMETERS</div>
+        <div class="knob-grid">
+          <div class="knob-wrap">
+            <div class="big-knob pos-1"></div>
+            <div class="knob-name">THRESHOLD</div>
+            <div class="knob-val">−18 dB</div>
+          </div>
+          <div class="knob-wrap">
+            <div class="big-knob pos-2"></div>
+            <div class="knob-name">RATIO</div>
+            <div class="knob-val">4 : 1</div>
+          </div>
+          <div class="knob-wrap">
+            <div class="big-knob pos-3"></div>
+            <div class="knob-name">ATTACK</div>
+            <div class="knob-val">10 ms</div>
+          </div>
+          <div class="knob-wrap">
+            <div class="big-knob pos-4"></div>
+            <div class="knob-name">RELEASE</div>
+            <div class="knob-val">200 ms</div>
+          </div>
+          <div class="knob-wrap">
+            <div class="big-knob pos-5"></div>
+            <div class="knob-name">KNEE</div>
+            <div class="knob-val">SOFT</div>
+          </div>
+          <div class="knob-wrap">
+            <div class="big-knob pos-6"></div>
+            <div class="knob-name">MAKEUP GAIN</div>
+            <div class="knob-val">+4 dB</div>
+          </div>
+        </div>
+        <div class="canvas-label" style="margin-bottom:0.5rem;">GAIN REDUCTION METER</div>
+        <div class="gr-display">
+          <div class="gr-label">0 dB</div>
+          <div class="gr-meter">
+            <div class="gr-fill"></div>
+            <div class="gr-needle"></div>
+          </div>
+          <div class="gr-label">GR: <span class="gr-val">−6.2 dB</span></div>
+        </div>
+        <div style="margin-top:1rem;">
+          <div class="concept-callout" style="background:var(--purple-dim);border-color:rgba(167,139,250,0.2);">
+            <strong style="color:var(--purple);">Concept check:</strong> A 4:1 ratio means for every 4dB above threshold, only 1dB passes through. Increase ratio → hear it squash.
+          </div>
+        </div>
+      </div>
+
+      <div class="comp-visual">
+        <div class="canvas-label" style="margin-bottom:0.75rem;">TRANSFER FUNCTION — INPUT vs OUTPUT</div>
+        <div class="transfer-graph">
+          <div class="transfer-graph-grid"></div>
+          <span class="tg-axis-x">INPUT →</span>
+          <span class="tg-axis-y">↑ OUT</span>
+          <svg viewBox="0 0 200 200" preserveAspectRatio="none">
+            <!-- unity line -->
+            <line x1="0" y1="200" x2="200" y2="0" stroke="#2E2E3D" stroke-width="1" stroke-dasharray="4,3"/>
+            <!-- threshold vertical -->
+            <line x1="80" y1="200" x2="80" y2="40" stroke="#3D3D52" stroke-width="1" stroke-dasharray="2,3"/>
+            <text x="82" y="195" fill="#4A4A5A" font-size="8" font-family="monospace">THRESH</text>
+            <!-- compressed curve -->
+            <path d="M0,200 L80,120 L200,90" fill="none" stroke="#A78BFA" stroke-width="2.5"/>
+            <path d="M0,200 L80,120 L200,90" fill="rgba(167,139,250,0.08)" stroke="none"/>
+            <!-- current point -->
+            <circle cx="105" cy="111" r="4" fill="#A78BFA" opacity="0.9"/>
+            <line x1="105" y1="111" x2="105" y2="200" stroke="#A78BFA" stroke-width="1" stroke-dasharray="2,2" opacity="0.4"/>
+            <line x1="0" y1="111" x2="105" y2="111" stroke="#A78BFA" stroke-width="1" stroke-dasharray="2,2" opacity="0.4"/>
+          </svg>
+        </div>
+
+        <div class="canvas-label" style="margin-top:1rem;margin-bottom:0.5rem;">BEFORE / AFTER WAVEFORM</div>
+        <div class="waveform-compare">
+          <div class="compare-row">
+            <div class="compare-lbl">DRY</div>
+            <div class="mini-wave">
+              <svg viewBox="0 0 300 30" preserveAspectRatio="none">
+                <path d="M0,15 C10,3 15,27 20,15 C25,3 28,25 32,15 C38,2 42,28 48,15 C55,5 58,25 65,15 C70,3 75,27 82,15 C90,4 95,26 100,15 C108,3 113,27 120,15 C128,5 132,25 138,15 C145,2 150,28 158,15 C165,4 170,26 177,15 C185,3 190,27 197,15 C205,5 210,25 216,15 C223,2 228,28 236,15 C243,4 248,26 255,15 C263,3 268,27 275,15 C283,5 288,25 295,15 C298,10 300,15 300,15" fill="none" stroke="#3D3D52" stroke-width="1.5"/>
+              </svg>
+            </div>
+          </div>
+          <div class="compare-row">
+            <div class="compare-lbl" style="color:var(--purple);">WET</div>
+            <div class="mini-wave" style="border-color:rgba(167,139,250,0.3);">
+              <svg viewBox="0 0 300 30" preserveAspectRatio="none">
+                <path d="M0,15 C10,8 15,22 20,15 C25,9 28,21 32,15 C38,7 42,23 48,15 C55,9 58,21 65,15 C70,8 75,22 82,15 C90,9 95,21 100,15 C108,8 113,22 120,15 C128,9 132,21 138,15 C145,7 150,23 158,15 C165,9 170,21 177,15 C185,8 190,22 197,15 C205,9 210,21 216,15 C223,7 228,23 236,15 C243,9 248,21 255,15 C263,8 268,22 275,15 C283,9 288,21 295,15 C298,12 300,15 300,15" fill="none" stroke="#A78BFA" stroke-width="1.5"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lab-footer">
+      <div class="task-list" style="flex-direction:row;gap:1rem;">
+        <div class="task-item"><div class="task-check done">✓</div>Set threshold</div>
+        <div class="task-item"><div class="task-check done">✓</div>Set ratio to 4:1</div>
+        <div class="task-item"><div class="task-check"></div>Dial in attack/release</div>
+        <div class="task-item"><div class="task-check"></div>Apply makeup gain</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-secondary">A/B Compare</button>
+        <button class="btn-primary">Submit & Continue →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════
+     SCREEN 5 — SPATIAL AUDIO
+═════════════════════════════════════════ -->
+<div class="chapter-divider">
+  <div class="chapter-tag">Chapter 05 · Spatial Audio & Reverb</div>
+  <h2 class="chapter-title">Place Sounds in 3D Space</h2>
+  <p class="chapter-desc">Drag sound sources around the stage. Adjust azimuth, elevation, distance, and reverb to create a believable sense of three-dimensional acoustic space.</p>
+  <hr class="lab-separator" />
+</div>
+
+<div class="screen" style="margin-bottom:6rem;">
+  <div class="spatial-lab">
+    <div class="lab-topbar">
+      <div class="lab-title-row">
+        <div class="lab-icon" style="background:rgba(77,158,255,0.12);border-color:rgba(77,158,255,0.4);">⊕</div>
+        <div>
+          <div class="lab-name">3D Stage Placement</div>
+          <div class="lab-subtitle">LAB · CH 05 · SPATIAL AUDIO</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.75rem;align-items:center;">
+        <span class="badge" style="background:rgba(77,158,255,0.12);border-color:rgba(77,158,255,0.3);color:var(--blue);">◈ HRTF</span>
+        <div class="lab-status" style="color:var(--green);"><div class="status-dot"></div>LIVE</div>
+      </div>
+    </div>
+
+    <div class="spatial-body">
+      <div class="spatial-stage-wrap">
+        <div class="canvas-label" style="margin-bottom:0.5rem;">TOP-DOWN STAGE VIEW · DRAG SOURCES</div>
+        <div class="stage-display">
+          <div class="stage-rings">
+            <div class="stage-ring" style="width:70%;height:70%;"></div>
+            <div class="stage-ring" style="width:45%;height:45%;"></div>
+            <div class="stage-ring" style="width:20%;height:20%;"></div>
+          </div>
+          <div class="azimuth-indicator"></div>
+          <span class="compass-label top">0° FRONT</span>
+          <span class="compass-label bot">180° BACK</span>
+          <span class="compass-label lft">−90°</span>
+          <span class="compass-label rgt">90°</span>
+          <!-- listener -->
+          <div class="listener-icon">👤</div>
+          <!-- sound sources -->
+          <div class="sound-source" style="top:20%;left:35%;background:rgba(245,166,35,0.15);border-color:var(--amber);color:var(--amber);">🎸</div>
+          <div class="source-line" style="width:30%;transform:rotate(-45deg);background:var(--amber);top:calc(20% + 8px);left:calc(35% + 8px);"></div>
+          <div class="sound-source" style="top:25%;left:60%;background:rgba(0,255,135,0.1);border-color:var(--green);color:var(--green);">🎹</div>
+          <div class="source-line" style="width:20%;transform:rotate(30deg);background:var(--green);top:calc(25% + 8px);left:calc(60% + 8px);"></div>
+          <div class="sound-source" style="top:65%;left:25%;background:rgba(255,77,106,0.1);border-color:var(--red);color:var(--red);">🥁</div>
+          <div class="sound-source" style="top:65%;left:65%;background:rgba(167,139,250,0.1);border-color:var(--purple);color:var(--purple);">🎤</div>
+        </div>
+        <div class="sources-list">
+          <div class="source-item active">
+            <div class="source-swatch" style="background:var(--amber);"></div>
+            <div class="source-item-name">GUITAR</div>
+            <div class="source-item-pos">−45° / 3m</div>
+          </div>
+          <div class="source-item">
+            <div class="source-swatch" style="background:var(--green);"></div>
+            <div class="source-item-name">KEYS</div>
+            <div class="source-item-pos">+30° / 2m</div>
+          </div>
+          <div class="source-item">
+            <div class="source-swatch" style="background:var(--red);"></div>
+            <div class="source-item-name">DRUMS</div>
+            <div class="source-item-pos">−90° / 4m</div>
+          </div>
+          <div class="source-item">
+            <div class="source-swatch" style="background:var(--purple);"></div>
+            <div class="source-item-name">VOCALS</div>
+            <div class="source-item-pos">+85° / 3.5m</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="spatial-params">
+        <div class="param-block">
+          <div class="param-block-title">SOURCE: GUITAR — POSITIONING</div>
+          <div class="param-group">
+            <div class="param-label"><span>AZIMUTH</span><span class="param-val" style="color:var(--amber);">−45°</span></div>
+            <input type="range" class="param-slider" min="-180" max="180" value="-45" />
+          </div>
+          <div class="param-group">
+            <div class="param-label"><span>ELEVATION</span><span class="param-val" style="color:var(--amber);">0°</span></div>
+            <input type="range" class="param-slider" min="-90" max="90" value="0" />
+          </div>
+          <div class="param-group">
+            <div class="param-label"><span>DISTANCE</span><span class="param-val" style="color:var(--amber);">3.0 m</span></div>
+            <input type="range" class="param-slider" min="1" max="20" value="3" />
+          </div>
+        </div>
+
+        <div class="param-block">
+          <div class="param-block-title">HRTF — BINAURAL OUTPUT</div>
+          <div class="hrtf-display">
+            <div class="ear-channel">
+              <div class="ear-label">LEFT EAR (ITD: −0.3ms)</div>
+              <div class="ear-waveform">
+                <svg viewBox="0 0 200 36" preserveAspectRatio="none">
+                  <path d="M0,18 C10,8 20,28 30,18 C40,8 50,26 60,18 C70,10 80,26 90,18 C100,10 110,26 120,18 C130,8 140,28 150,18 C160,10 170,26 180,18 C190,10 198,22 200,18" fill="none" stroke="#F5A623" stroke-width="1.5" opacity="0.8"/>
+                </svg>
+              </div>
+            </div>
+            <div class="ear-channel">
+              <div class="ear-label">RIGHT EAR (ILD: −3dB)</div>
+              <div class="ear-waveform">
+                <svg viewBox="0 0 200 36" preserveAspectRatio="none">
+                  <path d="M0,18 C10,10 20,26 30,18 C40,11 50,25 60,18 C70,12 80,24 90,18 C100,12 110,24 120,18 C130,11 140,25 150,18 C160,12 170,24 180,18 C190,12 198,21 200,18" fill="none" stroke="#F5A623" stroke-width="1.5" opacity="0.4"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div class="tip-box" style="background:rgba(245,166,35,0.08);border-color:rgba(245,166,35,0.2);">
+            <strong style="color:var(--amber);">ITD & ILD:</strong> Your brain uses timing differences (ITD) and level differences (ILD) between ears to locate sound. This guitar is to your left.
+          </div>
+        </div>
+
+        <div class="param-block">
+          <div class="param-block-title">REVERB — ROOM ACOUSTIC</div>
+          <div class="reverb-tank">
+            <div class="reverb-grid">
+              <div class="reverb-param">
+                <div class="reverb-param-label">ROOM SIZE</div>
+                <input type="range" class="reverb-param-slider" min="0" max="100" value="45" />
+                <div class="reverb-param-val">MED HALL</div>
+              </div>
+              <div class="reverb-param">
+                <div class="reverb-param-label">DECAY (RT60)</div>
+                <input type="range" class="reverb-param-slider" min="0" max="100" value="60" />
+                <div class="reverb-param-val">1.8 s</div>
+              </div>
+              <div class="reverb-param">
+                <div class="reverb-param-label">PRE-DELAY</div>
+                <input type="range" class="reverb-param-slider" min="0" max="100" value="30" />
+                <div class="reverb-param-val">24 ms</div>
+              </div>
+              <div class="reverb-param">
+                <div class="reverb-param-label">WET / DRY</div>
+                <input type="range" class="reverb-param-slider" min="0" max="100" value="40" />
+                <div class="reverb-param-val">40%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lab-footer">
+      <div class="task-list" style="flex-direction:row;gap:1rem;">
+        <div class="task-item"><div class="task-check done">✓</div>Place guitar at −45°</div>
+        <div class="task-item"><div class="task-check"></div>Separate drums to rear</div>
+        <div class="task-item"><div class="task-check"></div>Adjust reverb RT60 &lt; 2s</div>
+        <div class="task-item"><div class="task-check"></div>Pass binaural test</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-secondary">▶ Audition Scene</button>
+        <button class="btn-primary">Complete Chapter →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+/* ════════════════════════════════════════════════════
+   CHAPTER 4 — SHAPE THE DYNAMIC RANGE
+   Interactive Compressor Lab
+════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  const compLab = document.querySelector('.comp-lab');
+  if (!compLab) return;
+
+  /* ── STATE ── */
+  const state = {
+    threshold: -18,
+    ratio: 4,
+    attack: 10,
+    release: 200,
+    knee: 1,        /* 0 = hard, 1 = soft */
+    makeupGain: 4,
+    bypass: false,
+  };
+
+  /* Simulated peak input signal (dBFS) hitting the compressor */
+  const SIGNAL_PEAK = -8;
+
+  /* ── KNOB CONFIG ── */
+  const knobCfg = [
+    { param: 'threshold',  min: -60, max: 0,    step: 0.5, fmt: v => `${v} dB` },
+    { param: 'ratio',      min: 1,   max: 20,   step: 0.5, fmt: v => v >= 20 ? '∞ : 1' : `${v % 1 ? v.toFixed(1) : v} : 1` },
+    { param: 'attack',     min: 0.1, max: 200,  step: 0.5, fmt: v => `${v} ms` },
+    { param: 'release',    min: 10,  max: 2000, step: 10,  fmt: v => v >= 1000 ? `${(v / 1000).toFixed(1)}s` : `${v} ms` },
+    { param: 'knee',       min: 0,   max: 1,    step: 0.1, fmt: v => v < 0.5 ? 'HARD' : 'SOFT' },
+    { param: 'makeupGain', min: 0,   max: 20,   step: 0.5, fmt: v => `+${v} dB` },
+  ];
+
+  /* ── DOM REFS ── */
+  const knobEls    = [...compLab.querySelectorAll('.comp-controls .big-knob')];
+  const valEls     = [...compLab.querySelectorAll('.comp-controls .knob-val')];
+  const grFill     = compLab.querySelector('.gr-fill');
+  const grNeedle   = compLab.querySelector('.gr-needle');
+  const grVal      = compLab.querySelector('.gr-val');
+  const tfSvg      = compLab.querySelector('.transfer-graph svg');
+  const wetSvg     = compLab.querySelector('.compare-row:last-child .mini-wave svg');
+  const taskItems  = [...compLab.querySelectorAll('.lab-footer .task-item')];
+  const conceptBox = compLab.querySelector('.concept-callout');
+
+  /* ── KNOB SETUP ── */
+  /* Replace CSS ::after indicators with real divs we can rotate per-instance */
+  const styleEl = document.createElement('style');
+  styleEl.textContent = `
+    .comp-controls .big-knob::after { display: none !important; }
+    .comp-controls .big-knob { cursor: ns-resize; user-select: none; }
+    .knob-indicator {
+      position: absolute; width: 3px; height: 16px;
+      background: var(--amber); border-radius: 2px;
+      top: 6px; left: 50%;
+      transform-origin: bottom center;
+      pointer-events: none;
+      box-shadow: 0 0 6px rgba(245,166,35,0.5);
+      transition: transform 0.05s;
+    }
+    .comp-controls .big-knob:hover { border-color: var(--amber); }
+    .knob-tooltip {
+      position: absolute; bottom: calc(100% + 6px); left: 50%;
+      transform: translateX(-50%);
+      background: var(--console); border: 1px solid var(--amber-glow);
+      border-radius: 3px; padding: 2px 6px;
+      font-family: var(--mono); font-size: 0.6rem; color: var(--amber);
+      white-space: nowrap; pointer-events: none;
+      opacity: 0; transition: opacity 0.15s;
+      z-index: 10;
+    }
+    .comp-controls .knob-wrap:hover .knob-tooltip { opacity: 1; }
+  `;
+  document.head.appendChild(styleEl);
+
+  knobEls.forEach((knob, i) => {
+    /* Indicator dot */
+    const ind = document.createElement('div');
+    ind.className = 'knob-indicator';
+    knob.appendChild(ind);
+
+    /* Value tooltip */
+    const tip = document.createElement('div');
+    tip.className = 'knob-tooltip';
+    tip.textContent = 'drag ↕';
+    knob.appendChild(tip);
+
+    const cfg = knobCfg[i];
+    let startY, startVal;
+
+    knob.addEventListener('mousedown', e => {
+      e.preventDefault();
+      startY = e.clientY;
+      startVal = state[cfg.param];
+      knob.style.borderColor = 'var(--purple)';
+
+      const onMove = e => {
+        const dy = startY - e.clientY; /* drag up = positive */
+        const dv = (dy / 120) * (cfg.max - cfg.min);
+        let nv = Math.round((startVal + dv) / cfg.step) * cfg.step;
+        nv = +Math.max(cfg.min, Math.min(cfg.max, nv)).toFixed(2);
+        state[cfg.param] = nv;
+        valEls[i].textContent = cfg.fmt(nv);
+        tip.textContent = cfg.fmt(nv);
+        refreshKnob(i);
+        updateAll();
+      };
+      const onUp = () => {
+        knob.style.borderColor = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+
+  function refreshKnob(i) {
+    const cfg  = knobCfg[i];
+    const norm = (state[cfg.param] - cfg.min) / (cfg.max - cfg.min);
+    const deg  = norm * 240 - 120; /* -120° → +120° */
+    const ind  = knobEls[i].querySelector('.knob-indicator');
+    if (ind) ind.style.transform = `translateX(-50%) rotate(${deg}deg)`;
+  }
+
+  /* ── TRANSFER FUNCTION MATH ── */
+  function computeOut(inDB) {
+    const t  = state.threshold;
+    const r  = state.ratio;
+    const kw = state.knee > 0.5 ? 8 : 0; /* soft knee ±4 dB */
+    const hk = kw / 2;
+
+    if (kw === 0) {
+      return inDB < t ? inDB : t + (inDB - t) / r;
+    }
+    if (inDB <= t - hk) return inDB;
+    if (inDB >= t + hk) return t + (inDB - t) / r;
+    const s       = (inDB - (t - hk)) / kw;
+    const blendR  = 1 + (r - 1) * s * s;
+    return (t - hk) + (inDB - (t - hk)) / blendR;
+  }
+
+  /* ── TRANSFER GRAPH ── */
+  function updateTransferGraph() {
+    if (!tfSvg) return;
+    const W = 200, H = 200, dbMin = -60, dbRange = 60;
+
+    const pts = [];
+    for (let px = 0; px <= W; px++) {
+      const inDB  = (px / W) * dbRange + dbMin;
+      const outDB = Math.max(dbMin, Math.min(0, computeOut(inDB)));
+      const py    = H - ((outDB - dbMin) / dbRange) * H;
+      pts.push(`${px},${py.toFixed(1)}`);
+    }
+
+    const threshX = ((state.threshold - dbMin) / dbRange) * W;
+    const cx      = ((SIGNAL_PEAK - dbMin) / dbRange) * W;
+    const rawOut  = computeOut(SIGNAL_PEAK);
+    const cy      = H - ((Math.max(dbMin, Math.min(0, rawOut)) - dbMin) / dbRange) * H;
+
+    tfSvg.innerHTML = `
+      <line x1="0" y1="${H}" x2="${W}" y2="0" stroke="#2E2E3D" stroke-width="1" stroke-dasharray="4,3"/>
+      <line x1="${threshX.toFixed(1)}" y1="${H}" x2="${threshX.toFixed(1)}" y2="0"
+            stroke="#3D3D52" stroke-width="1" stroke-dasharray="2,3"/>
+      <text x="${(threshX + 2).toFixed(0)}" y="195" fill="#4A4A5A"
+            font-size="8" font-family="monospace">${state.threshold}dB</text>
+      <polygon points="${pts.join(' ')} 200,200 0,200" fill="rgba(167,139,250,0.06)" stroke="none"/>
+      <polyline points="${pts.join(' ')}" fill="none" stroke="#A78BFA" stroke-width="2.5"/>
+      <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4" fill="#A78BFA" opacity="0.9"/>
+      <line x1="${cx.toFixed(1)}" y1="${cy.toFixed(1)}" x2="${cx.toFixed(1)}" y2="${H}"
+            stroke="#A78BFA" stroke-width="1" stroke-dasharray="2,2" opacity="0.4"/>
+      <line x1="0" y1="${cy.toFixed(1)}" x2="${cx.toFixed(1)}" y2="${cy.toFixed(1)}"
+            stroke="#A78BFA" stroke-width="1" stroke-dasharray="2,2" opacity="0.4"/>
+    `;
+  }
+
+  /* ── GR CALCULATION ── */
+  function staticGR() {
+    if (state.bypass) return 0;
+    return Math.max(0, SIGNAL_PEAK - computeOut(SIGNAL_PEAK));
+  }
+
+  function setGRDisplay(gr) {
+    const pct = Math.min(1, gr / 20) * 100;
+    if (grFill)   grFill.style.width   = `${pct}%`;
+    if (grNeedle) grNeedle.style.right = `${100 - pct}%`;
+    if (grVal)    grVal.textContent    = gr > 0.05 ? `−${gr.toFixed(1)} dB` : '0.0 dB';
+  }
+
+  /* ── WET WAVEFORM ── */
+  const DRY_PEAKS = [
+    [0,15],[10,3],[15,27],[20,15],[25,9],[28,21],[32,15],
+    [38,2],[42,28],[48,15],[55,9],[58,21],[65,15],[70,3],
+    [75,27],[82,15],[90,9],[95,21],[100,15],[108,3],[113,27],
+    [120,15],[128,9],[132,21],[138,15],[145,2],[150,28],
+    [158,15],[165,9],[170,21],[177,15],[185,3],[190,27],
+    [197,15],[200,15]
+  ];
+  const MID = 15;
+
+  function updateWetWave() {
+    if (!wetSvg) return;
+    const gr     = staticGR();
+    const squash = Math.max(0.12, 1 - gr / 18);
+    const pts    = DRY_PEAKS.map(([x, y]) => `${x},${(MID + (y - MID) * squash).toFixed(1)}`);
+    wetSvg.innerHTML = `<polyline points="${pts.join(' ')}" fill="none" stroke="#A78BFA" stroke-width="1.5"/>`;
+  }
+
+  /* ── TASK CHECKER ── */
+  function updateTasks() {
+    const setDone = (idx, done) => {
+      const chk = taskItems[idx]?.querySelector('.task-check');
+      if (!chk) return;
+      chk.classList.toggle('done', done);
+      chk.textContent = done ? '✓' : '';
+    };
+    setDone(2, state.attack <= 50 && state.release >= 100);
+    setDone(3, state.makeupGain > 0);
+  }
+
+  /* ── CONCEPT BOX ── */
+  function updateConcept() {
+    if (!conceptBox) return;
+    const r    = state.ratio >= 20 ? '∞' : state.ratio;
+    const rInt = Math.round(state.ratio);
+    const note = state.ratio >= 10
+      ? 'At this extreme ratio the compressor acts as a <strong style="color:var(--purple);">limiter</strong>.'
+      : 'Increase ratio → hear it squash.';
+    conceptBox.innerHTML = `<strong style="color:var(--purple);">Concept check:</strong> A ${r}:1 ratio means for every ${rInt}dB above threshold, only 1dB passes through. ${note}`;
+  }
+
+  /* ── MAIN UPDATE ── */
+  function updateAll() {
+    updateTransferGraph();
+    updateWetWave();
+    updateTasks();
+    updateConcept();
+    setGRDisplay(staticGR());
+  }
+
+  /* ── LIVE GR ANIMATION ── */
+  /* Simulates a real signal fluctuating into the compressor */
+  let tick = 0;
+  (function animateGR() {
+    tick += 0.05;
+    const fluctuate = Math.sin(tick) * 2.5 + Math.sin(tick * 2.3) * 1.2;
+    const dynIn     = SIGNAL_PEAK + fluctuate;
+    const dynOut    = state.bypass ? dynIn : computeOut(dynIn);
+    setGRDisplay(Math.max(0, dynIn - dynOut));
+    requestAnimationFrame(animateGR);
+  })();
+
+  /* ── TOGGLE BUTTONS ── */
+  compLab.querySelectorAll('.lab-topbar .toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.classList.toggle('on');
+      const on = btn.classList.contains('on');
+      if (btn.textContent.startsWith('BYPASS')) {
+        btn.textContent = on ? 'BYPASS: OFF' : 'BYPASS: ON';
+        state.bypass = !on;
+        updateAll();
+      }
+    });
+  });
+
+  /* ── A/B COMPARE ── */
+  const abBtn  = compLab.querySelector('.lab-footer .btn-secondary');
+  const drySvg = compLab.querySelector('.compare-row:first-child .mini-wave');
+  if (abBtn) {
+    let abMode = false;
+    abBtn.addEventListener('click', () => {
+      abMode = !abMode;
+      abBtn.textContent   = abMode ? '◀ Back to A/B' : 'A/B Compare';
+      abBtn.style.cssText = abMode ? 'color:var(--purple);border-color:var(--purple);' : '';
+      if (drySvg) drySvg.style.opacity = abMode ? '0.25' : '1';
+    });
+  }
+
+  /* ── INIT ── */
+  knobCfg.forEach((cfg, i) => {
+    valEls[i].textContent = cfg.fmt(state[cfg.param]);
+    refreshKnob(i);
+  });
+  updateAll();
+
+})();
+</script>
+
+</body>
+</html>
