@@ -1,5 +1,6 @@
 import Chapter1 from './chapters/Chapter1';
 import Chapter2 from './chapters/Chapter2';
+import Chapter3 from './chapters/Chapter3';
 import Chapter4 from './chapters/Chapter4';
 import Chapter6 from './chapters/Chapter6';
 import Chapter7 from './chapters/Chapter7';
@@ -37,6 +38,21 @@ export default function App() {
 
       <div className="screen">
         <Chapter2 />
+      </div>
+
+      {/* ── Chapter 3 ── */}
+      <div className="chapter-divider">
+        <div className="chapter-tag">Chapter 03 · Mixing Fundamentals</div>
+        <h2 className="chapter-title">Balance a Six-Track Session</h2>
+        <p className="chapter-desc">
+          Apply fader, pan, mute, and solo controls on a real multi-track session.
+          Your goal: craft a balanced mix where every element is heard clearly.
+        </p>
+        <hr className="lab-separator" />
+      </div>
+
+      <div className="screen">
+        <Chapter3 />
       </div>
 
       {/* ── Chapter 4 ── */}

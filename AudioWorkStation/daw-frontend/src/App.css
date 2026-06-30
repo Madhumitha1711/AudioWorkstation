@@ -1039,6 +1039,271 @@ body {
 }
 
 /* ════════════════════════════════════════════════════════════════════
+   CHAPTER 3 — MIXING CONSOLE
+════════════════════════════════════════════════════════════════════ */
+.mix-lab {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.mix-body { padding: 1.25rem; }
+
+/* Transport bar */
+.transport-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--console);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.transport-btns { display: flex; gap: 0.25rem; }
+
+.t-btn {
+  width: 32px; height: 28px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  transition: all 0.15s;
+  user-select: none;
+}
+.t-btn:hover:not(.active) { color: var(--text); border-color: var(--border-bright); }
+.t-btn.active { background: var(--red-dim); border-color: var(--red); color: var(--red); }
+
+.time-display {
+  font-family: var(--mono);
+  font-size: 1rem;
+  color: var(--green);
+  letter-spacing: 0.1em;
+  background: var(--black);
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.75rem;
+  border-radius: 3px;
+}
+
+.bpm-display {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  background: var(--black);
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.6rem;
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.bpm-val { color: var(--amber); font-size: 0.9rem; }
+
+/* Channel grid: 6 tracks + 1 master */
+.tracks-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr) 180px;
+  gap: 0.5rem;
+  align-items: end;
+}
+
+/* Channel strip */
+.channel-strip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  transition: border-color 0.15s;
+  cursor: pointer;
+  user-select: none;
+}
+.channel-strip:hover { border-color: var(--border-bright); }
+.channel-strip.selected { border-color: var(--blue); box-shadow: 0 0 12px rgba(77,158,255,0.15); }
+
+.channel-name {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* Mute / Solo buttons */
+.channel-btns { display: flex; gap: 0.25rem; }
+
+.ch-btn {
+  width: 20px; height: 16px;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+  background: var(--console);
+  font-family: var(--mono);
+  font-size: 0.45rem;
+  color: var(--text-faint);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  user-select: none;
+}
+.ch-btn:hover { border-color: var(--border-bright); color: var(--text-dim); }
+.ch-btn.m-active { background: rgba(255,77,106,0.2); border-color: var(--red); color: var(--red); }
+.ch-btn.s-active { background: rgba(0,255,135,0.15); border-color: var(--green); color: var(--green); }
+
+/* Pan knob */
+.pan-knob-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.pan-knob {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, var(--border-bright), var(--console));
+  border: 1px solid var(--border-bright);
+  position: relative;
+  cursor: ew-resize;
+  transition: border-color 0.15s;
+}
+.pan-knob:hover { border-color: var(--amber); }
+.pan-knob:active { border-color: var(--amber); box-shadow: 0 0 8px rgba(245,166,35,0.3); cursor: grabbing; }
+
+/* Smooth rotating needle — controlled via inline transform */
+.pan-needle {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 2px;
+  height: 9px;
+  background: var(--amber);
+  border-radius: 1px 1px 0 0;
+  transform-origin: bottom center;
+  pointer-events: none;
+  box-shadow: 0 0 4px rgba(245,166,35,0.6);
+}
+
+.pan-label {
+  font-family: var(--mono);
+  font-size: 0.5rem;
+  color: var(--text-faint);
+}
+
+/* Fader */
+.channel-fader-track {
+  width: 12px; height: 90px;
+  background: var(--console);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  position: relative;
+  cursor: ns-resize;
+  user-select: none;
+}
+
+.channel-fader-thumb {
+  width: 22px; height: 8px;
+  background: linear-gradient(135deg, var(--border-bright), var(--surface));
+  border: 1px solid var(--text-faint);
+  border-radius: 2px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  transition: border-color 0.1s;
+}
+.channel-fader-thumb:hover { border-color: var(--amber); }
+
+.db-val {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--text-faint);
+}
+
+/* Level meter (segmented LEDs) */
+.level-meter-strip {
+  display: flex;
+  gap: 2px;
+  height: 90px;
+  align-items: flex-end;
+}
+
+.level-col {
+  width: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  justify-content: flex-end;
+}
+
+.level-seg {
+  height: 3px;
+  border-radius: 1px;
+}
+.level-seg.g { background: var(--green); box-shadow: 0 0 3px rgba(0,255,135,0.4); }
+.level-seg.a { background: var(--amber); box-shadow: 0 0 3px rgba(245,166,35,0.4); }
+.level-seg.r { background: var(--red);   box-shadow: 0 0 3px rgba(255,77,106,0.4); }
+
+/* Master strip */
+.master-strip {
+  background: var(--console);
+  border: 1px solid var(--border-bright);
+  border-radius: 6px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.master-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--amber);
+  letter-spacing: 0.1em;
+}
+
+.master-meters {
+  display: flex;
+  gap: 4px;
+  height: 90px;
+  align-items: flex-end;
+}
+
+.master-col {
+  width: 14px;
+  background: var(--surface);
+  border-radius: 2px 2px 0 0;
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.master-col-fill { border-radius: 0; }
+
+.loudness-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+/* ════════════════════════════════════════════════════════════════════
    CHAPTER 6 — REVERB DESIGNER
 ════════════════════════════════════════════════════════════════════ */
 .reverb-lab {
