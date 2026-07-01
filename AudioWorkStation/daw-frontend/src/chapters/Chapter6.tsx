@@ -384,7 +384,7 @@ const DEFAULTS: ReverbParams = {
 const DEFAULT_PRESET: PresetKey = 'HALL';
 
 // ── WASM status type ───────────────────────────────────────────────────────────
-type WasmStatus = 'idle' | 'loading' | 'js' | 'wasm';
+type EngineStatus = 'idle' | 'loading' | 'ready';
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function Chapter6() {
@@ -393,7 +393,7 @@ export default function Chapter6() {
   const [isPlaying,  setIsPlaying]  = useState(false);
   const [hasPlayed,  setHasPlayed]  = useState(false);
   const [tasks,      setTasks]      = useState([true, false, false]);
-  const [wasmStatus, setWasmStatus] = useState<WasmStatus>('idle');
+  const [engineStatus, setEngineStatus] = useState<EngineStatus>('idle');
 
   // Canvas
   const irRef = useRef<HTMLCanvasElement>(null);
@@ -501,7 +501,7 @@ export default function Chapter6() {
     dryGain.connect(ctx.destination);
 
     // ── Load AudioWorklet (JS Freeverb runs immediately; WASM upgrades async) ──
-    setWasmStatus('loading');
+    setEngineStatus('loading');
     await ctx.audioWorklet.addModule('/worklets/reverb-processor.js');
 
     const reverbNode = new AudioWorkletNode(ctx, 'reverb-processor', {
@@ -510,9 +510,8 @@ export default function Chapter6() {
       outputChannelCount: [2],
     });
 
-    // 'ready' fires twice: first with backend:'js', then backend:'wasm' if built
     reverbNode.port.onmessage = (e) => {
-      if (e.data.type === 'ready') setWasmStatus(e.data.backend === 'wasm' ? 'wasm' : 'js');
+      if (e.data.type === 'ready') setEngineStatus('ready');
     };
 
     // Send current params — worklet applies them to JS engine right away
@@ -555,7 +554,7 @@ export default function Chapter6() {
     ctxRef.current?.close();
     ctxRef.current = null;
     setIsPlaying(false);
-    setWasmStatus('idle');
+    setEngineStatus('idle');
   }, []);
 
   useEffect(() => () => {
@@ -566,7 +565,7 @@ export default function Chapter6() {
   const currentPreset = ROOM_PRESETS[preset];
   const TASK_LABELS   = ['Select Hall preset', 'Audition reverb', 'Set pre-delay ≥ 15ms'];
 
-  const freeverbActive = wasmStatus === 'js' || wasmStatus === 'wasm' || wasmStatus === 'loading';
+  const freeverbActive = engineStatus === 'ready' || engineStatus === 'loading';
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
@@ -584,20 +583,16 @@ export default function Chapter6() {
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           {/* WASM status badge */}
           <span className="badge" style={{
-            background: wasmStatus === 'wasm'    ? 'rgba(45,212,191,0.15)'  :
-                        wasmStatus === 'js'      ? 'rgba(168,85,247,0.15)'  :
-                        wasmStatus === 'loading' ? 'rgba(245,166,35,0.15)'  : 'var(--surface)',
-            borderColor: wasmStatus === 'wasm'   ? 'rgba(45,212,191,0.4)'   :
-                         wasmStatus === 'js'     ? 'rgba(168,85,247,0.4)'   :
-                         wasmStatus === 'loading'? 'rgba(245,166,35,0.4)'   : 'var(--border)',
-            color: wasmStatus === 'wasm'    ? 'var(--teal)'   :
-                   wasmStatus === 'js'      ? '#A855F7'        :
-                   wasmStatus === 'loading' ? 'var(--amber)'   : 'var(--text-faint)',
+            background: engineStatus === 'ready'   ? 'rgba(168,85,247,0.15)'  :
+                        engineStatus === 'loading' ? 'rgba(245,166,35,0.15)'  : 'var(--surface)',
+            borderColor: engineStatus === 'ready'  ? 'rgba(168,85,247,0.4)'   :
+                         engineStatus === 'loading'? 'rgba(245,166,35,0.4)'   : 'var(--border)',
+            color: engineStatus === 'ready'   ? '#A855F7'        :
+                   engineStatus === 'loading' ? 'var(--amber)'   : 'var(--text-faint)',
             fontFamily: 'var(--mono)', fontSize: '0.55rem', letterSpacing: '0.06em',
           }}>
-            {wasmStatus === 'wasm'    ? '● FREEVERB WASM'   :
-             wasmStatus === 'js'      ? '● FREEVERB JS'     :
-             wasmStatus === 'loading' ? '◌ LOADING…'        : '○ IDLE'}
+            {engineStatus === 'ready'   ? '● FREEVERB JS'     :
+             engineStatus === 'loading' ? '◌ LOADING…'        : '○ IDLE'}
           </span>
           <button
             className={`toggle-btn${isPlaying ? ' on' : ''}`}
@@ -692,9 +687,8 @@ export default function Chapter6() {
             <span style={{ color: 'var(--text-faint)', marginLeft: 2 }}>
               — powered by{' '}
               <span style={{ color: freeverbActive ? '#A855F7' : 'var(--text-faint)' }}>
-                Rust Freeverb → WASM
+                Freeverb JS AudioWorklet
               </span>
-              {wasmStatus === 'js' && <span style={{ color: '#A855F7' }}> (JS engine · build WASM for lower CPU)</span>}
             </span>
           </div>
 
