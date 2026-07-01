@@ -2,6 +2,7 @@ import Chapter1 from './chapters/Chapter1';
 import Chapter2 from './chapters/Chapter2';
 import Chapter3 from './chapters/Chapter3';
 import Chapter4 from './chapters/Chapter4';
+import Chapter5 from './chapters/Chapter5';
 import Chapter6 from './chapters/Chapter6';
 import Chapter7 from './chapters/Chapter7';
 import './App.css';
@@ -69,6 +70,21 @@ export default function App() {
 
       <div className="screen">
         <Chapter4 />
+      </div>
+
+      {/* ── Chapter 5 ── */}
+      <div className="chapter-divider">
+        <div className="chapter-tag">Chapter 05 · Spatial Audio &amp; Reverb</div>
+        <h2 className="chapter-title">Place Sounds in 3D Space</h2>
+        <p className="chapter-desc">
+          Drag sound sources around the stage. Adjust azimuth, elevation, distance, and
+          reverb to create a believable sense of three-dimensional acoustic space.
+        </p>
+        <hr className="lab-separator" />
+      </div>
+
+      <div className="screen">
+        <Chapter5 />
       </div>
 
       {/* ── Chapter 6 ── */}
