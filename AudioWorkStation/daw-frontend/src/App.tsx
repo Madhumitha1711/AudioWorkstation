@@ -12,7 +12,6 @@ export default function App() {
     <div className="soundcraft-app">
       {/* ── Chapter 1 ── */}
       <div className="chapter-divider">
-        <div className="chapter-tag">Chapter 01 · Sound Fundamentals</div>
         <h2 className="chapter-title">Anatomy of a Sound Wave</h2>
         <p className="chapter-desc">
           You've learned how waves carry energy through air. Now build one from
@@ -28,7 +27,6 @@ export default function App() {
 
       {/* ── Chapter 2 ── */}
       <div className="chapter-divider">
-        <div className="chapter-tag">Chapter 02 · Equalization</div>
         <h2 className="chapter-title">Match the Frequency Curve</h2>
         <p className="chapter-desc">
           An EQ shapes the tonal balance of a sound. Adjust each frequency band to
@@ -43,7 +41,6 @@ export default function App() {
 
       {/* ── Chapter 3 ── */}
       <div className="chapter-divider">
-        <div className="chapter-tag">Chapter 03 · Mixing Fundamentals</div>
         <h2 className="chapter-title">Balance a Six-Track Session</h2>
         <p className="chapter-desc">
           Apply fader, pan, mute, and solo controls on a real multi-track session.
@@ -58,7 +55,6 @@ export default function App() {
 
       {/* ── Chapter 4 ── */}
       <div className="chapter-divider">
-        <div className="chapter-tag">Chapter 04 · Dynamics Processing</div>
         <h2 className="chapter-title">Shape the Dynamic Range</h2>
         <p className="chapter-desc">
           A compressor controls the loudest and softest moments of a recording.
@@ -74,7 +70,6 @@ export default function App() {
 
       {/* ── Chapter 5 ── */}
       <div className="chapter-divider">
-        <div className="chapter-tag">Chapter 05 · Spatial Audio &amp; Reverb</div>
         <h2 className="chapter-title">Place Sounds in 3D Space</h2>
         <p className="chapter-desc">
           Drag sound sources around the stage. Adjust azimuth, elevation, distance, and
@@ -89,7 +84,6 @@ export default function App() {
 
       {/* ── Chapter 6 ── */}
       <div className="chapter-divider">
-        <div className="chapter-tag">Chapter 06 · Reverb &amp; Room Acoustics</div>
         <h2 className="chapter-title">Design a Reverb Space</h2>
         <p className="chapter-desc">
           Reverb is the sum of thousands of reflections decaying over time. Shape the impulse
@@ -105,7 +99,6 @@ export default function App() {
 
       {/* ── Chapter 7 ── */}
       <div className="chapter-divider">
-        <div className="chapter-tag">Chapter 07 · Saturation & Harmonic Distortion</div>
         <h2 className="chapter-title">Add Warmth with Saturation</h2>
         <p className="chapter-desc">
           Saturation adds harmonic content by softly clipping a signal, the way analog tape

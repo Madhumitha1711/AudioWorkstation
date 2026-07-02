@@ -157,6 +157,13 @@ function drawTransfer(canvas: HTMLCanvasElement, params: CompParams) {
     ctx.beginPath(); ctx.moveTo(0, toY(db)); ctx.lineTo(W, toY(db)); ctx.stroke();
   }
 
+  // dB axis tick labels (every 10 dB) — input along the bottom, output along the left edge
+  ctx.fillStyle = '#6A6A7A'; ctx.font = '9px "JetBrains Mono", monospace';
+  for (let db = DB_MIN; db <= DB_MAX; db += 10) {
+    ctx.fillText(`${db}`, toX(db) + 2, H - 2);   // X axis: input level
+    ctx.fillText(`${db}`, 2, toY(db) - 2);        // Y axis: output level
+  }
+
   // Unity line
   ctx.strokeStyle = '#2E2E3D'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
   ctx.beginPath(); ctx.moveTo(toX(DB_MIN), toY(DB_MIN)); ctx.lineTo(toX(DB_MAX), toY(DB_MAX)); ctx.stroke();
@@ -209,9 +216,9 @@ function drawTransfer(canvas: HTMLCanvasElement, params: CompParams) {
 
   // Labels
   ctx.fillStyle = '#8A8A9A'; ctx.font = '10px "JetBrains Mono", monospace';
-  ctx.fillText('INPUT →', W - 54, H - 5);
+  ctx.fillText('INPUT (dB) →', W - 82, H - 5);
   ctx.save(); ctx.translate(11, H * 0.38); ctx.rotate(-Math.PI / 2);
-  ctx.fillText('↑ OUT', 0, 0); ctx.restore();
+  ctx.fillText('↑ OUT (dB)', 0, 0); ctx.restore();
 }
 
 // ── Canvas: challenge transfer ─────────────────────────────────────────────────
