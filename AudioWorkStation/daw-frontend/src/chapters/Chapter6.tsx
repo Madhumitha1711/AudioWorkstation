@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
+import { Knob, type KnobSpec } from '../components/Knob';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type PresetKey = 'ROOM' | 'CHAMBER' | 'HALL' | 'CATHEDRAL' | 'PLATE';
@@ -42,21 +43,6 @@ const PRESET_FREEVERB: Record<PresetKey, Pick<ReverbParams, 'size'|'decay'|'damp
 };
 
 const PRESET_ORDER: PresetKey[] = ['ROOM', 'CHAMBER', 'HALL', 'CATHEDRAL', 'PLATE'];
-
-// ── Knob geometry helpers ──────────────────────────────────────────────────────
-function knobRot(v: number, min: number, max: number) {
-  return -140 + ((v - min) / (max - min)) * 280;
-}
-function polarXY(r: number, angleDeg: number) {
-  const rad = ((angleDeg - 90) * Math.PI) / 180;
-  return { x: r * Math.cos(rad), y: r * Math.sin(rad) };
-}
-function arc(r: number, start: number, end: number) {
-  if (Math.abs(end - start) < 0.1) end = start + 0.1;
-  const s = polarXY(r, start), e = polarXY(r, end);
-  const lg = end - start > 180 ? 1 : 0;
-  return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 ${lg} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
-}
 
 // ── HiDPI canvas helper ───────────────────────────────────────────────────────
 function hiDpi(canvas: HTMLCanvasElement) {
@@ -298,88 +284,6 @@ function scheduleStep(ctx: AudioContext, dest: AudioNode, step: number, t: numbe
   if (PAT_HAT[step])   synthHihat(ctx, dest, t, false);
   if (PAT_OPEN[step])  synthHihat(ctx, dest, t, true);
   if (PAT_BASS[step])  synthBass (ctx, dest, t, PAT_BASS[step]);
-}
-
-// ── Knob component (shared for all knobs) ─────────────────────────────────────
-interface KnobSpec {
-  label: string;
-  min:   number;
-  max:   number;
-  step:  number;
-  fmt:   (v: number) => string;
-  accent?: string; // CSS color variable name e.g. 'var(--teal)'
-}
-
-function ActiveKnob({ spec, value, onChange, disabled = false }: {
-  spec: KnobSpec;
-  value: number;
-  onChange: (v: number) => void;
-  disabled?: boolean;
-}) {
-  const rot     = knobRot(value, spec.min, spec.max);
-  const accent  = spec.accent ?? 'var(--teal)';
-  const dragRef = useRef<{ startY: number; startVal: number } | null>(null);
-
-  const onDown = useCallback((e: React.MouseEvent) => {
-    if (disabled) return;
-    e.preventDefault();
-    dragRef.current = { startY: e.clientY, startVal: value };
-  }, [value, disabled]);
-
-  useEffect(() => {
-    if (disabled) return;
-    const onMove = (e: MouseEvent) => {
-      const d = dragRef.current; if (!d) return;
-      const sens    = (spec.max - spec.min) / 220;
-      const raw     = d.startVal + (d.startY - e.clientY) * sens;
-      const snapped = Math.round(raw / spec.step) * spec.step;
-      onChange(Math.min(spec.max, Math.max(spec.min, snapped)));
-    };
-    const onUp = () => { dragRef.current = null; };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup',   onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-  }, [spec, onChange, disabled]);
-
-  return (
-    <div className="knob-wrap" style={disabled ? { opacity: 0.35, pointerEvents: 'none' } : {}}>
-      <div style={{ position: 'relative', width: 64, height: 64 }}>
-        <svg style={{ position: 'absolute', top: 0, left: 0 }} width={64} height={64} viewBox="-32 -32 64 64">
-          <path d={arc(28, -140, 140)} fill="none" stroke="#2E2E3D" strokeWidth={3} strokeLinecap="round" />
-          <path d={arc(28, -140, rot)} fill="none" stroke={accent}  strokeWidth={3} strokeLinecap="round" opacity={0.85} />
-        </svg>
-        <div
-          className="big-knob"
-          style={{
-            position: 'absolute', top: 6, left: 6, width: 52, height: 52,
-            background: disabled
-              ? 'radial-gradient(circle at 35% 35%, #222230, var(--console))'
-              : 'radial-gradient(circle at 35% 35%, #1F4F49, var(--console))',
-            cursor: disabled ? 'not-allowed' : 'ns-resize',
-            userSelect: 'none',
-          }}
-          onMouseDown={onDown}
-        >
-          <div style={{
-            position: 'absolute', top: '50%', left: '50%',
-            width: 3, height: 16,
-            background: disabled ? '#4A4A5A' : '#E8E8EC',
-            borderRadius: 2,
-            transformOrigin: 'bottom center',
-            transform: `translate(-50%, -100%) rotate(${rot}deg)`,
-            marginTop: -2,
-          }} />
-        </div>
-      </div>
-      <div className="knob-name" style={disabled ? { color: 'var(--text-faint)' } : {}}>{spec.label}</div>
-      <div className="knob-val" style={{ color: disabled ? 'var(--text-faint)' : accent }}>
-        {spec.fmt(value)}
-      </div>
-    </div>
-  );
 }
 
 // ── Decay bars ─────────────────────────────────────────────────────────────────
@@ -767,44 +671,44 @@ export default function Chapter6() {
 
           <div className="reverb-knob-grid">
             {/* Row 1: SIZE (Freeverb), DECAY (Freeverb), PRE-DELAY (Web Audio), DAMPING (Freeverb) */}
-            <ActiveKnob
+            <Knob
               spec={KNOB_SPECS.size}
               value={params.size}
               onChange={v => setParams(p => ({ ...p, size: v }))}
             />
-            <ActiveKnob
+            <Knob
               spec={KNOB_SPECS.decay}
               value={params.decay}
               onChange={v => setParams(p => ({ ...p, decay: v }))}
             />
-            <ActiveKnob
+            <Knob
               spec={KNOB_SPECS.preDelay}
               value={params.preDelay}
               onChange={v => setParams(p => ({ ...p, preDelay: v }))}
             />
-            <ActiveKnob
+            <Knob
               spec={KNOB_SPECS.damping}
               value={params.damping}
               onChange={v => setParams(p => ({ ...p, damping: v }))}
             />
 
             {/* Row 2: DIFFUSION (Freeverb), HI-CUT, LO-CUT, WET/DRY */}
-            <ActiveKnob
+            <Knob
               spec={KNOB_SPECS.diffusion}
               value={params.diffusion}
               onChange={v => setParams(p => ({ ...p, diffusion: v }))}
             />
-            <ActiveKnob
+            <Knob
               spec={KNOB_SPECS.hiCut}
               value={params.hiCut}
               onChange={v => setParams(p => ({ ...p, hiCut: v }))}
             />
-            <ActiveKnob
+            <Knob
               spec={KNOB_SPECS.loCut}
               value={params.loCut}
               onChange={v => setParams(p => ({ ...p, loCut: v }))}
             />
-            <ActiveKnob
+            <Knob
               spec={KNOB_SPECS.wetDry}
               value={params.wetDry}
               onChange={v => setParams(p => ({ ...p, wetDry: v }))}
@@ -835,11 +739,14 @@ export default function Chapter6() {
           </div>
 
           <div className="tip-box" style={{ marginTop: '0.75rem', background: 'rgba(45,212,191,0.07)', borderColor: 'rgba(45,212,191,0.2)' }}>
-            <strong style={{ color: 'var(--teal)' }}>Architecture:</strong> SIZE, DECAY, DAMPING,
-            DIFFUSION are processed by{' '}
-            <span style={{ color: '#A855F7' }}>Freeverb (Rust → WASM)</span> via{' '}
-            <span style={{ color: 'var(--text)' }}>AudioWorkletNode</span>.
-            Pre-delay, Hi/Lo-Cut and Wet/Dry remain Web Audio API nodes. Drag knobs vertically to adjust.
+            <strong style={{ color: 'var(--teal)' }}>SIZE</strong> sets the perceived room volume —
+            bigger rooms mean longer gaps between reflections.{' '}
+            <strong style={{ color: 'var(--teal)' }}>DECAY</strong> controls how long the tail takes
+            to fade out.{' '}
+            <strong style={{ color: 'var(--teal)' }}>DAMPING</strong> rolls off high frequencies as
+            the tail decays, mimicking absorption from air and soft surfaces.{' '}
+            <strong style={{ color: 'var(--teal)' }}>DIFFUSION</strong> thickens echo density into a
+            smooth wash rather than distinct slaps. Drag knobs vertically to adjust.
           </div>
         </div>
       </div>

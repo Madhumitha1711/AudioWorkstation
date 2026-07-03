@@ -31,7 +31,7 @@ const SRC_OPTIONS: SrcOption[] = [
 // ── Waveshaper curve generators ────────────────────────────────────────────────
 const CURVE_SIZE = 512;
 
-function makeShaperCurve(type: SatType, driveDb: number): Float32Array {
+function makeShaperCurve(type: SatType, driveDb: number): Float32Array<ArrayBuffer> {
   const curve = new Float32Array(CURVE_SIZE);
   const d = 1 + Math.pow(10, driveDb / 20) * 2;
 

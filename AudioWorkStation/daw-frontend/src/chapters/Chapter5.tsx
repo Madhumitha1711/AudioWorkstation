@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
+import { Knob } from '../components/Knob';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface SoundSource {
@@ -730,51 +731,36 @@ export default function Chapter5() {
               SOURCE: {selected.name} — POSITIONING
             </div>
 
-            <div className="param-group">
-              <div className="param-label">
-                <span>AZIMUTH</span>
-                <span className="param-val" style={{ color: selected.color }}>
-                  {selected.azimuth >= 0 ? '+' : ''}{selected.azimuth}°
-                </span>
-              </div>
-              <input
-                type="range"
-                className="param-slider"
-                style={{ accentColor: selected.color }}
-                min={-180} max={180} value={selected.azimuth}
-                onChange={e => updateSource(selectedId, { azimuth: Number(e.target.value) })}
+            <div className="knob-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: '0.25rem' }}>
+              <Knob
+                spec={{
+                  label: 'AZIMUTH',
+                  min: -180, max: 180, step: 1,
+                  fmt: v => `${v >= 0 ? '+' : ''}${Math.round(v)}°`,
+                  accent: selected.color,
+                }}
+                value={selected.azimuth}
+                onChange={v => updateSource(selectedId, { azimuth: Math.round(v) })}
               />
-            </div>
-
-            <div className="param-group">
-              <div className="param-label">
-                <span>ELEVATION</span>
-                <span className="param-val" style={{ color: selected.color }}>
-                  {selected.elevation >= 0 ? '+' : ''}{selected.elevation}°
-                </span>
-              </div>
-              <input
-                type="range"
-                className="param-slider"
-                style={{ accentColor: selected.color }}
-                min={-90} max={90} value={selected.elevation}
-                onChange={e => updateSource(selectedId, { elevation: Number(e.target.value) })}
+              <Knob
+                spec={{
+                  label: 'ELEVATION',
+                  min: -90, max: 90, step: 1,
+                  fmt: v => `${v >= 0 ? '+' : ''}${Math.round(v)}°`,
+                  accent: selected.color,
+                }}
+                value={selected.elevation}
+                onChange={v => updateSource(selectedId, { elevation: Math.round(v) })}
               />
-            </div>
-
-            <div className="param-group">
-              <div className="param-label">
-                <span>DISTANCE</span>
-                <span className="param-val" style={{ color: selected.color }}>
-                  {selected.distance.toFixed(1)} m
-                </span>
-              </div>
-              <input
-                type="range"
-                className="param-slider"
-                style={{ accentColor: selected.color }}
-                min={0.5} max={20} step={0.1} value={selected.distance}
-                onChange={e => updateSource(selectedId, { distance: Number(e.target.value) })}
+              <Knob
+                spec={{
+                  label: 'DISTANCE',
+                  min: 0.5, max: 20, step: 0.1,
+                  fmt: v => `${v.toFixed(1)} m`,
+                  accent: selected.color,
+                }}
+                value={selected.distance}
+                onChange={v => updateSource(selectedId, { distance: v })}
               />
             </div>
 
@@ -872,48 +858,47 @@ export default function Chapter5() {
             <div className="param-block-title">REVERB — ROOM ACOUSTIC</div>
 
             <div className="reverb-tank">
-              <div className="reverb-grid">
-                <div className="reverb-param">
-                  <div className="reverb-param-label">ROOM SIZE</div>
-                  <input
-                    type="range" className="reverb-param-slider"
-                    min={0} max={100} value={reverb.roomSize}
-                    onChange={e => setReverbParam('roomSize', Number(e.target.value))}
-                  />
-                  <div className="reverb-param-val">{roomSizeName(reverb.roomSize)}</div>
-                </div>
-
-                <div className="reverb-param">
-                  <div className="reverb-param-label">DECAY (RT60)</div>
-                  <input
-                    type="range" className="reverb-param-slider"
-                    min={0.1} max={4} step={0.05} value={reverb.decay}
-                    onChange={e => setReverbParam('decay', Number(e.target.value))}
-                  />
-                  <div className="reverb-param-val" style={{ color: reverb.decay < 2 ? 'var(--green)' : 'var(--purple)' }}>
-                    {reverb.decay.toFixed(2)} s
-                  </div>
-                </div>
-
-                <div className="reverb-param">
-                  <div className="reverb-param-label">PRE-DELAY</div>
-                  <input
-                    type="range" className="reverb-param-slider"
-                    min={0} max={100} value={reverb.preDelay}
-                    onChange={e => setReverbParam('preDelay', Number(e.target.value))}
-                  />
-                  <div className="reverb-param-val">{reverb.preDelay} ms</div>
-                </div>
-
-                <div className="reverb-param">
-                  <div className="reverb-param-label">WET / DRY</div>
-                  <input
-                    type="range" className="reverb-param-slider"
-                    min={0} max={100} value={reverb.wetDry}
-                    onChange={e => setReverbParam('wetDry', Number(e.target.value))}
-                  />
-                  <div className="reverb-param-val">{reverb.wetDry}%</div>
-                </div>
+              <div className="reverb-knob-grid" style={{ marginBottom: 0 }}>
+                <Knob
+                  spec={{
+                    label: 'ROOM SIZE',
+                    min: 0, max: 100, step: 1,
+                    fmt: v => roomSizeName(v),
+                    accent: 'var(--purple)',
+                  }}
+                  value={reverb.roomSize}
+                  onChange={v => setReverbParam('roomSize', v)}
+                />
+                <Knob
+                  spec={{
+                    label: 'DECAY (RT60)',
+                    min: 0.1, max: 4, step: 0.05,
+                    fmt: v => `${v.toFixed(2)} s`,
+                    accent: reverb.decay < 2 ? 'var(--green)' : 'var(--purple)',
+                  }}
+                  value={reverb.decay}
+                  onChange={v => setReverbParam('decay', v)}
+                />
+                <Knob
+                  spec={{
+                    label: 'PRE-DELAY',
+                    min: 0, max: 100, step: 1,
+                    fmt: v => `${Math.round(v)} ms`,
+                    accent: 'var(--purple)',
+                  }}
+                  value={reverb.preDelay}
+                  onChange={v => setReverbParam('preDelay', v)}
+                />
+                <Knob
+                  spec={{
+                    label: 'WET / DRY',
+                    min: 0, max: 100, step: 1,
+                    fmt: v => `${Math.round(v)}%`,
+                    accent: 'var(--purple)',
+                  }}
+                  value={reverb.wetDry}
+                  onChange={v => setReverbParam('wetDry', v)}
+                />
               </div>
             </div>
           </div>

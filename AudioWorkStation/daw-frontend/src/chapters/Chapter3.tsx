@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
+import { Knob } from '../components/Knob';
 
 // ── Track definitions ─────────────────────────────────────────────────────────
 interface TrackConfig {
@@ -24,7 +25,6 @@ const TRACKS: TrackConfig[] = [
 // pos 0 → +6 dB,  pos 1 → −30 dB (linear mapping)
 const DB_MAX = 6;
 const DB_MIN = -30;
-const FADER_PX = 90;
 
 function posToDb(pos: number): number {
   if (pos >= 0.985) return -Infinity;
@@ -44,12 +44,14 @@ function panLabel(pan: number): string {
   if (Math.abs(p) < 3) return 'C';
   return p < 0 ? `L${Math.abs(p)}` : `R${p}`;
 }
-// Needle rotation: −100→−135°, 0→0°, +100→+135°
-function panRotation(pan: number): string {
-  return `${pan * 1.35}deg`;
-}
-// CSS top% for fader thumb inside FADER_PX track
-function faderTop(pos: number): string { return `${pos * 100}%`; }
+// ── Volume knob ↔ fader-position mapping ────────────────────────────────────
+// faderPos: 0 → +6 dB (loudest), 1 → −30 dB (quietest, capped at 0.99 ≈ −∞).
+// The volume knob uses the inverse (0 → quietest, 1 → loudest) so turning it
+// up always means "louder", matching how a rotary gain knob is expected to behave.
+function volKnobValue(pos: number): number { return 1 - pos; }
+function volKnobToPos(v: number): number { return Math.max(0, Math.min(0.99, 1 - v)); }
+// Unity (0 dB) position on the fader scale — shown as a target tick on volume knobs.
+const UNITY_POS = DB_MAX / (DB_MAX - DB_MIN);
 
 // ── Audio synthesis ───────────────────────────────────────────────────────────
 // All tracks share a 4 s / 2-bar loop at 120 BPM
@@ -262,7 +264,7 @@ export default function Chapter3() {
   const [selTrack,    setSelTrack]    = useState(2);           // BASS GTR pre-selected
   const [masterPos,   setMasterPos]   = useState(0.28);
   const [isPlaying,   setIsPlaying]   = useState(false);
-  const [timeStr,     setTimeStr]     = useState('00:00:00:00');
+  const [,            setTimeStr]     = useState('00:00:00:00');
   const [lufsStr,     setLufsStr]     = useState('−8');
   const [masterFill,  setMasterFill]  = useState<[number, number]>([0.72, 0.65]);
   const [trackFill,   setTrackFill]   = useState<number[]>(TRACKS.map(() => 0));
@@ -278,15 +280,9 @@ export default function Chapter3() {
   const srcRefs     = useRef<(AudioBufferSourceNode | null)[]>(Array(6).fill(null));
   const masterGRef  = useRef<GainNode | null>(null);
   const masterARef  = useRef<AnalyserNode | null>(null);
-  const startACRef  = useRef(0); // audioCtx.currentTime when play started
   const startWallRef = useRef(0); // performance.now() when play started
   const animRef     = useRef(0);
   const clockRef    = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Drag refs
-  const fdrDrag  = useRef<{ idx: number; startY: number; startPos: number } | null>(null);
-  const panDrag  = useRef<{ idx: number; startX: number; startPan: number } | null>(null);
-  const mstDrag  = useRef<{ startY: number; startPos: number } | null>(null);
 
   // Mirrors for use inside callbacks without stale closure
   const faderRef  = useRef(faderPos);
@@ -299,12 +295,6 @@ export default function Chapter3() {
   useEffect(() => { mutedRef.current  = muted;      }, [muted]);
   useEffect(() => { soloedRef.current = soloed;     }, [soloed]);
   useEffect(() => { masterRef.current = masterPos;  }, [masterPos]);
-
-  // ── Effective mute logic (solo bus) ─────────────────────────────────────────
-  const isEffMuted = useCallback((idx: number, m: boolean[], s: boolean[]) => {
-    const anySolo = s.some(Boolean);
-    return m[idx] || (anySolo && !s[idx]);
-  }, []);
 
   // ── Apply track gain/pan/mute to live audio nodes ────────────────────────────
   useEffect(() => {
@@ -483,58 +473,6 @@ export default function Chapter3() {
   // ── Cleanup on unmount ──────────────────────────────────────────────────────────
   useEffect(() => () => { handleStop(); }, [handleStop]);
 
-  // ── Fader drag ──────────────────────────────────────────────────────────────────
-  const onFaderDown = useCallback((idx: number, e: React.MouseEvent) => {
-    e.preventDefault();
-    fdrDrag.current = { idx, startY: e.clientY, startPos: faderRef.current[idx] };
-  }, []);
-
-  const onMasterFaderDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    mstDrag.current = { startY: e.clientY, startPos: masterRef.current };
-  }, []);
-
-  // ── Pan drag ───────────────────────────────────────────────────────────────────
-  const onPanDown = useCallback((idx: number, e: React.MouseEvent) => {
-    e.preventDefault();
-    panDrag.current = { idx, startX: e.clientX, startPan: panRef.current[idx] };
-  }, []);
-
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (fdrDrag.current) {
-        const { idx, startY, startPos } = fdrDrag.current;
-        const dy  = (e.clientY - startY) / FADER_PX;
-        const pos = Math.max(0, Math.min(0.99, startPos + dy));
-        setFaderPos(prev => { const n = [...prev]; n[idx] = pos; return n; });
-      }
-      if (panDrag.current) {
-        const { idx, startX, startPan } = panDrag.current;
-        // 200 px of drag = full −100…+100 sweep; no rounding during drag
-        const dp  = (e.clientX - startX) * (200 / 200);
-        const pan = Math.max(-100, Math.min(100, startPan + dp));
-        setPanValues(prev => { const n = [...prev]; n[idx] = pan; return n; });
-      }
-      if (mstDrag.current) {
-        const { startY, startPos } = mstDrag.current;
-        const dy  = (e.clientY - startY) / 60;
-        const pos = Math.max(0, Math.min(0.99, startPos + dy));
-        setMasterPos(pos);
-      }
-    };
-    const onUp = () => {
-      fdrDrag.current  = null;
-      panDrag.current  = null;
-      mstDrag.current  = null;
-    };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup',   onUp);
-    return () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup',   onUp);
-    };
-  }, []);
-
   // ── Mute / Solo ────────────────────────────────────────────────────────────────
   const toggleMute = useCallback((idx: number) => {
     setMuted(prev => { const n = [...prev]; n[idx] = !n[idx]; return n; });
@@ -557,7 +495,7 @@ export default function Chapter3() {
   }
 
   // Master meter bar heights
-  const masterBarH = (fill: number) =>
+  const masterBarH = (_fill: number) =>
     `linear-gradient(to top, var(--green) 0%, var(--green) 70%, var(--amber) 70%, var(--amber) 88%, var(--red) 88%)`;
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -626,42 +564,31 @@ export default function Chapter3() {
                 </div>
 
                 {/* Pan knob */}
-                <div className="pan-knob-wrap">
-                  <div
-                    className="pan-knob"
-                    style={{ cursor: 'ew-resize', userSelect: 'none' }}
-                    onMouseDown={e => onPanDown(i, e)}
-                    title="Drag left/right to pan"
-                  >
-                    <div className="pan-needle" style={{ transform: `translateX(-50%) rotate(${panRotation(panValues[i])})` }} />
-                  </div>
-                  <div className="pan-label">{panLabel(panValues[i])}</div>
-                </div>
+                <Knob
+                  size={44}
+                  spec={{
+                    label: 'PAN',
+                    min: -100, max: 100, step: 1,
+                    fmt: v => panLabel(v),
+                    accent: 'var(--amber)',
+                  }}
+                  value={panValues[i]}
+                  onChange={v => setPanValues(prev => { const n = [...prev]; n[i] = v; return n; })}
+                />
 
-                {/* Fader */}
-                <div
-                  className="channel-fader-track"
-                  style={{ cursor: 'ns-resize', userSelect: 'none' }}
-                  onMouseDown={e => onFaderDown(i, e)}
-                >
-                  {/* Unity tick */}
-                  <div style={{
-                    position: 'absolute', top: '17%', left: '-3px', right: '-3px',
-                    height: '1px', background: 'var(--border-bright)', opacity: 0.5,
-                  }} />
-                  <div
-                    className="channel-fader-thumb"
-                    style={{
-                      top: faderTop(faderPos[i]),
-                      borderColor: isSelected ? trk.color : undefined,
-                    }}
-                  />
-                </div>
-
-                {/* dB readout */}
-                <div className="db-val" style={isSelected ? { color: trk.color } : {}}>
-                  {dbDisplay(faderPos[i])}
-                </div>
+                {/* Volume knob */}
+                <Knob
+                  size={52}
+                  spec={{
+                    label: 'LEVEL',
+                    min: 0, max: 1, step: 0.005,
+                    fmt: v => dbDisplay(volKnobToPos(v)),
+                    accent: isSelected ? trk.color : 'var(--text-dim)',
+                  }}
+                  value={volKnobValue(faderPos[i])}
+                  target={volKnobValue(UNITY_POS)}
+                  onChange={v => setFaderPos(prev => { const n = [...prev]; n[i] = volKnobToPos(v); return n; })}
+                />
 
                 {/* Level meter */}
                 <div className="level-meter-strip">
@@ -702,34 +629,19 @@ export default function Chapter3() {
               style={{ color: taskDone[2] ? 'var(--green)' : 'var(--text-faint)' }}>
               {lufsStr} LUFS
             </div>
-            {/* Master fader */}
-            <div style={{
-              fontFamily: 'var(--mono)',
-              fontSize: '0.5rem',
-              color: 'var(--text-faint)',
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-            }}>OUTPUT GAIN</div>
-            <div
-              className="channel-fader-track"
-              style={{ width: '16px', height: '60px', cursor: 'ns-resize', userSelect: 'none' }}
-              onMouseDown={onMasterFaderDown}
-            >
-              {/* Unity (0 dB) tick */}
-              <div style={{
-                position: 'absolute', top: '17%', left: '-4px', right: '-4px',
-                height: '1px', background: 'var(--amber)', opacity: 0.4,
-              }} />
-              <div className="channel-fader-thumb" style={{
-                top: faderTop(masterPos),
-                width: '28px',
-                height: '10px',
-                background: 'var(--amber)',
-              }} />
-            </div>
-            <div className="db-val" style={{ color: 'var(--amber)', fontSize: '0.6rem' }}>
-              {dbDisplay(masterPos)} <span style={{ color: 'var(--text-faint)', fontSize: '0.5rem' }}>dB</span>
-            </div>
+            {/* Master gain knob */}
+            <Knob
+              size={52}
+              spec={{
+                label: 'OUTPUT GAIN',
+                min: 0, max: 1, step: 0.005,
+                fmt: v => `${dbDisplay(volKnobToPos(v))} dB`,
+                accent: 'var(--amber)',
+              }}
+              value={volKnobValue(masterPos)}
+              target={volKnobValue(UNITY_POS)}
+              onChange={v => setMasterPos(volKnobToPos(v))}
+            />
           </div>
         </div>
 
@@ -767,7 +679,7 @@ export default function Chapter3() {
             </span>
           </div>
           <div style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: '0.6rem', color: 'var(--text-faint)' }}>
-            Drag fader ↕ · Drag knob ↔ for pan
+            Drag knobs ↕ to adjust level and pan
           </div>
         </div>
 

@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
+import { Knob } from '../components/Knob';
 
 // ── Band config ───────────────────────────────────────────────────────────────
 interface EQBand { freq: number; label: string; sub: string; }
@@ -16,7 +17,6 @@ const BANDS: EQBand[] = [
 
 const GAIN_MIN = -12;
 const GAIN_MAX = +12;
-const FADER_TRACK_PX = 80;
 
 // ── Canvas helpers ────────────────────────────────────────────────────────────
 const FMIN = 20, FMAX = 20000;
@@ -611,7 +611,6 @@ export default function Chapter2() {
   const musicBufferRef     = useRef<AudioBuffer | null>(null);
   const userGainsRef       = useRef(userGains);
   const instrumentIdxRef   = useRef(instrumentIdx);
-  const dragRef            = useRef<{ bandIdx: number; startY: number; startGain: number } | null>(null);
 
   useEffect(() => { userGainsRef.current = userGains; }, [userGains]);
   useEffect(() => { instrumentIdxRef.current = instrumentIdx; }, [instrumentIdx]);
@@ -694,35 +693,6 @@ export default function Chapter2() {
     setHintUsed(false);
   }, [stopAudio]);
 
-  // ── Fader drag ────────────────────────────────────────────────────────────
-  const handleFaderMouseDown = useCallback((bandIdx: number, e: React.MouseEvent) => {
-    e.preventDefault();
-    dragRef.current = { bandIdx, startY: e.clientY, startGain: userGainsRef.current[bandIdx] };
-  }, []);
-
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!dragRef.current) return;
-      const { bandIdx, startY, startGain } = dragRef.current;
-      const dGain = ((startY - e.clientY) / FADER_TRACK_PX) * (GAIN_MAX - GAIN_MIN);
-      const snapped = Math.round(
-        Math.max(GAIN_MIN, Math.min(GAIN_MAX, startGain + dGain)) * 2
-      ) / 2;
-      setUserGains(prev => {
-        const next = [...prev];
-        next[bandIdx] = snapped;
-        return next;
-      });
-    };
-    const onUp = () => { dragRef.current = null; };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup',   onUp);
-    return () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup',   onUp);
-    };
-  }, []);
-
   // ── Cleanup ───────────────────────────────────────────────────────────────
   useEffect(() => () => {
     try { sourceRef.current?.stop(); } catch { /* ok */ }
@@ -741,9 +711,6 @@ export default function Chapter2() {
   const worstIdx = bandScores.reduce(
     (w, b, i) => Math.abs(b.diff) > Math.abs(bandScores[w].diff) ? i : w, 0
   );
-
-  const gainToFaderTop = (g: number) =>
-    `${((GAIN_MAX - g) / (GAIN_MAX - GAIN_MIN)) * 100}%`;
 
   const handleReset = () => {
     stopAudio();
@@ -876,45 +843,33 @@ export default function Chapter2() {
             />
           </div>
 
-          {/* Faders */}
+          {/* Knobs */}
           <div className="canvas-label" style={{ margin: '0.75rem 0' }}>
-            8-BAND EQ · DRAG FADERS TO MATCH THE SOUND YOU HEAR
+            8-BAND EQ · DRAG KNOBS TO MATCH THE SOUND YOU HEAR
           </div>
-          <div className="eq-bands">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '0.5rem' }}>
             {BANDS.map((band, i) => (
-              <div className="eq-band" key={band.sub}>
-                <div className="eq-gain-val" style={{
-                  color: submitted
+              <Knob
+                key={band.sub}
+                spec={{
+                  label: <>{band.label}<br />{band.sub}</>,
+                  min: GAIN_MIN,
+                  max: GAIN_MAX,
+                  step: 0.5,
+                  fmt: v => `${v > 0 ? '+' : ''}${v.toFixed(1)}`,
+                  accent: submitted
                     ? (Math.abs(bandScores[i].diff) < 1 ? 'var(--green)' :
                        Math.abs(bandScores[i].diff) < 3 ? 'var(--amber)' : 'var(--red)')
                     : 'var(--blue)',
-                }}>
-                  {userGains[i] > 0 ? '+' : ''}{userGains[i].toFixed(1)}
-                </div>
-                <div
-                  className="eq-fader-track"
-                  onMouseDown={e => handleFaderMouseDown(i, e)}
-                  style={{ cursor: 'ns-resize', userSelect: 'none' }}
-                >
-                  {/* 0 dB centre tick */}
-                  <div style={{
-                    position: 'absolute', top: '50%', left: '-3px', right: '-3px',
-                    height: '1px', background: 'var(--border-bright)', opacity: 0.45,
-                  }} />
-                  {/* Target marker shown after submit */}
-                  {submitted && (
-                    <div style={{
-                      position: 'absolute',
-                      top: gainToFaderTop(currentInstrument.targetGains[i]),
-                      left: '-5px', right: '-5px',
-                      height: '2px', background: 'var(--amber)', opacity: 0.7,
-                      borderRadius: '1px',
-                    }} />
-                  )}
-                  <div className="eq-fader-thumb" style={{ top: gainToFaderTop(userGains[i]) }} />
-                </div>
-                <div className="eq-band-label">{band.label}<br />{band.sub}</div>
-              </div>
+                }}
+                value={userGains[i]}
+                target={submitted ? currentInstrument.targetGains[i] : undefined}
+                onChange={v => setUserGains(prev => {
+                  const next = [...prev];
+                  next[i] = v;
+                  return next;
+                })}
+              />
             ))}
           </div>
         </div>
