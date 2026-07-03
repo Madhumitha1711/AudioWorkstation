@@ -81,6 +81,22 @@ function calcEffectiveRt60(size: number, decay: number): number {
   return Math.max(0.1, roomSize * 5.0);
 }
 
+// ── Auto gain-staging for the wet path ────────────────────────────────────────
+// Mirrors the comb-filter feedback formula in reverb-processor.js (SCALE_ROOM/
+// OFFSET_ROOM). As SIZE/DECAY climb, comb feedback approaches its ~0.98 ceiling
+// and the steady-state gain to sustained input rises roughly as 1/(1-feedback)
+// — that's what drove the Cathedral-preset clipping. Rather than relying on the
+// limiter alone, back the wet signal off proactively so extreme presets don't
+// need as much limiting in the first place. Normalized to 1.0 at the HALL
+// preset (the app default) so default behavior is unchanged; only presets
+// hotter than HALL get scaled down, never boosted.
+const HALL_FEEDBACK = (68 / 100) * (0.05 + (70 / 100) * 0.95) * 0.28 + 0.70;
+function wetGainCompensation(size: number, decay: number): number {
+  const feedback = (size / 100) * (0.05 + (decay / 100) * 0.95) * 0.28 + 0.70;
+  const raw = (1 - HALL_FEEDBACK) / Math.max(0.001, 1 - feedback);
+  return Math.min(1, 1 / raw);
+}
+
 // ── IR Canvas drawing ──────────────────────────────────────────────────────────
 interface FvParams { size: number; decay: number; damping: number; diffusion: number; }
 
@@ -109,6 +125,12 @@ function drawIR(canvas: HTMLCanvasElement, preset: RoomPreset, fv: FvParams) {
   ctx.beginPath(); ctx.moveTo(20, bottom); ctx.lineTo(20, 20); ctx.stroke();
 
   // Early reflections
+  // Positions/amplitudes are derived from the SAME model generateIR() uses to
+  // synthesize the actual audio, so the picture matches what you hear:
+  //   - line X (distance) = the reflection's real arrival time, mapped through
+  //     the same time→x scale as the axis labels at the bottom.
+  //   - line height (amplitude) = the reflection's real gain, on the same 0–1
+  //     scale as the direct spike (whose height = bottom-20 = amplitude 1.0).
   // SIZE  → spreads arrival times (larger room = reflections arrive later / further right)
   // DAMPING → reduces amplitude (absorptive surfaces soak up energy)
   // DIFFUSION → high diffusion merges early reflections into the tail faster (fewer distinct spikes)
@@ -118,12 +140,37 @@ function drawIR(canvas: HTMLCanvasElement, preset: RoomPreset, fv: FvParams) {
     preset.earlyCount * (1 - (fv.diffusion / 100) * 0.6)   // 40% … 100% of preset count
   ));
 
-  const basePositions = [60, 85, 115, 145, 175, 210, 240];
-  const baseHeights   = [60, 75,  55,  85,  70,  65,  80];
+  // Mirrors generateIR()'s earlyDelays (seconds → ms) and amplitude falloff
+  const EARLY_DELAYS_MS = [3, 8, 15, 23, 35, 50, 70];
+  const EARLY_AMPS = EARLY_DELAYS_MS.map((_, i) => 0.7 * Math.exp(-i * 0.35));
 
-  basePositions.slice(0, visibleCount).forEach((baseX, i) => {
-    const x = Math.min(W - 10, 20 + (baseX - 20) * sizeSpread);
-    const h = baseHeights[i] * dampAtten;
+  // Piecewise-linear time→x mapping, anchored to the same points the time
+  // axis labels below claim (0ms, 50ms, 200ms, 500ms, 1s) so a reflection's
+  // x-position is honest about when it actually arrives.
+  const TIME_STOPS = [
+    { ms: 0,    x: 20  },
+    { ms: 50,   x: 55  },
+    { ms: 200,  x: 150 },
+    { ms: 500,  x: 330 },
+    { ms: 1000, x: 480 },
+  ];
+  function timeToX(ms: number): number {
+    for (let i = 0; i < TIME_STOPS.length - 1; i++) {
+      const a = TIME_STOPS[i], b = TIME_STOPS[i + 1];
+      if (ms <= b.ms) return a.x + ((ms - a.ms) / (b.ms - a.ms)) * (b.x - a.x);
+    }
+    const last = TIME_STOPS[TIME_STOPS.length - 1];
+    const prev = TIME_STOPS[TIME_STOPS.length - 2];
+    const slope = (last.x - prev.x) / (last.ms - prev.ms);
+    return last.x + (ms - last.ms) * slope;
+  }
+
+  const directAmpHeight = bottom - 20; // px per unit amplitude (direct spike = amplitude 1.0)
+
+  EARLY_DELAYS_MS.slice(0, visibleCount).forEach((ms, i) => {
+    const delayedMs = ms * sizeSpread;                    // SIZE stretches arrival time
+    const x = Math.min(W - 10, timeToX(delayedMs));        // distance = real arrival time
+    const h = Math.max(2, directAmpHeight * EARLY_AMPS[i] * dampAtten); // height = real amplitude
     ctx.strokeStyle = `rgba(77,158,255,${0.8 - i * 0.08})`; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(x, bottom); ctx.lineTo(x, bottom - h); ctx.stroke();
   });
@@ -408,6 +455,7 @@ export default function Chapter6() {
   const wetGainRef    = useRef<GainNode | null>(null);
   const dryGainRef    = useRef<GainNode | null>(null);
   const mixRef        = useRef<GainNode | null>(null);
+  const limiterRef    = useRef<DynamicsCompressorNode | null>(null);
   const schedulerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nextNoteRef   = useRef(0);
   const stepRef       = useRef(0);
@@ -438,9 +486,12 @@ export default function Chapter6() {
     if (preDelayRef.current) preDelayRef.current.delayTime.setTargetAtTime(params.preDelay / 1000, t, 0.01);
     if (hiCutRef.current)    hiCutRef.current.frequency.setTargetAtTime(params.hiCut,  t, 0.01);
     if (loCutRef.current)    loCutRef.current.frequency.setTargetAtTime(params.loCut,  t, 0.01);
-    if (wetGainRef.current)  wetGainRef.current.gain.setTargetAtTime(params.wetDry / 100, t, 0.01);
+    if (wetGainRef.current) {
+      const compensated = (params.wetDry / 100) * wetGainCompensation(params.size, params.decay);
+      wetGainRef.current.gain.setTargetAtTime(compensated, t, 0.01);
+    }
     if (dryGainRef.current)  dryGainRef.current.gain.setTargetAtTime(1 - params.wetDry / 100, t, 0.01);
-  }, [params.preDelay, params.hiCut, params.loCut, params.wetDry]);
+  }, [params.preDelay, params.hiCut, params.loCut, params.wetDry, params.size, params.decay]);
 
   // ── Send Freeverb params to AudioWorklet ─────────────────────────────────────
   useEffect(() => {
@@ -483,6 +534,25 @@ export default function Chapter6() {
     // ── Mix bus (synth input) ──
     const mix = ctx.createGain(); mix.gain.value = 0.8; mixRef.current = mix;
 
+    // ── Output limiter ──
+    // Cathedral (high size/decay) drives the comb-filter reverb near its max
+    // feedback (~0.92–0.98). Under near-continuous 16th-note input (hi-hats
+    // firing almost every step) the tail doesn't fully decay between hits, so
+    // energy builds up faster than it drains and the summed comb output can
+    // spike to many times full scale. With no ceiling on the dry+wet buses,
+    // that overshoot hard-clips at the destination — the audible "noise".
+    // A brick-wall-ish limiter here catches both the dry-side summing (several
+    // drum voices hitting at once) and the reverb buildup, without touching
+    // the Freeverb DSP itself.
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -6;   // dB — start clamping just under full scale
+    limiter.knee.value      = 0;    // hard knee, limiter-like behavior
+    limiter.ratio.value     = 20;   // aggressive ratio
+    limiter.attack.value    = 0.003;
+    limiter.release.value   = 0.15;
+    limiter.connect(ctx.destination);
+    limiterRef.current = limiter;
+
     // ── Pre-delay ──
     const preDelay = ctx.createDelay(0.2);
     preDelay.delayTime.value = paramsRef.current.preDelay / 1000;
@@ -491,14 +561,16 @@ export default function Chapter6() {
     // ── Wet chain tail: hiCut → loCut → wetGain → destination ──
     const hiCut = ctx.createBiquadFilter(); hiCut.type = 'lowpass';  hiCut.frequency.value = paramsRef.current.hiCut;
     const loCut = ctx.createBiquadFilter(); loCut.type = 'highpass'; loCut.frequency.value = paramsRef.current.loCut;
-    const wetGain = ctx.createGain(); wetGain.gain.value = paramsRef.current.wetDry / 100;
+    const wetGain = ctx.createGain();
+    wetGain.gain.value = (paramsRef.current.wetDry / 100)
+      * wetGainCompensation(paramsRef.current.size, paramsRef.current.decay);
     const dryGain = ctx.createGain(); dryGain.gain.value = 1 - paramsRef.current.wetDry / 100;
     hiCutRef.current = hiCut; loCutRef.current = loCut;
     wetGainRef.current = wetGain; dryGainRef.current = dryGain;
 
     // ── Dry path ──
     mix.connect(dryGain);
-    dryGain.connect(ctx.destination);
+    dryGain.connect(limiter);
 
     // ── Load AudioWorklet (JS Freeverb runs immediately; WASM upgrades async) ──
     setEngineStatus('loading');
@@ -525,13 +597,13 @@ export default function Chapter6() {
     const reverbWet: AudioNode = reverbNode;
 
     // ── Wire wet path ──
-    // mix → preDelay → reverb → hiCut → loCut → wetGain → destination
+    // mix → preDelay → reverb → hiCut → loCut → wetGain → limiter → destination
     mix.connect(preDelay);
     preDelay.connect(reverbWet);
     reverbWet.connect(hiCut);
     hiCut.connect(loCut);
     loCut.connect(wetGain);
-    wetGain.connect(ctx.destination);
+    wetGain.connect(limiter);
 
     nextNoteRef.current = ctx.currentTime + 0.05;
     stepRef.current     = 0;
@@ -551,6 +623,7 @@ export default function Chapter6() {
     wetGainRef.current    = null;
     dryGainRef.current    = null;
     mixRef.current        = null;
+    limiterRef.current    = null;
     ctxRef.current?.close();
     ctxRef.current = null;
     setIsPlaying(false);

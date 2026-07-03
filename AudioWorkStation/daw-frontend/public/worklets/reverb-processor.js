@@ -20,36 +20,52 @@ const OFFSET_ROOM = 0.70;
 const SCALE_DAMP  = 0.4;
 const FIXED_GAIN  = 0.015;
 
+// One-pole smoothing coefficient for de-zippering parameter changes below.
+// ~0.001 gives a time constant of roughly 20ms at 44.1kHz (1 / (fs * coeff)) —
+// short enough to feel responsive to a knob drag, long enough that the
+// recirculating feedback/damp coefficients never jump discontinuously
+// mid-stream (which is what caused the audible clicks when dragging
+// SIZE/DECAY/DAMPING/DIFFUSION while the reverb was ringing).
+const SMOOTH = 0.001;
+
 // ── Comb filter ───────────────────────────────────────────────────────────────
 class CombFilter {
   constructor(size) {
     this.buf = new Float32Array(size);
-    this.idx = 0; this.feedback = 0.5; this.store = 0; this.d1 = 0.2; this.d2 = 0.8;
+    this.idx = 0;
+    this.feedback = 0.5; this.targetFeedback = 0.5;
+    this.store = 0;
+    this.d1 = 0.2; this.targetD1 = 0.2; this.d2 = 0.8;
   }
   process(input) {
+    this.feedback += (this.targetFeedback - this.feedback) * SMOOTH;
+    this.d1       += (this.targetD1 - this.d1) * SMOOTH;
+    this.d2 = 1 - this.d1;
     const out = this.buf[this.idx];
     this.store = out * this.d2 + this.store * this.d1;
     this.buf[this.idx] = input + this.store * this.feedback;
     this.idx = (this.idx + 1) % this.buf.length;
     return out;
   }
-  setFeedback(f) { this.feedback = f; }
-  setDamp(d)     { this.d1 = d; this.d2 = 1 - d; }
+  setFeedback(f) { this.targetFeedback = f; }
+  setDamp(d)     { this.targetD1 = d; }
 }
 
 // ── Allpass filter ────────────────────────────────────────────────────────────
 class AllpassFilter {
   constructor(size) {
     this.buf = new Float32Array(size);
-    this.idx = 0; this.feedback = 0.5;
+    this.idx = 0; this.feedback = 0.5; this.targetFeedback = 0.5;
   }
   process(input) {
+    this.feedback += (this.targetFeedback - this.feedback) * SMOOTH;
     const buffered = this.buf[this.idx];
     const out = -input + buffered;
     this.buf[this.idx] = input + buffered * this.feedback;
     this.idx = (this.idx + 1) % this.buf.length;
     return out;
   }
+  setFeedback(f) { this.targetFeedback = f; }
 }
 
 // ── Freeverb ──────────────────────────────────────────────────────────────────
@@ -69,8 +85,8 @@ class Freeverb {
     const damp     = this.damping * SCALE_DAMP;
     this.combL.forEach(c => { c.setFeedback(feedback); c.setDamp(damp); });
     this.combR.forEach(c => { c.setFeedback(feedback); c.setDamp(damp); });
-    this.apL.forEach(f => f.feedback = this.diffusion);
-    this.apR.forEach(f => f.feedback = this.diffusion);
+    this.apL.forEach(f => f.setFeedback(this.diffusion));
+    this.apR.forEach(f => f.setFeedback(this.diffusion));
     this.wet1 = (1 + this.diffusion) * 0.5;
     this.wet2 = (1 - this.diffusion) * 0.5;
   }
