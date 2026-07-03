@@ -11,6 +11,11 @@ const SAT_TYPES: Array<{ id: SatType; name: string; desc: string }> = [
   { id: 'digital',    name: 'DIGITAL',    desc: 'hard clip' },
 ];
 
+// An uploaded audio track that can be used as the saturator's signal source
+// instead of the built-in oscillators, so drive/tone can be heard on real
+// material. Selected the same way as a built-in source, just keyed by id.
+interface UploadedTrack { id: number; name: string; buffer: AudioBuffer; }
+
 interface SrcOption {
   id: SrcType;
   label: string;
@@ -297,14 +302,132 @@ function drawLiveOscilloscope(
   ctx.fillText('● LIVE', W - 44, 12);
 }
 
+// Peak-normalise an uploaded buffer and fade its ends slightly so the loop
+// doesn't click, regardless of channel count or the source recording's level.
+function normalizeUploadedBuffer(buf: AudioBuffer, peakTarget = 0.6) {
+  let peak = 0;
+  for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+    const data = buf.getChannelData(ch);
+    for (let i = 0; i < data.length; i++) peak = Math.max(peak, Math.abs(data[i]));
+  }
+  if (peak < 1e-6) return;
+  const scale = peakTarget / peak;
+  const fadeSamples = Math.min(Math.round(buf.sampleRate * 0.01), Math.floor(buf.length / 2));
+  for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+    const data = buf.getChannelData(ch);
+    for (let i = 0; i < data.length; i++) data[i] *= scale;
+    for (let i = 0; i < fadeSamples; i++) {
+      const f = i / fadeSamples;
+      data[i] *= f;
+      data[data.length - 1 - i] *= f;
+    }
+  }
+}
+
+// Find the window of real buffer samples with the most energy, so the static
+// preview (drawn when paused) shows something audible rather than silence.
+function pickPreviewWindow(data: Float32Array, windowLen: number): number {
+  const candidates = 12;
+  const span = Math.max(1, data.length - windowLen);
+  const step = Math.max(1, Math.floor(span / candidates));
+  let bestStart = 0, bestEnergy = -1;
+  for (let start = 0; start + windowLen <= data.length; start += step) {
+    let sum = 0;
+    for (let i = 0; i < windowLen; i += 4) sum += data[start + i] * data[start + i];
+    if (sum > bestEnergy) { bestEnergy = sum; bestStart = start; }
+  }
+  return bestStart;
+}
+
+// ── Canvas: static preview for uploaded audio (real buffer samples run
+// through the pure waveshaper function — no audio graph needed while paused) ──
+function drawStaticBufferPreview(
+  canvas: HTMLCanvasElement,
+  mode: 'dry' | 'sat',
+  buffer: AudioBuffer,
+  satType: SatType,
+  driveDb: number,
+) {
+  const hd = hiDpi(canvas); if (!hd) return;
+  const { ctx, W, H } = hd;
+
+  ctx.fillStyle = '#0D0D0F';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.025)';
+  ctx.lineWidth = 1;
+  [H / 4, H / 2, H * 3 / 4].forEach(y => {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  });
+
+  const data      = buffer.getChannelData(0);
+  const windowLen = Math.min(data.length, Math.max(1, Math.round(buffer.sampleRate * 0.03))); // ~30ms
+  const startIdx  = pickPreviewWindow(data, windowLen);
+  const shaper    = mode === 'sat' ? makeShaperCurve(satType, driveDb) : null;
+  const color     = mode === 'dry' ? '#4D9EFF' : '#FF7A45';
+  const glow      = mode === 'dry' ? 'rgba(77,158,255,0.09)' : 'rgba(255,122,69,0.09)';
+
+  const drawLine = (lw: number, stroke: string) => {
+    ctx.strokeStyle = stroke; ctx.lineWidth = lw;
+    ctx.beginPath();
+    for (let px = 0; px < W; px++) {
+      const idx = startIdx + Math.floor((px / W) * windowLen);
+      let y = idx < data.length ? data[idx] : 0;
+      if (shaper) {
+        const sIdx = Math.max(0, Math.min(CURVE_SIZE - 1, Math.round(((y + 1) / 2) * (CURVE_SIZE - 1))));
+        y = shaper[sIdx];
+      }
+      const cy = H / 2 - y * H * 0.42;
+      px === 0 ? ctx.moveTo(0, cy) : ctx.lineTo(px, cy);
+    }
+    ctx.stroke();
+  };
+
+  drawLine(8, glow);
+  drawLine(2, color);
+
+  ctx.font = 'bold 10px "JetBrains Mono", monospace'; ctx.fillStyle = color;
+  ctx.fillText(mode === 'dry' ? 'DRY' : 'SATURATED', 8, 14);
+
+  ctx.font = '10px "JetBrains Mono", monospace'; ctx.fillStyle = '#8A8A9A';
+  ctx.fillText(
+    mode === 'dry'
+      ? 'your uploaded audio — before the waveshaper'
+      : `${satType} waveshaper output`,
+    8, H - 6,
+  );
+
+  ctx.fillStyle = '#7A7A8A'; ctx.font = '9px "JetBrains Mono", monospace';
+  ctx.fillText('◉ PREVIEW', W - 76, 12);
+}
+
 // ── Knob rotation helper ───────────────────────────────────────────────────────
 function knobDeg(value: number, min: number, max: number): number {
   return -135 + ((value - min) / (max - min)) * 270;
 }
 
 // ── Audio source builder ───────────────────────────────────────────────────────
-function buildSource(ac: AudioContext, srcType: SrcType): { output: AudioNode; nodes: AudioNode[] } {
+// srcSel is either a built-in SrcType, or the numeric id of an uploaded track.
+function buildSource(
+  ac: AudioContext,
+  srcSel: SrcType | number,
+  uploadedTracks: UploadedTrack[],
+): { output: AudioNode; nodes: AudioNode[] } {
   const nodes: AudioNode[] = [];
+
+  if (typeof srcSel === 'number') {
+    const track = uploadedTracks.find(t => t.id === srcSel);
+    if (track) {
+      const bufSrc = ac.createBufferSource();
+      bufSrc.buffer = track.buffer;
+      bufSrc.loop   = true;
+      bufSrc.start();
+      nodes.push(bufSrc);
+      return { output: bufSrc, nodes };
+    }
+  }
+
+  const srcType: SrcType = typeof srcSel === 'number' ? 'sine' : srcSel; // fallback if track missing
 
   if (srcType === 'chord') {
     const freqs  = [261.63, 329.63, 392.00]; // C4, E4, G4
@@ -331,7 +454,9 @@ function buildSource(ac: AudioContext, srcType: SrcType): { output: AudioNode; n
 
 function stopSourceNodes(nodes: AudioNode[]) {
   for (const node of nodes) {
-    if (node instanceof OscillatorNode) { try { node.stop(); } catch { /* ok */ } }
+    if (node instanceof OscillatorNode || node instanceof AudioBufferSourceNode) {
+      try { node.stop(); } catch { /* ok */ }
+    }
     try { node.disconnect(); } catch { /* ok */ }
   }
 }
@@ -339,11 +464,22 @@ function stopSourceNodes(nodes: AudioNode[]) {
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function Chapter7() {
   const [satType,   setSatType]   = useState<SatType>('tape');
-  const [srcType,   setSrcType]   = useState<SrcType>('sine');
+  // srcType is either a built-in oscillator/chord id, or the numeric id of
+  // an uploaded track — selected the same way, through handleSrcChange.
+  const [srcType,   setSrcType]   = useState<SrcType | number>('sine');
   const [drive,     setDrive]     = useState(6.2);
   const [tone,      setTone]      = useState(50);
   const [mix,       setMix]       = useState(60);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // ── Uploaded audio — any number of tracks, each selectable like a source ──
+  const [uploadedTracks, setUploadedTracks] = useState<UploadedTrack[]>([]);
+  const [decoding,       setDecoding]       = useState(false);
+  const [uploadError,    setUploadError]    = useState('');
+  const fileInputRef      = useRef<HTMLInputElement>(null);
+  const uploadIdSeqRef    = useRef(0);
+  const uploadedTracksRef = useRef(uploadedTracks);
+  useEffect(() => { uploadedTracksRef.current = uploadedTracks; }, [uploadedTracks]);
 
   const [inputLevel,  setInputLevel]  = useState(0.70);
   const [outputLevel, setOutputLevel] = useState(0.85);
@@ -384,15 +520,32 @@ export default function Chapter7() {
     if (satType !== 'digital' && drive <= 9) setTaskDriveOk(true);
   }, [drive, satType]);
 
+  // Static-preview dispatcher: real buffer samples for an uploaded track,
+  // the original math-based oscilloscope otherwise.
+  const drawPreview = useCallback((
+    canvas: HTMLCanvasElement | null,
+    mode: 'dry' | 'sat',
+    srcSel: SrcType | number,
+    sat: SatType,
+    driveDb: number,
+  ) => {
+    if (!canvas) return;
+    if (typeof srcSel === 'number') {
+      const track = uploadedTracksRef.current.find(t => t.id === srcSel);
+      if (track) { drawStaticBufferPreview(canvas, mode, track.buffer, sat, driveDb); return; }
+    }
+    drawStaticOscilloscope(canvas, mode, srcSel as SrcType, sat, driveDb);
+  }, []);
+
   // ── Canvas redraws ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (transferRef.current) drawTransferCurve(transferRef.current, satType, drive);
     // Only update waveforms with static preview when not playing
     if (!isPlayingRef.current) {
-      if (dryWaveRef.current) drawStaticOscilloscope(dryWaveRef.current, 'dry', srcType, satType, drive);
-      if (satWaveRef.current) drawStaticOscilloscope(satWaveRef.current, 'sat', srcType, satType, drive);
+      drawPreview(dryWaveRef.current, 'dry', srcType, satType, drive);
+      drawPreview(satWaveRef.current, 'sat', srcType, satType, drive);
     }
-  }, [satType, srcType, drive]);
+  }, [satType, srcType, drive, drawPreview, uploadedTracks]);
 
   // ── Live param updates (no graph rebuild) ──────────────────────────────────
   useEffect(() => {
@@ -429,11 +582,14 @@ export default function Chapter7() {
       setInputLevel(rms(inAn));
       setOutputLevel(rms(outAn));
 
-      // Oscilloscope window: ~3 cycles of fundamental
+      // Oscilloscope window: ~3 cycles of fundamental (uploaded audio has no
+      // single fundamental, so fall back to a generic musical frequency —
+      // the zero-crossing trigger in drawLiveOscilloscope still stabilises it)
       const { srcType: st, satType: sat } = paramsRef.current;
-      const opt        = SRC_OPTIONS.find(o => o.id === st)!;
+      const uploadedFreq = typeof st === 'number' ? 220 : undefined;
+      const freq       = uploadedFreq ?? SRC_OPTIONS.find(o => o.id === st)!.freq;
       const sampleRate = audioCtxRef.current?.sampleRate ?? 44100;
-      const windowLen  = Math.min(Math.round((sampleRate / opt.freq) * 3), inAn.fftSize);
+      const windowLen  = Math.min(Math.round((sampleRate / freq) * 3), inAn.fftSize);
 
       const inData  = new Float32Array(inAn.fftSize);
       const outData = new Float32Array(outAn.fftSize);
@@ -455,7 +611,7 @@ export default function Chapter7() {
 
     const { satType, srcType, drive, tone, mix } = paramsRef.current;
 
-    const { output: srcOut, nodes: srcNodes } = buildSource(ac, srcType);
+    const { output: srcOut, nodes: srcNodes } = buildSource(ac, srcType, uploadedTracksRef.current);
     sourceNodesRef.current = srcNodes;
 
     const inputGain = ac.createGain();
@@ -532,12 +688,13 @@ export default function Chapter7() {
 
     // Restore static previews
     const { srcType, satType, drive } = paramsRef.current;
-    if (dryWaveRef.current) drawStaticOscilloscope(dryWaveRef.current, 'dry', srcType, satType, drive);
-    if (satWaveRef.current) drawStaticOscilloscope(satWaveRef.current, 'sat', srcType, satType, drive);
-  }, []);
+    drawPreview(dryWaveRef.current, 'dry', srcType, satType, drive);
+    drawPreview(satWaveRef.current, 'sat', srcType, satType, drive);
+  }, [drawPreview]);
 
-  // ── Source change — restart if playing ─────────────────────────────────────
-  const handleSrcChange = useCallback((newSrc: SrcType) => {
+  // ── Source change — restart if playing ──────────────────────────────────────
+  // newSrc is either a built-in SrcType or the numeric id of an uploaded track.
+  const handleSrcChange = useCallback((newSrc: SrcType | number) => {
     const wasPlaying = isPlayingRef.current;
     paramsRef.current = { ...paramsRef.current, srcType: newSrc };
     setSrcType(newSrc);
@@ -546,6 +703,50 @@ export default function Chapter7() {
       startAudio();
     }
   }, [stopAudio, startAudio]);
+
+  // ── Upload your own audio ────────────────────────────────────────────────────
+  const handleUploadClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileSelected = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+
+    setUploadError('');
+    setDecoding(true);
+
+    let tmpCtx: AudioContext | null = null;
+    try {
+      tmpCtx = new AudioContext();
+      if (tmpCtx.state === 'suspended') await tmpCtx.resume();
+
+      const arrayBuf = await file.arrayBuffer();
+      const decoded  = await tmpCtx.decodeAudioData(arrayBuf);
+      normalizeUploadedBuffer(decoded);
+
+      const track: UploadedTrack = {
+        id: ++uploadIdSeqRef.current,
+        name: file.name.replace(/\.[^/.]+$/, '').toUpperCase().slice(0, 24),
+        buffer: decoded,
+      };
+
+      // Update the ref synchronously (not just the state) so that if audio
+      // is already playing, handleSrcChange's immediate restart below can
+      // find this track without waiting for the next render's effect sync.
+      const nextTracks = [...uploadedTracksRef.current, track];
+      uploadedTracksRef.current = nextTracks;
+      setUploadedTracks(nextTracks);
+      handleSrcChange(track.id);
+    } catch (err) {
+      console.error('Failed to decode audio file', err);
+      setUploadError('Could not read that file — try an mp3, wav, or m4a.');
+    } finally {
+      tmpCtx?.close();
+      setDecoding(false);
+    }
+  }, [handleSrcChange]);
 
   // ── Reset ──────────────────────────────────────────────────────────────────
   const handleReset = useCallback(() => {
@@ -585,6 +786,8 @@ export default function Chapter7() {
     return n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`;
   };
 
+  const activeTrack = typeof srcType === 'number' ? uploadedTracks.find(t => t.id === srcType) : undefined;
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="sat-lab">
@@ -597,7 +800,9 @@ export default function Chapter7() {
           </div>
           <div>
             <div className="lab-name">Saturation Lab</div>
-            <div className="lab-subtitle">LAB · CH 07 · HARMONIC DISTORTION</div>
+            <div className="lab-subtitle">
+              LAB · CH 07 · HARMONIC DISTORTION{activeTrack ? ` · ${activeTrack.name}` : ''}
+            </div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
@@ -662,6 +867,64 @@ export default function Chapter7() {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Uploaded audio tracks — any number, selectable like a built-in source */}
+          <div className="eq-tabrow" style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.85rem' }}>
+            {uploadedTracks.map(track => {
+              const active = srcType === track.id;
+              return (
+                <button
+                  key={track.id}
+                  onClick={() => handleSrcChange(track.id)}
+                  title={track.name}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.35rem',
+                    padding: '0.3rem 0.65rem',
+                    background: active ? 'rgba(0,255,135,0.13)' : 'var(--surface)',
+                    border: `1px solid ${active ? 'rgba(0,255,135,0.5)' : 'var(--border)'}`,
+                    borderRadius: '3px',
+                    color: active ? 'var(--green)' : 'var(--text-dim)',
+                    fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+                    cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+                  }}
+                >
+                  <span style={{ fontSize: '0.85rem' }}>📁</span>
+                  <span>{track.name}</span>
+                </button>
+              );
+            })}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="audio/*"
+              onChange={handleFileSelected}
+              style={{ display: 'none' }}
+            />
+            <button
+              onClick={handleUploadClick}
+              disabled={decoding}
+              title="Upload your own audio to run through the saturator"
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.35rem',
+                padding: '0.3rem 0.65rem',
+                background: 'var(--surface)',
+                border: '1px dashed var(--border)',
+                borderRadius: '3px',
+                color: 'var(--text-dim)',
+                fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+                cursor: decoding ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+              }}
+            >
+              <span style={{ fontSize: '0.85rem' }}>{decoding ? '⏳' : '+'}</span>
+              <span>{decoding ? 'DECODING…' : 'UPLOAD AUDIO'}</span>
+            </button>
+            {uploadError && (
+              <span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>
+                {uploadError}
+              </span>
+            )}
           </div>
 
           {/* Transfer curve */}

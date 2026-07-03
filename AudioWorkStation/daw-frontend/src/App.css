@@ -465,6 +465,30 @@ body {
   border-right: 1px solid var(--border);
 }
 
+/* Instrument / upload tab row — slim themed scrollbar instead of the
+   default thick OS bar when the row overflows horizontally. */
+.eq-tabrow {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.eq-tabrow::-webkit-scrollbar {
+  height: 6px;
+}
+
+.eq-tabrow::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.eq-tabrow::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.eq-tabrow::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
+}
+
 /* Spectrum display */
 .spectrum-display {
   background: var(--black);

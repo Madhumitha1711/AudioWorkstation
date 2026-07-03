@@ -12,6 +12,10 @@ interface RoomPreset {
   label: string;
 }
 
+// An uploaded audio track that can be used as the signal source instead of
+// the built-in drum groove, so reverb can be auditioned on real material.
+interface UploadedTrack { id: number; name: string; buffer: AudioBuffer; }
+
 interface ReverbParams {
   preDelay:  number; // ms  0 → 100
   hiCut:     number; // Hz  1000 → 20000
@@ -278,6 +282,28 @@ function synthBass(ctx: AudioContext, dest: AudioNode, t: number, freq: number) 
   g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
   o.connect(f); f.connect(g); g.connect(dest); o.start(t); o.stop(t + 0.4);
 }
+// Peak-normalise an uploaded buffer and fade its ends slightly so the loop
+// doesn't click, regardless of channel count or the source recording's level.
+function normalizeUploadedBuffer(buf: AudioBuffer, peakTarget = 0.6) {
+  let peak = 0;
+  for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+    const data = buf.getChannelData(ch);
+    for (let i = 0; i < data.length; i++) peak = Math.max(peak, Math.abs(data[i]));
+  }
+  if (peak < 1e-6) return;
+  const scale = peakTarget / peak;
+  const fadeSamples = Math.min(Math.round(buf.sampleRate * 0.01), Math.floor(buf.length / 2));
+  for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+    const data = buf.getChannelData(ch);
+    for (let i = 0; i < data.length; i++) data[i] *= scale;
+    for (let i = 0; i < fadeSamples; i++) {
+      const f = i / fadeSamples;
+      data[i] *= f;
+      data[data.length - 1 - i] *= f;
+    }
+  }
+}
+
 function scheduleStep(ctx: AudioContext, dest: AudioNode, step: number, t: number) {
   if (PAT_KICK[step])  synthKick (ctx, dest, t);
   if (PAT_SNARE[step]) synthSnare(ctx, dest, t);
@@ -345,6 +371,22 @@ export default function Chapter6() {
   const [hasPlayed,  setHasPlayed]  = useState(false);
   const [tasks,      setTasks]      = useState([true, false, false]);
   const [engineStatus, setEngineStatus] = useState<EngineStatus>('idle');
+
+  // Signal source — the built-in synth drum loop, or one of any number of
+  // uploaded tracks, so reverb can be auditioned on real material.
+  const [uploadedTracks, setUploadedTracks] = useState<UploadedTrack[]>([]);
+  const [activeSourceId, setActiveSourceId] = useState<number | 'synth'>('synth');
+  const [decoding,       setDecoding]       = useState(false);
+  const [uploadError,    setUploadError]    = useState('');
+  const fileInputRef   = useRef<HTMLInputElement>(null);
+  const uploadIdSeqRef = useRef(0);
+  const activeSourceIdRef = useRef(activeSourceId);
+  const uploadedTracksRef = useRef(uploadedTracks);
+  const bufSourceRef      = useRef<AudioBufferSourceNode | null>(null);
+  useEffect(() => { activeSourceIdRef.current = activeSourceId; }, [activeSourceId]);
+  useEffect(() => { uploadedTracksRef.current = uploadedTracks; }, [uploadedTracks]);
+
+  const activeTrack = activeSourceId !== 'synth' ? uploadedTracks.find(t => t.id === activeSourceId) : undefined;
 
   // Canvas
   const irRef = useRef<HTMLCanvasElement>(null);
@@ -509,9 +551,25 @@ export default function Chapter6() {
     loCut.connect(wetGain);
     wetGain.connect(limiter);
 
-    nextNoteRef.current = ctx.currentTime + 0.05;
-    stepRef.current     = 0;
-    runScheduler();
+    // ── Signal source: either the built-in synth drum loop, or a looping
+    // uploaded track, feeding into the same `mix` node either way ──
+    const track = activeSourceIdRef.current !== 'synth'
+      ? uploadedTracksRef.current.find(t => t.id === activeSourceIdRef.current)
+      : undefined;
+
+    if (track) {
+      const bufSrc = ctx.createBufferSource();
+      bufSrc.buffer = track.buffer;
+      bufSrc.loop   = true;
+      bufSrc.connect(mix);
+      bufSrc.start();
+      bufSourceRef.current = bufSrc;
+    } else {
+      nextNoteRef.current = ctx.currentTime + 0.05;
+      stepRef.current     = 0;
+      runScheduler();
+    }
+
     setIsPlaying(true);
     setHasPlayed(true);
   }, [preset, runScheduler]);
@@ -519,6 +577,11 @@ export default function Chapter6() {
   // ── Stop audio ───────────────────────────────────────────────────────────────
   const stopAudio = useCallback(() => {
     if (schedulerRef.current) clearTimeout(schedulerRef.current);
+    if (bufSourceRef.current) {
+      try { bufSourceRef.current.stop(); } catch { /* ok */ }
+      bufSourceRef.current.disconnect();
+      bufSourceRef.current = null;
+    }
     reverbNodeRef.current = null;
     convolverRef.current  = null;
     preDelayRef.current   = null;
@@ -536,13 +599,142 @@ export default function Chapter6() {
 
   useEffect(() => () => {
     if (schedulerRef.current) clearTimeout(schedulerRef.current);
+    if (bufSourceRef.current) {
+      try { bufSourceRef.current.stop(); } catch { /* ok */ }
+    }
     ctxRef.current?.close();
   }, []);
+
+  // ── Signal source: switch tab / upload new track ──────────────────────────
+  const handleSelectSource = useCallback((id: number | 'synth') => {
+    stopAudio();
+    setActiveSourceId(id);
+  }, [stopAudio]);
+
+  const handleUploadClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileSelected = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+
+    stopAudio();
+    setUploadError('');
+    setDecoding(true);
+
+    let tmpCtx: AudioContext | null = null;
+    try {
+      tmpCtx = new AudioContext();
+      if (tmpCtx.state === 'suspended') await tmpCtx.resume();
+
+      const arrayBuf = await file.arrayBuffer();
+      const decoded  = await tmpCtx.decodeAudioData(arrayBuf);
+      normalizeUploadedBuffer(decoded);
+
+      const track: UploadedTrack = {
+        id: ++uploadIdSeqRef.current,
+        name: file.name.replace(/\.[^/.]+$/, '').toUpperCase().slice(0, 24),
+        buffer: decoded,
+      };
+
+      setUploadedTracks(prev => [...prev, track]);
+      setActiveSourceId(track.id);
+    } catch (err) {
+      console.error('Failed to decode audio file', err);
+      setUploadError('Could not read that file — try an mp3, wav, or m4a.');
+    } finally {
+      tmpCtx?.close();
+      setDecoding(false);
+    }
+  }, [stopAudio]);
 
   const currentPreset = ROOM_PRESETS[preset];
   const TASK_LABELS   = ['Select Hall preset', 'Audition reverb', 'Set pre-delay ≥ 15ms'];
 
   const freeverbActive = engineStatus === 'ready' || engineStatus === 'loading';
+
+  // Signal-source tab row — the drum loop, or any number of uploaded tracks,
+  // so reverb can be auditioned on real material.
+  const renderSourceRow = () => (
+    <div className="eq-tabrow" style={{
+      display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center',
+      padding: '0.5rem 0 0.1rem',
+    }}>
+      <button
+        onClick={() => handleSelectSource('synth')}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '0.35rem',
+          padding: '0.3rem 0.65rem',
+          background: activeSourceId === 'synth' ? 'rgba(45,212,191,0.13)' : 'var(--surface)',
+          border: `1px solid ${activeSourceId === 'synth' ? 'rgba(45,212,191,0.5)' : 'var(--border)'}`,
+          borderRadius: '3px',
+          color: activeSourceId === 'synth' ? 'var(--teal)' : 'var(--text-dim)',
+          fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+          cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+        }}
+      >
+        <span style={{ fontSize: '0.85rem' }}>🥁</span>
+        <span>DRUM LOOP</span>
+      </button>
+
+      {uploadedTracks.map(track => {
+        const active = activeSourceId === track.id;
+        return (
+          <button
+            key={track.id}
+            onClick={() => handleSelectSource(track.id)}
+            title={track.name}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.35rem',
+              padding: '0.3rem 0.65rem',
+              background: active ? 'rgba(0,255,135,0.13)' : 'var(--surface)',
+              border: `1px solid ${active ? 'rgba(0,255,135,0.5)' : 'var(--border)'}`,
+              borderRadius: '3px',
+              color: active ? 'var(--green)' : 'var(--text-dim)',
+              fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+              cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+            }}
+          >
+            <span style={{ fontSize: '0.85rem' }}>📁</span>
+            <span>{track.name}</span>
+          </button>
+        );
+      })}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="audio/*"
+        onChange={handleFileSelected}
+        style={{ display: 'none' }}
+      />
+      <button
+        onClick={handleUploadClick}
+        disabled={decoding}
+        title="Upload your own audio to run through the reverb"
+        style={{
+          display: 'flex', alignItems: 'center', gap: '0.35rem',
+          padding: '0.3rem 0.65rem',
+          background: 'var(--surface)',
+          border: '1px dashed var(--border)',
+          borderRadius: '3px',
+          color: 'var(--text-dim)',
+          fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+          cursor: decoding ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+        }}
+      >
+        <span style={{ fontSize: '0.85rem' }}>{decoding ? '⏳' : '+'}</span>
+        <span>{decoding ? 'DECODING…' : 'UPLOAD AUDIO'}</span>
+      </button>
+      {uploadError && (
+        <span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>
+          {uploadError}
+        </span>
+      )}
+    </div>
+  );
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
@@ -554,7 +746,9 @@ export default function Chapter6() {
           <div className="lab-icon" style={{ background: 'var(--teal-dim)', border: '1px solid rgba(45,212,191,0.4)' }}>∿</div>
           <div>
             <div className="lab-name">Reverb Designer</div>
-            <div className="lab-subtitle">LAB · CH 06 · FREEVERB WASM · DRUM GROOVE @ {BPM} BPM</div>
+            <div className="lab-subtitle">
+              LAB · CH 06 · FREEVERB WASM · {activeTrack ? activeTrack.name : `DRUM GROOVE @ ${BPM} BPM`}
+            </div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
@@ -590,6 +784,11 @@ export default function Chapter6() {
             {isPlaying ? 'LIVE' : 'STOPPED'}
           </div>
         </div>
+      </div>
+
+      {/* Signal source selector — drum loop or any uploaded track */}
+      <div style={{ padding: '0 1.25rem', borderBottom: '1px solid var(--border)' }}>
+        {renderSourceRow()}
       </div>
 
       {/* ── Body ── */}

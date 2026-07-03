@@ -472,6 +472,13 @@ interface Instrument {
   createBuffer: (ctx: AudioContext) => AudioBuffer;
 }
 
+interface UploadedTrack {
+  id: number;
+  name: string;
+  buffer: AudioBuffer;
+  targetGains: number[];
+}
+
 const INSTRUMENTS: Instrument[] = [
   {
     name: 'ACOUSTIC GUITAR',
@@ -555,6 +562,18 @@ const INSTRUMENTS: Instrument[] = [
   },
 ];
 
+// ── Generic tips for user-uploaded audio (instrument unknown) ─────────────────
+const UPLOAD_BAND_TIPS: string[] = [
+  'Sub (60Hz) is the lowest rumble in your track. Compare low-end weight against the target.',
+  'Bass (120Hz) shapes fullness and body. Listen for how much low-end warmth the target has.',
+  'Low-mids (250Hz) add warmth but can sound boxy if overdone — listen for thickness.',
+  'Mids (500Hz) carry the core tonal balance of most sources. Small moves matter here.',
+  'Hi-mids (1kHz) add presence, clarity, and attack — boost or cut changes how forward it sounds.',
+  'Presence (3kHz) can turn harsh quickly. Listen for edginess in the target curve.',
+  'Air (8kHz) adds brightness and sparkle on top of the mix.',
+  'Sheen (16kHz) is ultra-high shimmer — subtle, but audible on headphones.',
+];
+
 // ── Audio graph helpers ───────────────────────────────────────────────────────
 function buildFilters(ctx: AudioContext, gains: number[]): BiquadFilterNode[] {
   return BANDS.map((band, i) => {
@@ -601,7 +620,30 @@ export default function Chapter2() {
   const [submitted, setSubmitted]   = useState(false);
   const [hintUsed, setHintUsed]     = useState(false);
 
-  const currentInstrument = INSTRUMENTS[instrumentIdx];
+  // ── Uploaded audio state — any number of tracks, each its own tab ─────────
+  const [uploadedTracks, setUploadedTracks] = useState<UploadedTrack[]>([]);
+  const [usingUpload, setUsingUpload]       = useState(false);
+  const [activeUploadId, setActiveUploadId] = useState<number | null>(null);
+  const [decoding, setDecoding]             = useState(false);
+  const [uploadError, setUploadError]       = useState('');
+  const fileInputRef  = useRef<HTMLInputElement>(null);
+  const uploadIdSeqRef = useRef(0);
+
+  const activeUpload = usingUpload ? uploadedTracks.find(t => t.id === activeUploadId) : undefined;
+
+  const currentInstrument: Instrument = (() => {
+    if (activeUpload) {
+      const track = activeUpload;
+      return {
+        name: track.name,
+        icon: '📁',
+        targetGains: track.targetGains,
+        bandTips: UPLOAD_BAND_TIPS,
+        createBuffer: () => track.buffer,
+      };
+    }
+    return INSTRUMENTS[instrumentIdx];
+  })();
 
   const canvasRef          = useRef<HTMLCanvasElement>(null);
   const audioCtxRef        = useRef<AudioContext | null>(null);
@@ -611,9 +653,11 @@ export default function Chapter2() {
   const musicBufferRef     = useRef<AudioBuffer | null>(null);
   const userGainsRef       = useRef(userGains);
   const instrumentIdxRef   = useRef(instrumentIdx);
+  const currentInstrumentRef = useRef(currentInstrument);
 
   useEffect(() => { userGainsRef.current = userGains; }, [userGains]);
   useEffect(() => { instrumentIdxRef.current = instrumentIdx; }, [instrumentIdx]);
+  useEffect(() => { currentInstrumentRef.current = currentInstrument; });
 
   // Redraw on state change
   useEffect(() => {
@@ -648,12 +692,12 @@ export default function Chapter2() {
     const ctx = audioCtxRef.current;
     if (ctx.state === 'suspended') await ctx.resume();
 
-    // Build buffer for current instrument
+    // Build buffer for current instrument (or use the uploaded one)
     if (!musicBufferRef.current) {
-      musicBufferRef.current = INSTRUMENTS[instrumentIdxRef.current].createBuffer(ctx);
+      musicBufferRef.current = currentInstrumentRef.current.createBuffer(ctx);
     }
 
-    const targetGains = INSTRUMENTS[instrumentIdxRef.current].targetGains;
+    const targetGains = currentInstrumentRef.current.targetGains;
     const gains   = mode === 'target' ? targetGains : [...userGainsRef.current];
     const filters = buildFilters(ctx, gains);
     filtersRef.current = filters;
@@ -686,11 +730,81 @@ export default function Chapter2() {
   const handleInstrumentChange = useCallback((idx: number) => {
     stopAudio();
     musicBufferRef.current = null;  // clear cached buffer — different instrument needs a new one
+    setUsingUpload(false);
+    setUploadError('');
     setInstrumentIdx(idx);
     setUserGains(Array(8).fill(0));
     setRevealed(false);
     setSubmitted(false);
     setHintUsed(false);
+  }, [stopAudio]);
+
+  // ── Upload your own audio ─────────────────────────────────────────────────
+  // "+ Upload" always opens the file picker to add a new track; clicking an
+  // already-uploaded track's tab just switches to it, same as a preset instrument.
+  const handleUploadClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleSelectUpload = useCallback((id: number) => {
+    stopAudio();
+    const track = uploadedTracks.find(t => t.id === id);
+    musicBufferRef.current = track ? track.buffer : null;
+    setUsingUpload(true);
+    setActiveUploadId(id);
+    setUploadError('');
+    setUserGains(Array(8).fill(0));
+    setRevealed(false);
+    setSubmitted(false);
+    setHintUsed(false);
+  }, [stopAudio, uploadedTracks]);
+
+  const handleFileSelected = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+
+    stopAudio();
+    setUploadError('');
+    setDecoding(true);
+
+    try {
+      if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+        audioCtxRef.current = new AudioContext();
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === 'suspended') await ctx.resume();
+
+      const arrayBuf = await file.arrayBuffer();
+      const decoded  = await ctx.decodeAudioData(arrayBuf);
+
+      // Random-ish but musically sensible target EQ curve to match by ear.
+      const gains = BANDS.map(() => {
+        const raw = (Math.random() * 2 - 1) * 8; // roughly -8..+8 dB
+        return Math.round(raw / 0.5) * 0.5;
+      });
+
+      const track: UploadedTrack = {
+        id: ++uploadIdSeqRef.current,
+        name: file.name.replace(/\.[^/.]+$/, '').toUpperCase().slice(0, 24),
+        buffer: decoded,
+        targetGains: gains,
+      };
+
+      musicBufferRef.current = decoded; // cache immediately, avoids a race with playAudio
+      setUploadedTracks(prev => [...prev, track]);
+      setUsingUpload(true);
+      setActiveUploadId(track.id);
+      setUserGains(Array(8).fill(0));
+      setRevealed(false);
+      setSubmitted(false);
+      setHintUsed(false);
+    } catch (err) {
+      console.error('Failed to decode audio file', err);
+      setUploadError('Could not read that file — try an mp3, wav, or m4a.');
+    } finally {
+      setDecoding(false);
+    }
   }, [stopAudio]);
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
@@ -773,7 +887,7 @@ export default function Chapter2() {
       </div>
 
       {/* Instrument selector */}
-      <div style={{
+      <div className="eq-tabrow" style={{
         display: 'flex',
         gap: '0.4rem',
         padding: '0.55rem 1rem',
@@ -781,31 +895,107 @@ export default function Chapter2() {
         overflowX: 'auto',
         flexShrink: 0,
       }}>
-        {INSTRUMENTS.map((inst, idx) => (
-          <button
-            key={inst.name}
-            onClick={() => handleInstrumentChange(idx)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              padding: '0.3rem 0.65rem',
-              background: instrumentIdx === idx ? 'rgba(77,158,255,0.13)' : 'var(--surface)',
-              border: `1px solid ${instrumentIdx === idx ? 'rgba(77,158,255,0.5)' : 'var(--border)'}`,
-              borderRadius: '3px',
-              color: instrumentIdx === idx ? 'var(--blue)' : 'var(--text-dim)',
-              fontFamily: 'var(--mono)',
-              fontSize: '0.6rem',
-              letterSpacing: '0.06em',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              transition: 'all 0.15s',
-            }}
-          >
-            <span style={{ fontSize: '0.85rem' }}>{inst.icon}</span>
-            <span>{inst.name}</span>
-          </button>
-        ))}
+        {INSTRUMENTS.map((inst, idx) => {
+          const active = !usingUpload && instrumentIdx === idx;
+          return (
+            <button
+              key={inst.name}
+              onClick={() => handleInstrumentChange(idx)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                padding: '0.3rem 0.65rem',
+                background: active ? 'rgba(77,158,255,0.13)' : 'var(--surface)',
+                border: `1px solid ${active ? 'rgba(77,158,255,0.5)' : 'var(--border)'}`,
+                borderRadius: '3px',
+                color: active ? 'var(--blue)' : 'var(--text-dim)',
+                fontFamily: 'var(--mono)',
+                fontSize: '0.6rem',
+                letterSpacing: '0.06em',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s',
+              }}
+            >
+              <span style={{ fontSize: '0.85rem' }}>{inst.icon}</span>
+              <span>{inst.name}</span>
+            </button>
+          );
+        })}
+
+        {uploadedTracks.length > 0 && (
+          <div style={{ width: '1px', alignSelf: 'stretch', background: 'var(--border)', margin: '0 0.15rem' }} />
+        )}
+
+        {uploadedTracks.map(track => {
+          const active = usingUpload && activeUploadId === track.id;
+          return (
+            <button
+              key={track.id}
+              onClick={() => handleSelectUpload(track.id)}
+              title={track.name}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                padding: '0.3rem 0.65rem',
+                background: active ? 'rgba(0,255,135,0.13)' : 'var(--surface)',
+                border: `1px solid ${active ? 'rgba(0,255,135,0.5)' : 'var(--border)'}`,
+                borderRadius: '3px',
+                color: active ? 'var(--green)' : 'var(--text-dim)',
+                fontFamily: 'var(--mono)',
+                fontSize: '0.6rem',
+                letterSpacing: '0.06em',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s',
+              }}
+            >
+              <span style={{ fontSize: '0.85rem' }}>📁</span>
+              <span>{track.name}</span>
+            </button>
+          );
+        })}
+
+        <div style={{ width: '1px', alignSelf: 'stretch', background: 'var(--border)', margin: '0 0.15rem' }} />
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="audio/*"
+          onChange={handleFileSelected}
+          style={{ display: 'none' }}
+        />
+        <button
+          onClick={handleUploadClick}
+          disabled={decoding}
+          title="Upload your own audio to EQ-match"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            padding: '0.3rem 0.65rem',
+            background: 'var(--surface)',
+            border: '1px dashed var(--border)',
+            borderRadius: '3px',
+            color: 'var(--text-dim)',
+            fontFamily: 'var(--mono)',
+            fontSize: '0.6rem',
+            letterSpacing: '0.06em',
+            cursor: decoding ? 'wait' : 'pointer',
+            whiteSpace: 'nowrap',
+            transition: 'all 0.15s',
+          }}
+        >
+          <span style={{ fontSize: '0.85rem' }}>{decoding ? '⏳' : '+'}</span>
+          <span>{decoding ? 'DECODING…' : 'UPLOAD AUDIO'}</span>
+        </button>
+        {uploadError && (
+          <span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>
+            {uploadError}
+          </span>
+        )}
       </div>
 
       {/* Body */}

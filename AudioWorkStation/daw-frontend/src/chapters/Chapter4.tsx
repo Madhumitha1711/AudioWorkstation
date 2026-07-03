@@ -12,6 +12,11 @@ interface CompParams {
 
 interface ChallengeParams { threshold: number; ratio: number; knee: number; }
 
+// An uploaded audio track that can be used as the signal source in either
+// the Compressor Studio (free play / learning) or the Challenge (guess the
+// applied compression) — both sections share the same audio engine.
+interface UploadedTrack { id: number; name: string; buffer: AudioBuffer; }
+
 interface KnobSpec {
   key:   keyof CompParams;
   label: string;
@@ -446,6 +451,28 @@ function synthBass(ctx: AudioContext, dest: AudioNode, time: number, freq: numbe
   osc.connect(filt); filt.connect(g); g.connect(dest); osc.start(time); osc.stop(time + 0.4);
 }
 
+// Peak-normalise an uploaded buffer and fade its ends slightly so the loop
+// doesn't click, regardless of channel count or the source recording's level.
+function normalizeUploadedBuffer(buf: AudioBuffer, peakTarget = 0.6) {
+  let peak = 0;
+  for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+    const data = buf.getChannelData(ch);
+    for (let i = 0; i < data.length; i++) peak = Math.max(peak, Math.abs(data[i]));
+  }
+  if (peak < 1e-6) return;
+  const scale = peakTarget / peak;
+  const fadeSamples = Math.min(Math.round(buf.sampleRate * 0.01), Math.floor(buf.length / 2));
+  for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+    const data = buf.getChannelData(ch);
+    for (let i = 0; i < data.length; i++) data[i] *= scale;
+    for (let i = 0; i < fadeSamples; i++) {
+      const f = i / fadeSamples;
+      data[i] *= f;
+      data[data.length - 1 - i] *= f;
+    }
+  }
+}
+
 function scheduleStep(
   ctx: AudioContext, dest: AudioNode, step: number, time: number,
   sidechainGain: GainNode | null,
@@ -483,6 +510,23 @@ export default function Chapter4() {
   const [submitted,      setSubmitted]      = useState(false);
   const [hearingMode,    setHearingMode]    = useState<'none' | 'target' | 'mine'>('none');
   const hearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Signal source — the built-in synth drum loop, or one of any number of
+  // uploaded tracks. Shared by both the Studio and the Challenge below,
+  // since they run through the same audio engine / compressor node.
+  const [uploadedTracks, setUploadedTracks] = useState<UploadedTrack[]>([]);
+  const [activeSourceId, setActiveSourceId] = useState<number | 'synth'>('synth');
+  const [decoding,       setDecoding]       = useState(false);
+  const [uploadError,    setUploadError]    = useState('');
+  const fileInputRef   = useRef<HTMLInputElement>(null);
+  const uploadIdSeqRef = useRef(0);
+  const activeSourceIdRef  = useRef(activeSourceId);
+  const uploadedTracksRef  = useRef(uploadedTracks);
+  const bufSourceRef       = useRef<AudioBufferSourceNode | null>(null);
+  useEffect(() => { activeSourceIdRef.current = activeSourceId; }, [activeSourceId]);
+  useEffect(() => { uploadedTracksRef.current = uploadedTracks; }, [uploadedTracks]);
+
+  const activeTrack = activeSourceId !== 'synth' ? uploadedTracks.find(t => t.id === activeSourceId) : undefined;
 
   const preset = PRESETS[presetIdx];
   const score  = calcScore(preset.target, challengeParams);
@@ -637,8 +681,25 @@ export default function Chapter4() {
     dryBlend.connect(output); wetBlend.connect(output);
     output.connect(ctx.destination);
 
-    nextNoteRef.current = ctx.currentTime + 0.05; currentStepRef.current = 0;
-    runScheduler(); animRef.current = requestAnimationFrame(animate);
+    // Signal source: either the built-in synth drum loop, or a looping
+    // uploaded track, feeding into the same `mix` node either way.
+    const track = activeSourceIdRef.current !== 'synth'
+      ? uploadedTracksRef.current.find(t => t.id === activeSourceIdRef.current)
+      : undefined;
+
+    if (track) {
+      const bufSrc = ctx.createBufferSource();
+      bufSrc.buffer = track.buffer;
+      bufSrc.loop   = true;
+      bufSrc.connect(mix);
+      bufSrc.start();
+      bufSourceRef.current = bufSrc;
+    } else {
+      nextNoteRef.current = ctx.currentTime + 0.05; currentStepRef.current = 0;
+      runScheduler();
+    }
+
+    animRef.current = requestAnimationFrame(animate);
     setIsPlaying(true);
   }, [params, runScheduler, animate]);
 
@@ -695,6 +756,11 @@ export default function Chapter4() {
     if (schedulerRef.current) clearTimeout(schedulerRef.current);
     if (hearTimerRef.current)  clearTimeout(hearTimerRef.current);
     cancelAnimationFrame(animRef.current);
+    if (bufSourceRef.current) {
+      try { bufSourceRef.current.stop(); } catch { /* ok */ }
+      bufSourceRef.current.disconnect();
+      bufSourceRef.current = null;
+    }
     ctxRef.current?.close();
     ctxRef.current = null; compRef.current = null; makeupRef.current = null;
     dryAnalRef.current = null; wetAnalRef.current = null; mixRef.current = null;
@@ -712,8 +778,56 @@ export default function Chapter4() {
     if (schedulerRef.current) clearTimeout(schedulerRef.current);
     if (hearTimerRef.current)  clearTimeout(hearTimerRef.current);
     cancelAnimationFrame(animRef.current);
+    if (bufSourceRef.current) {
+      try { bufSourceRef.current.stop(); } catch { /* ok */ }
+    }
     ctxRef.current?.close();
   }, []);
+
+  // ── Signal source: switch tab / upload new track ──────────────────────────
+  const handleSelectSource = useCallback((id: number | 'synth') => {
+    stopAudio();
+    setActiveSourceId(id);
+  }, [stopAudio]);
+
+  const handleUploadClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileSelected = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+
+    stopAudio();
+    setUploadError('');
+    setDecoding(true);
+
+    let tmpCtx: AudioContext | null = null;
+    try {
+      tmpCtx = new AudioContext();
+      if (tmpCtx.state === 'suspended') await tmpCtx.resume();
+
+      const arrayBuf = await file.arrayBuffer();
+      const decoded  = await tmpCtx.decodeAudioData(arrayBuf);
+      normalizeUploadedBuffer(decoded);
+
+      const track: UploadedTrack = {
+        id: ++uploadIdSeqRef.current,
+        name: file.name.replace(/\.[^/.]+$/, '').toUpperCase().slice(0, 24),
+        buffer: decoded,
+      };
+
+      setUploadedTracks(prev => [...prev, track]);
+      setActiveSourceId(track.id);
+    } catch (err) {
+      console.error('Failed to decode audio file', err);
+      setUploadError('Could not read that file — try an mp3, wav, or m4a.');
+    } finally {
+      tmpCtx?.close();
+      setDecoding(false);
+    }
+  }, [stopAudio]);
 
   // ── Main lab knob drag ────────────────────────────────────────────────────
   const onMainKnobDown = useCallback((e: React.MouseEvent, spec: KnobSpec, val: number) => {
@@ -741,6 +855,88 @@ export default function Chapter4() {
   const grAbs = Math.abs(gainReduction);
   const grPct = Math.min(100, (grAbs / 20) * 100);
   const TASK_LABELS = ['Set threshold', 'Set ratio to 4:1', 'Adjust attack / release', 'Apply makeup gain'];
+
+  // Signal-source tab row — shared state, rendered in both the Studio and
+  // the Challenge so the source can be switched (or a new one uploaded)
+  // from either section.
+  const renderSourceRow = () => (
+    <div className="eq-tabrow" style={{
+      display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center',
+      padding: '0.5rem 0 0.1rem',
+    }}>
+      <button
+        onClick={() => handleSelectSource('synth')}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '0.35rem',
+          padding: '0.3rem 0.65rem',
+          background: activeSourceId === 'synth' ? 'rgba(167,139,250,0.13)' : 'var(--surface)',
+          border: `1px solid ${activeSourceId === 'synth' ? 'rgba(167,139,250,0.5)' : 'var(--border)'}`,
+          borderRadius: '3px',
+          color: activeSourceId === 'synth' ? 'var(--purple)' : 'var(--text-dim)',
+          fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+          cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+        }}
+      >
+        <span style={{ fontSize: '0.85rem' }}>🥁</span>
+        <span>DRUM LOOP</span>
+      </button>
+
+      {uploadedTracks.map(track => {
+        const active = activeSourceId === track.id;
+        return (
+          <button
+            key={track.id}
+            onClick={() => handleSelectSource(track.id)}
+            title={track.name}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.35rem',
+              padding: '0.3rem 0.65rem',
+              background: active ? 'rgba(0,255,135,0.13)' : 'var(--surface)',
+              border: `1px solid ${active ? 'rgba(0,255,135,0.5)' : 'var(--border)'}`,
+              borderRadius: '3px',
+              color: active ? 'var(--green)' : 'var(--text-dim)',
+              fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+              cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+            }}
+          >
+            <span style={{ fontSize: '0.85rem' }}>📁</span>
+            <span>{track.name}</span>
+          </button>
+        );
+      })}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="audio/*"
+        onChange={handleFileSelected}
+        style={{ display: 'none' }}
+      />
+      <button
+        onClick={handleUploadClick}
+        disabled={decoding}
+        title="Upload your own audio to run through the compressor"
+        style={{
+          display: 'flex', alignItems: 'center', gap: '0.35rem',
+          padding: '0.3rem 0.65rem',
+          background: 'var(--surface)',
+          border: '1px dashed var(--border)',
+          borderRadius: '3px',
+          color: 'var(--text-dim)',
+          fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+          cursor: decoding ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+        }}
+      >
+        <span style={{ fontSize: '0.85rem' }}>{decoding ? '⏳' : '+'}</span>
+        <span>{decoding ? 'DECODING…' : 'UPLOAD AUDIO'}</span>
+      </button>
+      {uploadError && (
+        <span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>
+          {uploadError}
+        </span>
+      )}
+    </div>
+  );
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -779,6 +975,11 @@ export default function Chapter4() {
             {isPlaying ? (bypass ? 'BYPASSED' : 'ACTIVE') : 'STOPPED'}
           </div>
         </div>
+      </div>
+
+      {/* Signal source selector — drum loop or any uploaded track */}
+      <div style={{ padding: '0 1.25rem', borderBottom: '1px solid var(--border)' }}>
+        {renderSourceRow()}
       </div>
 
       {/* Body */}
@@ -894,7 +1095,10 @@ export default function Chapter4() {
           </div>
           <div style={{ marginTop: '1rem' }}>
             <div className="tip-box" style={{ background: 'rgba(245,166,35,0.07)', borderColor: 'rgba(245,166,35,0.2)' }}>
-              <strong style={{ color: 'var(--amber)' }}>Signal:</strong> Synthesised drum groove — kick, snare, hi-hat + bass. Percussive transients make compression clearly audible.
+              <strong style={{ color: 'var(--amber)' }}>Signal:</strong>{' '}
+              {activeTrack
+                ? `Your uploaded track — "${activeTrack.name}". Switch to a different track above, or upload another.`
+                : 'Synthesised drum groove — kick, snare, hi-hat + bass. Percussive transients make compression clearly audible.'}
             </div>
           </div>
         </div>
@@ -952,6 +1156,11 @@ export default function Chapter4() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Signal source selector — same tracks/state as the Studio above */}
+      <div style={{ padding: '0 1.25rem', borderBottom: '1px solid var(--border)' }}>
+        {renderSourceRow()}
       </div>
 
       {/* Body */}
