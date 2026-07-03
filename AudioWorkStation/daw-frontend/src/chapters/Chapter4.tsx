@@ -785,9 +785,13 @@ export default function Chapter4() {
   }, []);
 
   // ── Signal source: switch tab / upload new track ──────────────────────────
+  // Sidechain ducking is wired to the built-in synth drum pattern's kick hits
+  // (see scheduleStep/PAT_KICK) — it has no effect on an uploaded track, so
+  // the control is disabled and forced off whenever a track is active.
   const handleSelectSource = useCallback((id: number | 'synth') => {
     stopAudio();
     setActiveSourceId(id);
+    if (id !== 'synth') setSidechain(false);
   }, [stopAudio]);
 
   const handleUploadClick = useCallback(() => {
@@ -820,6 +824,7 @@ export default function Chapter4() {
 
       setUploadedTracks(prev => [...prev, track]);
       setActiveSourceId(track.id);
+      setSidechain(false);
     } catch (err) {
       console.error('Failed to decode audio file', err);
       setUploadError('Could not read that file — try an mp3, wav, or m4a.');
@@ -964,7 +969,15 @@ export default function Chapter4() {
             <button className={`toggle-btn${bypass    ? ' on' : ''}`} onClick={() => setBypass(b => !b)}>
               {bypass ? 'BYPASS: ON' : 'BYPASS: OFF'}
             </button>
-            <button className={`toggle-btn${sidechain ? ' on' : ''}`} onClick={() => setSidechain(s => !s)}>SIDECHAIN</button>
+            <button
+              className={`toggle-btn${sidechain ? ' on' : ''}`}
+              onClick={() => setSidechain(s => !s)}
+              disabled={activeSourceId !== 'synth'}
+              title={activeSourceId !== 'synth' ? 'Sidechain only applies to the built-in drum loop' : undefined}
+              style={activeSourceId !== 'synth' ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+            >
+              SIDECHAIN
+            </button>
           </div>
           <div className="lab-status" style={{ color: isPlaying ? 'var(--purple)' : 'var(--text-dim)' }}>
             <div className="status-dot" style={{
@@ -1133,14 +1146,21 @@ export default function Chapter4() {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {/* Preset selector */}
+          {/* Preset selector — tuned around the drum loop's transients, so
+              disabled while an uploaded track is the active signal source. */}
           <div style={{ display: 'flex', gap: '0.35rem' }}>
             {PRESETS.map((p, i) => (
               <button
                 key={i}
                 className={`toggle-btn${presetIdx === i ? ' on' : ''}`}
-                style={presetIdx === i ? { borderColor: 'var(--amber)', color: 'var(--amber)', background: 'var(--amber-dim)' } : {}}
+                style={
+                  activeSourceId !== 'synth'
+                    ? { opacity: 0.4, cursor: 'not-allowed' }
+                    : presetIdx === i ? { borderColor: 'var(--amber)', color: 'var(--amber)', background: 'var(--amber-dim)' } : {}
+                }
                 onClick={() => setPresetIdx(i)}
+                disabled={activeSourceId !== 'synth'}
+                title={activeSourceId !== 'synth' ? 'These presets are tuned for the drum loop and have little effect on uploaded audio' : undefined}
               >
                 {p.name}
               </button>
