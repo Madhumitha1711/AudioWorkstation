@@ -1,6 +1,7 @@
 import Chapter1 from './chapters/Chapter1';
 import Chapter2 from './chapters/Chapter2';
 import Chapter2a from './chapters/Chapter2a';
+import Chapter2b from './chapters/Chapter2b';
 import Chapter3 from './chapters/Chapter3';
 import Chapter4 from './chapters/Chapter4';
 import Chapter5 from './chapters/Chapter5';
@@ -52,6 +53,21 @@ export default function App() {
 
       <div className="screen">
         <Chapter2a />
+      </div>
+
+      {/* ── Chapter 2b ── */}
+      <div className="chapter-divider">
+        <h2 className="chapter-title">ParamEQ — Full Parametric Curve</h2>
+        <p className="chapter-desc">
+          A Logic-style 8-band parametric EQ (HPF, low shelf, 4 peaks, high shelf, LPF), driven by
+          a single Faust ParamEQ WASM instance. Drag nodes directly on the curve in the Test Bench,
+          or match a hidden target by ear — then download either render as a WAV file.
+        </p>
+        <hr className="lab-separator" />
+      </div>
+
+      <div className="screen">
+        <Chapter2b />
       </div>
 
       {/* ── Chapter 3 ── */}

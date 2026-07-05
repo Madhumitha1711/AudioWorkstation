@@ -1,0 +1,557 @@
+{
+    "name": "ParamEQ",
+    "filename": "ParamEQ.dsp",
+    "version": "2.79.3",
+    "compile_options": "-lang wasm-i -ct 1 -es 1 -mcd 16 -mdd 1024 -mdy 33 -single -ftz 2",
+    "library_list": [
+        "/usr/share/faust/stdfaust.lib",
+        "/usr/share/faust/filters.lib",
+        "/usr/share/faust/signals.lib",
+        "/usr/share/faust/maths.lib",
+        "/usr/share/faust/platform.lib",
+        "/usr/share/faust/analyzers.lib",
+        "/usr/share/faust/basics.lib"
+    ],
+    "include_pathnames": [
+        "/share/faust",
+        "/usr/local/share/faust",
+        "/usr/share/faust",
+        "."
+    ],
+    "size": 600,
+    "code": "GOi6AZQ9Hw==",
+    "inputs": 2,
+    "outputs": 2,
+    "meta": [
+        {
+            "analyzers.lib/name": "Faust Analyzer Library"
+        },
+        {
+            "analyzers.lib/version": "1.2.0"
+        },
+        {
+            "basics.lib/name": "Faust Basic Element Library"
+        },
+        {
+            "basics.lib/version": "1.21.0"
+        },
+        {
+            "compile_options": "-lang wasm-i -ct 1 -es 1 -mcd 16 -mdd 1024 -mdy 33 -single -ftz 2"
+        },
+        {
+            "filename": "ParamEQ.dsp"
+        },
+        {
+            "filters.lib/filterbank:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/filterbank:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/filterbank:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/fir:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/fir:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/fir:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/highpass:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/highpass:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/highshelf:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/highshelf:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/highshelf:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/iir:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/iir:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/iir:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/lowpass0_highpass1": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/lowpass0_highpass1:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/lowpass:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/lowpass:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/lowpass:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/lowshelf:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/lowshelf:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/lowshelf:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/name": "Faust Filters Library"
+        },
+        {
+            "filters.lib/peak_eq:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/peak_eq:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/peak_eq:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/peak_eq_cq:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/peak_eq_cq:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/peak_eq_cq:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/tf1:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/tf1:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/tf1:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/tf1s:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/tf1s:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/tf1s:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/tf2:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/tf2:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/tf2:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/tf2s:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/tf2s:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/tf2s:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/version": "1.7.1"
+        },
+        {
+            "maths.lib/author": "GRAME"
+        },
+        {
+            "maths.lib/copyright": "GRAME"
+        },
+        {
+            "maths.lib/license": "LGPL with exception"
+        },
+        {
+            "maths.lib/name": "Faust Math Library"
+        },
+        {
+            "maths.lib/version": "2.8.1"
+        },
+        {
+            "name": "ParamEQ"
+        },
+        {
+            "platform.lib/name": "Generic Platform Library"
+        },
+        {
+            "platform.lib/version": "1.3.0"
+        },
+        {
+            "signals.lib/name": "Faust Signal Routing Library"
+        },
+        {
+            "signals.lib/version": "1.6.0"
+        }
+    ],
+    "ui": [
+        {
+            "type": "vgroup",
+            "label": "ParamEQ",
+            "items": [
+                {
+                    "type": "hslider",
+                    "label": "HPF/Freq",
+                    "varname": "fHslider2",
+                    "shortname": "HPF_Freq",
+                    "address": "/ParamEQ/HPF_Freq",
+                    "index": 44,
+                    "meta": [
+                        {
+                            "1": ""
+                        },
+                        {
+                            "unit": "Hz"
+                        }
+                    ],
+                    "init": 20,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Low Shelf/Freq",
+                    "varname": "fHslider1",
+                    "shortname": "Low_Shelf_Freq",
+                    "address": "/ParamEQ/Low_Shelf_Freq",
+                    "index": 32,
+                    "meta": [
+                        {
+                            "2": ""
+                        },
+                        {
+                            "unit": "Hz"
+                        }
+                    ],
+                    "init": 75,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Low Shelf/Gain",
+                    "varname": "fHslider3",
+                    "shortname": "Low_Shelf_Gain",
+                    "address": "/ParamEQ/Low_Shelf_Gain",
+                    "index": 96,
+                    "meta": [
+                        {
+                            "2": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak1/Freq",
+                    "varname": "fHslider4",
+                    "shortname": "Peak1_Freq",
+                    "address": "/ParamEQ/Peak1_Freq",
+                    "index": 128,
+                    "meta": [
+                        {
+                            "3": ""
+                        },
+                        {
+                            "Hz": ""
+                        }
+                    ],
+                    "init": 100,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak1/Gain",
+                    "varname": "fHslider5",
+                    "shortname": "Peak1_Gain",
+                    "address": "/ParamEQ/Peak1_Gain",
+                    "index": 140,
+                    "meta": [
+                        {
+                            "3": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak1/Q",
+                    "varname": "fHslider6",
+                    "shortname": "Peak1_Q",
+                    "address": "/ParamEQ/Peak1_Q",
+                    "index": 152,
+                    "meta": [
+                        {
+                            "3": ""
+                        }
+                    ],
+                    "init": 0.7,
+                    "min": 0.1,
+                    "max": 10,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak2/Freq",
+                    "varname": "fHslider7",
+                    "shortname": "Peak2_Freq",
+                    "address": "/ParamEQ/Peak2_Freq",
+                    "index": 180,
+                    "meta": [
+                        {
+                            "4": ""
+                        },
+                        {
+                            "Hz": ""
+                        }
+                    ],
+                    "init": 250,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak2/Gain",
+                    "varname": "fHslider8",
+                    "shortname": "Peak2_Gain",
+                    "address": "/ParamEQ/Peak2_Gain",
+                    "index": 192,
+                    "meta": [
+                        {
+                            "4": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak2/Q",
+                    "varname": "fHslider9",
+                    "shortname": "Peak2_Q",
+                    "address": "/ParamEQ/Peak2_Q",
+                    "index": 204,
+                    "meta": [
+                        {
+                            "4": ""
+                        }
+                    ],
+                    "init": 1,
+                    "min": 0.1,
+                    "max": 10,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak3/Freq",
+                    "varname": "fHslider10",
+                    "shortname": "Peak3_Freq",
+                    "address": "/ParamEQ/Peak3_Freq",
+                    "index": 228,
+                    "meta": [
+                        {
+                            "5": ""
+                        },
+                        {
+                            "Hz": ""
+                        }
+                    ],
+                    "init": 1000,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak3/Gain",
+                    "varname": "fHslider11",
+                    "shortname": "Peak3_Gain",
+                    "address": "/ParamEQ/Peak3_Gain",
+                    "index": 240,
+                    "meta": [
+                        {
+                            "5": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak3/Q",
+                    "varname": "fHslider12",
+                    "shortname": "Peak3_Q",
+                    "address": "/ParamEQ/Peak3_Q",
+                    "index": 252,
+                    "meta": [
+                        {
+                            "5": ""
+                        }
+                    ],
+                    "init": 1,
+                    "min": 0.1,
+                    "max": 10,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak4/Freq",
+                    "varname": "fHslider13",
+                    "shortname": "Peak4_Freq",
+                    "address": "/ParamEQ/Peak4_Freq",
+                    "index": 276,
+                    "meta": [
+                        {
+                            "6": ""
+                        },
+                        {
+                            "Hz": ""
+                        }
+                    ],
+                    "init": 2500,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak4/Gain",
+                    "varname": "fHslider14",
+                    "shortname": "Peak4_Gain",
+                    "address": "/ParamEQ/Peak4_Gain",
+                    "index": 288,
+                    "meta": [
+                        {
+                            "6": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak4/Q",
+                    "varname": "fHslider15",
+                    "shortname": "Peak4_Q",
+                    "address": "/ParamEQ/Peak4_Q",
+                    "index": 300,
+                    "meta": [
+                        {
+                            "6": ""
+                        }
+                    ],
+                    "init": 1,
+                    "min": 0.1,
+                    "max": 10,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "High Shelf/Freq",
+                    "varname": "fHslider0",
+                    "shortname": "High_Shelf_Freq",
+                    "address": "/ParamEQ/High_Shelf_Freq",
+                    "index": 16,
+                    "meta": [
+                        {
+                            "7": ""
+                        },
+                        {
+                            "Hz": ""
+                        }
+                    ],
+                    "init": 7500,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "High Shelf/Gain",
+                    "varname": "fHslider16",
+                    "shortname": "High_Shelf_Gain",
+                    "address": "/ParamEQ/High_Shelf_Gain",
+                    "index": 372,
+                    "meta": [
+                        {
+                            "7": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "LPF/Freq",
+                    "varname": "fHslider17",
+                    "shortname": "LPF_Freq",
+                    "address": "/ParamEQ/LPF_Freq",
+                    "index": 384,
+                    "meta": [
+                        {
+                            "8": ""
+                        },
+                        {
+                            "Hz": ""
+                        }
+                    ],
+                    "init": 20000,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                }
+            ]
+        }
+    ]
+}
