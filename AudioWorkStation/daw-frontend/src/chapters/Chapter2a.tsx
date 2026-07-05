@@ -1,5 +1,20 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
+import { FaustMonoDspGenerator } from '@grame/faustwasm';
 import { Knob } from '../components/Knob';
+import type { FaustDspMeta, FaustNodeLike } from '../faust/faustTypes';
+
+// ── Faust engine config ───────────────────────────────────────────────────────
+// Same 8-band parametric EQ as Chapter 2, but every band is a real instance of
+// the "bandFilter.dsp" patch (Faust IDE export copied into public/faust/bandFilter/
+// — see useFaustDsp for the exact files expected there) compiled to WebAssembly,
+// instead of a Web Audio BiquadFilterNode. Its control surface exposes exactly
+// three parameters — freq, Q_factor, gain — read straight from dsp-meta.json.
+const FAUST_BASE_PATH   = '/faust/bandFilter';
+const FAUST_ADDR_FREQ   = '/Bandfilter/freq';
+const FAUST_ADDR_Q      = '/Bandfilter/Q_factor';
+const FAUST_ADDR_GAIN   = '/Bandfilter/gain';
+
+type EngineStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 // ── Band config ───────────────────────────────────────────────────────────────
 interface EQBand { freq: number; label: string; sub: string; }
@@ -574,21 +589,46 @@ const UPLOAD_BAND_TIPS: string[] = [
   'Sheen (16kHz) is ultra-high shimmer — subtle, but audible on headphones.',
 ];
 
-// ── Audio graph helpers ───────────────────────────────────────────────────────
-function buildFilters(ctx: AudioContext, gains: number[]): BiquadFilterNode[] {
-  return BANDS.map((band, i) => {
-    const f = ctx.createBiquadFilter();
+// ── Faust audio graph helpers ──────────────────────────────────────────────────
+// Where Chapter 2 built 8 BiquadFilterNodes with buildFilters()/chainAndConnect(),
+// this builds 8 *instances* of the same compiled bandFilter.dsp WebAssembly
+// module — one per band — each tuned to a fixed centre frequency and Q, then
+// chains them in series exactly like the Biquad version.
+//
+// Nodes are created sequentially (not Promise.all) on purpose: the underlying
+// @grame/faustwasm generator registers the AudioWorklet processor once per
+// (AudioContext, processor name) pair, and a second concurrent registration of
+// the same processor name throws — so the first createNode() must resolve
+// before the rest fire.
+//
+// Note: bandFilter.dsp is a mono (1 in / 1 out) patch, so the chain downmixes
+// stereo source material to mono before filtering — a side effect of using
+// this DSP as provided, not something adjustable from the Web Audio side.
+async function buildFaustFilters(
+  generator: FaustMonoDspGenerator,
+  meta: FaustDspMeta,
+  dspModule: WebAssembly.Module,
+  ctx: AudioContext,
+  gains: number[],
+): Promise<FaustNodeLike[]> {
+  const factory = { module: dspModule, json: JSON.stringify(meta), soundfiles: {} };
+  const nodes: FaustNodeLike[] = [];
+
+  for (let i = 0; i < BANDS.length; i++) {
+    const band = BANDS[i];
     const isShelf = i === 0 || i === BANDS.length - 1;
-    f.type      = i === 0 ? 'lowshelf' : i === BANDS.length - 1 ? 'highshelf' : 'peaking';
-    f.frequency.value = band.freq;
-    f.Q.value   = isShelf ? 0.707 : 0.8;
-    f.gain.value = gains[i];
-    return f;
-  });
+    // eslint-disable-next-line no-await-in-loop -- must be sequential, see comment above
+    const node = await generator.createNode(ctx, meta.name, factory, false, 512) as unknown as FaustNodeLike;
+    node.setParamValue(FAUST_ADDR_FREQ, band.freq);
+    node.setParamValue(FAUST_ADDR_Q, isShelf ? 0.7 : 0.8);
+    node.setParamValue(FAUST_ADDR_GAIN, gains[i]);
+    nodes.push(node);
+  }
+  return nodes;
 }
 
-function chainAndConnect(filters: BiquadFilterNode[], destination: AudioNode): void {
-  for (let i = 0; i < filters.length - 1; i++) filters[i].connect(filters[i + 1]);
+function chainFaustFilters(filters: FaustNodeLike[], destination: AudioNode): void {
+  for (let i = 0; i < filters.length - 1; i++) filters[i].connect(filters[i + 1] as unknown as AudioNode);
   filters[filters.length - 1].connect(destination);
 }
 
@@ -612,7 +652,7 @@ function overallScore(userGains: number[], targetGains: number[]) {
 type PlayMode = 'idle' | 'target' | 'mine';
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export default function Chapter2() {
+export default function Chapter2a() {
   const [instrumentIdx, setInstrumentIdx] = useState(0);
   const [userGains, setUserGains]   = useState<number[]>(Array(8).fill(0));
   const [playMode, setPlayMode]     = useState<PlayMode>('idle');
@@ -628,6 +668,39 @@ export default function Chapter2() {
   const [uploadError, setUploadError]       = useState('');
   const fileInputRef  = useRef<HTMLInputElement>(null);
   const uploadIdSeqRef = useRef(0);
+
+  // ── Faust engine state — loads bandFilter.dsp's wasm module + metadata once,
+  // independent of any AudioContext (compiling a WebAssembly.Module doesn't
+  // need one); actual node instances get created per-play in playAudio(). ──
+  const [engineStatus, setEngineStatus] = useState<EngineStatus>('idle');
+  const [engineError, setEngineError]   = useState<string | null>(null);
+  const [playError, setPlayError]       = useState('');
+  const dspMetaRef    = useRef<FaustDspMeta | null>(null);
+  const dspModuleRef  = useRef<WebAssembly.Module | null>(null);
+  const generatorRef  = useRef<FaustMonoDspGenerator | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setEngineStatus('loading');
+    setEngineError(null);
+    (async () => {
+      try {
+        const meta: FaustDspMeta = await (await fetch(`${FAUST_BASE_PATH}/dsp-meta.json`)).json();
+        const mod = await WebAssembly.compileStreaming(fetch(`${FAUST_BASE_PATH}/dsp-module.wasm`));
+        if (cancelled) return;
+        dspMetaRef.current   = meta;
+        dspModuleRef.current = mod;
+        generatorRef.current = new FaustMonoDspGenerator();
+        setEngineStatus('ready');
+      } catch (err) {
+        if (cancelled) return;
+        console.error('[Chapter2a] failed to load Faust bandFilter DSP', err);
+        setEngineError(err instanceof Error ? err.message : String(err));
+        setEngineStatus('error');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const activeUpload = usingUpload ? uploadedTracks.find(t => t.id === activeUploadId) : undefined;
 
@@ -648,7 +721,7 @@ export default function Chapter2() {
   const canvasRef          = useRef<HTMLCanvasElement>(null);
   const audioCtxRef        = useRef<AudioContext | null>(null);
   const sourceRef          = useRef<AudioBufferSourceNode | null>(null);
-  const filtersRef         = useRef<BiquadFilterNode[]>([]);
+  const filtersRef         = useRef<FaustNodeLike[]>([]);
   const musicBufferRef     = useRef<AudioBuffer | null>(null);
   const userGainsRef       = useRef(userGains);
   const instrumentIdxRef   = useRef(instrumentIdx);
@@ -667,7 +740,7 @@ export default function Chapter2() {
   // Live-update filter gains while "Hear Mine" is playing
   useEffect(() => {
     if (playMode !== 'mine') return;
-    filtersRef.current.forEach((f, i) => { f.gain.value = userGains[i]; });
+    filtersRef.current.forEach((node, i) => { node.setParamValue(FAUST_ADDR_GAIN, userGains[i]); });
   }, [userGains, playMode]);
 
   // ── Audio ─────────────────────────────────────────────────────────────────
@@ -677,12 +750,20 @@ export default function Chapter2() {
       sourceRef.current.disconnect();
       sourceRef.current = null;
     }
+    filtersRef.current.forEach(node => { try { node.disconnect(); } catch { /* ok */ } });
+    filtersRef.current = [];
     setPlayMode('idle');
   }, []);
 
   const playAudio = useCallback(async (mode: 'target' | 'mine') => {
     if (playMode === mode) { stopAudio(); return; }
     stopAudio();
+
+    if (engineStatus !== 'ready' || !generatorRef.current || !dspMetaRef.current || !dspModuleRef.current) {
+      setPlayError('Faust bandFilter engine is still loading — try again in a moment.');
+      return;
+    }
+    setPlayError('');
 
     if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
       audioCtxRef.current = new AudioContext();
@@ -697,22 +778,31 @@ export default function Chapter2() {
     }
 
     const targetGains = currentInstrumentRef.current.targetGains;
-    const gains   = mode === 'target' ? targetGains : [...userGainsRef.current];
-    const filters = buildFilters(ctx, gains);
+    const gains = mode === 'target' ? targetGains : [...userGainsRef.current];
+
+    let filters: FaustNodeLike[];
+    try {
+      filters = await buildFaustFilters(generatorRef.current, dspMetaRef.current, dspModuleRef.current, ctx, gains);
+    } catch (err) {
+      console.error('[Chapter2a] failed to build Faust bandFilter chain', err);
+      setPlayError('Could not start the Faust bandFilter engine — see console for details.');
+      return;
+    }
     filtersRef.current = filters;
 
-    // EQ only, in between: nothing but the 8 chained BiquadFilterNodes sits
-    // between the source and the destination — no extra gain/limiter nodes.
-    chainAndConnect(filters, ctx.destination);
+    // Faust nodes only, in between: nothing but the 8 chained bandFilter
+    // instances sits between the source and the destination — no extra
+    // Web Audio gain/limiter nodes.
+    chainFaustFilters(filters, ctx.destination);
 
     const source = ctx.createBufferSource();
     source.buffer = musicBufferRef.current;
     source.loop   = true;
-    source.connect(filters[0]);
+    source.connect(filters[0] as unknown as AudioNode);
     source.start();
     sourceRef.current = source;
     setPlayMode(mode);
-  }, [playMode, stopAudio]);
+  }, [playMode, stopAudio, engineStatus]);
 
   // ── Instrument switching ──────────────────────────────────────────────────
   const handleInstrumentChange = useCallback((idx: number) => {
@@ -798,6 +888,8 @@ export default function Chapter2() {
   // ── Cleanup ───────────────────────────────────────────────────────────────
   useEffect(() => () => {
     try { sourceRef.current?.stop(); } catch { /* ok */ }
+    filtersRef.current.forEach(node => { try { node.disconnect(); } catch { /* ok */ } });
+    filtersRef.current = [];
     audioCtxRef.current?.close();
     audioCtxRef.current   = null;
     musicBufferRef.current = null;
@@ -833,6 +925,15 @@ export default function Chapter2() {
     setHintUsed(true);
   };
 
+  const engineBadge: Record<EngineStatus, { bg: string; border: string; fg: string; text: string }> = {
+    idle:    { bg: 'var(--surface)',        border: 'var(--border)',        fg: 'var(--text-faint)', text: '○ IDLE' },
+    loading: { bg: 'rgba(245,166,35,0.15)', border: 'rgba(245,166,35,0.4)', fg: 'var(--amber)',      text: '◌ LOADING DSP…' },
+    ready:   { bg: 'rgba(45,212,191,0.15)', border: 'rgba(45,212,191,0.4)', fg: 'var(--teal)',       text: '● FAUST WASM' },
+    error:   { bg: 'rgba(239,68,68,0.15)',  border: 'rgba(239,68,68,0.4)',  fg: '#EF4444',           text: '✕ ENGINE ERROR' },
+  };
+  const eb = engineBadge[engineStatus];
+  const engineReady = engineStatus === 'ready';
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="eq-lab">
@@ -845,10 +946,13 @@ export default function Chapter2() {
           </div>
           <div>
             <div className="lab-name">EQ Matching Challenge</div>
-            <div className="lab-subtitle">LAB · CH 02 · EAR TRAINING · {INSTRUMENTS.length} INSTRUMENTS</div>
+            <div className="lab-subtitle">LAB · CH 02a · EAR TRAINING · FAUST WASM · {INSTRUMENTS.length} INSTRUMENTS</div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <span className="badge" style={{ background: eb.bg, borderColor: eb.border, color: eb.fg, fontFamily: 'var(--mono)', fontSize: '0.55rem', letterSpacing: '0.06em' }}>
+            {eb.text}
+          </span>
           {submitted && (
             <span className="badge" style={{
               background: score >= 90 ? 'var(--green-dim)' : 'var(--amber-dim)',
@@ -873,6 +977,15 @@ export default function Chapter2() {
           </div>
         </div>
       </div>
+
+      {engineStatus === 'error' && (
+        <div className="concept-callout" style={{ background: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.3)', margin: '1rem 1.25rem 0' }}>
+          <strong style={{ color: '#EF4444' }}>Failed to load Faust bandFilter DSP:</strong> {engineError}
+          <br />
+          Check that <code>dsp-module.wasm</code> and <code>dsp-meta.json</code> are present at{' '}
+          <code>public/faust/bandFilter/</code>.
+        </div>
+      )}
 
       {/* Instrument selector */}
       <div className="eq-tabrow" style={{
@@ -1142,11 +1255,13 @@ export default function Chapter2() {
       {/* Footer */}
       <div className="lab-footer">
         <div className="hint-text">
-          {submitted
-            ? (score >= 90
-                ? <span style={{ color: 'var(--green)' }}>✓ Excellent ear! Orange markers show target positions.</span>
-                : 'Orange markers on faders show the target positions. Retry to improve.')
-            : <>Press <strong style={{ color: 'var(--amber)', margin: '0 0.25rem' }}>Hear Target</strong> then <strong style={{ color: 'var(--blue)', margin: '0 0.25rem' }}>Hear Mine</strong> — dial in until they match.</>
+          {playError
+            ? <span style={{ color: '#EF4444' }}>{playError}</span>
+            : submitted
+              ? (score >= 90
+                  ? <span style={{ color: 'var(--green)' }}>✓ Excellent ear! Orange markers show target positions.</span>
+                  : 'Orange markers on faders show the target positions. Retry to improve.')
+              : <>Press <strong style={{ color: 'var(--amber)', margin: '0 0.25rem' }}>Hear Target</strong> then <strong style={{ color: 'var(--blue)', margin: '0 0.25rem' }}>Hear Mine</strong> — dial in until they match.</>
           }
         </div>
         <div className="btn-row">
@@ -1154,6 +1269,8 @@ export default function Chapter2() {
           <button
             className="btn-secondary"
             onClick={() => playAudio('target')}
+            disabled={!engineReady}
+            title={engineReady ? '' : 'Loading Faust bandFilter engine…'}
             style={playMode === 'target' ? { borderColor: 'var(--amber)', color: 'var(--amber)' } : {}}
           >
             {playMode === 'target' ? '⏸ Target' : '▶ Hear Target'}
@@ -1161,6 +1278,8 @@ export default function Chapter2() {
           <button
             className="btn-secondary"
             onClick={() => playAudio('mine')}
+            disabled={!engineReady}
+            title={engineReady ? '' : 'Loading Faust bandFilter engine…'}
             style={playMode === 'mine' ? { borderColor: 'var(--blue)', color: 'var(--blue)' } : {}}
           >
             {playMode === 'mine' ? '⏸ Mine' : '▶ Hear Mine'}

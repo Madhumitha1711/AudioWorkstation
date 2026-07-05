@@ -1,5 +1,6 @@
 import Chapter1 from './chapters/Chapter1';
 import Chapter2 from './chapters/Chapter2';
+import Chapter2a from './chapters/Chapter2a';
 import Chapter3 from './chapters/Chapter3';
 import Chapter4 from './chapters/Chapter4';
 import Chapter5 from './chapters/Chapter5';
@@ -37,6 +38,20 @@ export default function App() {
 
       <div className="screen">
         <Chapter2 />
+      </div>
+
+      {/* ── Chapter 2a ── */}
+      <div className="chapter-divider">
+        <h2 className="chapter-title">Match the Frequency Curve — with Faust</h2>
+        <p className="chapter-desc">
+          Same ear-training challenge, but every EQ band is now a real instance of a Faust DSP
+          patch (bandFilter.dsp) compiled to WebAssembly, instead of a Web Audio BiquadFilterNode.
+        </p>
+        <hr className="lab-separator" />
+      </div>
+
+      <div className="screen">
+        <Chapter2a />
       </div>
 
       {/* ── Chapter 3 ── */}
