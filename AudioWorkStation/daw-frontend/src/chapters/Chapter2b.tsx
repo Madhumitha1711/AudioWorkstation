@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { FaustMonoDspGenerator } from '@grame/faustwasm';
-import type { FaustDspMeta, FaustNodeLike } from '../faust/faustTypes';
+import { compileFaustWasm, type FaustDspMeta, type FaustNodeLike } from '../faust/faustTypes';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Chapter 2b — ParamEQ (Logic-style parametric EQ, Faust WASM)
@@ -983,7 +983,7 @@ export default function Chapter2b() {
     (async () => {
       try {
         const meta: FaustDspMeta = await (await fetch(`${FAUST_BASE_PATH}/dsp-meta.json`)).json();
-        const mod = await WebAssembly.compileStreaming(fetch(`${FAUST_BASE_PATH}/dsp-module.wasm`));
+        const mod = await compileFaustWasm(`${FAUST_BASE_PATH}/dsp-module.wasm`);
         if (cancelled) return;
         dspMetaRef.current = meta;
         dspModuleRef.current = mod;
@@ -1526,9 +1526,8 @@ export default function Chapter2b() {
                   <div style={{ color: 'var(--amber)', fontWeight: 600, marginBottom: '0.4rem', fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.08em' }}>
                     🎧 HOW TO PLAY
                   </div>
-                  1. Press <strong style={{ color: 'var(--amber)' }}>Hear Target</strong> to learn the goal sound.<br />
-                  2. Press <strong style={{ color: 'var(--blue)' }}>Hear Mine</strong> and drag nodes to match it.<br />
-                  3. Submit when you're confident — score is based on how close your overall curve is, not exact node positions.
+                  1. Press <strong style={{ color: 'var(--amber)' }}>Hear Target / Mine</strong> to learn the goal sound, then tap it again to switch and drag nodes to match it.<br />
+                  2. Submit when you're confident — score is based on how close your overall curve is, not exact node positions.
                 </div>
               )}
 
@@ -1590,27 +1589,31 @@ export default function Chapter2b() {
                   ? (score >= 90
                       ? <span style={{ color: 'var(--green)' }}>✓ Excellent ear! Orange curve shows the target.</span>
                       : 'Orange curve shows the target shape. Retry to improve.')
-                  : <>Press <strong style={{ color: 'var(--amber)', margin: '0 0.25rem' }}>Hear Target</strong> then <strong style={{ color: 'var(--blue)', margin: '0 0.25rem' }}>Hear Mine</strong> — drag until they match.</>}
+                  : <>Press <strong style={{ color: 'var(--amber)', margin: '0 0.25rem' }}>Hear Target / Mine</strong> — tap again to switch and drag until they match.</>}
             </div>
             <div className="btn-row">
               <button className="btn-secondary" onClick={handleEarReset}>Reset</button>
               <button
                 className="btn-secondary"
-                onClick={() => play('target')}
+                onClick={() => play(playSource === 'target' ? 'mine' : 'target')}
                 disabled={!engineReady}
                 title={engineReady ? '' : 'Loading Faust ParamEQ engine…'}
-                style={playSource === 'target' ? { borderColor: 'var(--amber)', color: 'var(--amber)' } : {}}
+                style={
+                  playSource === 'target' ? { borderColor: 'var(--amber)', color: 'var(--amber)' }
+                  : playSource === 'mine' ? { borderColor: 'var(--blue)', color: 'var(--blue)' }
+                  : {}
+                }
               >
-                {playSource === 'target' ? '⏸ Target' : '▶ Hear Target'}
+                {playSource === 'target' ? '⏸ Target · Tap for Mine'
+                  : playSource === 'mine' ? '⏸ Mine · Tap for Target'
+                  : '▶ Hear Target / Mine'}
               </button>
               <button
                 className="btn-secondary"
-                onClick={() => play('mine')}
-                disabled={!engineReady}
-                title={engineReady ? '' : 'Loading Faust ParamEQ engine…'}
-                style={playSource === 'mine' ? { borderColor: 'var(--blue)', color: 'var(--blue)' } : {}}
+                onClick={stopAudio}
+                disabled={playSource === 'idle'}
               >
-                {playSource === 'mine' ? '⏸ Mine' : '▶ Hear Mine'}
+                ■ Stop
               </button>
               <button
                 className="btn-secondary"

@@ -10,24 +10,12 @@ interface CompParams {
   makeup:    number;   // dB   0 → 24
 }
 
-interface ChallengeParams { threshold: number; ratio: number; knee: number; }
-
-// An uploaded audio track that can be used as the signal source in either
-// the Compressor Studio (free play / learning) or the Challenge (guess the
-// applied compression) — both sections share the same audio engine.
+// An uploaded audio track that can be used as the signal source in the
+// Compressor Studio (free play / learning).
 interface UploadedTrack { id: number; name: string; buffer: AudioBuffer; }
 
 interface KnobSpec {
   key:   keyof CompParams;
-  label: string;
-  min:   number;
-  max:   number;
-  step:  number;
-  fmt:   (v: number) => string;
-}
-
-interface ChallengeKnobSpec {
-  key:   keyof ChallengeParams;
   label: string;
   min:   number;
   max:   number;
@@ -44,12 +32,6 @@ const KNOBS: KnobSpec[] = [
   { key: 'makeup',    label: 'MAKEUP GAIN', min: 0,    max: 24,   step: 0.1,  fmt: v => `+${v.toFixed(1)} dB` },
 ];
 
-const CHALLENGE_KNOBS: ChallengeKnobSpec[] = [
-  { key: 'threshold', label: 'THRESHOLD', min: -60, max: 0,  step: 0.5, fmt: v => `${v.toFixed(0)} dB` },
-  { key: 'ratio',     label: 'RATIO',     min: 1,   max: 20, step: 0.1, fmt: v => `${v.toFixed(1)} : 1` },
-  { key: 'knee',      label: 'KNEE',      min: 0,   max: 40, step: 0.5, fmt: v => v < 5 ? 'HARD' : v < 20 ? 'MED' : 'SOFT' },
-];
-
 const DEFAULTS: CompParams = {
   threshold: -24,
   ratio:      4,
@@ -58,32 +40,6 @@ const DEFAULTS: CompParams = {
   knee:       20,
   makeup:      6,
 };
-
-const CHALLENGE_START: ChallengeParams = { threshold: -20, ratio: 2, knee: 15 };
-
-// ── Challenge presets (hidden from student) ───────────────────────────────────
-interface Preset { name: string; description: string; target: ChallengeParams; tip: string; }
-
-const PRESETS: Preset[] = [
-  {
-    name: 'GENTLE GLUE',
-    description: 'Smooth peaks without squashing energy. Classic mix bus setting.',
-    target: { threshold: -28, ratio: 3, knee: 8 },
-    tip: 'Low ratio + moderate knee = transparent glue. Set threshold deep so it catches most peaks.',
-  },
-  {
-    name: 'PUNCHY DRUMS',
-    description: 'Tight transient control. The kick hits hard but sits in the mix.',
-    target: { threshold: -18, ratio: 8, knee: 2 },
-    tip: 'Higher ratio + hard knee = punchy, controlled attack. Threshold just above the floor.',
-  },
-  {
-    name: 'HARD LIMIT',
-    description: 'Brick wall ceiling. Nothing above threshold makes it through.',
-    target: { threshold: -8, ratio: 20, knee: 0 },
-    tip: 'High ratio + zero knee = limiting. Threshold set where peaks just clip without it.',
-  },
-];
 
 // ── Transfer function math ────────────────────────────────────────────────────
 type ShapeParams = Pick<CompParams, 'threshold' | 'ratio' | 'knee'>;
@@ -97,37 +53,6 @@ function applyCompression(inputDb: number, p: ShapeParams): number {
   if (2 * diff < -knee) return inputDb;
   if (2 * diff > knee)  return threshold + diff / ratio;
   return inputDb + ((1 / ratio - 1) * (diff + halfKnee) ** 2) / (2 * knee);
-}
-
-// Score: compare transfer curves at 61 sample points, RMS diff → 0-100
-function calcScore(target: ChallengeParams, user: ChallengeParams): number {
-  let sumSq = 0;
-  const N = 60;
-  for (let i = 0; i <= N; i++) {
-    const db = -60 + i;
-    const t  = applyCompression(db, target);
-    const u  = applyCompression(db, user);
-    sumSq   += (t - u) ** 2;
-  }
-  const rms = Math.sqrt(sumSq / (N + 1));
-  return Math.max(0, Math.min(100, Math.round(100 * (1 - rms / 10))));
-}
-
-// Per-param closeness (0–100) for the accuracy bars
-function paramAccuracy(
-  key: keyof ChallengeParams,
-  target: ChallengeParams,
-  user: ChallengeParams,
-): { pct: number; diff: string } {
-  const ranges: Record<keyof ChallengeParams, number> = { threshold: 60, ratio: 19, knee: 40 };
-  const err  = Math.abs(target[key] - user[key]);
-  const pct  = Math.max(0, Math.min(100, Math.round(100 * (1 - err / (ranges[key] * 0.5)))));
-  const diff = target[key] - user[key];
-  const sign = diff > 0 ? '+' : '';
-  const label = key === 'ratio'
-    ? `${sign}${diff.toFixed(1)}`
-    : `${sign}${diff.toFixed(1)} dB`;
-  return { pct, diff: label };
 }
 
 // ── HiDPI canvas helper ───────────────────────────────────────────────────────
@@ -226,79 +151,6 @@ function drawTransfer(canvas: HTMLCanvasElement, params: CompParams) {
   ctx.fillText('↑ OUT (dB)', 0, 0); ctx.restore();
 }
 
-// ── Canvas: challenge transfer ─────────────────────────────────────────────────
-// showTarget=false (during challenge): only user curve, "MATCH BY EAR" hint
-// showTarget=true  (after submit):     both curves revealed
-function drawChallenge(
-  canvas: HTMLCanvasElement,
-  target: ChallengeParams,
-  user:   ChallengeParams,
-  showTarget: boolean,
-) {
-  const hd = hiDpi(canvas); if (!hd) return;
-  const { ctx, W, H } = hd;
-  const DB_MIN = -60, DB_MAX = 0;
-  const toX = (db: number) => ((db - DB_MIN) / (DB_MAX - DB_MIN)) * W;
-  const toY = (db: number) => H - ((db - DB_MIN) / (DB_MAX - DB_MIN)) * H;
-
-  // Background + grid
-  ctx.fillStyle = '#0D0D0F'; ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1;
-  for (let db = DB_MIN; db <= DB_MAX; db += 10) {
-    ctx.beginPath(); ctx.moveTo(toX(db), 0); ctx.lineTo(toX(db), H); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, toY(db)); ctx.lineTo(W, toY(db)); ctx.stroke();
-  }
-
-  // Unity line
-  ctx.strokeStyle = '#2E2E3D'; ctx.setLineDash([4, 3]);
-  ctx.beginPath(); ctx.moveTo(toX(DB_MIN), toY(DB_MIN)); ctx.lineTo(toX(DB_MAX), toY(DB_MAX)); ctx.stroke();
-  ctx.setLineDash([]);
-
-  // dB axis labels
-  ctx.fillStyle = '#6A6A7A'; ctx.font = '10px "JetBrains Mono", monospace';
-  for (let db = -60; db <= 0; db += 10) {
-    ctx.fillText(`${db}`, toX(db) + 2, H - 4);
-  }
-
-  const drawCurve = (p: ShapeParams, strokeColor: string, fillColor: string, lineW: number, dash: number[]) => {
-    ctx.setLineDash(dash);
-    ctx.fillStyle = fillColor;
-    ctx.beginPath(); let first = true;
-    for (let db = DB_MIN; db <= DB_MAX; db += 0.5) {
-      const x = toX(db), y = toY(applyCompression(db, p));
-      first ? (ctx.moveTo(x, H), ctx.lineTo(x, y), (first = false)) : ctx.lineTo(x, y);
-    }
-    ctx.lineTo(toX(DB_MAX), H); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = strokeColor; ctx.lineWidth = lineW;
-    ctx.beginPath(); first = true;
-    for (let db = DB_MIN; db <= DB_MAX; db += 0.5) {
-      const x = toX(db), y = toY(applyCompression(db, p));
-      first ? (ctx.moveTo(x, y), (first = false)) : ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-    ctx.setLineDash([]);
-  };
-
-  // Target — only revealed after submit
-  if (showTarget) {
-    drawCurve(target, '#F5A623', 'rgba(245,166,35,0.07)', 2, [6, 4]);
-  } else {
-    // "Match by ear" hint watermark
-    ctx.fillStyle = 'rgba(245,166,35,0.65)';
-    ctx.font = '10px "JetBrains Mono", monospace';
-    ctx.fillText('TARGET HIDDEN — USE HEAR TARGET TO LISTEN & MATCH', W / 2 - 196, 18);
-  }
-
-  // User curve (always visible)
-  drawCurve(user, '#A78BFA', 'rgba(167,139,250,0.08)', 2.5, []);
-
-  // Axis labels
-  ctx.fillStyle = '#8A8A9A'; ctx.font = '10px "JetBrains Mono", monospace';
-  ctx.fillText('INPUT →', W - 54, H - 5);
-  ctx.save(); ctx.translate(11, H * 0.38); ctx.rotate(-Math.PI / 2);
-  ctx.fillText('↑ OUT', 0, 0); ctx.restore();
-}
-
 // ── Canvas: waveform ──────────────────────────────────────────────────────────
 function drawWaveform(canvas: HTMLCanvasElement, data: Float32Array, color: string) {
   const hd = hiDpi(canvas); if (!hd) return;
@@ -328,67 +180,6 @@ function describeArc(r: number, start: number, end: number) {
   const e = polarToCartesian(r, end);
   const large = end - start > 180 ? 1 : 0;
   return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
-}
-
-function Knob({
-  spec, value, arcColor, onChange,
-}: {
-  spec: { label: string; min: number; max: number; step: number; fmt: (v: number) => string };
-  value: number;
-  arcColor: string;
-  onChange: (delta: number) => void;
-}) {
-  const rot       = knobRotation(value, spec.min, spec.max);
-  const dragState = useRef<{ startY: number; startVal: number } | null>(null);
-
-  const onDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    dragState.current = { startY: e.clientY, startVal: value };
-  }, [value]);
-
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      const d = dragState.current; if (!d) return;
-      const sens  = (spec.max - spec.min) / 220;
-      const raw   = d.startVal + (d.startY - e.clientY) * sens;
-      const snapped = Math.round(raw / spec.step) * spec.step;
-      const clamped = Math.min(spec.max, Math.max(spec.min, snapped));
-      onChange(clamped);
-    };
-    const onUp = () => { dragState.current = null; };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup',   onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup',   onUp);
-    };
-  }, [spec, onChange]);
-
-  return (
-    <div className="knob-wrap">
-      <div style={{ position: 'relative', width: 64, height: 64 }}>
-        <svg style={{ position: 'absolute', top: 0, left: 0 }} width={64} height={64} viewBox="-32 -32 64 64">
-          <path d={describeArc(28, -140, 140)} fill="none" stroke="#2E2E3D" strokeWidth={3} strokeLinecap="round" />
-          <path d={describeArc(28, -140, rot)} fill="none" stroke={arcColor} strokeWidth={3} strokeLinecap="round" opacity={0.85} />
-        </svg>
-        <div
-          className="big-knob"
-          style={{ position: 'absolute', top: 6, left: 6, width: 52, height: 52, cursor: 'ns-resize', userSelect: 'none' }}
-          onMouseDown={onDown}
-        >
-          <div style={{
-            position: 'absolute', top: '50%', left: '50%',
-            width: 3, height: 16, background: '#E8E8EC', borderRadius: 2,
-            transformOrigin: 'bottom center',
-            transform: `translate(-50%, -100%) rotate(${rot}deg)`,
-            marginTop: -2,
-          }} />
-        </div>
-      </div>
-      <div className="knob-name">{spec.label}</div>
-      <div className="knob-val" style={{ color: arcColor }}>{spec.fmt(value)}</div>
-    </div>
-  );
 }
 
 // ── Drum synthesiser ──────────────────────────────────────────────────────────
@@ -504,16 +295,8 @@ export default function Chapter4() {
   const [wetDry,        setWetDry] = useState(1);   // 0 = dry, 1 = wet
   const [tasks, setTasks]         = useState([false, false, false, false]);
 
-  // Challenge state
-  const [presetIdx,      setPresetIdx]      = useState(0);
-  const [challengeParams, setChallengeParams] = useState<ChallengeParams>(CHALLENGE_START);
-  const [submitted,      setSubmitted]      = useState(false);
-  const [hearingMode,    setHearingMode]    = useState<'none' | 'target' | 'mine'>('none');
-  const hearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   // Signal source — the built-in synth drum loop, or one of any number of
-  // uploaded tracks. Shared by both the Studio and the Challenge below,
-  // since they run through the same audio engine / compressor node.
+  // uploaded tracks.
   const [uploadedTracks, setUploadedTracks] = useState<UploadedTrack[]>([]);
   const [activeSourceId, setActiveSourceId] = useState<number | 'synth'>('synth');
   const [decoding,       setDecoding]       = useState(false);
@@ -528,13 +311,8 @@ export default function Chapter4() {
 
   const activeTrack = activeSourceId !== 'synth' ? uploadedTracks.find(t => t.id === activeSourceId) : undefined;
 
-  const preset = PRESETS[presetIdx];
-  const score  = calcScore(preset.target, challengeParams);
-  const passed = score >= 88;
-
   // Canvas refs
   const transferRef  = useRef<HTMLCanvasElement>(null);
-  const challengeRef = useRef<HTMLCanvasElement>(null);
   const dryRef       = useRef<HTMLCanvasElement>(null);
   const wetRef       = useRef<HTMLCanvasElement>(null);
 
@@ -569,18 +347,6 @@ export default function Chapter4() {
       drawTransfer(transferRef.current, displayParams);
     }
   }, [params, bypass]);
-
-  // ── Challenge canvas ──────────────────────────────────────────────────────
-  useEffect(() => {
-    if (challengeRef.current) drawChallenge(challengeRef.current, preset.target, challengeParams, submitted);
-  }, [preset, challengeParams, submitted]);
-
-  // Reset challenge when preset changes
-  useEffect(() => {
-    setChallengeParams(CHALLENGE_START);
-    setSubmitted(false);
-    setHearingMode('none');
-  }, [presetIdx]);
 
   // ── Sync compressor params + bypass (single effect, no conflicts) ────────
   useEffect(() => {
@@ -703,58 +469,8 @@ export default function Chapter4() {
     setIsPlaying(true);
   }, [params, runScheduler, animate]);
 
-  // ── Hearing mode: persistent A/B toggle ───────────────────────────────────
-  // Click a mode button to lock into it; click the same button again to release.
-  // Target mode compensates makeup gain for GR so volume is level-matched —
-  // the student hears compression CHARACTER, not just "quieter".
-  const handleHear = useCallback((mode: 'target' | 'mine') => {
-    if (!ctxRef.current) startAudio();
-    const comp   = compRef.current;
-    const ctx    = ctxRef.current;
-    if (!comp || !ctx) return;
-
-    if (hearTimerRef.current) clearTimeout(hearTimerRef.current);
-    const t = ctx.currentTime;
-
-    // Toggle off: same button clicked again → restore main lab params
-    if (hearingMode === mode) {
-      comp.threshold.setTargetAtTime(params.threshold, t, 0.01);
-      comp.ratio.setTargetAtTime(params.ratio,     t, 0.01);
-      comp.knee.setTargetAtTime(params.knee,       t, 0.01);
-      if (makeupRef.current)
-        makeupRef.current.gain.setTargetAtTime(10 ** (params.makeup / 20), t, 0.01);
-      setHearingMode('none');
-      return;
-    }
-
-    // Switch to requested mode
-    const p = mode === 'target' ? preset.target : challengeParams;
-    comp.threshold.setTargetAtTime(p.threshold, t, 0.01);
-    comp.ratio.setTargetAtTime(p.ratio,     t, 0.01);
-    comp.knee.setTargetAtTime(p.knee,       t, 0.01);
-
-    // Mine = no extra compensation (challengeParams usually has low/no compression)
-    if (makeupRef.current)
-      makeupRef.current.gain.setTargetAtTime(10 ** (params.makeup / 20), t, 0.01);
-
-    setHearingMode(mode);
-
-    // Target mode: after 250 ms let compression settle, then read actual GR
-    // and compensate makeup gain so loudness matches Mine. Student hears
-    // texture/dynamics difference, not just "it got quieter".
-    if (mode === 'target') {
-      hearTimerRef.current = setTimeout(() => {
-        if (!compRef.current || !ctxRef.current || !makeupRef.current) return;
-        const gr = compRef.current.reduction; // e.g. -8 dB
-        const compensated = 10 ** ((params.makeup - gr) / 20);
-        makeupRef.current.gain.setTargetAtTime(compensated, ctxRef.current.currentTime, 0.05);
-      }, 250);
-    }
-  }, [hearingMode, preset.target, challengeParams, params, startAudio]);
-
   const stopAudio = useCallback(() => {
     if (schedulerRef.current) clearTimeout(schedulerRef.current);
-    if (hearTimerRef.current)  clearTimeout(hearTimerRef.current);
     cancelAnimationFrame(animRef.current);
     if (bufSourceRef.current) {
       try { bufSourceRef.current.stop(); } catch { /* ok */ }
@@ -766,7 +482,7 @@ export default function Chapter4() {
     dryAnalRef.current = null; wetAnalRef.current = null; mixRef.current = null;
     sidechainGainRef.current = null;
     dryBlendRef.current = null; wetBlendRef.current = null; outputRef.current = null;
-    setGR(0); setIsPlaying(false); setHearingMode('none');
+    setGR(0); setIsPlaying(false);
     [dryRef, wetRef].forEach(r => {
       if (!r.current) return;
       const c = r.current.getContext('2d')!;
@@ -776,7 +492,6 @@ export default function Chapter4() {
 
   useEffect(() => () => {
     if (schedulerRef.current) clearTimeout(schedulerRef.current);
-    if (hearTimerRef.current)  clearTimeout(hearTimerRef.current);
     cancelAnimationFrame(animRef.current);
     if (bufSourceRef.current) {
       try { bufSourceRef.current.stop(); } catch { /* ok */ }
@@ -861,9 +576,7 @@ export default function Chapter4() {
   const grPct = Math.min(100, (grAbs / 20) * 100);
   const TASK_LABELS = ['Set threshold', 'Set ratio to 4:1', 'Adjust attack / release', 'Apply makeup gain'];
 
-  // Signal-source tab row — shared state, rendered in both the Studio and
-  // the Challenge so the source can be switched (or a new one uploaded)
-  // from either section.
+  // Signal-source tab row — lets the source be switched (or a new one uploaded).
   const renderSourceRow = () => (
     <div className="eq-tabrow" style={{
       display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center',
@@ -945,8 +658,6 @@ export default function Chapter4() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <>
-    {/* ══ MAIN LAB ══ */}
     <div className="comp-lab">
       {/* Top bar */}
       <div className="lab-topbar">
@@ -1133,228 +844,5 @@ export default function Chapter4() {
         </div>
       </div>
     </div>
-
-    {/* ══ CHALLENGE PANEL ══ */}
-    <div className="comp-lab" style={{ marginTop: '1.5rem' }}>
-      {/* Top bar */}
-      <div className="lab-topbar">
-        <div className="lab-title-row">
-          <div className="lab-icon" style={{ background: 'var(--amber-dim)', border: '1px solid var(--amber-glow)' }}>★</div>
-          <div>
-            <div className="lab-name">Transfer Curve Challenge</div>
-            <div className="lab-subtitle">LAB · CH 04 · MATCH THE TARGET COMPRESSION SHAPE</div>
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {/* Preset selector — tuned around the drum loop's transients, so
-              disabled while an uploaded track is the active signal source. */}
-          <div style={{ display: 'flex', gap: '0.35rem' }}>
-            {PRESETS.map((p, i) => (
-              <button
-                key={i}
-                className={`toggle-btn${presetIdx === i ? ' on' : ''}`}
-                style={
-                  activeSourceId !== 'synth'
-                    ? { opacity: 0.4, cursor: 'not-allowed' }
-                    : presetIdx === i ? { borderColor: 'var(--amber)', color: 'var(--amber)', background: 'var(--amber-dim)' } : {}
-                }
-                onClick={() => setPresetIdx(i)}
-                disabled={activeSourceId !== 'synth'}
-                title={activeSourceId !== 'synth' ? 'These presets are tuned for the drum loop and have little effect on uploaded audio' : undefined}
-              >
-                {p.name}
-              </button>
-            ))}
-          </div>
-          {submitted && (
-            <div className="lab-status" style={{ color: passed ? 'var(--green)' : 'var(--amber)' }}>
-              <div className="status-dot" style={{
-                background: passed ? 'var(--green)' : 'var(--amber)',
-                boxShadow: passed ? '0 0 6px var(--green)' : '0 0 6px var(--amber)',
-              }} />
-              SCORE: {score}%
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Signal source selector — same tracks/state as the Studio above */}
-      <div style={{ padding: '0 1.25rem', borderBottom: '1px solid var(--border)' }}>
-        {renderSourceRow()}
-      </div>
-
-      {/* Body */}
-      <div className="comp-body">
-        {/* Left: challenge canvas + 3 knobs */}
-        <div className="comp-controls">
-          {/* Legend */}
-          <div style={{ display: 'flex', gap: '1.25rem', marginBottom: '0.75rem' }}>
-            {submitted && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'var(--mono)', fontSize: '0.6rem', color: 'var(--text-dim)' }}>
-                <div style={{ width: 24, height: 2, background: 'var(--amber)', borderRadius: 1 }} />
-                TARGET CURVE
-              </div>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'var(--mono)', fontSize: '0.6rem', color: 'var(--text-dim)' }}>
-              <div style={{ width: 24, height: 2, background: 'var(--purple)', borderRadius: 1 }} />
-              YOUR CURVE
-            </div>
-          </div>
-
-          {/* Challenge canvas */}
-          <div className="transfer-graph" style={{ height: 220, marginBottom: '1.25rem' }}>
-            <canvas ref={challengeRef} width={400} height={220}
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
-          </div>
-
-          {/* Challenge description */}
-          <div className="canvas-label" style={{ marginBottom: '0.5rem' }}>DIAL IN THRESHOLD · RATIO · KNEE</div>
-          <div className="knob-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-            {CHALLENGE_KNOBS.map(spec => (
-              <Knob
-                key={spec.key}
-                spec={spec}
-                value={challengeParams[spec.key]}
-                arcColor="var(--amber)"
-                onChange={val => setChallengeParams(p => ({ ...p, [spec.key]: val }))}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Right: score + accuracy bars + tip */}
-        <div className="comp-visual" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* Score ring — hidden until submit */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', paddingTop: '0.5rem' }}>
-            {submitted ? (
-              <>
-                <svg width={100} height={100} viewBox="-50 -50 100 100">
-                  <circle cx={0} cy={0} r={42} fill="none" stroke="var(--surface)" strokeWidth={7} />
-                  <path
-                    d={describeArc(42, -140, -140 + 280 * (score / 100))}
-                    fill="none"
-                    stroke={passed ? 'var(--green)' : score > 60 ? 'var(--amber)' : 'var(--purple)'}
-                    strokeWidth={7}
-                    strokeLinecap="round"
-                  />
-                  <text x={0} y={6} textAnchor="middle" fontFamily="var(--display)" fontWeight={700} fontSize={22}
-                    fill={passed ? 'var(--green)' : score > 60 ? 'var(--amber)' : 'var(--purple)'}>
-                    {score}
-                  </text>
-                  <text x={0} y={20} textAnchor="middle" fontFamily="var(--mono)" fontSize={7} fill="var(--text-faint)" letterSpacing={1}>
-                    SCORE
-                  </text>
-                </svg>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: '0.6rem', color: passed ? 'var(--green)' : 'var(--text-dim)', letterSpacing: '0.08em' }}>
-                  {passed ? '✓ CURVE MATCHED' : score > 60 ? 'GETTING CLOSE' : 'KEEP DIALING'}
-                </div>
-              </>
-            ) : (
-              <>
-                <svg width={100} height={100} viewBox="-50 -50 100 100">
-                  <circle cx={0} cy={0} r={42} fill="none" stroke="var(--surface)" strokeWidth={7} />
-                  <text x={0} y={5} textAnchor="middle" fontFamily="var(--mono)" fontSize={11} fill="var(--text-faint)" letterSpacing={1}>SUBMIT</text>
-                  <text x={0} y={18} textAnchor="middle" fontFamily="var(--mono)" fontSize={9} fill="var(--text-faint)" letterSpacing={1}>TO SEE</text>
-                </svg>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: '0.6rem', color: 'var(--text-faint)', letterSpacing: '0.08em' }}>
-                  SCORE HIDDEN
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Per-param accuracy bars — hidden until submit */}
-          <div>
-            <div className="canvas-label" style={{ marginBottom: '0.75rem' }}>PARAMETER ACCURACY</div>
-            {submitted ? (
-              CHALLENGE_KNOBS.map(spec => {
-                const { pct, diff } = paramAccuracy(spec.key, preset.target, challengeParams);
-                const barColor = pct > 85 ? 'var(--green)' : pct > 55 ? 'var(--amber)' : 'var(--red)';
-                return (
-                  <div key={spec.key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: '0.6rem', color: 'var(--text-dim)', width: 64 }}>{spec.label}</div>
-                    <div style={{ flex: 1, height: 4, background: 'var(--surface)', borderRadius: 2 }}>
-                      <div style={{ width: `${pct}%`, height: '100%', background: barColor, borderRadius: 2, transition: 'width 0.15s, background 0.15s' }} />
-                    </div>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: '0.6rem', color: barColor, width: 44, textAlign: 'right' }}>
-                      {pct === 100 ? '✓' : diff}
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              CHALLENGE_KNOBS.map(spec => (
-                <div key={spec.key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: '0.6rem', color: 'var(--text-dim)', width: 64 }}>{spec.label}</div>
-                  <div style={{ flex: 1, height: 4, background: 'var(--surface)', borderRadius: 2 }}>
-                    <div style={{ width: '0%', height: '100%', background: 'var(--surface-2)', borderRadius: 2 }} />
-                  </div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: '0.6rem', color: 'var(--text-faint)', width: 44, textAlign: 'right' }}>—</div>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Tip */}
-          <div className="tip-box" style={{ background: 'rgba(245,166,35,0.07)', borderColor: 'rgba(245,166,35,0.2)', flex: 1 }}>
-            <strong style={{ color: 'var(--amber)' }}>{preset.name}:</strong>{' '}
-            {preset.description}
-            <br /><br />
-            <em style={{ color: 'var(--text-faint)' }}>{preset.tip}</em>
-          </div>
-
-          {/* Hear hint */}
-          <div className="tip-box" style={{ background: 'rgba(77,158,255,0.06)', borderColor: 'rgba(77,158,255,0.18)' }}>
-            <strong style={{ color: 'var(--blue)' }}>Hear Target</strong> locks into target compression — click again to release. <strong style={{ color: 'var(--purple)' }}>Hear Mine</strong> switches to your current knob settings. Toggle back and forth to compare.
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="lab-footer">
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <div style={{ fontFamily: 'var(--mono)', fontSize: '0.65rem', color: 'var(--text-faint)' }}>
-            {submitted
-              ? `Score: ${score}% — target curve revealed above`
-              : 'Use Hear Target & Hear Mine to match by ear, then submit'}
-          </div>
-          {submitted && passed && (
-            <div style={{ fontFamily: 'var(--mono)', fontSize: '0.65rem', color: 'var(--green)', background: 'var(--green-dim)', padding: '0.2rem 0.6rem', borderRadius: 3, border: '1px solid rgba(0,255,135,0.3)' }}>
-              ✓ PASSED
-            </div>
-          )}
-        </div>
-        <div className="btn-row">
-          <button
-            className={`toggle-btn${isPlaying ? ' on' : ''}`}
-            style={isPlaying ? { borderColor: 'var(--green)', color: 'var(--green)', background: 'var(--green-dim)' } : {}}
-            onClick={isPlaying ? stopAudio : startAudio}
-          >
-            {isPlaying ? '⏹ STOP' : '▶ PLAY'}
-          </button>
-          <button
-            className="btn-secondary"
-            style={hearingMode === 'target' ? { borderColor: 'var(--amber)', color: 'var(--amber)', background: 'var(--amber-dim)' } : {}}
-            onClick={() => handleHear('target')}
-          >
-            {hearingMode === 'target' ? '◼ Target (on)' : '▶ Hear Target'}
-          </button>
-          <button
-            className="btn-secondary"
-            style={hearingMode === 'mine' ? { borderColor: 'var(--purple)', color: 'var(--purple)', background: 'var(--purple-dim)' } : {}}
-            onClick={() => handleHear('mine')}
-          >
-            {hearingMode === 'mine' ? '◼ Mine (on)' : '▶ Hear Mine'}
-          </button>
-          <button
-            className="btn-primary"
-            onClick={() => setSubmitted(true)}
-          >
-            {submitted ? 'Score Submitted ✓' : 'Submit Score →'}
-          </button>
-        </div>
-      </div>
-    </div>
-    </>
   );
 }

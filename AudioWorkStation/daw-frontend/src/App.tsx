@@ -1,10 +1,6 @@
-import Chapter1 from './chapters/Chapter1';
-import Chapter2 from './chapters/Chapter2';
-import Chapter2a from './chapters/Chapter2a';
 import Chapter2b from './chapters/Chapter2b';
 import Chapter3 from './chapters/Chapter3';
 import Chapter4 from './chapters/Chapter4';
-import Chapter5 from './chapters/Chapter5';
 import Chapter6 from './chapters/Chapter6';
 import Chapter7 from './chapters/Chapter7';
 import './App.css';
@@ -12,49 +8,6 @@ import './App.css';
 export default function App() {
   return (
     <div className="soundcraft-app">
-      {/* ── Chapter 1 ── */}
-      <div className="chapter-divider">
-        <h2 className="chapter-title">Anatomy of a Sound Wave</h2>
-        <p className="chapter-desc">
-          You've learned how waves carry energy through air. Now build one from
-          scratch — observe how frequency, amplitude, and shape transform sound in
-          real time.
-        </p>
-        <hr className="lab-separator" />
-      </div>
-
-      <div className="screen">
-        <Chapter1 />
-      </div>
-
-      {/* ── Chapter 2 ── */}
-      <div className="chapter-divider">
-        <h2 className="chapter-title">Match the Frequency Curve</h2>
-        <p className="chapter-desc">
-          An EQ shapes the tonal balance of a sound. Adjust each frequency band to
-          match the reference curve — your score updates live as you dial in.
-        </p>
-        <hr className="lab-separator" />
-      </div>
-
-      <div className="screen">
-        <Chapter2 />
-      </div>
-
-      {/* ── Chapter 2a ── */}
-      <div className="chapter-divider">
-        <h2 className="chapter-title">Match the Frequency Curve — with Faust</h2>
-        <p className="chapter-desc">
-          Same ear-training challenge, but every EQ band is now a real instance of a Faust DSP
-          patch (bandFilter.dsp) compiled to WebAssembly, instead of a Web Audio BiquadFilterNode.
-        </p>
-        <hr className="lab-separator" />
-      </div>
-
-      <div className="screen">
-        <Chapter2a />
-      </div>
-
       {/* ── Chapter 2b ── */}
       <div className="chapter-divider">
         <h2 className="chapter-title">ParamEQ — Full Parametric Curve</h2>
@@ -97,20 +50,6 @@ export default function App() {
 
       <div className="screen">
         <Chapter4 />
-      </div>
-
-      {/* ── Chapter 5 ── */}
-      <div className="chapter-divider">
-        <h2 className="chapter-title">Place Sounds in 3D Space</h2>
-        <p className="chapter-desc">
-          Drag sound sources around the stage. Adjust azimuth, elevation, distance, and
-          reverb to create a believable sense of three-dimensional acoustic space.
-        </p>
-        <hr className="lab-separator" />
-      </div>
-
-      <div className="screen">
-        <Chapter5 />
       </div>
 
       {/* ── Chapter 6 ── */}

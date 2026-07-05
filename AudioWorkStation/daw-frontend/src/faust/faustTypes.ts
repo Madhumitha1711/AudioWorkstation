@@ -60,3 +60,28 @@ export interface FaustNodeLike {
   setParamValue(address: string, value: number): void;
   getParamValue?(address: string): number;
 }
+
+/**
+ * Compile a `dsp-module.wasm` file, preferring the fast streaming path but
+ * falling back to buffered compilation if it fails.
+ *
+ * `WebAssembly.compileStreaming()` requires the HTTP response to be served
+ * with `Content-Type: application/wasm` — Vite's dev server sets this
+ * automatically, but static hosts (e.g. Vercel) don't always guarantee it
+ * for files copied verbatim from `public/`, which throws:
+ *   "Failed to execute 'compile' on 'WebAssembly': Incorrect response MIME
+ *    type. Expected 'application/wasm'."
+ * even though the file itself is fine. `WebAssembly.compile()` on a raw
+ * ArrayBuffer ignores Content-Type entirely, so it works regardless of how
+ * the host serves the file.
+ */
+export async function compileFaustWasm(url: string): Promise<WebAssembly.Module> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
+  try {
+    return await WebAssembly.compileStreaming(res.clone());
+  } catch (err) {
+    console.warn(`[compileFaustWasm] compileStreaming failed for ${url}, falling back to buffered compile`, err);
+    return WebAssembly.compile(await res.arrayBuffer());
+  }
+}

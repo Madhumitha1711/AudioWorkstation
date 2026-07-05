@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { FaustMonoDspGenerator } from '@grame/faustwasm';
-import type { FaustDspMeta, FaustNodeLike } from './faustTypes';
+import { compileFaustWasm, type FaustDspMeta, type FaustNodeLike } from './faustTypes';
 
 export type FaustDspStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -41,7 +41,7 @@ export function useFaustDsp(audioContext: AudioContext | null, basePath: string)
     (async () => {
       try {
         const dspMeta: FaustDspMeta = await (await fetch(`${basePath}/dsp-meta.json`)).json();
-        const dspModule = await WebAssembly.compileStreaming(fetch(`${basePath}/dsp-module.wasm`));
+        const dspModule = await compileFaustWasm(`${basePath}/dsp-module.wasm`);
 
         const generator = new FaustMonoDspGenerator();
         const faustNode = await generator.createNode(
