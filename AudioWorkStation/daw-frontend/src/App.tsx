@@ -23,19 +23,7 @@ export default function App() {
         <Chapter2b />
       </div>
 
-      {/* ── Chapter 3 ── */}
-      <div className="chapter-divider">
-        <h2 className="chapter-title">Balance a Six-Track Session</h2>
-        <p className="chapter-desc">
-          Apply fader, pan, mute, and solo controls on a real multi-track session.
-          Your goal: craft a balanced mix where every element is heard clearly.
-        </p>
-        <hr className="lab-separator" />
-      </div>
 
-      <div className="screen">
-        <Chapter3 />
-      </div>
 
       {/* ── Chapter 4 ── */}
       <div className="chapter-divider">
@@ -50,6 +38,21 @@ export default function App() {
 
       <div className="screen">
         <Chapter4 />
+      </div>
+
+      {/* ── Chapter 7 ── */}
+      <div className="chapter-divider">
+        <h2 className="chapter-title">Add Warmth with Saturation</h2>
+        <p className="chapter-desc">
+          Saturation adds harmonic content by softly clipping a signal, the way analog tape
+          and tube circuits do. Compare clipping curves and see exactly which harmonics each
+          type generates.
+        </p>
+        <hr className="lab-separator" />
+      </div>
+
+      <div className="screen">
+        <Chapter7 />
       </div>
 
       {/* ── Chapter 6 ── */}
@@ -67,19 +70,19 @@ export default function App() {
         <Chapter6 />
       </div>
 
-      {/* ── Chapter 7 ── */}
+
+      {/* ── Chapter 3 ── */}
       <div className="chapter-divider">
-        <h2 className="chapter-title">Add Warmth with Saturation</h2>
+        <h2 className="chapter-title">Balance a Six-Track Session</h2>
         <p className="chapter-desc">
-          Saturation adds harmonic content by softly clipping a signal, the way analog tape
-          and tube circuits do. Compare clipping curves and see exactly which harmonics each
-          type generates.
+          Apply fader, pan, mute, and solo controls on a real multi-track session.
+          Your goal: craft a balanced mix where every element is heard clearly.
         </p>
         <hr className="lab-separator" />
       </div>
 
       <div className="screen">
-        <Chapter7 />
+        <Chapter3 />
       </div>
     </div>
   );

@@ -1,13 +1,15 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
+import { FaustMonoDspGenerator } from '@grame/faustwasm';
+import { compileFaustWasm, type FaustDspMeta, type FaustNodeLike } from '../faust/faustTypes';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface CompParams {
   threshold: number;   // dB  -60 → 0
   ratio:     number;   //       1 → 20
-  attack:    number;   // ms   0.5 → 200
-  release:   number;   // ms   50 → 2000
-  knee:      number;   // dB   0 → 40
-  makeup:    number;   // dB   0 → 24
+  attack:    number;   // ms   1 → 2000  (segmented knob, see TIME_KNOB_* below)
+  release:   number;   // ms   1 → 2000  (segmented knob, see TIME_KNOB_* below)
+  knee:      number;   // dB   0 → 20
+  makeup:    number;   // dB  -20 → +20
 }
 
 // An uploaded audio track that can be used as the signal source in the
@@ -21,15 +23,60 @@ interface KnobSpec {
   max:   number;
   step:  number;
   fmt:   (v: number) => string;
+  /** Non-linear knobs (Attack/Release) override the plain min/max lerp used
+   *  for both the pointer arc and the value ↔ rotation mapping. */
+  toFrac?:   (v: number) => number;
+  fromFrac?: (f: number) => number;
 }
 
+// Attack/Release: a "segmented" knob — the bottom 60% of the knob's travel
+// covers 1–200 ms (where most musical settings live), the remaining 40%
+// covers 200–2000 ms (long releases / slow attacks), instead of one linear
+// sweep that would make the common 1–200 ms zone impossible to dial in
+// precisely.
+const TIME_KNOB_MIN_MS   = 1;
+const TIME_KNOB_BREAK_MS = 200;
+const TIME_KNOB_MAX_MS   = 2000;
+const TIME_KNOB_BREAK_FRAC = 0.6;
+
+function timeKnobToFrac(ms: number): number {
+  const v = Math.min(TIME_KNOB_MAX_MS, Math.max(TIME_KNOB_MIN_MS, ms));
+  if (v <= TIME_KNOB_BREAK_MS) {
+    return ((v - TIME_KNOB_MIN_MS) / (TIME_KNOB_BREAK_MS - TIME_KNOB_MIN_MS)) * TIME_KNOB_BREAK_FRAC;
+  }
+  return TIME_KNOB_BREAK_FRAC + ((v - TIME_KNOB_BREAK_MS) / (TIME_KNOB_MAX_MS - TIME_KNOB_BREAK_MS)) * (1 - TIME_KNOB_BREAK_FRAC);
+}
+function timeKnobFromFrac(frac: number): number {
+  const f = Math.min(1, Math.max(0, frac));
+  if (f <= TIME_KNOB_BREAK_FRAC) {
+    return TIME_KNOB_MIN_MS + (f / TIME_KNOB_BREAK_FRAC) * (TIME_KNOB_BREAK_MS - TIME_KNOB_MIN_MS);
+  }
+  return TIME_KNOB_BREAK_MS + ((f - TIME_KNOB_BREAK_FRAC) / (1 - TIME_KNOB_BREAK_FRAC)) * (TIME_KNOB_MAX_MS - TIME_KNOB_BREAK_MS);
+}
+// Whole-number formatting — Ratio, Attack and Release are all integer-only
+// knobs (step: 1 below), so no decimals are ever shown or enterable.
+function fmtMs(v: number): string {
+  return `${Math.round(v)} ms`;
+}
+
+// Ranges otherwise mirror the live bounds in public/faust/compressor/dsp-meta.json
+// (the Faust compressor patch clamps its own params internally — Attack
+// 0.1–100 ms, Release 10–1000 ms, Makeup_Gain 0–24 dB — so dialing a knob
+// past those on Attack/Release/Makeup won't change the audio any further
+// even though the knob keeps turning).
 const KNOBS: KnobSpec[] = [
-  { key: 'threshold', label: 'THRESHOLD',   min: -60,  max: 0,    step: 0.5,  fmt: v => `${v.toFixed(0)} dB` },
-  { key: 'ratio',     label: 'RATIO',       min: 1,    max: 20,   step: 0.1,  fmt: v => `${v.toFixed(1)} : 1` },
-  { key: 'attack',    label: 'ATTACK',      min: 0.5,  max: 200,  step: 0.5,  fmt: v => `${v.toFixed(1)} ms` },
-  { key: 'release',   label: 'RELEASE',     min: 50,   max: 2000, step: 5,    fmt: v => `${v.toFixed(0)} ms` },
-  { key: 'knee',      label: 'KNEE',        min: 0,    max: 40,   step: 0.5,  fmt: v => v < 5 ? 'HARD' : v < 20 ? 'MEDIUM' : 'SOFT' },
-  { key: 'makeup',    label: 'MAKEUP GAIN', min: 0,    max: 24,   step: 0.1,  fmt: v => `+${v.toFixed(1)} dB` },
+  { key: 'threshold', label: 'THRESHOLD',   min: -60, max: 0,    step: 0.5, fmt: v => `${v.toFixed(0)} dB` },
+  { key: 'ratio',     label: 'RATIO',       min: 1,   max: 20,   step: 1,   fmt: v => `${v.toFixed(0)} : 1` },
+  {
+    key: 'attack', label: 'ATTACK', min: TIME_KNOB_MIN_MS, max: TIME_KNOB_MAX_MS, step: 1,
+    fmt: fmtMs, toFrac: timeKnobToFrac, fromFrac: timeKnobFromFrac,
+  },
+  {
+    key: 'release', label: 'RELEASE', min: TIME_KNOB_MIN_MS, max: TIME_KNOB_MAX_MS, step: 1,
+    fmt: fmtMs, toFrac: timeKnobToFrac, fromFrac: timeKnobFromFrac,
+  },
+  { key: 'knee',      label: 'KNEE',        min: 0,   max: 20,   step: 0.1, fmt: v => v < 2 ? 'HARD' : v < 10 ? 'MEDIUM' : 'SOFT' },
+  { key: 'makeup',    label: 'MAKEUP GAIN', min: -20, max: 20,   step: 0.1, fmt: v => `${v > 0 ? '+' : ''}${v.toFixed(1)} dB` },
 ];
 
 const DEFAULTS: CompParams = {
@@ -40,6 +87,44 @@ const DEFAULTS: CompParams = {
   knee:       20,
   makeup:      6,
 };
+
+// ── Faust compressor engine wiring ───────────────────────────────────────────
+// Real DSP: public/faust/compressor/ (dsp-module.wasm + dsp-meta.json),
+// exported straight from the Faust IDE — replaces the native
+// DynamicsCompressorNode with the actual Faust "compressors.lib" soft-knee
+// compressor, driven the same way as the ParamEQ patch in Chapter2b.
+const FAUST_BASE_PATH = '/faust/compressor';
+
+// Faust addresses, from public/faust/compressor/dsp-meta.json's `ui` tree.
+const ADDR = {
+  threshold: '/compressor/Threshold',
+  ratio:     '/compressor/Ratio',
+  attack:    '/compressor/Attack',
+  release:   '/compressor/Release',
+  knee:      '/compressor/Knee',
+  makeup:    '/compressor/Makeup_Gain',
+  wetDry:    '/compressor/Wet_Dry',
+} as const;
+
+type FaustEngineStatus = 'idle' | 'loading' | 'ready' | 'error';
+
+// Pushes every UI param onto a live Faust node. Bypass drives the patch's own
+// Wet_Dry to 0 (fully dry passthrough) — a true bypass, same intent as the
+// old "threshold=0/ratio=1/knee=40" trick, but done the way the DSP itself
+// exposes it rather than faking it from outside.
+function pushFaustParams(node: FaustNodeLike, params: CompParams, bypass: boolean, wetDry: number) {
+  if (bypass) {
+    node.setParamValue(ADDR.wetDry, 0);
+    return;
+  }
+  node.setParamValue(ADDR.threshold, params.threshold);
+  node.setParamValue(ADDR.ratio,     params.ratio);
+  node.setParamValue(ADDR.knee,      params.knee);
+  node.setParamValue(ADDR.attack,    params.attack);   // ms — matches the patch's own unit
+  node.setParamValue(ADDR.release,   params.release);  // ms
+  node.setParamValue(ADDR.makeup,    params.makeup);
+  node.setParamValue(ADDR.wetDry,    wetDry * 100);     // patch takes 0..100
+}
 
 // ── Transfer function math ────────────────────────────────────────────────────
 type ShapeParams = Pick<CompParams, 'threshold' | 'ratio' | 'knee'>;
@@ -167,8 +252,62 @@ function drawWaveform(canvas: HTMLCanvasElement, data: Float32Array, color: stri
 }
 
 // ── Knob helpers ──────────────────────────────────────────────────────────────
-function knobRotation(v: number, min: number, max: number) {
-  return -140 + ((v - min) / (max - min)) * 280;
+// Linear by default; a spec with toFrac/fromFrac (Attack/Release) overrides
+// this with its own segmented mapping instead.
+function specToFrac(spec: KnobSpec, v: number): number {
+  if (spec.toFrac) return spec.toFrac(v);
+  return (v - spec.min) / (spec.max - spec.min);
+}
+function specFromFrac(spec: KnobSpec, f: number): number {
+  if (spec.fromFrac) return spec.fromFrac(f);
+  return spec.min + f * (spec.max - spec.min);
+}
+function knobRotationForSpec(spec: KnobSpec, v: number): number {
+  return -140 + specToFrac(spec, v) * 280;
+}
+
+// Small numeric input for typing an exact knob value directly, alongside the
+// knob itself — keeps its own draft text while focused so the knob's live
+// value doesn't clobber what's mid-typing (e.g. typing "20" as "2" then "0").
+function KnobNumberInput({
+  value, min, max, step, onChange,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (v: number) => void;
+}) {
+  const decimals = step < 1 ? Math.max(0, Math.ceil(-Math.log10(step))) : 0;
+  const [local, setLocal] = useState(() => value.toFixed(decimals));
+  const focusedRef = useRef(false);
+  useEffect(() => { if (!focusedRef.current) setLocal(value.toFixed(decimals)); }, [value, decimals]);
+
+  const commit = (text: string) => {
+    const n = parseFloat(text);
+    const clamped = Number.isNaN(n) ? value : Math.min(max, Math.max(min, n));
+    onChange(clamped);
+    setLocal(clamped.toFixed(decimals));
+  };
+
+  return (
+    <input
+      type="number"
+      className="knob-num-input"
+      value={local}
+      min={min}
+      max={max}
+      step={step}
+      onFocus={() => { focusedRef.current = true; }}
+      onChange={e => {
+        setLocal(e.target.value);
+        const n = parseFloat(e.target.value);
+        if (!Number.isNaN(n)) onChange(Math.min(max, Math.max(min, n)));
+      }}
+      onBlur={() => { focusedRef.current = false; commit(local); }}
+      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+    />
+  );
 }
 function polarToCartesian(r: number, angleDeg: number) {
   const rad = ((angleDeg - 90) * Math.PI) / 180;
@@ -180,6 +319,130 @@ function describeArc(r: number, start: number, end: number) {
   const e = polarToCartesian(r, end);
   const large = end - start > 180 ? 1 : 0;
   return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
+}
+
+// ── Gain-staging meters (Input / Gain Reduction / Output) ────────────────────
+// Console-style vertical channel meters — mirrors the classic compressor
+// plugin layout (dB scale down one side, numeric peak readout on top, a
+// third centre meter dedicated to how much the compressor is pulling down).
+const METER_FLOOR_DB = -60;
+const METER_CEIL_DB  = 3;
+const METER_TICKS    = [3, 0, -3, -6, -9, -12, -18, -24, -30, -40, -60];
+
+const GR_FLOOR_DB = -24;   // deepest reduction the meter will show
+const GR_TICKS    = [0, -3, -6, -9, -12, -15, -18, -21, -24];
+
+// Fixed pixel height rather than a flex-stretched/percentage one: percentage
+// heights on an absolutely-positioned fill bar only resolve reliably when
+// its containing block has a *definite* height, and that's fragile three
+// flex levels deep (especially in WebKit, which is what this app's Tauri
+// shell renders with) — an explicit height sidesteps that entirely.
+const METER_BAR_HEIGHT = 190;
+
+// Ballistics: how fast each meter's displayed dB chases the real value.
+// Fast attack so transients are still caught, slow-enough release so the
+// number/bar is actually readable frame to frame instead of flickering.
+const LEVEL_ATTACK_S  = 0.015;
+const LEVEL_RELEASE_S = 0.35;
+
+function levelBallistic(prev: number, target: number, dt: number): number {
+  if (dt <= 0) return prev;
+  const tau = target > prev ? LEVEL_ATTACK_S : LEVEL_RELEASE_S;
+  return prev + (target - prev) * (1 - Math.exp(-dt / tau));
+}
+
+// The gain-reduction meter borrows the compressor's *own* Attack/Release
+// knobs for its ballistics — reduction deepens on the Attack constant and
+// recovers on the Release constant, the same as the audio itself, so what
+// you see is what's actually happening rather than an arbitrary meter speed.
+function reductionBallistic(prev: number, target: number, dt: number, attackS: number, releaseS: number): number {
+  if (dt <= 0) return prev;
+  const deepening = target < prev; // more negative = compressor clamping down harder
+  const tau = Math.max(0.001, deepening ? attackS : releaseS);
+  return prev + (target - prev) * (1 - Math.exp(-dt / tau));
+}
+
+function VerticalMeter({
+  label, valueDb, minDb, maxDb, ticks, color, mode = 'level', active, thresholdDb,
+}: {
+  label: string;
+  valueDb: number;
+  minDb: number;
+  maxDb: number;
+  ticks: number[];
+  color: string;
+  mode?: 'level' | 'reduction';
+  active: boolean;
+  /** Optional marker line (e.g. the compressor Threshold) drawn across the bar. */
+  thresholdDb?: number;
+}) {
+  const clamped  = Math.min(maxDb, Math.max(minDb, valueDb));
+  const span     = maxDb - minDb;
+  // "level" meters fill upward from the floor (standard peak meter);
+  // "reduction" fills downward from 0 dB — an empty bar means no gain is
+  // being pulled down, a fuller bar means heavier compression.
+  const fillPct  = mode === 'reduction'
+    ? Math.max(0, Math.min(100, ((maxDb - clamped) / span) * 100))
+    : Math.max(0, Math.min(100, ((clamped - minDb) / span) * 100));
+  const zeroPct  = Math.max(0, Math.min(100, ((maxDb - 0) / span) * 100)); // 0 dB reference line, from top
+  const thresholdPct = thresholdDb === undefined
+    ? null
+    : Math.max(0, Math.min(100, ((maxDb - thresholdDb) / span) * 100));
+
+  const readout = !active
+    ? '—'
+    : mode === 'reduction'
+      ? `${valueDb <= -0.05 ? valueDb.toFixed(1) : '0.0'} dB`
+      : valueDb <= minDb + 0.5 ? '—' : `${valueDb > 0 ? '+' : ''}${valueDb.toFixed(1)} dB`;
+
+  // Fixed pixel width everywhere below — a flex-grow/minWidth layout here
+  // let the readout text's own width (which changes every frame as the dB
+  // value changes) resize this whole column, which visibly shifted the
+  // knob grid next to it left/right in sync with the meters. Nothing here
+  // is allowed to size itself off of live text content anymore.
+  const METER_COL_WIDTH = 64;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', width: METER_COL_WIDTH, flexShrink: 0 }}>
+      <div style={{
+        fontFamily: 'var(--mono)', fontSize: '0.58rem', color: active ? color : 'var(--text-faint)',
+        background: 'var(--black)', border: '1px solid var(--border)', borderRadius: 3,
+        padding: '0.2rem 0', width: '100%', boxSizing: 'border-box', textAlign: 'center',
+        whiteSpace: 'nowrap', overflow: 'hidden',
+      }}>
+        {readout}
+      </div>
+      <div style={{ display: 'flex', gap: '0.3rem', width: '100%', justifyContent: 'center' }}>
+        <div style={{
+          position: 'relative', width: 14, height: METER_BAR_HEIGHT, flexShrink: 0,
+          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 3, overflow: 'hidden',
+        }}>
+          <div style={{
+            position: 'absolute', left: 0, right: 0,
+            ...(mode === 'reduction' ? { top: 0, height: `${fillPct}%` } : { bottom: 0, height: `${fillPct}%` }),
+            background: `linear-gradient(${mode === 'reduction' ? '180deg' : '0deg'}, ${color}, ${color}99)`,
+            boxShadow: active && fillPct > 1 ? `0 0 6px ${color}66` : 'none',
+          }} />
+          <div style={{ position: 'absolute', left: -3, right: -3, top: `${zeroPct}%`, height: 1, background: 'var(--border-bright)' }} />
+          {thresholdPct !== null && (
+            <div
+              title={`Threshold: ${thresholdDb} dB`}
+              style={{ position: 'absolute', left: -3, right: -3, top: `${thresholdPct}%`, height: 2, background: 'var(--amber)', boxShadow: '0 0 4px var(--amber)' }}
+            />
+          )}
+        </div>
+        <div style={{
+          display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: METER_BAR_HEIGHT,
+          fontFamily: 'var(--mono)', fontSize: '0.48rem', color: 'var(--text-faint)', paddingBlock: '0.05rem',
+        }}>
+          {ticks.map(t => <div key={t}>{t > 0 ? `+${t}` : t}</div>)}
+        </div>
+      </div>
+      <div style={{ fontFamily: 'var(--mono)', fontSize: '0.55rem', letterSpacing: '0.06em', color: 'var(--text-dim)' }}>
+        {label}
+      </div>
+    </div>
+  );
 }
 
 // ── Drum synthesiser ──────────────────────────────────────────────────────────
@@ -264,20 +527,8 @@ function normalizeUploadedBuffer(buf: AudioBuffer, peakTarget = 0.6) {
   }
 }
 
-function scheduleStep(
-  ctx: AudioContext, dest: AudioNode, step: number, time: number,
-  sidechainGain: GainNode | null,
-) {
-  if (PAT_KICK[step]) {
-    synthKick(ctx, dest, time);
-    // Sidechain: duck the whole mix on every kick
-    if (sidechainGain) {
-      sidechainGain.gain.cancelScheduledValues(time);
-      sidechainGain.gain.setValueAtTime(1.0, time);
-      sidechainGain.gain.setTargetAtTime(0.12, time + 0.002, 0.005); // fast duck
-      sidechainGain.gain.setTargetAtTime(1.0,  time + 0.07,  0.045); // pump back
-    }
-  }
+function scheduleStep(ctx: AudioContext, dest: AudioNode, step: number, time: number) {
+  if (PAT_KICK[step])  synthKick  (ctx, dest, time);
   if (PAT_SNARE[step]) synthSnare (ctx, dest, time);
   if (PAT_HAT[step])   synthHihat (ctx, dest, time, false);
   if (PAT_OPEN[step])  synthHihat (ctx, dest, time, true);
@@ -290,8 +541,9 @@ export default function Chapter4() {
   const [params,    setParams]    = useState<CompParams>(DEFAULTS);
   const [isPlaying, setIsPlaying] = useState(false);
   const [bypass,    setBypass]    = useState(false);
-  const [sidechain, setSidechain] = useState(false);
   const [gainReduction, setGR]    = useState(0);
+  const [inputLevelDb,  setInputLevelDb]  = useState(METER_FLOOR_DB);   // pre-compression peak, dBFS
+  const [outputLevelDb, setOutputLevelDb] = useState(METER_FLOOR_DB);   // post-compression peak, dBFS
   const [wetDry,        setWetDry] = useState(1);   // 0 = dry, 1 = wet
   const [tasks, setTasks]         = useState([false, false, false, false]);
 
@@ -316,28 +568,67 @@ export default function Chapter4() {
   const dryRef       = useRef<HTMLCanvasElement>(null);
   const wetRef       = useRef<HTMLCanvasElement>(null);
 
+  // Faust compressor engine (module + meta loaded once on mount, one node
+  // instantiated per AudioContext in startAudio — same pattern as
+  // Chapter2b's ParamEQ).
+  const [engineStatus, setEngineStatus] = useState<FaustEngineStatus>('idle');
+  const [engineError,  setEngineError]  = useState<string | null>(null);
+  const dspMetaRef    = useRef<FaustDspMeta | null>(null);
+  const dspModuleRef  = useRef<WebAssembly.Module | null>(null);
+  const generatorRef  = useRef<FaustMonoDspGenerator | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setEngineStatus('loading');
+    setEngineError(null);
+    (async () => {
+      try {
+        const meta: FaustDspMeta = await (await fetch(`${FAUST_BASE_PATH}/dsp-meta.json`)).json();
+        const mod = await compileFaustWasm(`${FAUST_BASE_PATH}/dsp-module.wasm`);
+        if (cancelled) return;
+        dspMetaRef.current = meta;
+        dspModuleRef.current = mod;
+        generatorRef.current = new FaustMonoDspGenerator();
+        setEngineStatus('ready');
+      } catch (err) {
+        if (cancelled) return;
+        console.error('[Chapter4] failed to load Faust compressor DSP', err);
+        setEngineError(err instanceof Error ? err.message : String(err));
+        setEngineStatus('error');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // Audio refs
   const ctxRef              = useRef<AudioContext | null>(null);
-  const compRef             = useRef<DynamicsCompressorNode | null>(null);
-  const makeupRef           = useRef<GainNode | null>(null);
+  const faustNodeRef        = useRef<FaustNodeLike | null>(null);
   const dryAnalRef          = useRef<AnalyserNode | null>(null);
   const wetAnalRef          = useRef<AnalyserNode | null>(null);
   const mixRef              = useRef<GainNode | null>(null);
-  const dryBlendRef         = useRef<GainNode | null>(null);        // wet/dry: dry leg
-  const wetBlendRef         = useRef<GainNode | null>(null);        // wet/dry: wet leg
   const outputRef           = useRef<GainNode | null>(null);        // final sum before destination
-  const sidechainGainRef    = useRef<GainNode | null>(null);       // sidechain duck node
-  const sidechainEnabledRef = useRef(false);                        // live ref, no re-render needed
   const animRef             = useRef<number>(0);
   const schedulerRef        = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nextNoteRef         = useRef(0);
   const currentStepRef      = useRef(0);
+  const startTokenRef       = useRef(0);                            // invalidates in-flight startAudio() on stop
+  const paramsRef           = useRef(params);
+  const bypassRef           = useRef(bypass);
+  useEffect(() => { paramsRef.current = params; }, [params]);
+  useEffect(() => { bypassRef.current = bypass; }, [bypass]);
 
-  // Knob drag ref (for main lab)
-  const mainDragRef = useRef<{
-    key: keyof CompParams; startY: number; startVal: number;
-    min: number; max: number; step: number;
-  } | null>(null);
+  // Meter ballistics state — smoothed dB values chased frame-to-frame in
+  // animate(), independent of React state (which just mirrors the smoothed
+  // value out for rendering).
+  const smoothedInputDbRef  = useRef(METER_FLOOR_DB);
+  const smoothedOutputDbRef = useRef(METER_FLOOR_DB);
+  const smoothedGrDbRef     = useRef(0);
+  const meterClockRef       = useRef<number | null>(null);
+
+  // Knob drag ref (for main lab) — tracks fraction-of-travel (0..1) rather
+  // than the raw value, so segmented knobs (Attack/Release) drag through
+  // specFromFrac/specToFrac exactly like linear ones.
+  const mainDragRef = useRef<{ spec: KnobSpec; startY: number; startFrac: number } | null>(null);
 
   // ── Main transfer canvas ──────────────────────────────────────────────────
   useEffect(() => {
@@ -348,26 +639,15 @@ export default function Chapter4() {
     }
   }, [params, bypass]);
 
-  // ── Sync compressor params + bypass (single effect, no conflicts) ────────
+  // ── Sync Faust compressor params + bypass + wet/dry (single effect) ──────
+  // The Faust patch owns its own Wet_Dry and Makeup_Gain internally, so this
+  // one effect replaces what used to be two separate syncs (compressor
+  // AudioParams, and an outer dry/wet GainNode blend).
   useEffect(() => {
-    const comp = compRef.current; const makeup = makeupRef.current;
-    if (!comp || !makeup || !ctxRef.current) return;
-    const t = ctxRef.current.currentTime;
-    if (bypass) {
-      // True bypass: pass audio uncompressed AND remove makeup boost
-      comp.threshold.setTargetAtTime(0,  t, 0.01);
-      comp.ratio.setTargetAtTime(1,      t, 0.01);
-      comp.knee.setTargetAtTime(40,      t, 0.01);
-      makeup.gain.setTargetAtTime(1,     t, 0.01); // unity — no boost
-    } else {
-      comp.threshold.setTargetAtTime(params.threshold,      t, 0.01);
-      comp.ratio.setTargetAtTime(params.ratio,              t, 0.01);
-      comp.knee.setTargetAtTime(params.knee,                t, 0.01);
-      comp.attack.setTargetAtTime(params.attack / 1000,     t, 0.01);
-      comp.release.setTargetAtTime(params.release / 1000,   t, 0.01);
-      makeup.gain.setTargetAtTime(10 ** (params.makeup / 20), t, 0.01);
-    }
-  }, [params, bypass]);
+    const node = faustNodeRef.current;
+    if (!node) return;
+    pushFaustParams(node, params, bypass, wetDry);
+  }, [params, bypass, wetDry]);
 
   // ── Task tracking ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -379,24 +659,12 @@ export default function Chapter4() {
     ]);
   }, [params]);
 
-  // ── Wet/dry blend sync ────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!ctxRef.current) return;
-    const t = ctxRef.current.currentTime;
-    dryBlendRef.current?.gain.setTargetAtTime(1 - wetDry, t, 0.01);
-    wetBlendRef.current?.gain.setTargetAtTime(wetDry,     t, 0.01);
-  }, [wetDry]);
-
-  // ── Sidechain ref sync (no re-render, read from scheduler) ───────────────
-  useEffect(() => { sidechainEnabledRef.current = sidechain; }, [sidechain]);
-
   // ── Scheduler ─────────────────────────────────────────────────────────────
   const runScheduler = useCallback(() => {
     const ctx = ctxRef.current; const mix = mixRef.current;
     if (!ctx || !mix) return;
     while (nextNoteRef.current < ctx.currentTime + 0.1) {
-      scheduleStep(ctx, mix, currentStepRef.current, nextNoteRef.current,
-        sidechainEnabledRef.current ? sidechainGainRef.current : null);
+      scheduleStep(ctx, mix, currentStepRef.current, nextNoteRef.current);
       currentStepRef.current = (currentStepRef.current + 1) % STEPS;
       nextNoteRef.current   += STEP_SEC;
     }
@@ -405,46 +673,107 @@ export default function Chapter4() {
 
   // ── Animation loop ────────────────────────────────────────────────────────
   const animate = useCallback(() => {
-    if (compRef.current) setGR(compRef.current.reduction);
     const dryAnal = dryAnalRef.current; const wetAnal = wetAnalRef.current;
+
+    // Real elapsed time since the last frame, used to drive the meter
+    // ballistics below (not just a fixed per-frame step) so the meters read
+    // the same regardless of frame rate.
+    const now = ctxRef.current?.currentTime ?? performance.now() / 1000;
+    const dt  = meterClockRef.current !== null ? Math.max(0, Math.min(0.2, now - meterClockRef.current)) : 0;
+    meterClockRef.current = now;
+
     if (dryAnal && dryRef.current) {
       const buf = new Float32Array(dryAnal.fftSize); dryAnal.getFloatTimeDomainData(buf);
       drawWaveform(dryRef.current, buf, '#3D3D52');
+
+      // Input meter: real instantaneous peak off the pre-compression tap,
+      // smoothed with fast-attack/slow-release ballistics so it's actually
+      // readable frame to frame instead of jumping around with every sample.
+      let peak = 0;
+      for (let i = 0; i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i]));
+      const rawInputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
+      smoothedInputDbRef.current = levelBallistic(smoothedInputDbRef.current, rawInputDb, dt);
+      setInputLevelDb(smoothedInputDbRef.current);
+
+      // The Faust compressor patch has no live GR bargraph output (its
+      // dsp-meta.json ui tree is sliders only), so the meter is estimated:
+      // run that same raw input peak through the soft-knee transfer curve
+      // driving the graph on the right (threshold/ratio/knee only — no
+      // makeup, since that's what "gain reduction" means) — then smooth the
+      // *result* using the compressor's own Attack/Release knobs, so the
+      // meter's motion actually matches what those knobs are doing.
+      if (!bypassRef.current) {
+        const shapedDb = applyCompression(rawInputDb, paramsRef.current);
+        const rawGr = Math.min(0, shapedDb - rawInputDb);
+        const attackS  = Math.max(0.001, paramsRef.current.attack  / 1000);
+        const releaseS = Math.max(0.005, paramsRef.current.release / 1000);
+        smoothedGrDbRef.current = reductionBallistic(smoothedGrDbRef.current, rawGr, dt, attackS, releaseS);
+        setGR(smoothedGrDbRef.current);
+      } else {
+        smoothedGrDbRef.current = 0;
+        setGR(0);
+      }
     }
     if (wetAnal && wetRef.current) {
       const buf = new Float32Array(wetAnal.fftSize); wetAnal.getFloatTimeDomainData(buf);
       drawWaveform(wetRef.current, buf, '#A78BFA');
+
+      // Output meter: real post-compression peak (post makeup + wet/dry mix).
+      let peak = 0;
+      for (let i = 0; i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i]));
+      const rawOutputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
+      smoothedOutputDbRef.current = levelBallistic(smoothedOutputDbRef.current, rawOutputDb, dt);
+      setOutputLevelDb(smoothedOutputDbRef.current);
     }
     animRef.current = requestAnimationFrame(animate);
   }, []);
 
   // ── Start / Stop audio ────────────────────────────────────────────────────
-  const startAudio = useCallback(() => {
-    const ctx = new AudioContext(); ctxRef.current = ctx;
+  const startAudio = useCallback(async () => {
+    if (engineStatus !== 'ready' || !generatorRef.current || !dspMetaRef.current || !dspModuleRef.current) {
+      // Faust engine still loading (or failed) — the topbar status/error
+      // message below covers user feedback; Play is also disabled until ready.
+      return;
+    }
+    const myToken = ++startTokenRef.current;
 
-    // mix → scGain → dryAnal (viz tap) → dryBlend ─┐
-    //             → delay → comp → makeup → wetAnal → wetBlend → output → destination
-    const mix = ctx.createGain(); mix.gain.value = 0.85; mixRef.current = mix;
-    const scGain = ctx.createGain(); scGain.gain.value = 1; sidechainGainRef.current = scGain;
-    const dryAnal = ctx.createAnalyser(); dryAnal.fftSize = 1024; dryAnal.smoothingTimeConstant = 0.4; dryAnalRef.current = dryAnal;
-    const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = params.threshold; comp.ratio.value = params.ratio;
-    comp.attack.value    = params.attack / 1000; comp.release.value = params.release / 1000;
-    comp.knee.value      = params.knee; compRef.current = comp;
-    const makeup = ctx.createGain(); makeup.gain.value = 10 ** (params.makeup / 20); makeupRef.current = makeup;
-    const wetAnal = ctx.createAnalyser(); wetAnal.fftSize = 1024; wetAnal.smoothingTimeConstant = 0.4; wetAnalRef.current = wetAnal;
+    const ctx = new AudioContext();
 
-    // Wet/dry blend nodes
-    const dryBlend = ctx.createGain(); dryBlend.gain.value = 1 - wetDry; dryBlendRef.current = dryBlend;
-    const wetBlend = ctx.createGain(); wetBlend.gain.value = wetDry;     wetBlendRef.current = wetBlend;
-    const output   = ctx.createGain(); output.gain.value   = 1;          outputRef.current   = output;
+    // mix → dryAnal (viz tap) ─┐
+    //     └→ faustNode (compression + internal wet/dry + makeup) → wetAnal → output → destination
+    const mix = ctx.createGain(); mix.gain.value = 0.85;
+    const dryAnal = ctx.createAnalyser(); dryAnal.fftSize = 1024; dryAnal.smoothingTimeConstant = 0.4;
+    const wetAnal = ctx.createAnalyser(); wetAnal.fftSize = 1024; wetAnal.smoothingTimeConstant = 0.4;
+    const output = ctx.createGain(); output.gain.value = 1;
 
-    mix.connect(scGain);
-    scGain.connect(dryAnal);        // tap for dry waveform visualisation
-    scGain.connect(dryBlend);       // dry leg (skips compressor)
-    scGain.connect(comp);           // wet leg
-    comp.connect(makeup); makeup.connect(wetAnal); wetAnal.connect(wetBlend);
-    dryBlend.connect(output); wetBlend.connect(output);
+    const factory = { module: dspModuleRef.current, json: JSON.stringify(dspMetaRef.current), soundfiles: {} };
+    let faustNode: FaustNodeLike;
+    try {
+      faustNode = await generatorRef.current.createNode(
+        ctx, dspMetaRef.current.name, factory, false, 512,
+      ) as unknown as FaustNodeLike;
+    } catch (err) {
+      console.error('[Chapter4] failed to build Faust compressor node', err);
+      ctx.close();
+      return;
+    }
+
+    // stopAudio() (or a second startAudio()) ran while we were awaiting — bail
+    if (myToken !== startTokenRef.current) { try { ctx.close(); } catch { /* ok */ } return; }
+
+    pushFaustParams(faustNode, params, bypass, wetDry);
+
+    ctxRef.current = ctx;
+    mixRef.current = mix;
+    dryAnalRef.current = dryAnal;
+    wetAnalRef.current = wetAnal;
+    outputRef.current = output;
+    faustNodeRef.current = faustNode;
+
+    mix.connect(dryAnal);                                     // tap for dry waveform + GR estimate
+    mix.connect(faustNode as unknown as AudioNode);            // through the Faust compressor
+    (faustNode as unknown as AudioNode).connect(wetAnal);
+    wetAnal.connect(output);
     output.connect(ctx.destination);
 
     // Signal source: either the built-in synth drum loop, or a looping
@@ -467,9 +796,10 @@ export default function Chapter4() {
 
     animRef.current = requestAnimationFrame(animate);
     setIsPlaying(true);
-  }, [params, runScheduler, animate]);
+  }, [engineStatus, params, bypass, wetDry, runScheduler, animate]);
 
   const stopAudio = useCallback(() => {
+    startTokenRef.current++; // invalidate any in-flight startAudio()
     if (schedulerRef.current) clearTimeout(schedulerRef.current);
     cancelAnimationFrame(animRef.current);
     if (bufSourceRef.current) {
@@ -477,12 +807,19 @@ export default function Chapter4() {
       bufSourceRef.current.disconnect();
       bufSourceRef.current = null;
     }
+    if (faustNodeRef.current) {
+      try { (faustNodeRef.current as unknown as AudioNode).disconnect(); } catch { /* ok */ }
+      faustNodeRef.current = null;
+    }
     ctxRef.current?.close();
-    ctxRef.current = null; compRef.current = null; makeupRef.current = null;
+    ctxRef.current = null;
     dryAnalRef.current = null; wetAnalRef.current = null; mixRef.current = null;
-    sidechainGainRef.current = null;
-    dryBlendRef.current = null; wetBlendRef.current = null; outputRef.current = null;
-    setGR(0); setIsPlaying(false);
+    outputRef.current = null;
+    smoothedInputDbRef.current = METER_FLOOR_DB;
+    smoothedOutputDbRef.current = METER_FLOOR_DB;
+    smoothedGrDbRef.current = 0;
+    meterClockRef.current = null;
+    setGR(0); setInputLevelDb(METER_FLOOR_DB); setOutputLevelDb(METER_FLOOR_DB); setIsPlaying(false);
     [dryRef, wetRef].forEach(r => {
       if (!r.current) return;
       const c = r.current.getContext('2d')!;
@@ -491,22 +828,22 @@ export default function Chapter4() {
   }, []);
 
   useEffect(() => () => {
+    startTokenRef.current++;
     if (schedulerRef.current) clearTimeout(schedulerRef.current);
     cancelAnimationFrame(animRef.current);
     if (bufSourceRef.current) {
       try { bufSourceRef.current.stop(); } catch { /* ok */ }
     }
+    if (faustNodeRef.current) {
+      try { (faustNodeRef.current as unknown as AudioNode).disconnect(); } catch { /* ok */ }
+    }
     ctxRef.current?.close();
   }, []);
 
   // ── Signal source: switch tab / upload new track ──────────────────────────
-  // Sidechain ducking is wired to the built-in synth drum pattern's kick hits
-  // (see scheduleStep/PAT_KICK) — it has no effect on an uploaded track, so
-  // the control is disabled and forced off whenever a track is active.
   const handleSelectSource = useCallback((id: number | 'synth') => {
     stopAudio();
     setActiveSourceId(id);
-    if (id !== 'synth') setSidechain(false);
   }, [stopAudio]);
 
   const handleUploadClick = useCallback(() => {
@@ -539,7 +876,6 @@ export default function Chapter4() {
 
       setUploadedTracks(prev => [...prev, track]);
       setActiveSourceId(track.id);
-      setSidechain(false);
     } catch (err) {
       console.error('Failed to decode audio file', err);
       setUploadError('Could not read that file — try an mp3, wav, or m4a.');
@@ -552,16 +888,16 @@ export default function Chapter4() {
   // ── Main lab knob drag ────────────────────────────────────────────────────
   const onMainKnobDown = useCallback((e: React.MouseEvent, spec: KnobSpec, val: number) => {
     e.preventDefault();
-    mainDragRef.current = { key: spec.key, startY: e.clientY, startVal: val, min: spec.min, max: spec.max, step: spec.step };
+    mainDragRef.current = { spec, startY: e.clientY, startFrac: specToFrac(spec, val) };
   }, []);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       const d = mainDragRef.current; if (!d) return;
-      const sens    = (d.max - d.min) / 220;
-      const raw     = d.startVal + (d.startY - e.clientY) * sens;
-      const clamped = Math.min(d.max, Math.max(d.min, Math.round(raw / d.step) * d.step));
-      setParams(p => ({ ...p, [d.key]: clamped }));
+      const frac    = Math.min(1, Math.max(0, d.startFrac + (d.startY - e.clientY) / 220));
+      const raw     = specFromFrac(d.spec, frac);
+      const clamped = Math.min(d.spec.max, Math.max(d.spec.min, Math.round(raw / d.spec.step) * d.spec.step));
+      setParams(p => ({ ...p, [d.spec.key]: clamped }));
     };
     const onUp = () => { mainDragRef.current = null; };
     window.addEventListener('mousemove', onMove);
@@ -572,8 +908,6 @@ export default function Chapter4() {
   const reset = useCallback(() => setParams(DEFAULTS), []);
 
   // Derived
-  const grAbs = Math.abs(gainReduction);
-  const grPct = Math.min(100, (grAbs / 20) * 100);
   const TASK_LABELS = ['Set threshold', 'Set ratio to 4:1', 'Adjust attack / release', 'Apply makeup gain'];
 
   // Signal-source tab row — lets the source be switched (or a new one uploaded).
@@ -673,21 +1007,14 @@ export default function Chapter4() {
             <button
               className={`toggle-btn${isPlaying ? ' on' : ''}`}
               style={isPlaying ? { borderColor: 'var(--green)', color: 'var(--green)', background: 'var(--green-dim)' } : {}}
-              onClick={isPlaying ? stopAudio : startAudio}
+              onClick={isPlaying ? stopAudio : () => { void startAudio(); }}
+              disabled={!isPlaying && engineStatus !== 'ready'}
+              title={engineStatus === 'loading' ? 'Loading Faust compressor engine…' : engineStatus === 'error' ? (engineError ?? 'Faust engine failed to load') : undefined}
             >
-              {isPlaying ? '⏹ STOP' : '▶ PLAY'}
+              {isPlaying ? '⏹ STOP' : engineStatus === 'loading' ? '⏳ LOADING…' : engineStatus === 'error' ? '⚠ ENGINE ERROR' : '▶ PLAY'}
             </button>
             <button className={`toggle-btn${bypass    ? ' on' : ''}`} onClick={() => setBypass(b => !b)}>
               {bypass ? 'BYPASS: ON' : 'BYPASS: OFF'}
-            </button>
-            <button
-              className={`toggle-btn${sidechain ? ' on' : ''}`}
-              onClick={() => setSidechain(s => !s)}
-              disabled={activeSourceId !== 'synth'}
-              title={activeSourceId !== 'synth' ? 'Sidechain only applies to the built-in drum loop' : undefined}
-              style={activeSourceId !== 'synth' ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
-            >
-              SIDECHAIN
             </button>
           </div>
           <div className="lab-status" style={{ color: isPlaying ? 'var(--purple)' : 'var(--text-dim)' }}>
@@ -713,58 +1040,105 @@ export default function Chapter4() {
           <div className="canvas-label" style={{ marginBottom: '1rem' }}>
             COMPRESSOR PARAMETERS · DRAG KNOBS VERTICALLY
           </div>
-          <div className="knob-grid">
-            {KNOBS.map(spec => {
-              const val = params[spec.key] as number;
-              const rot = knobRotation(val, spec.min, spec.max);
-              return (
-                <div className="knob-wrap" key={spec.key}>
-                  <div style={{ position: 'relative', width: 64, height: 64 }}>
-                    <svg style={{ position: 'absolute', top: 0, left: 0 }} width={64} height={64} viewBox="-32 -32 64 64">
-                      <path d={describeArc(28, -140, 140)} fill="none" stroke="#2E2E3D" strokeWidth={3} strokeLinecap="round" />
-                      <path d={describeArc(28, -140, rot)} fill="none" stroke="#A78BFA" strokeWidth={3} strokeLinecap="round" opacity={0.85} />
-                    </svg>
-                    <div
-                      className="big-knob"
-                      style={{ position: 'absolute', top: 6, left: 6, width: 52, height: 52, cursor: 'ns-resize', userSelect: 'none' }}
-                      onMouseDown={e => onMainKnobDown(e, spec, val)}
-                    >
-                      <div style={{
-                        position: 'absolute', top: '50%', left: '50%',
-                        width: 3, height: 16, background: '#E8E8EC', borderRadius: 2,
-                        transformOrigin: 'bottom center',
-                        transform: `translate(-50%, -100%) rotate(${rot}deg)`,
-                        marginTop: -2,
-                      }} />
-                    </div>
-                  </div>
-                  <div className="knob-name">{spec.label}</div>
-                  <div className="knob-val">{spec.fmt(val)}</div>
-                </div>
-              );
-            })}
-          </div>
 
-          <div className="canvas-label" style={{ marginBottom: '0.5rem' }}>GAIN REDUCTION METER</div>
-          <div className="gr-display">
-            <div className="gr-label">0 dB</div>
-            <div className="gr-meter">
-              <div className="gr-fill" style={{ width: `${grPct}%`, transition: 'width 0.06s linear' }} />
-              <div className="gr-needle" style={{ right: `${100 - grPct}%` }} />
+          {/* Meters sit to the left of the knobs, at a glance: signal comes in
+              on the left, gets shaped by the knobs to its right. */}
+          <div style={{ display: 'flex', gap: '1.1rem', alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flexShrink: 0 }}>
+              <div className="canvas-label" style={{ marginBottom: 0 }}>GAIN STAGING</div>
+              <div style={{
+                background: 'var(--black)', border: '1px solid var(--border)', borderRadius: 4,
+                padding: '0.65rem 0.75rem', display: 'flex', gap: '0.6rem',
+              }}>
+                <VerticalMeter
+                  label="INPUT"
+                  valueDb={inputLevelDb}
+                  minDb={METER_FLOOR_DB}
+                  maxDb={METER_CEIL_DB}
+                  ticks={METER_TICKS}
+                  color="#00FF87"
+                  mode="level"
+                  active={isPlaying}
+                  thresholdDb={bypass ? undefined : params.threshold}
+                />
+                <VerticalMeter
+                  label="G/R"
+                  valueDb={gainReduction}
+                  minDb={GR_FLOOR_DB}
+                  maxDb={0}
+                  ticks={GR_TICKS}
+                  color="#FF4D6A"
+                  mode="reduction"
+                  active={isPlaying && !bypass}
+                />
+                <VerticalMeter
+                  label="OUTPUT"
+                  valueDb={outputLevelDb}
+                  minDb={METER_FLOOR_DB}
+                  maxDb={METER_CEIL_DB}
+                  ticks={METER_TICKS}
+                  color="#A78BFA"
+                  mode="level"
+                  active={isPlaying}
+                  thresholdDb={bypass ? undefined : params.threshold}
+                />
+              </div>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '0.35rem',
+                fontFamily: 'var(--mono)', fontSize: '0.5rem', color: 'var(--text-faint)',
+              }}>
+                <span style={{ width: 8, height: 2, background: 'var(--amber)', display: 'inline-block', flexShrink: 0 }} />
+                THRESHOLD — same line, both meters
+              </div>
             </div>
-            <div className="gr-label">GR: <span className="gr-val">
-              {isPlaying && gainReduction < -0.1 ? `${gainReduction.toFixed(1)} dB` : '0.0 dB'}
-            </span></div>
+
+            <div className="knob-grid" style={{ flex: 1, marginBottom: 0 }}>
+              {KNOBS.map(spec => {
+                const val = params[spec.key] as number;
+                const rot = knobRotationForSpec(spec, val);
+                return (
+                  <div className="knob-wrap" key={spec.key}>
+                    <div style={{ position: 'relative', width: 64, height: 64 }}>
+                      <svg style={{ position: 'absolute', top: 0, left: 0 }} width={64} height={64} viewBox="-32 -32 64 64">
+                        <path d={describeArc(28, -140, 140)} fill="none" stroke="#2E2E3D" strokeWidth={3} strokeLinecap="round" />
+                        <path d={describeArc(28, -140, rot)} fill="none" stroke="#A78BFA" strokeWidth={3} strokeLinecap="round" opacity={0.85} />
+                      </svg>
+                      <div
+                        className="big-knob"
+                        style={{ position: 'absolute', top: 6, left: 6, width: 52, height: 52, cursor: 'ns-resize', userSelect: 'none' }}
+                        onMouseDown={e => onMainKnobDown(e, spec, val)}
+                      >
+                        <div style={{
+                          position: 'absolute', top: '50%', left: '50%',
+                          width: 3, height: 16, background: '#E8E8EC', borderRadius: 2,
+                          transformOrigin: 'bottom center',
+                          transform: `translate(-50%, -100%) rotate(${rot}deg)`,
+                          marginTop: -2,
+                        }} />
+                      </div>
+                    </div>
+                    <div className="knob-name">{spec.label}</div>
+                    <div className="knob-val">{spec.fmt(val)}</div>
+                    <KnobNumberInput
+                      value={val}
+                      min={spec.min}
+                      max={spec.max}
+                      step={spec.step}
+                      onChange={v => setParams(p => ({ ...p, [spec.key]: v }))}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <div style={{ marginTop: '1rem' }}>
             <div className="concept-callout" style={{ background: 'var(--purple-dim)', borderColor: 'rgba(167,139,250,0.2)' }}>
               <strong style={{ color: 'var(--purple)' }}>Concept: </strong>
-              {params.ratio.toFixed(1)}:1 ratio — {params.ratio > 10 ? 'Limiting territory. Very aggressive.' : params.ratio > 6 ? 'Heavy compression. Peak control.' : params.ratio > 3 ? 'Classic glue. Musical.' : 'Gentle, transparent.'}
+              {params.ratio.toFixed(0)}:1 ratio — {params.ratio > 10 ? 'Limiting territory. Very aggressive.' : params.ratio > 6 ? 'Heavy compression. Peak control.' : params.ratio > 3 ? 'Classic glue. Musical.' : 'Gentle, transparent.'}
               {' '}Toggle <strong style={{ color: 'var(--purple)' }}>BYPASS</strong> while playing to A/B.
             </div>
           </div>
-          {sidechain && <div className="tip-box" style={{ marginTop: '0.75rem', background: 'rgba(77,158,255,0.08)', borderColor: 'rgba(77,158,255,0.2)' }}><strong style={{ color: 'var(--blue)' }}>Sidechain:</strong> Compressor triggered by a separate control signal — voice-over ducking or kick-triggered bass pumping.</div>}
         </div>
 
         {/* Right: transfer + waveforms */}

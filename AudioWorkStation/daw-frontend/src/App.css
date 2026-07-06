@@ -800,6 +800,25 @@ body {
   color: var(--purple);
 }
 
+/* Raw-value entry, shown under each knob's formatted readout */
+.knob-num-input {
+  width: 52px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  text-align: center;
+  padding: 0.1rem 0.15rem;
+  outline: none;
+}
+.knob-num-input:hover  { border-color: var(--border-bright); }
+.knob-num-input:focus  { border-color: var(--purple); }
+.knob-num-input::-webkit-inner-spin-button,
+.knob-num-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.knob-num-input[type=number] { -moz-appearance: textfield; }
+
 /* Toggle buttons */
 .toggle-btn {
   padding: 0.35rem 0.75rem;
@@ -816,48 +835,6 @@ body {
 }
 .toggle-btn:hover { border-color: var(--border-bright); color: var(--text); }
 .toggle-btn.on { background: var(--purple-dim); border-color: var(--purple); color: var(--purple); }
-
-/* Gain-reduction display */
-.gr-display {
-  background: var(--black);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.75rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.gr-meter {
-  flex: 1;
-  height: 8px;
-  background: var(--surface);
-  border-radius: 4px;
-  position: relative;
-  overflow: hidden;
-}
-
-.gr-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--green), var(--amber), var(--red));
-  border-radius: 4px;
-}
-
-.gr-needle {
-  position: absolute;
-  top: 0; bottom: 0;
-  width: 2px;
-  background: var(--text);
-}
-
-.gr-label {
-  font-family: var(--mono);
-  font-size: 0.65rem;
-  color: var(--text-dim);
-  white-space: nowrap;
-}
-
-.gr-val { color: var(--purple); }
 
 /* Transfer-function graph */
 .transfer-graph {
@@ -1441,10 +1418,11 @@ body {
 
 .decay-readout strong { color: var(--teal); }
 
-/* 4-column knob grid for reverb */
+/* 5-column knob grid for reverb (SIZE/DECAY/PRE-DELAY/DAMPING/DIFFUSION,
+   then HI-SHELF freq+gain/LO-SHELF freq+gain/WET-DRY) */
 .reverb-knob-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 1rem;
   margin-bottom: 0.75rem;
 }

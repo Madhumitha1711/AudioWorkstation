@@ -1,5 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
+import { FaustMonoDspGenerator } from '@grame/faustwasm';
 import { Knob, type KnobSpec } from '../components/Knob';
+import { compileFaustWasm, type FaustDspMeta, type FaustNodeLike } from '../faust/faustTypes';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type PresetKey = 'ROOM' | 'CHAMBER' | 'HALL' | 'CATHEDRAL' | 'PLATE';
@@ -17,11 +19,14 @@ interface RoomPreset {
 interface UploadedTrack { id: number; name: string; buffer: AudioBuffer; }
 
 interface ReverbParams {
-  preDelay:  number; // ms  0 → 100
-  hiCut:     number; // Hz  1000 → 20000
-  loCut:     number; // Hz  20 → 500
-  wetDry:    number; // %   0 → 100
-  // ── Freeverb parameters (powered by daw-engine WASM) ──
+  preDelay:     number; // ms  0 → 100
+  // ── Shelving filters (replace the old HPF/LPF hi-cut/lo-cut) ──
+  hiShelfFreq:  number; // Hz  20 → 20000 — corner freq of the high shelf
+  hiShelfGain:  number; // dB -24 → 6
+  loShelfFreq:  number; // Hz  20 → 2000  — corner freq of the low shelf
+  loShelfGain:  number; // dB -24 → 6
+  wetDry:       number; // %   0 → 100
+  // ── Freeverb parameters (powered by the Faust reverbs.lib stereo_freeverb) ──
   size:      number; // 0–100 %
   decay:     number; // 0–100 %
   damping:   number; // 0–100 %
@@ -71,22 +76,6 @@ function calcEffectiveRt60(size: number, decay: number): number {
   return Math.max(0.1, roomSize * 5.0);
 }
 
-// ── Auto gain-staging for the wet path ────────────────────────────────────────
-// Mirrors the comb-filter feedback formula in reverb-processor.js (SCALE_ROOM/
-// OFFSET_ROOM). As SIZE/DECAY climb, comb feedback approaches its ~0.98 ceiling
-// and the steady-state gain to sustained input rises roughly as 1/(1-feedback)
-// — that's what drove the Cathedral-preset clipping. Rather than relying on the
-// limiter alone, back the wet signal off proactively so extreme presets don't
-// need as much limiting in the first place. Normalized to 1.0 at the HALL
-// preset (the app default) so default behavior is unchanged; only presets
-// hotter than HALL get scaled down, never boosted.
-const HALL_FEEDBACK = (68 / 100) * (0.05 + (70 / 100) * 0.95) * 0.28 + 0.70;
-function wetGainCompensation(size: number, decay: number): number {
-  const feedback = (size / 100) * (0.05 + (decay / 100) * 0.95) * 0.28 + 0.70;
-  const raw = (1 - HALL_FEEDBACK) / Math.max(0.001, 1 - feedback);
-  return Math.min(1, 1 / raw);
-}
-
 // ── IR Canvas drawing ──────────────────────────────────────────────────────────
 interface FvParams { size: number; decay: number; damping: number; diffusion: number; }
 
@@ -115,9 +104,10 @@ function drawIR(canvas: HTMLCanvasElement, preset: RoomPreset, fv: FvParams) {
   ctx.beginPath(); ctx.moveTo(20, bottom); ctx.lineTo(20, 20); ctx.stroke();
 
   // Early reflections
-  // Positions/amplitudes are derived from the SAME model generateIR() uses to
-  // synthesize the actual audio, so the picture matches what you hear:
-  //   - line X (distance) = the reflection's real arrival time, mapped through
+  // Positions/amplitudes are an illustrative model of how a real IR would
+  // look for these knob settings (the actual audio comes from the Faust
+  // reverb node, which doesn't expose this shape directly):
+  //   - line X (distance) = the reflection's modeled arrival time, mapped through
   //     the same time→x scale as the axis labels at the bottom.
   //   - line height (amplitude) = the reflection's real gain, on the same 0–1
   //     scale as the direct spike (whose height = bottom-20 = amplitude 1.0).
@@ -130,7 +120,7 @@ function drawIR(canvas: HTMLCanvasElement, preset: RoomPreset, fv: FvParams) {
     preset.earlyCount * (1 - (fv.diffusion / 100) * 0.6)   // 40% … 100% of preset count
   ));
 
-  // Mirrors generateIR()'s earlyDelays (seconds → ms) and amplitude falloff
+  // Illustrative early-reflection delays (ms) and their amplitude falloff
   const EARLY_DELAYS_MS = [3, 8, 15, 23, 35, 50, 70];
   const EARLY_AMPS = EARLY_DELAYS_MS.map((_, i) => 0.7 * Math.exp(-i * 0.35));
 
@@ -210,29 +200,6 @@ function drawIR(canvas: HTMLCanvasElement, preset: RoomPreset, fv: FvParams) {
   const timeLabels = ['0ms', '50ms', '200ms', '500ms', '1s', `${effectiveRt60.toFixed(1)}s`];
   const labelX     = [8, 55, 150, 330, 480, Math.min(W - 30, tailEnd - 5)];
   timeLabels.forEach((lbl, i) => { if (labelX[i] < W - 10) ctx.fillText(lbl, labelX[i], H - 4); });
-}
-
-// ── Synthetic IR generation ────────────────────────────────────────────────────
-function generateIR(audioCtx: AudioContext, preset: RoomPreset): AudioBuffer {
-  const sr  = audioCtx.sampleRate;
-  const len = Math.ceil(sr * (preset.rt60 + 0.3));
-  const buf = audioCtx.createBuffer(2, len, sr);
-  for (let c = 0; c < 2; c++) {
-    const data = buf.getChannelData(c);
-    data[0] = 1.0;
-    const earlyDelays = [0.003, 0.008, 0.015, 0.023, 0.035, 0.050, 0.070];
-    earlyDelays.slice(0, preset.earlyCount).forEach((t, i) => {
-      const idx = Math.floor(t * sr) + (c === 1 ? 3 : 0);
-      if (idx < len) data[idx] = 0.7 * Math.exp(-i * 0.35) * (c === 1 ? 0.93 : 1);
-    });
-    const tailStart = Math.floor(0.04 * sr);
-    for (let i = tailStart; i < len; i++) {
-      const t   = (i - tailStart) / sr;
-      const env = Math.exp(-t * 6.91 / preset.rt60);
-      data[i] += (Math.random() * 2 - 1) * env * 0.28;
-    }
-  }
-  return buf;
 }
 
 // ── Drum synth ────────────────────────────────────────────────────────────────
@@ -339,10 +306,13 @@ function DecayBars({ rt60, damping }: { rt60: number; damping: number }) {
 
 // ── Knob specs ─────────────────────────────────────────────────────────────────
 const KNOB_SPECS: Record<keyof ReverbParams, KnobSpec> = {
-  preDelay:  { label: 'PRE-DELAY', min: 0,    max: 100,   step: 1,   fmt: v => `${Math.round(v)}ms`,  accent: 'var(--teal)' },
-  hiCut:     { label: 'HI-CUT',   min: 1000,  max: 20000, step: 100, fmt: v => v >= 1000 ? `${(v/1000).toFixed(1)}kHz` : `${v}Hz`, accent: 'var(--teal)' },
-  loCut:     { label: 'LO-CUT',   min: 20,    max: 500,   step: 5,   fmt: v => `${Math.round(v)}Hz`,  accent: 'var(--teal)' },
-  wetDry:    { label: 'WET/DRY',  min: 0,     max: 100,   step: 1,   fmt: v => `${Math.round(v)}%`,   accent: 'var(--teal)' },
+  preDelay:    { label: 'PRE-DELAY',      min: 0,   max: 100,   step: 1,   fmt: v => `${Math.round(v)}ms`, accent: 'var(--teal)' },
+  // Shelving filters — replace the old HI-CUT (lowpass) / LO-CUT (highpass)
+  hiShelfFreq: { label: 'HI-SHELF FREQ', min: 20,  max: 20000, step: 100, fmt: v => v >= 1000 ? `${(v/1000).toFixed(1)}kHz` : `${Math.round(v)}Hz`, accent: 'var(--teal)' },
+  hiShelfGain: { label: 'HI-SHELF GAIN', min: -24, max: 6,     step: 0.1, fmt: v => `${v > 0 ? '+' : ''}${v.toFixed(1)}dB`, accent: 'var(--teal)' },
+  loShelfFreq: { label: 'LO-SHELF FREQ', min: 20,  max: 2000,  step: 1,   fmt: v => `${Math.round(v)}Hz`, accent: 'var(--teal)' },
+  loShelfGain: { label: 'LO-SHELF GAIN', min: -24, max: 6,     step: 0.1, fmt: v => `${v > 0 ? '+' : ''}${v.toFixed(1)}dB`, accent: 'var(--teal)' },
+  wetDry:      { label: 'WET/DRY',       min: 0,   max: 100,   step: 1,   fmt: v => `${Math.round(v)}%`, accent: 'var(--teal)' },
   // Freeverb knobs
   size:      { label: 'SIZE',      min: 0, max: 100, step: 1, fmt: v => `${Math.round(v)}%`,  accent: 'var(--purple)' },
   decay:     { label: 'DECAY',     min: 0, max: 100, step: 1, fmt: v => `${Math.round(v)}%`,  accent: 'var(--purple)' },
@@ -350,18 +320,61 @@ const KNOB_SPECS: Record<keyof ReverbParams, KnobSpec> = {
   diffusion: { label: 'DIFFUSION', min: 0, max: 100, step: 1, fmt: v => `${Math.round(v)}%`,  accent: 'var(--purple)' },
 };
 
-// ── Defaults ───────────────────────────────────────────────────────────────────
+// ── Defaults — mirror the `init` values in public/faust/reverb/dsp-meta.json ──
 const DEFAULTS: ReverbParams = {
-  preDelay:  24,
-  hiCut:     8000,
-  loCut:     120,
-  wetDry:    35,
+  preDelay:     24,
+  hiShelfFreq:  8000,
+  hiShelfGain:  -6,
+  loShelfFreq:  120,
+  loShelfGain:  -6,
+  wetDry:       35,
   ...PRESET_FREEVERB['HALL'],
 };
 const DEFAULT_PRESET: PresetKey = 'HALL';
 
-// ── WASM status type ───────────────────────────────────────────────────────────
-type EngineStatus = 'idle' | 'loading' | 'ready';
+// ── Faust reverb engine wiring ────────────────────────────────────────────────
+// Real DSP: public/faust/reverb/ (dsp-module.wasm + dsp-meta.json), a Faust
+// patch built on reverbs.lib's stereo_freeverb, exported straight from the
+// Faust IDE — replaces the old hand-rolled Freeverb AudioWorklet + separate
+// BiquadFilterNode hi-cut/lo-cut chain with the real Faust DSP, driven the
+// same way as the ParamEQ patch in Chapter2b and the compressor in Chapter4.
+// The patch owns pre-delay, the high/low shelving filters, and the wet/dry
+// mix internally, so no external DelayNode/BiquadFilterNode/GainNode chain
+// is needed around it anymore.
+const FAUST_BASE_PATH = '/faust/reverb';
+
+// Faust addresses, from public/faust/reverb/dsp-meta.json's `ui` tree.
+const ADDR = {
+  damping:     '/Reverb_Parameters/DAMPING',
+  decay:       '/Reverb_Parameters/DECAY',
+  diffusion:   '/Reverb_Parameters/DIFFUSION',
+  hiShelfFreq: '/Reverb_Parameters/HI-CUT_Freq',
+  hiShelfGain: '/Reverb_Parameters/HI-SHELF_Gain',
+  loShelfFreq: '/Reverb_Parameters/LO-CUT_Freq',
+  loShelfGain: '/Reverb_Parameters/LO-SHELF_Gain',
+  preDelay:    '/Reverb_Parameters/PRE-DELAY',
+  size:        '/Reverb_Parameters/SIZE',
+  wetDry:      '/Reverb_Parameters/WET-DRY',
+} as const;
+
+// Pushes every UI param onto a live Faust node. SIZE/DECAY/DAMPING/DIFFUSION/
+// WET-DRY are 0..1 in the patch but 0..100 (%) on the knobs; the shelving
+// filter freqs/gains and pre-delay already match the patch's own units.
+function pushFaustParams(node: FaustNodeLike, p: ReverbParams) {
+  node.setParamValue(ADDR.damping,     p.damping     / 100);
+  node.setParamValue(ADDR.decay,       p.decay       / 100);
+  node.setParamValue(ADDR.diffusion,   p.diffusion   / 100);
+  node.setParamValue(ADDR.hiShelfFreq, p.hiShelfFreq);
+  node.setParamValue(ADDR.hiShelfGain, p.hiShelfGain);
+  node.setParamValue(ADDR.loShelfFreq, p.loShelfFreq);
+  node.setParamValue(ADDR.loShelfGain, p.loShelfGain);
+  node.setParamValue(ADDR.preDelay,    p.preDelay);
+  node.setParamValue(ADDR.size,        p.size        / 100);
+  node.setParamValue(ADDR.wetDry,      p.wetDry      / 100);
+}
+
+// ── Faust engine status type ───────────────────────────────────────────────────
+type EngineStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function Chapter6() {
@@ -391,20 +404,46 @@ export default function Chapter6() {
   // Canvas
   const irRef = useRef<HTMLCanvasElement>(null);
 
+  // ── Faust engine (module + meta loaded once on mount; one node instantiated
+  // per AudioContext in startAudio) — same pattern as Chapter4's compressor
+  // and Chapter2b's ParamEQ.
+  const [engineError, setEngineError] = useState<string | null>(null);
+  const dspMetaRef   = useRef<FaustDspMeta | null>(null);
+  const dspModuleRef = useRef<WebAssembly.Module | null>(null);
+  const generatorRef = useRef<FaustMonoDspGenerator | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setEngineStatus('loading');
+    setEngineError(null);
+    (async () => {
+      try {
+        const meta: FaustDspMeta = await (await fetch(`${FAUST_BASE_PATH}/dsp-meta.json`)).json();
+        const mod = await compileFaustWasm(`${FAUST_BASE_PATH}/dsp-module.wasm`);
+        if (cancelled) return;
+        dspMetaRef.current = meta;
+        dspModuleRef.current = mod;
+        generatorRef.current = new FaustMonoDspGenerator();
+        setEngineStatus('ready');
+      } catch (err) {
+        if (cancelled) return;
+        console.error('[Chapter6] failed to load Faust reverb DSP', err);
+        setEngineError(err instanceof Error ? err.message : String(err));
+        setEngineStatus('error');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // Audio refs
-  const ctxRef        = useRef<AudioContext | null>(null);
-  const reverbNodeRef = useRef<AudioWorkletNode | null>(null); // Freeverb WASM node
-  const convolverRef  = useRef<ConvolverNode | null>(null);    // fallback
-  const preDelayRef   = useRef<DelayNode | null>(null);
-  const hiCutRef      = useRef<BiquadFilterNode | null>(null);
-  const loCutRef      = useRef<BiquadFilterNode | null>(null);
-  const wetGainRef    = useRef<GainNode | null>(null);
-  const dryGainRef    = useRef<GainNode | null>(null);
-  const mixRef        = useRef<GainNode | null>(null);
-  const limiterRef    = useRef<DynamicsCompressorNode | null>(null);
-  const schedulerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const nextNoteRef   = useRef(0);
-  const stepRef       = useRef(0);
+  const ctxRef       = useRef<AudioContext | null>(null);
+  const faustNodeRef = useRef<FaustNodeLike | null>(null); // Faust reverb node
+  const mixRef       = useRef<GainNode | null>(null);
+  const limiterRef   = useRef<DynamicsCompressorNode | null>(null);
+  const schedulerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nextNoteRef  = useRef(0);
+  const stepRef      = useRef(0);
+  const startTokenRef = useRef(0); // invalidates in-flight startAudio() on stop
 
   // Mirror params into a ref so audio callbacks always see fresh values
   const paramsRef = useRef(params);
@@ -425,35 +464,15 @@ export default function Chapter6() {
     setTasks([preset === 'HALL', hasPlayed, params.preDelay >= 15]);
   }, [preset, hasPlayed, params.preDelay]);
 
-  // ── Sync Web Audio params live ───────────────────────────────────────────────
+  // ── Sync live params to the Faust reverb node ───────────────────────────────
+  // The Faust patch owns pre-delay, both shelving filters, and the wet/dry
+  // mix internally, so this one effect replaces what used to be a manual
+  // BiquadFilterNode/DelayNode/GainNode sync plus a separate AudioWorklet
+  // postMessage effect.
   useEffect(() => {
-    const ctx = ctxRef.current; if (!ctx) return;
-    const t = ctx.currentTime;
-    if (preDelayRef.current) preDelayRef.current.delayTime.setTargetAtTime(params.preDelay / 1000, t, 0.01);
-    if (hiCutRef.current)    hiCutRef.current.frequency.setTargetAtTime(params.hiCut,  t, 0.01);
-    if (loCutRef.current)    loCutRef.current.frequency.setTargetAtTime(params.loCut,  t, 0.01);
-    if (wetGainRef.current) {
-      const compensated = (params.wetDry / 100) * wetGainCompensation(params.size, params.decay);
-      wetGainRef.current.gain.setTargetAtTime(compensated, t, 0.01);
-    }
-    if (dryGainRef.current)  dryGainRef.current.gain.setTargetAtTime(1 - params.wetDry / 100, t, 0.01);
-  }, [params.preDelay, params.hiCut, params.loCut, params.wetDry, params.size, params.decay]);
-
-  // ── Send Freeverb params to AudioWorklet ─────────────────────────────────────
-  useEffect(() => {
-    const node = reverbNodeRef.current; if (!node) return;
-    node.port.postMessage({ type: 'set_size',      value: params.size      / 100 });
-    node.port.postMessage({ type: 'set_decay',     value: params.decay     / 100 });
-    node.port.postMessage({ type: 'set_damping',   value: params.damping   / 100 });
-    node.port.postMessage({ type: 'set_diffusion', value: params.diffusion / 100 });
-  }, [params.size, params.decay, params.damping, params.diffusion]);
-
-  // ── Update convolver when preset changes ─────────────────────────────────────
-  useEffect(() => {
-    const ctx = ctxRef.current; const conv = convolverRef.current;
-    if (!ctx || !conv) return;
-    conv.buffer = generateIR(ctx, ROOM_PRESETS[preset]);
-  }, [preset]);
+    const node = faustNodeRef.current; if (!node) return;
+    pushFaustParams(node, params);
+  }, [params]);
 
   // ── Apply preset Freeverb defaults ───────────────────────────────────────────
   const applyPreset = useCallback((key: PresetKey) => {
@@ -475,81 +494,57 @@ export default function Chapter6() {
 
   // ── Start audio ──────────────────────────────────────────────────────────────
   const startAudio = useCallback(async () => {
-    const ctx = new AudioContext(); ctxRef.current = ctx;
+    if (engineStatus !== 'ready' || !generatorRef.current || !dspMetaRef.current || !dspModuleRef.current) {
+      // Faust engine still loading (or failed) — the topbar status/error
+      // message covers user feedback; Play is also disabled until ready.
+      return;
+    }
+    const myToken = ++startTokenRef.current;
+
+    const ctx = new AudioContext();
 
     // ── Mix bus (synth input) ──
-    const mix = ctx.createGain(); mix.gain.value = 0.8; mixRef.current = mix;
+    const mix = ctx.createGain(); mix.gain.value = 0.8;
 
-    // ── Output limiter ──
-    // Cathedral (high size/decay) drives the comb-filter reverb near its max
-    // feedback (~0.92–0.98). Under near-continuous 16th-note input (hi-hats
-    // firing almost every step) the tail doesn't fully decay between hits, so
-    // energy builds up faster than it drains and the summed comb output can
-    // spike to many times full scale. With no ceiling on the dry+wet buses,
-    // that overshoot hard-clips at the destination — the audible "noise".
-    // A brick-wall-ish limiter here catches both the dry-side summing (several
-    // drum voices hitting at once) and the reverb buildup, without touching
-    // the Freeverb DSP itself.
+    // ── Output limiter ── a light safety net against any extreme SIZE/DECAY
+    // setting driving the Faust freeverb's tail into clipping territory,
+    // without otherwise touching the DSP itself.
     const limiter = ctx.createDynamicsCompressor();
-    limiter.threshold.value = -6;   // dB — start clamping just under full scale
-    limiter.knee.value      = 0;    // hard knee, limiter-like behavior
-    limiter.ratio.value     = 20;   // aggressive ratio
+    limiter.threshold.value = -6;
+    limiter.knee.value      = 0;
+    limiter.ratio.value     = 20;
     limiter.attack.value    = 0.003;
     limiter.release.value   = 0.15;
     limiter.connect(ctx.destination);
+
+    // ── Faust reverb node ── owns pre-delay, both shelving filters (replacing
+    // the old external HPF/LPF), SIZE/DECAY/DAMPING/DIFFUSION, and the
+    // WET-DRY mix, all internally.
+    const factory = { module: dspModuleRef.current, json: JSON.stringify(dspMetaRef.current), soundfiles: {} };
+    let faustNode: FaustNodeLike;
+    try {
+      faustNode = await generatorRef.current.createNode(
+        ctx, dspMetaRef.current.name, factory, false, 512,
+      ) as unknown as FaustNodeLike;
+    } catch (err) {
+      console.error('[Chapter6] failed to build Faust reverb node', err);
+      ctx.close();
+      return;
+    }
+
+    // stopAudio() (or a second startAudio()) ran while we were awaiting — bail
+    if (myToken !== startTokenRef.current) { try { ctx.close(); } catch { /* ok */ } return; }
+
+    pushFaustParams(faustNode, paramsRef.current);
+
+    ctxRef.current = ctx;
+    mixRef.current = mix;
     limiterRef.current = limiter;
+    faustNodeRef.current = faustNode;
 
-    // ── Pre-delay ──
-    const preDelay = ctx.createDelay(0.2);
-    preDelay.delayTime.value = paramsRef.current.preDelay / 1000;
-    preDelayRef.current = preDelay;
-
-    // ── Wet chain tail: hiCut → loCut → wetGain → destination ──
-    const hiCut = ctx.createBiquadFilter(); hiCut.type = 'lowpass';  hiCut.frequency.value = paramsRef.current.hiCut;
-    const loCut = ctx.createBiquadFilter(); loCut.type = 'highpass'; loCut.frequency.value = paramsRef.current.loCut;
-    const wetGain = ctx.createGain();
-    wetGain.gain.value = (paramsRef.current.wetDry / 100)
-      * wetGainCompensation(paramsRef.current.size, paramsRef.current.decay);
-    const dryGain = ctx.createGain(); dryGain.gain.value = 1 - paramsRef.current.wetDry / 100;
-    hiCutRef.current = hiCut; loCutRef.current = loCut;
-    wetGainRef.current = wetGain; dryGainRef.current = dryGain;
-
-    // ── Dry path ──
-    mix.connect(dryGain);
-    dryGain.connect(limiter);
-
-    // ── Load AudioWorklet (JS Freeverb runs immediately; WASM upgrades async) ──
-    setEngineStatus('loading');
-    await ctx.audioWorklet.addModule('/worklets/reverb-processor.js');
-
-    const reverbNode = new AudioWorkletNode(ctx, 'reverb-processor', {
-      numberOfInputs:  1,
-      numberOfOutputs: 1,
-      outputChannelCount: [2],
-    });
-
-    reverbNode.port.onmessage = (e) => {
-      if (e.data.type === 'ready') setEngineStatus('ready');
-    };
-
-    // Send current params — worklet applies them to JS engine right away
-    const p = paramsRef.current;
-    reverbNode.port.postMessage({ type: 'set_size',      value: p.size      / 100 });
-    reverbNode.port.postMessage({ type: 'set_decay',     value: p.decay     / 100 });
-    reverbNode.port.postMessage({ type: 'set_damping',   value: p.damping   / 100 });
-    reverbNode.port.postMessage({ type: 'set_diffusion', value: p.diffusion / 100 });
-
-    reverbNodeRef.current = reverbNode;
-    const reverbWet: AudioNode = reverbNode;
-
-    // ── Wire wet path ──
-    // mix → preDelay → reverb → hiCut → loCut → wetGain → limiter → destination
-    mix.connect(preDelay);
-    preDelay.connect(reverbWet);
-    reverbWet.connect(hiCut);
-    hiCut.connect(loCut);
-    loCut.connect(wetGain);
-    wetGain.connect(limiter);
+    // ── Wire: mix → faustNode (reverb + shelves + pre-delay + wet/dry) → limiter → destination ──
+    mix.connect(faustNode as unknown as AudioNode);
+    (faustNode as unknown as AudioNode).connect(limiter);
 
     // ── Signal source: either the built-in synth drum loop, or a looping
     // uploaded track, feeding into the same `mix` node either way ──
@@ -572,7 +567,7 @@ export default function Chapter6() {
 
     setIsPlaying(true);
     setHasPlayed(true);
-  }, [preset, runScheduler]);
+  }, [engineStatus, runScheduler]);
 
   // ── Stop audio ───────────────────────────────────────────────────────────────
   const stopAudio = useCallback(() => {
@@ -582,25 +577,26 @@ export default function Chapter6() {
       bufSourceRef.current.disconnect();
       bufSourceRef.current = null;
     }
-    reverbNodeRef.current = null;
-    convolverRef.current  = null;
-    preDelayRef.current   = null;
-    hiCutRef.current      = null;
-    loCutRef.current      = null;
-    wetGainRef.current    = null;
-    dryGainRef.current    = null;
-    mixRef.current        = null;
-    limiterRef.current    = null;
+    startTokenRef.current++; // invalidate any in-flight startAudio()
+    if (faustNodeRef.current) {
+      try { (faustNodeRef.current as unknown as AudioNode).disconnect(); } catch { /* ok */ }
+      faustNodeRef.current = null;
+    }
+    mixRef.current     = null;
+    limiterRef.current = null;
     ctxRef.current?.close();
     ctxRef.current = null;
     setIsPlaying(false);
-    setEngineStatus('idle');
   }, []);
 
   useEffect(() => () => {
+    startTokenRef.current++;
     if (schedulerRef.current) clearTimeout(schedulerRef.current);
     if (bufSourceRef.current) {
       try { bufSourceRef.current.stop(); } catch { /* ok */ }
+    }
+    if (faustNodeRef.current) {
+      try { (faustNodeRef.current as unknown as AudioNode).disconnect(); } catch { /* ok */ }
     }
     ctxRef.current?.close();
   }, []);
@@ -653,7 +649,7 @@ export default function Chapter6() {
   const currentPreset = ROOM_PRESETS[preset];
   const TASK_LABELS   = ['Select Hall preset', 'Audition reverb', 'Set pre-delay ≥ 15ms'];
 
-  const freeverbActive = engineStatus === 'ready' || engineStatus === 'loading';
+  const faustActive = engineStatus === 'ready' || engineStatus === 'loading';
 
   // Signal-source tab row — the drum loop, or any number of uploaded tracks,
   // so reverb can be auditioned on real material.
@@ -747,30 +743,36 @@ export default function Chapter6() {
           <div>
             <div className="lab-name">Reverb Designer</div>
             <div className="lab-subtitle">
-              LAB · CH 06 · FREEVERB WASM · {activeTrack ? activeTrack.name : `DRUM GROOVE @ ${BPM} BPM`}
+              LAB · CH 06 · FAUST REVERBS.LIB · {activeTrack ? activeTrack.name : `DRUM GROOVE @ ${BPM} BPM`}
             </div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          {/* WASM status badge */}
+          {/* Faust engine status badge */}
           <span className="badge" style={{
             background: engineStatus === 'ready'   ? 'rgba(168,85,247,0.15)'  :
-                        engineStatus === 'loading' ? 'rgba(245,166,35,0.15)'  : 'var(--surface)',
+                        engineStatus === 'loading' ? 'rgba(245,166,35,0.15)'  :
+                        engineStatus === 'error'   ? 'rgba(255,77,106,0.12)'  : 'var(--surface)',
             borderColor: engineStatus === 'ready'  ? 'rgba(168,85,247,0.4)'   :
-                         engineStatus === 'loading'? 'rgba(245,166,35,0.4)'   : 'var(--border)',
+                         engineStatus === 'loading'? 'rgba(245,166,35,0.4)'   :
+                         engineStatus === 'error'  ? 'rgba(255,77,106,0.4)'   : 'var(--border)',
             color: engineStatus === 'ready'   ? '#A855F7'        :
-                   engineStatus === 'loading' ? 'var(--amber)'   : 'var(--text-faint)',
+                   engineStatus === 'loading' ? 'var(--amber)'   :
+                   engineStatus === 'error'   ? 'var(--red)'     : 'var(--text-faint)',
             fontFamily: 'var(--mono)', fontSize: '0.55rem', letterSpacing: '0.06em',
           }}>
-            {engineStatus === 'ready'   ? '● FREEVERB JS'     :
-             engineStatus === 'loading' ? '◌ LOADING…'        : '○ IDLE'}
+            {engineStatus === 'ready'   ? '● FAUST WASM'      :
+             engineStatus === 'loading' ? '◌ LOADING…'        :
+             engineStatus === 'error'   ? '⚠ ENGINE ERROR'    : '○ IDLE'}
           </span>
           <button
             className={`toggle-btn${isPlaying ? ' on' : ''}`}
             style={isPlaying ? { borderColor: 'var(--green)', color: 'var(--green)', background: 'var(--green-dim)' } : {}}
-            onClick={isPlaying ? stopAudio : startAudio}
+            onClick={isPlaying ? stopAudio : () => { void startAudio(); }}
+            disabled={!isPlaying && engineStatus !== 'ready'}
+            title={engineStatus === 'loading' ? 'Loading Faust reverb engine…' : engineStatus === 'error' ? (engineError ?? 'Faust engine failed to load') : undefined}
           >
-            {isPlaying ? '⏹ STOP' : '▶ PLAY'}
+            {isPlaying ? '⏹ STOP' : engineStatus === 'loading' ? '⏳ LOADING…' : engineStatus === 'error' ? '⚠ ENGINE ERROR' : '▶ PLAY'}
           </button>
           <span className="badge" style={{ background: 'var(--teal-dim)', borderColor: 'rgba(45,212,191,0.3)', color: 'var(--teal)' }}>
             ◐ ROOM: {currentPreset.name}
@@ -845,31 +847,31 @@ export default function Chapter6() {
           {/* ── Knob grid ── */}
           <div className="canvas-label" style={{ marginBottom: '0.75rem' }}>REVERB PARAMETERS</div>
 
-          {/* Freeverb section header */}
+          {/* Faust reverb section header */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: '0.4rem',
             fontFamily: 'var(--mono)', fontSize: '0.55rem',
             marginBottom: '0.6rem',
-            background: freeverbActive ? 'rgba(168,85,247,0.08)' : 'var(--surface)',
-            border: `1px solid ${freeverbActive ? 'rgba(168,85,247,0.3)' : 'var(--border)'}`,
+            background: faustActive ? 'rgba(168,85,247,0.08)' : 'var(--surface)',
+            border: `1px solid ${faustActive ? 'rgba(168,85,247,0.3)' : 'var(--border)'}`,
             borderRadius: 4, padding: '0.3rem 0.6rem',
           }}>
-            <span style={{ color: freeverbActive ? '#A855F7' : 'var(--text-faint)', fontWeight: 600 }}>
+            <span style={{ color: faustActive ? '#A855F7' : 'var(--text-faint)', fontWeight: 600 }}>
               {'◈'}
             </span>
-            <span style={{ color: freeverbActive ? '#A855F7' : 'var(--text-faint)' }}>
-              SIZE · DECAY · DAMPING · DIFFUSION
+            <span style={{ color: faustActive ? '#A855F7' : 'var(--text-faint)' }}>
+              SIZE · DECAY · DAMPING · DIFFUSION · SHELVING FILTERS
             </span>
             <span style={{ color: 'var(--text-faint)', marginLeft: 2 }}>
               — powered by{' '}
-              <span style={{ color: freeverbActive ? '#A855F7' : 'var(--text-faint)' }}>
-                Freeverb JS AudioWorklet
+              <span style={{ color: faustActive ? '#A855F7' : 'var(--text-faint)' }}>
+                Faust reverbs.lib (stereo_freeverb)
               </span>
             </span>
           </div>
 
           <div className="reverb-knob-grid">
-            {/* Row 1: SIZE (Freeverb), DECAY (Freeverb), PRE-DELAY (Web Audio), DAMPING (Freeverb) */}
+            {/* Row 1: SIZE, DECAY, PRE-DELAY, DAMPING, DIFFUSION (Faust freeverb core) */}
             <Knob
               spec={KNOB_SPECS.size}
               value={params.size}
@@ -890,22 +892,32 @@ export default function Chapter6() {
               value={params.damping}
               onChange={v => setParams(p => ({ ...p, damping: v }))}
             />
-
-            {/* Row 2: DIFFUSION (Freeverb), HI-CUT, LO-CUT, WET/DRY */}
             <Knob
               spec={KNOB_SPECS.diffusion}
               value={params.diffusion}
               onChange={v => setParams(p => ({ ...p, diffusion: v }))}
             />
+
+            {/* Row 2: HI-SHELF freq/gain, LO-SHELF freq/gain (replace the old HPF/LPF), WET/DRY */}
             <Knob
-              spec={KNOB_SPECS.hiCut}
-              value={params.hiCut}
-              onChange={v => setParams(p => ({ ...p, hiCut: v }))}
+              spec={KNOB_SPECS.hiShelfFreq}
+              value={params.hiShelfFreq}
+              onChange={v => setParams(p => ({ ...p, hiShelfFreq: v }))}
             />
             <Knob
-              spec={KNOB_SPECS.loCut}
-              value={params.loCut}
-              onChange={v => setParams(p => ({ ...p, loCut: v }))}
+              spec={KNOB_SPECS.hiShelfGain}
+              value={params.hiShelfGain}
+              onChange={v => setParams(p => ({ ...p, hiShelfGain: v }))}
+            />
+            <Knob
+              spec={KNOB_SPECS.loShelfFreq}
+              value={params.loShelfFreq}
+              onChange={v => setParams(p => ({ ...p, loShelfFreq: v }))}
+            />
+            <Knob
+              spec={KNOB_SPECS.loShelfGain}
+              value={params.loShelfGain}
+              onChange={v => setParams(p => ({ ...p, loShelfGain: v }))}
             />
             <Knob
               spec={KNOB_SPECS.wetDry}
@@ -945,7 +957,12 @@ export default function Chapter6() {
             <strong style={{ color: 'var(--teal)' }}>DAMPING</strong> rolls off high frequencies as
             the tail decays, mimicking absorption from air and soft surfaces.{' '}
             <strong style={{ color: 'var(--teal)' }}>DIFFUSION</strong> thickens echo density into a
-            smooth wash rather than distinct slaps. Drag knobs vertically to adjust.
+            smooth wash rather than distinct slaps.{' '}
+            <strong style={{ color: 'var(--teal)' }}>HI-SHELF</strong> and{' '}
+            <strong style={{ color: 'var(--teal)' }}>LO-SHELF</strong> tame the tail's brightness and
+            boom — a gentle gain shift above/below their corner frequency, rather than a hard
+            HPF/LPF cutoff — so the tail can darken or thin out without losing everything past a
+            brick-wall point. Drag knobs vertically to adjust.
           </div>
         </div>
       </div>
