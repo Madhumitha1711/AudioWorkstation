@@ -46,6 +46,14 @@ const ADDR = {
 
 type EngineStatus = 'idle' | 'loading' | 'ready' | 'error';
 
+// A single uploaded audio file kept in the Test Bench's source list, so
+// multiple files can be uploaded and switched between without re-uploading.
+interface UploadedAudioTrack {
+  id: number;
+  name: string;
+  buffer: AudioBuffer;
+}
+
 interface ParamEQBands {
   hpfFreq: number;
   lowShelfFreq: number; lowShelfGain: number;
@@ -986,6 +994,11 @@ export default function Chapter2b() {
   const [benchUploadError, setBenchUploadError] = useState('');
   const benchFileInputRef = useRef<HTMLInputElement>(null);
   const [benchDownloading, setBenchDownloading] = useState(false);
+  // Multiple uploaded tracks — each upload adds a new track instead of
+  // replacing the last one, so you can switch between several files.
+  const [benchTracks, setBenchTracks] = useState<UploadedAudioTrack[]>([]);
+  const [benchActiveTrackId, setBenchActiveTrackId] = useState<number | null>(null);
+  const benchUploadIdSeqRef = useRef(0);
 
   // ── Ear Training state ──────────────────────────────────────────────────────
   const [targetPreset, setTargetPreset] = useState<EQPreset>(() => pickRandomPreset());
@@ -1131,26 +1144,66 @@ export default function Chapter2b() {
   const handleBenchUploadClick = useCallback(() => { benchFileInputRef.current?.click(); }, []);
 
   const handleBenchFileSelected = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const files = Array.from(e.target.files ?? []);
     e.target.value = '';
-    if (!file) return;
+    if (files.length === 0) return;
     stopAudio();
     setBenchUploadError('');
     setBenchDecoding(true);
     try {
       const ctx = ensureAudioCtx();
       if (ctx.state === 'suspended') await ctx.resume();
-      const arrayBuf = await file.arrayBuffer();
-      const decoded = await ctx.decodeAudioData(arrayBuf);
-      setBenchBuffer(decoded);
-      setBenchFileName(file.name.replace(/\.[^/.]+$/, ''));
-    } catch (err) {
-      console.error('Failed to decode audio file', err);
-      setBenchUploadError('Could not read that file — try an mp3, wav, or m4a.');
+      const newTracks: UploadedAudioTrack[] = [];
+      let failures = 0;
+      for (const file of files) {
+        try {
+          const arrayBuf = await file.arrayBuffer();
+          const decoded = await ctx.decodeAudioData(arrayBuf);
+          newTracks.push({
+            id: ++benchUploadIdSeqRef.current,
+            name: file.name.replace(/\.[^/.]+$/, ''),
+            buffer: decoded,
+          });
+        } catch (err) {
+          console.error('Failed to decode audio file', file.name, err);
+          failures++;
+        }
+      }
+      if (newTracks.length > 0) {
+        setBenchTracks(prev => [...prev, ...newTracks]);
+        const last = newTracks[newTracks.length - 1];
+        setBenchActiveTrackId(last.id);
+        setBenchBuffer(last.buffer);
+        setBenchFileName(last.name);
+      }
+      if (failures > 0) {
+        setBenchUploadError(
+          newTracks.length > 0
+            ? `${failures} file${failures > 1 ? 's' : ''} could not be read — try mp3, wav, or m4a.`
+            : 'Could not read that file — try an mp3, wav, or m4a.'
+        );
+      }
     } finally {
       setBenchDecoding(false);
     }
   }, [stopAudio, ensureAudioCtx]);
+
+  // Switch the active Test Bench source between the demo loop and any of the
+  // previously uploaded tracks, without needing to re-upload.
+  const handleBenchSelectTrack = useCallback((id: number | null) => {
+    stopAudio();
+    setBenchActiveTrackId(id);
+    if (id === null) {
+      setBenchBuffer(null);
+      setBenchFileName('');
+      return;
+    }
+    const track = benchTracks.find(t => t.id === id);
+    if (track) {
+      setBenchBuffer(track.buffer);
+      setBenchFileName(track.name);
+    }
+  }, [stopAudio, benchTracks]);
 
   const handleBenchReset = useCallback(() => {
     stopAudio();
@@ -1300,11 +1353,12 @@ export default function Chapter2b() {
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           {tab === 'bench' && (
             <>
-              <input ref={benchFileInputRef} type="file" accept="audio/*" onChange={handleBenchFileSelected} style={{ display: 'none' }} />
+              <input ref={benchFileInputRef} type="file" accept="audio/*" multiple onChange={handleBenchFileSelected} style={{ display: 'none' }} />
               <button
                 className="btn-secondary"
                 onClick={handleBenchUploadClick}
                 disabled={benchDecoding}
+                title="Upload one or more audio files — pick multiple in the file dialog to load them all"
                 style={{
                   fontSize: '0.65rem',
                   padding: '0.4rem 0.8rem',
@@ -1367,6 +1421,53 @@ export default function Chapter2b() {
           );
         })}
       </div>
+
+      {/* Source row — switch between the demo loop and any uploaded tracks */}
+      {tab === 'bench' && benchTracks.length > 0 && (
+        <div style={{
+          display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center',
+          padding: '0.5rem 1rem 0',
+        }}>
+          <span style={{ fontSize: '0.55rem', color: 'var(--text-faint)', fontFamily: 'var(--mono)', letterSpacing: '0.06em' }}>
+            SOURCE:
+          </span>
+          <button
+            onClick={() => handleBenchSelectTrack(null)}
+            title="Built-in demo loop"
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.3rem 0.65rem',
+              background: benchActiveTrackId === null ? 'rgba(167,139,250,0.13)' : 'var(--surface)',
+              border: `1px solid ${benchActiveTrackId === null ? 'rgba(167,139,250,0.5)' : 'var(--border)'}`,
+              borderRadius: '3px', color: benchActiveTrackId === null ? 'var(--purple)' : 'var(--text-dim)',
+              fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+              cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+            }}
+          >
+            🎵 Demo Loop
+          </button>
+          {benchTracks.map(track => {
+            const active = benchActiveTrackId === track.id;
+            return (
+              <button
+                key={track.id}
+                onClick={() => handleBenchSelectTrack(track.id)}
+                title={track.name}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.3rem 0.65rem',
+                  background: active ? 'rgba(167,139,250,0.13)' : 'var(--surface)',
+                  border: `1px solid ${active ? 'rgba(167,139,250,0.5)' : 'var(--border)'}`,
+                  borderRadius: '3px', color: active ? 'var(--purple)' : 'var(--text-dim)',
+                  fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+                  cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+                  maxWidth: '10rem', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}
+              >
+                📁 {track.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* ═══ TEST BENCH ═══ */}
       {tab === 'bench' && (
