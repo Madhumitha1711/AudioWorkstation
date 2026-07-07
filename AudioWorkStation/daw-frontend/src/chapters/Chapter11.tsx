@@ -12,13 +12,16 @@ import { downloadAudioBufferAsWav } from '../audio/wavRender';
 // recovers, and Link L/R ties the stereo gain-reduction together so loud
 // transients don't shift the stereo image. Unlike the compressor/gate
 // patches elsewhere in this app, this patch exposes a *live* Gain_Reduction
-// bargraph — so the GR meter below reads the real DSP output instead of
-// being estimated from a static transfer-curve model. That bargraph is a
-// read-only DSP *output*, though, so it's never registered as an AudioParam
-// — reading it needs setOutputParamHandler (a port-message callback from the
-// audio thread), not getParamValue() (which only ever sees registered
-// AudioParams, i.e. the input controls, and silently returns 0 for anything
-// else). See the setOutputParamHandler wiring in startAudio() below.
+// bargraph — so the LIMITING/UNITY badge in the top bar reads the real DSP
+// output instead of being estimated from a static transfer-curve model.
+// That bargraph is a read-only DSP *output*, though, so it's never
+// registered as an AudioParam — reading it needs setOutputParamHandler (a
+// port-message callback from the audio thread), not getParamValue() (which
+// only ever sees registered AudioParams, i.e. the input controls, and
+// silently returns 0 for anything else). See the setOutputParamHandler
+// wiring in startAudio() below. The live scope analyzer further down (real
+// input/output level over time, replacing the old static vertical meters)
+// mirrors Chapter4's compressor and Chapter10's gate.
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface LimiterParams {
@@ -103,12 +106,13 @@ async function renderLimiterOffline(
   source: AudioBuffer,
   params: LimiterParams,
   bypass: boolean,
-  wetDry: number,
 ): Promise<AudioBuffer> {
   const offlineCtx = new OfflineAudioContext(source.numberOfChannels, source.length, source.sampleRate);
 
-  const dryGain = offlineCtx.createGain(); dryGain.gain.value = bypass ? 1 : (1 - wetDry);
-  const wetGain = offlineCtx.createGain(); wetGain.gain.value = bypass ? 0 : wetDry;
+  // No user-facing wet/dry mix control (removed, same as the compressor and
+  // gate) — always fully wet outside of bypass.
+  const dryGain = offlineCtx.createGain(); dryGain.gain.value = bypass ? 1 : 0;
+  const wetGain = offlineCtx.createGain(); wetGain.gain.value = bypass ? 0 : 1;
 
   const factory = { module: dspModule, json: JSON.stringify(meta), soundfiles: {} };
   const node = await generator.createNode(
@@ -237,18 +241,95 @@ function drawTransfer(canvas: HTMLCanvasElement, params: LimiterParams) {
   ctx.fillText('↑ OUT (dB)', 0, 0); ctx.restore();
 }
 
-// ── Canvas: waveform ──────────────────────────────────────────────────────────
-function drawWaveform(canvas: HTMLCanvasElement, data: Float32Array, color: string) {
+// ── Canvas: live limiter scope ────────────────────────────────────────────────
+// Same idea as the compressor's Live Compression Scope (Chapter4) and the
+// gate's Live Gate Scope (Chapter10): a separate, dedicated analyzer — not
+// drawn into the transfer-function graph above — that scrolls the real,
+// smoothed input/output level over a fixed time window. For a limiter this
+// is what makes Release / Auto Release legible: a loud transient shows as
+// the output trace snapping flat against the Ceiling line while the input
+// trace pokes above it, then Release governs how quickly the gap between
+// them (the amber shading) closes back down once the peak has passed.
+const SCOPE_WINDOW_S = 4;
+const SCOPE_MIN_DB   = -66;
+const SCOPE_MAX_DB   = 12;
+
+interface ScopePoint { t: number; inputDb: number; outputDb: number; }
+
+function drawLimiterScope(
+  canvas: HTMLCanvasElement,
+  history: ScopePoint[],
+  nowT: number,
+  thresholdDb: number,
+  ceilingDb: number,
+  showThresholds: boolean,
+) {
   const hd = hiDpi(canvas); if (!hd) return;
   const { ctx, W, H } = hd;
-  ctx.fillStyle = '#22222E'; ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = color; ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  for (let i = 0; i < data.length; i++) {
-    const x = (i / (data.length - 1)) * W;
-    const y = ((1 - data[i]) / 2) * H;
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+
+  const toY = (db: number) => H - ((Math.min(SCOPE_MAX_DB, Math.max(SCOPE_MIN_DB, db)) - SCOPE_MIN_DB) / (SCOPE_MAX_DB - SCOPE_MIN_DB)) * H;
+  const toX = (t: number) => ((t - (nowT - SCOPE_WINDOW_S)) / SCOPE_WINDOW_S) * W;
+
+  ctx.fillStyle = '#0D0D0F'; ctx.fillRect(0, 0, W, H);
+
+  // dB grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#6A6A7A'; ctx.font = '9px "JetBrains Mono", monospace';
+  for (let db = Math.ceil(SCOPE_MIN_DB / 12) * 12; db <= SCOPE_MAX_DB; db += 12) {
+    const y = toY(db);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    ctx.fillText(`${db > 0 ? '+' : ''}${db}`, 3, y - 2);
   }
+
+  // 0 dBFS reference — the line most peaks would otherwise slam into
+  ctx.strokeStyle = 'rgba(255,77,106,0.25)'; ctx.lineWidth = 1; ctx.setLineDash([2, 2]);
+  const y0 = toY(0);
+  ctx.beginPath(); ctx.moveTo(0, y0); ctx.lineTo(W, y0); ctx.stroke();
+  ctx.setLineDash([]);
+
+  if (showThresholds) {
+    ctx.strokeStyle = 'rgba(138,138,154,0.55)'; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+    const threshY = toY(thresholdDb);
+    ctx.beginPath(); ctx.moveTo(0, threshY); ctx.lineTo(W, threshY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(138,138,154,0.85)';
+    ctx.fillText('THRESH', W - 42, threshY - 3);
+
+    ctx.strokeStyle = 'rgba(245,166,35,0.55)'; ctx.lineWidth = 1; ctx.setLineDash([2, 2]);
+    const ceilY = toY(ceilingDb);
+    ctx.beginPath(); ctx.moveTo(0, ceilY); ctx.lineTo(W, ceilY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(245,166,35,0.85)';
+    ctx.fillText('CEILING', W - 46, ceilY + 9);
+  }
+
+  const visible = history.filter(p => p.t >= nowT - SCOPE_WINDOW_S - 0.25);
+  if (visible.length < 2) return;
+
+  const inPts  = visible.map(p => ({ x: toX(p.t), y: toY(p.inputDb) }));
+  const outPts = visible.map(p => ({ x: toX(p.t), y: toY(p.outputDb) }));
+
+  // Shaded gap between input and output — the actual gain reduction in
+  // motion. Amber, matching this chapter's own Gain Reduction meter/Ceiling
+  // accent color rather than the red used on the compressor/gate scopes.
+  ctx.save(); ctx.globalAlpha = 0.24; ctx.fillStyle = '#F5A623';
+  ctx.beginPath();
+  ctx.moveTo(inPts[0].x, inPts[0].y);
+  for (const p of inPts.slice(1)) ctx.lineTo(p.x, p.y);
+  for (let i = outPts.length - 1; i >= 0; i--) ctx.lineTo(outPts[i].x, outPts[i].y);
+  ctx.closePath(); ctx.fill(); ctx.restore();
+
+  // Input trace
+  ctx.save(); ctx.globalAlpha = 0.6;
+  ctx.strokeStyle = '#00FF87'; ctx.lineWidth = 1.25;
+  ctx.beginPath(); ctx.moveTo(inPts[0].x, inPts[0].y);
+  for (const p of inPts.slice(1)) ctx.lineTo(p.x, p.y);
+  ctx.stroke(); ctx.restore();
+
+  // Output trace (what actually reaches the ear — never above Ceiling)
+  ctx.strokeStyle = '#4D9EFF'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(outPts[0].x, outPts[0].y);
+  for (const p of outPts.slice(1)) ctx.lineTo(p.x, p.y);
   ctx.stroke();
 }
 
@@ -315,19 +396,16 @@ function describeArc(r: number, start: number, end: number) {
   return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
 }
 
-// ── Gain-staging meters (Input / Gain Reduction / Output) ───────────────────
-// Console-style vertical channel meters — same component as Chapter4's
-// compressor / Chapter10's gate. Input/Output allow readings a few dB above
-// 0 dBFS (the source loop is deliberately mixed hot), so a peak clamped by
-// the limiter's ceiling is visible in the meter, not just clipped off-scale.
+// ── Level ballistics + live Gain Reduction readout ──────────────────────────
+// The old vertical INPUT/G·R/OUTPUT bar meters were removed — the live
+// limiter scope below shows the same input/output levels (and the gain
+// reduction between them) as motion over time, which is strictly more
+// information than three static bars, so keeping both was redundant (same
+// change made to the compressor's Chapter4 and the gate's Chapter10). The
+// smoothed input/output dB values are still computed here (fast-attack/
+// slow-release, so they're readable frame to frame) — the scope is what
+// displays them now.
 const METER_FLOOR_DB = -60;
-const METER_CEIL_DB  = 6;
-const METER_TICKS    = [6, 3, 0, -3, -6, -9, -12, -18, -24, -40, -60];
-
-const GR_FLOOR_DB = -24; // matches the Faust patch's own Gain_Reduction bargraph bounds
-const GR_TICKS    = [0, -3, -6, -9, -12, -15, -18, -21, -24];
-
-const METER_BAR_HEIGHT = 190;
 
 const LEVEL_ATTACK_S  = 0.015;
 const LEVEL_RELEASE_S = 0.35;
@@ -338,91 +416,18 @@ function levelBallistic(prev: number, target: number, dt: number): number {
   return prev + (target - prev) * (1 - Math.exp(-dt / tau));
 }
 
-// The gain-reduction meter reads the Faust patch's own live Gain_Reduction
-// bargraph (unlike the compressor/gate charts, which have to estimate GR
-// from a static curve) — this just takes the *edge* off frame-to-frame
-// flicker so the readout doesn't blur, without altering the real ballistics
-// the DSP itself already applies (attack/release/lookahead all happen inside
-// the patch).
+// gainReduction (real DSP telemetry, not a scope estimate) still drives the
+// LIMITING/UNITY badge in the top bar, so this smoothing stays even with the
+// bar meter gone. The gain-reduction meter reads the Faust patch's own live
+// Gain_Reduction bargraph (unlike the compressor/gate charts, which have to
+// estimate GR from a static curve) — this just takes the *edge* off
+// frame-to-frame flicker so the readout doesn't blur, without altering the
+// real ballistics the DSP itself already applies (attack/release/lookahead
+// all happen inside the patch).
 const GR_READOUT_TAU_S = 0.03;
 function grReadoutSmooth(prev: number, target: number, dt: number): number {
   if (dt <= 0) return prev;
   return prev + (target - prev) * (1 - Math.exp(-dt / GR_READOUT_TAU_S));
-}
-
-function VerticalMeter({
-  label, valueDb, minDb, maxDb, ticks, color, mode = 'level', active, thresholdDb, thresholdLabel,
-}: {
-  label: string;
-  valueDb: number;
-  minDb: number;
-  maxDb: number;
-  ticks: number[];
-  color: string;
-  mode?: 'level' | 'reduction';
-  active: boolean;
-  thresholdDb?: number;
-  thresholdLabel?: string;
-}) {
-  const clamped  = Math.min(maxDb, Math.max(minDb, valueDb));
-  const span     = maxDb - minDb;
-  const fillPct  = mode === 'reduction'
-    ? Math.max(0, Math.min(100, ((maxDb - clamped) / span) * 100))
-    : Math.max(0, Math.min(100, ((clamped - minDb) / span) * 100));
-  const zeroPct  = Math.max(0, Math.min(100, ((maxDb - 0) / span) * 100));
-  const thresholdPct = thresholdDb === undefined
-    ? null
-    : Math.max(0, Math.min(100, ((maxDb - thresholdDb) / span) * 100));
-
-  const readout = !active
-    ? '—'
-    : mode === 'reduction'
-      ? `${valueDb <= -0.05 ? valueDb.toFixed(1) : '0.0'} dB`
-      : valueDb <= minDb + 0.5 ? '—' : `${valueDb > 0 ? '+' : ''}${valueDb.toFixed(1)} dB`;
-
-  const METER_COL_WIDTH = 64;
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', width: METER_COL_WIDTH, flexShrink: 0 }}>
-      <div style={{
-        fontFamily: 'var(--mono)', fontSize: '0.58rem', color: active ? color : 'var(--text-faint)',
-        background: 'var(--black)', border: '1px solid var(--border)', borderRadius: 3,
-        padding: '0.2rem 0', width: '100%', boxSizing: 'border-box', textAlign: 'center',
-        whiteSpace: 'nowrap', overflow: 'hidden',
-      }}>
-        {readout}
-      </div>
-      <div style={{ display: 'flex', gap: '0.3rem', width: '100%', justifyContent: 'center' }}>
-        <div style={{
-          position: 'relative', width: 14, height: METER_BAR_HEIGHT, flexShrink: 0,
-          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 3, overflow: 'hidden',
-        }}>
-          <div style={{
-            position: 'absolute', left: 0, right: 0,
-            ...(mode === 'reduction' ? { top: 0, height: `${fillPct}%` } : { bottom: 0, height: `${fillPct}%` }),
-            background: `linear-gradient(${mode === 'reduction' ? '180deg' : '0deg'}, ${color}, ${color}99)`,
-            boxShadow: active && fillPct > 1 ? `0 0 6px ${color}66` : 'none',
-          }} />
-          <div style={{ position: 'absolute', left: -3, right: -3, top: `${zeroPct}%`, height: 1, background: 'var(--border-bright)' }} />
-          {thresholdPct !== null && (
-            <div
-              title={`${thresholdLabel ?? 'Threshold'}: ${thresholdDb} dB`}
-              style={{ position: 'absolute', left: -3, right: -3, top: `${thresholdPct}%`, height: 2, background: 'var(--amber)', boxShadow: '0 0 4px var(--amber)' }}
-            />
-          )}
-        </div>
-        <div style={{
-          display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: METER_BAR_HEIGHT,
-          fontFamily: 'var(--mono)', fontSize: '0.48rem', color: 'var(--text-faint)', paddingBlock: '0.05rem',
-        }}>
-          {ticks.map(t => <div key={t}>{t > 0 ? `+${t}` : t}</div>)}
-        </div>
-      </div>
-      <div style={{ fontFamily: 'var(--mono)', fontSize: '0.55rem', letterSpacing: '0.06em', color: 'var(--text-dim)' }}>
-        {label}
-      </div>
-    </div>
-  );
 }
 
 // ── Test signal: a hot "mastered" loop that pokes above 0 dBFS ──────────────
@@ -538,9 +543,6 @@ export default function Chapter11() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [bypass,    setBypass]    = useState(false);
   const [gainReduction, setGR]    = useState(0);
-  const [inputLevelDb,  setInputLevelDb]  = useState(METER_FLOOR_DB);
-  const [outputLevelDb, setOutputLevelDb] = useState(METER_FLOOR_DB);
-  const [wetDry,        setWetDry] = useState(1); // 0 = dry, 1 = wet
   const [tasks, setTasks]         = useState([false, false, false, false]);
 
   // Signal source — hot drum+bass loop, or an uploaded track.
@@ -562,8 +564,8 @@ export default function Chapter11() {
 
   // Canvas refs
   const transferRef  = useRef<HTMLCanvasElement>(null);
-  const dryRef       = useRef<HTMLCanvasElement>(null);
-  const wetRef       = useRef<HTMLCanvasElement>(null);
+  const scopeRef     = useRef<HTMLCanvasElement>(null);
+  const scopeHistoryRef = useRef<ScopePoint[]>([]);
 
   // Faust limiter engine (module + meta loaded once on mount, one node
   // instantiated per AudioContext in startAudio — same pattern as Chapter4's
@@ -648,14 +650,17 @@ export default function Chapter11() {
     pushFaustParams(node, params);
   }, [params]);
 
-  // ── Dry/Wet crossfade + Bypass ────────────────────────────────────────────
+  // ── Bypass (crossfade to dry) ──────────────────────────────────────────────
+  // No user-facing wet/dry mix control (removed, same as the compressor and
+  // gate) — this crossfade only ever moves between fully wet and fully dry,
+  // driven by Bypass alone.
   useEffect(() => {
     const wet = wetGainRef.current, dry = dryGainRef.current, ac = ctxRef.current;
     if (!wet || !dry || !ac) return;
-    const w = bypass ? 0 : wetDry;
+    const w = bypass ? 0 : 1;
     wet.gain.setTargetAtTime(w,     ac.currentTime, 0.01);
     dry.gain.setTargetAtTime(1 - w, ac.currentTime, 0.01);
-  }, [wetDry, bypass]);
+  }, [bypass]);
 
   // ── Task tracking ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -681,28 +686,27 @@ export default function Chapter11() {
 
   // ── Animation loop ────────────────────────────────────────────────────────
   const animate = useCallback(() => {
-    const dryAnal = dryAnalRef.current; const wetAnal = wetAnalRef.current;
+    const dryAnal = dryAnalRef.current;
 
     const now = ctxRef.current?.currentTime ?? performance.now() / 1000;
     const dt  = meterClockRef.current !== null ? Math.max(0, Math.min(0.2, now - meterClockRef.current)) : 0;
     meterClockRef.current = now;
 
-    if (dryAnal && dryRef.current) {
+    if (dryAnal) {
       const buf = new Float32Array(dryAnal.fftSize); dryAnal.getFloatTimeDomainData(buf);
-      drawWaveform(dryRef.current, buf, '#3D3D52');
 
       let peak = 0;
       for (let i = 0; i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i]));
       const rawInputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
       smoothedInputDbRef.current = levelBallistic(smoothedInputDbRef.current, rawInputDb, dt);
-      setInputLevelDb(smoothedInputDbRef.current);
     }
 
     // Gain reduction: read the *real* Faust patch's own live Gain_Reduction
     // bargraph — no estimation needed, unlike the compressor/gate charts
     // elsewhere in this app. The value itself arrives asynchronously via
     // setOutputParamHandler (see startAudio) into grRawRef; this just smooths
-    // it for display.
+    // it for display. Still drives the LIMITING/UNITY badge up top even
+    // though the bar meter that used to show it is gone.
     if (!bypassRef.current) {
       smoothedGrDbRef.current = grReadoutSmooth(smoothedGrDbRef.current, grRawRef.current, dt);
       setGR(smoothedGrDbRef.current);
@@ -711,10 +715,6 @@ export default function Chapter11() {
       setGR(0);
     }
 
-    if (wetAnal && wetRef.current) {
-      const buf = new Float32Array(wetAnal.fftSize); wetAnal.getFloatTimeDomainData(buf);
-      drawWaveform(wetRef.current, buf, '#F5A623');
-    }
     if (finalAnalRef.current) {
       const buf = new Float32Array(finalAnalRef.current.fftSize);
       finalAnalRef.current.getFloatTimeDomainData(buf);
@@ -722,8 +722,22 @@ export default function Chapter11() {
       for (let i = 0; i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i]));
       const rawOutputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
       smoothedOutputDbRef.current = levelBallistic(smoothedOutputDbRef.current, rawOutputDb, dt);
-      setOutputLevelDb(smoothedOutputDbRef.current);
     }
+
+    // Live limiter scope — records the smoothed input/output dB into a
+    // scrolling history, so Release/Auto Release are visible as actual
+    // motion on the real signal instead of only as numbers on a knob.
+    if (dryAnal && finalAnalRef.current) {
+      const history = scopeHistoryRef.current;
+      history.push({ t: now, inputDb: smoothedInputDbRef.current, outputDb: smoothedOutputDbRef.current });
+      const cutoff = now - SCOPE_WINDOW_S - 0.5;
+      while (history.length > 0 && history[0].t < cutoff) history.shift();
+      if (scopeRef.current) {
+        const p = paramsRef.current;
+        drawLimiterScope(scopeRef.current, history, now, p.threshold, p.ceiling, !bypassRef.current);
+      }
+    }
+
     animRef.current = requestAnimationFrame(animate);
   }, []);
 
@@ -739,8 +753,10 @@ export default function Chapter11() {
     const mix = ctx.createGain(); mix.gain.value = 1.0;
     const dryAnal = ctx.createAnalyser(); dryAnal.fftSize = 1024; dryAnal.smoothingTimeConstant = 0.4;
     const wetAnal = ctx.createAnalyser(); wetAnal.fftSize = 1024; wetAnal.smoothingTimeConstant = 0.4;
-    const dryGain = ctx.createGain(); dryGain.gain.value = bypass ? 1 : (1 - wetDry);
-    const wetGain = ctx.createGain(); wetGain.gain.value = bypass ? 0 : wetDry;
+    // No user-facing wet/dry mix control (removed, same as the compressor
+    // and gate) — always fully wet outside of bypass.
+    const dryGain = ctx.createGain(); dryGain.gain.value = bypass ? 1 : 0;
+    const wetGain = ctx.createGain(); wetGain.gain.value = bypass ? 0 : 1;
     const output  = ctx.createGain(); output.gain.value = 1;
     const finalAnal = ctx.createAnalyser(); finalAnal.fftSize = 1024; finalAnal.smoothingTimeConstant = 0.35;
 
@@ -807,9 +823,10 @@ export default function Chapter11() {
       runScheduler();
     }
 
+    scopeHistoryRef.current = [];
     animRef.current = requestAnimationFrame(animate);
     setIsPlaying(true);
-  }, [engineStatus, params, bypass, wetDry, runScheduler, animate]);
+  }, [engineStatus, params, bypass, runScheduler, animate]);
 
   const stopAudio = useCallback(() => {
     startTokenRef.current++;
@@ -833,12 +850,12 @@ export default function Chapter11() {
     smoothedGrDbRef.current = 0;
     grRawRef.current = 0;
     meterClockRef.current = null;
-    setGR(0); setInputLevelDb(METER_FLOOR_DB); setOutputLevelDb(METER_FLOOR_DB); setIsPlaying(false);
-    [dryRef, wetRef].forEach(r => {
-      if (!r.current) return;
-      const c = r.current.getContext('2d')!;
-      c.fillStyle = '#22222E'; c.fillRect(0, 0, r.current.width, r.current.height);
-    });
+    setGR(0); setIsPlaying(false);
+    scopeHistoryRef.current = [];
+    if (scopeRef.current) {
+      const c = scopeRef.current.getContext('2d')!;
+      c.fillStyle = '#0D0D0F'; c.fillRect(0, 0, scopeRef.current.width, scopeRef.current.height);
+    }
   }, []);
 
   useEffect(() => () => {
@@ -894,8 +911,8 @@ export default function Chapter11() {
   }, [stopAudio]);
 
   // Renders the currently active uploaded track through the limiter (with
-  // current knob/bypass/wet-dry settings) and downloads it as a WAV — the
-  // "download after processing" counterpart to the upload button above.
+  // current knob/bypass settings) and downloads it as a WAV — the "download
+  // after processing" counterpart to the upload button above.
   const handleDownload = useCallback(async () => {
     const track = activeTrack;
     if (!track || !generatorRef.current || !dspMetaRef.current || !dspModuleRef.current) return;
@@ -904,7 +921,7 @@ export default function Chapter11() {
     try {
       const rendered = await renderLimiterOffline(
         generatorRef.current, dspMetaRef.current, dspModuleRef.current,
-        track.buffer, params, bypass, wetDry,
+        track.buffer, params, bypass,
       );
       downloadAudioBufferAsWav(rendered, `${track.name || 'limiter-studio'}-limited.wav`);
     } catch (err) {
@@ -913,7 +930,7 @@ export default function Chapter11() {
     } finally {
       setDownloading(false);
     }
-  }, [activeTrack, params, bypass, wetDry]);
+  }, [activeTrack, params, bypass]);
 
   // ── Main lab knob drag ────────────────────────────────────────────────────
   const onMainKnobDown = useCallback((e: React.MouseEvent, spec: KnobSpec, val: number) => {
@@ -1102,95 +1119,48 @@ export default function Chapter11() {
             LIMITER PARAMETERS · DRAG KNOBS VERTICALLY
           </div>
 
-          <div style={{ display: 'flex', gap: '1.1rem', alignItems: 'flex-start' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flexShrink: 0 }}>
-              <div className="canvas-label" style={{ marginBottom: 0 }}>GAIN STAGING</div>
-              <div style={{
-                background: 'var(--black)', border: '1px solid var(--border)', borderRadius: 4,
-                padding: '0.65rem 0.75rem', display: 'flex', gap: '0.6rem',
-              }}>
-                <VerticalMeter
-                  label="INPUT"
-                  valueDb={inputLevelDb}
-                  minDb={METER_FLOOR_DB}
-                  maxDb={METER_CEIL_DB}
-                  ticks={METER_TICKS}
-                  color="#00FF87"
-                  mode="level"
-                  active={isPlaying}
-                  thresholdDb={bypass ? undefined : params.threshold}
-                  thresholdLabel="Threshold"
-                />
-                <VerticalMeter
-                  label="G/R"
-                  valueDb={gainReduction}
-                  minDb={GR_FLOOR_DB}
-                  maxDb={0}
-                  ticks={GR_TICKS}
-                  color="#F5A623"
-                  mode="reduction"
-                  active={isPlaying && !bypass}
-                />
-                <VerticalMeter
-                  label="OUTPUT"
-                  valueDb={outputLevelDb}
-                  minDb={METER_FLOOR_DB}
-                  maxDb={METER_CEIL_DB}
-                  ticks={METER_TICKS}
-                  color="#4D9EFF"
-                  mode="level"
-                  active={isPlaying}
-                  thresholdDb={bypass ? undefined : params.ceiling}
-                  thresholdLabel="Ceiling"
-                />
-              </div>
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: '0.35rem',
-                fontFamily: 'var(--mono)', fontSize: '0.5rem', color: 'var(--text-faint)',
-              }}>
-                <span style={{ width: 8, height: 2, background: 'var(--amber)', display: 'inline-block', flexShrink: 0 }} />
-                THRESHOLD (in) / CEILING (out)
-              </div>
-            </div>
-
-            <div className="knob-grid" style={{ flex: 1, marginBottom: 0 }}>
-              {KNOBS.map(spec => {
-                const val = params[spec.key];
-                const rot = knobRotationForSpec(spec, val);
-                return (
-                  <div className="knob-wrap" key={spec.key}>
-                    <div style={{ position: 'relative', width: 64, height: 64 }}>
-                      <svg style={{ position: 'absolute', top: 0, left: 0 }} width={64} height={64} viewBox="-32 -32 64 64">
-                        <path d={describeArc(28, -140, 140)} fill="none" stroke="#2E2E3D" strokeWidth={3} strokeLinecap="round" />
-                        <path d={describeArc(28, -140, rot)} fill="none" stroke="#F5A623" strokeWidth={3} strokeLinecap="round" opacity={0.85} />
-                      </svg>
-                      <div
-                        className="big-knob"
-                        style={{ position: 'absolute', top: 6, left: 6, width: 52, height: 52, cursor: 'ns-resize', userSelect: 'none' }}
-                        onMouseDown={e => onMainKnobDown(e, spec, val)}
-                      >
-                        <div style={{
-                          position: 'absolute', top: '50%', left: '50%',
-                          width: 3, height: 16, background: '#E8E8EC', borderRadius: 2,
-                          transformOrigin: 'bottom center',
-                          transform: `translate(-50%, -100%) rotate(${rot}deg)`,
-                          marginTop: -2,
-                        }} />
-                      </div>
+          {/* Knobs, evenly spread across the full control column now that the
+              old meter column beside them is gone — the live scope on the
+              right already covers input/output/gain-reduction, so this
+              panel is just the controls themselves (same change made to the
+              compressor's Chapter4 and the gate's Chapter10). */}
+          <div className="knob-grid">
+            {KNOBS.map(spec => {
+              const val = params[spec.key];
+              const rot = knobRotationForSpec(spec, val);
+              return (
+                <div className="knob-wrap" key={spec.key}>
+                  <div style={{ position: 'relative', width: 64, height: 64 }}>
+                    <svg style={{ position: 'absolute', top: 0, left: 0 }} width={64} height={64} viewBox="-32 -32 64 64">
+                      <path d={describeArc(28, -140, 140)} fill="none" stroke="#2E2E3D" strokeWidth={3} strokeLinecap="round" />
+                      <path d={describeArc(28, -140, rot)} fill="none" stroke="#F5A623" strokeWidth={3} strokeLinecap="round" opacity={0.85} />
+                    </svg>
+                    <div
+                      className="big-knob"
+                      style={{ position: 'absolute', top: 6, left: 6, width: 52, height: 52, cursor: 'ns-resize', userSelect: 'none' }}
+                      onMouseDown={e => onMainKnobDown(e, spec, val)}
+                    >
+                      <div style={{
+                        position: 'absolute', top: '50%', left: '50%',
+                        width: 3, height: 16, background: '#E8E8EC', borderRadius: 2,
+                        transformOrigin: 'bottom center',
+                        transform: `translate(-50%, -100%) rotate(${rot}deg)`,
+                        marginTop: -2,
+                      }} />
                     </div>
-                    <div className="knob-name">{spec.label}</div>
-                    <div className="knob-val">{spec.fmt(val)}</div>
-                    <KnobNumberInput
-                      value={val}
-                      min={spec.min}
-                      max={spec.max}
-                      step={spec.step}
-                      onChange={v => setParams(p => ({ ...p, [spec.key]: v }))}
-                    />
                   </div>
-                );
-              })}
-            </div>
+                  <div className="knob-name">{spec.label}</div>
+                  <div className="knob-val">{spec.fmt(val)}</div>
+                  <KnobNumberInput
+                    value={val}
+                    min={spec.min}
+                    max={spec.max}
+                    step={spec.step}
+                    onChange={v => setParams(p => ({ ...p, [spec.key]: v }))}
+                  />
+                </div>
+              );
+            })}
           </div>
 
           {/* Link L/R + Auto Release toggles */}
@@ -1224,51 +1194,33 @@ export default function Chapter11() {
           </div>
         </div>
 
-        {/* Right: transfer + waveforms */}
+        {/* Right: transfer + live scope */}
         <div className="comp-visual">
           <div className="canvas-label" style={{ marginBottom: '0.75rem' }}>
             TRANSFER FUNCTION — INPUT vs OUTPUT
             <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
-              · shaped by THRESHOLD / CEILING only — release &amp; auto release are time-domain, see waveform below
+              · shaped by THRESHOLD / CEILING only — release &amp; auto release are time-domain, see scope below
             </span>
           </div>
           <div className="transfer-graph">
             <canvas ref={transferRef} width={400} height={200} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
           </div>
+
           <div className="canvas-label" style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>
-            BEFORE / AFTER WAVEFORM {!isPlaying && '· HIT PLAY TO SEE LIVE SIGNAL'}
+            LIVE LIMITER SCOPE {!isPlaying && '· HIT PLAY TO SEE LIVE SIGNAL'}
+            <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
+              · real input/output level over time — watch the output snap flat at CEILING &amp; RELEASE let go after
+            </span>
           </div>
-          <div className="waveform-compare">
-            <div className="compare-row">
-              <div className="compare-lbl">DRY</div>
-              <div className="mini-wave"><canvas ref={dryRef} width={300} height={30} style={{ width: '100%', height: '100%', display: 'block' }} /></div>
-            </div>
-            <div className="compare-row">
-              <div className="compare-lbl" style={{ color: 'var(--amber)' }}>WET</div>
-              <div className="mini-wave" style={{ borderColor: 'rgba(245,166,35,0.3)' }}><canvas ref={wetRef} width={300} height={30} style={{ width: '100%', height: '100%', display: 'block' }} /></div>
-            </div>
+          <div className="scope-graph">
+            <canvas ref={scopeRef} width={400} height={150} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
+          </div>
+          <div className="legend-row" style={{ marginTop: '0.5rem', marginBottom: 0 }}>
+            <div className="legend-item"><span className="legend-line" style={{ background: '#00FF87' }} />INPUT</div>
+            <div className="legend-item"><span className="legend-line" style={{ background: '#4D9EFF' }} />OUTPUT</div>
+            <div className="legend-item"><span className="legend-line" style={{ background: '#F5A623' }} />GAIN REDUCTION</div>
           </div>
 
-          {/* Wet / Dry mix slider */}
-          <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div className="canvas-label" style={{ margin: 0 }}>WET / DRY MIX</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: '0.65rem', color: 'var(--amber)' }}>
-                {wetDry === 1 ? '100% WET' : wetDry === 0 ? '100% DRY' : `${Math.round(wetDry * 100)}% WET · ${Math.round((1 - wetDry) * 100)}% DRY`}
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <span style={{ fontFamily: 'var(--mono)', fontSize: '0.6rem', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>DRY</span>
-              <input
-                type="range"
-                min={0} max={1} step={0.01}
-                value={wetDry}
-                onChange={e => setWetDry(parseFloat(e.target.value))}
-                style={{ flex: 1, accentColor: 'var(--amber)', cursor: 'pointer', height: 4 }}
-              />
-              <span style={{ fontFamily: 'var(--mono)', fontSize: '0.6rem', color: 'var(--amber)', whiteSpace: 'nowrap' }}>WET</span>
-            </div>
-          </div>
           <div style={{ marginTop: '1rem' }}>
             <div className="tip-box" style={{ background: 'rgba(245,166,35,0.07)', borderColor: 'rgba(245,166,35,0.2)' }}>
               <strong style={{ color: 'var(--amber)' }}>Signal:</strong>{' '}

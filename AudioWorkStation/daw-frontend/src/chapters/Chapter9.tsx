@@ -17,6 +17,114 @@ type PresetOrSynth = number | 'synth';
 
 interface UploadedTrack { id: number; name: string; buffer: AudioBuffer; }
 
+// ── HiDPI canvas helper (same pattern as Chapter6's reverb scope) ──────────
+function hiDpi(canvas: HTMLCanvasElement) {
+  const dpr = window.devicePixelRatio || 1;
+  const W   = canvas.clientWidth  || canvas.width;
+  const H   = canvas.clientHeight || canvas.height;
+  if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) {
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+  }
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, W, H };
+}
+
+// ── Live Delay Echo Scope ────────────────────────────────────────────────
+// The tap visualiser below is illustrative — a formula-driven bar chart of
+// where repeats *should* land for the current DELAY TIME/FEEDBACK/PING PONG
+// settings, redrawn on every knob move but never actually listening to real
+// audio. This is the real counterpart: a scrolling, real audio-driven
+// analyzer tapping the actual dry input and the actual Faust delay output,
+// so students can watch discrete echoes decay live and see how MOD
+// DEPTH/RATE and the HIPASS/LOPASS filters actually change the repeats'
+// tone over time — mirrors Chapter6's live reverb tail scope.
+const SCOPE_WINDOW_S = 4;
+const SCOPE_MIN_DB   = -72;
+const SCOPE_MAX_DB   = 6;
+
+interface ScopePoint { t: number; inputDb: number; outputDb: number; }
+
+function drawDelayScope(canvas: HTMLCanvasElement, history: ScopePoint[], nowT: number, active: boolean) {
+  const hd = hiDpi(canvas); if (!hd) return;
+  const { ctx, W, H } = hd;
+
+  const toY = (db: number) => H - ((Math.min(SCOPE_MAX_DB, Math.max(SCOPE_MIN_DB, db)) - SCOPE_MIN_DB) / (SCOPE_MAX_DB - SCOPE_MIN_DB)) * H;
+  const toX = (t: number) => ((t - (nowT - SCOPE_WINDOW_S)) / SCOPE_WINDOW_S) * W;
+
+  ctx.fillStyle = '#0D0D0F'; ctx.fillRect(0, 0, W, H);
+
+  // dB grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#6A6A7A'; ctx.font = '9px "JetBrains Mono", monospace';
+  for (let db = Math.ceil(SCOPE_MIN_DB / 12) * 12; db <= SCOPE_MAX_DB; db += 12) {
+    const y = toY(db);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    ctx.fillText(`${db > 0 ? '+' : ''}${db}`, 3, y - 2);
+  }
+
+  // 0 dB reference
+  ctx.strokeStyle = '#2E2E3D'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+  const y0 = toY(0);
+  ctx.beginPath(); ctx.moveTo(0, y0); ctx.lineTo(W, y0); ctx.stroke();
+  ctx.setLineDash([]);
+
+  if (!active) {
+    ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.fillText('HIT PLAY TO SEE THE ECHOES RING OUT', W / 2 - 110, H / 2);
+    return;
+  }
+
+  const visible = history.filter(p => p.t >= nowT - SCOPE_WINDOW_S - 0.25);
+  if (visible.length < 2) return;
+
+  const inPts  = visible.map(p => ({ x: toX(p.t), y: toY(p.inputDb) }));
+  const outPts = visible.map(p => ({ x: toX(p.t), y: toY(p.outputDb) }));
+
+  // Shaded gap — the delay's own contribution. Wherever the wet output
+  // persists once the dry input has already died away (right after a hit),
+  // the widening/lingering teal region is literally the repeats/tail —
+  // same color as the WET OUTPUT legend below.
+  ctx.save(); ctx.globalAlpha = 0.24; ctx.fillStyle = '#2DD4BF';
+  ctx.beginPath();
+  ctx.moveTo(inPts[0].x, inPts[0].y);
+  for (const p of inPts.slice(1)) ctx.lineTo(p.x, p.y);
+  for (let i = outPts.length - 1; i >= 0; i--) ctx.lineTo(outPts[i].x, outPts[i].y);
+  ctx.closePath(); ctx.fill(); ctx.restore();
+
+  // Dry (input) trace — amber, matching the DRY tap color in the tap display
+  ctx.save(); ctx.globalAlpha = 0.55;
+  ctx.strokeStyle = '#F5A623'; ctx.lineWidth = 1.25;
+  ctx.beginPath(); ctx.moveTo(inPts[0].x, inPts[0].y);
+  for (const p of inPts.slice(1)) ctx.lineTo(p.x, p.y);
+  ctx.stroke(); ctx.restore();
+
+  // Wet (output) trace — the actual delay repeats reaching the ear
+  ctx.strokeStyle = '#2DD4BF'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(outPts[0].x, outPts[0].y);
+  for (const p of outPts.slice(1)) ctx.lineTo(p.x, p.y);
+  ctx.stroke();
+
+  // Time axis
+  ctx.fillStyle = '#8A8A9A'; ctx.font = '9px "JetBrains Mono", monospace'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(`-${SCOPE_WINDOW_S}s`, 4, H - 4);
+  ctx.fillText('NOW', W - 26, H - 4);
+}
+
+// ── Level ballistics — feeds the live scope's smoothed input/output dB,
+// same fast-attack/slow-release approach as the reverb scope in Chapter6.
+const METER_FLOOR_DB = -70;
+const LEVEL_ATTACK_S  = 0.015;
+const LEVEL_RELEASE_S = 0.35;
+
+function levelBallistic(prev: number, target: number, dt: number): number {
+  if (dt <= 0) return prev;
+  const tau = target > prev ? LEVEL_ATTACK_S : LEVEL_RELEASE_S;
+  return prev + (target - prev) * (1 - Math.exp(-dt / tau));
+}
+
 interface DelayParams {
   delayTimeMs: number; // 1 – 2000 ms
   feedback:    number; // 0 – 95 %
@@ -342,15 +450,30 @@ export default function Chapter9() {
   const faustNodeRef  = useRef<FaustNodeLike | null>(null);
   const mixRef        = useRef<GainNode | null>(null);
   const limiterRef    = useRef<DynamicsCompressorNode | null>(null);
-  const outAnalRef    = useRef<AnalyserNode | null>(null);
+  const outAnalRef    = useRef<AnalyserNode | null>(null);   // post-delay tap — feeds VU meter + scope wet trace
+  const dryAnalRef    = useRef<AnalyserNode | null>(null);   // pre-delay tap — feeds scope dry trace
   const animRef       = useRef<number>(0);
   const schedulerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nextNoteRef   = useRef(0);
   const stepRef       = useRef(0);
   const startTokenRef = useRef(0);
+  const pingMuteUntilRef = useRef(0); // while ctx.currentTime < this, the loop is silenced for a clean test-echo ping
+
+  // Live delay echo scope state
+  const scopeRef            = useRef<HTMLCanvasElement>(null);
+  const scopeHistoryRef     = useRef<ScopePoint[]>([]);
+  const meterClockRef       = useRef<number | null>(null);
+  const smoothedInputDbRef  = useRef(METER_FLOOR_DB);
+  const smoothedOutputDbRef = useRef(METER_FLOOR_DB);
 
   const paramsRef = useRef(params);
   useEffect(() => { paramsRef.current = params; }, [params]);
+
+  // ── Idle state for the live scope ───────────────────────────────────────
+  useEffect(() => {
+    if (isPlaying) return;
+    if (scopeRef.current) drawDelayScope(scopeRef.current, [], 0, false);
+  }, [isPlaying]);
 
   // ── Sync division → delay time ──────────────────────────────────────────
   const applySync = useCallback((div: SyncDivision) => {
@@ -392,27 +515,73 @@ export default function Chapter9() {
   const TASK_LABELS = ['Sync to 1/8 note', 'Add subtle modulation depth', 'Filter repeats with hi/lo-pass'];
 
   // ── Scheduler ────────────────────────────────────────────────────────────
+  // While pingMuteUntilRef is in the future, steps still advance on the beat
+  // (so the groove doesn't drift) but aren't actually triggered — this is
+  // what gives triggerTestEcho() a clean window to let a single hit's
+  // repeats ring out in the echo scope below, undisturbed by the loop.
   const runScheduler = useCallback(() => {
     const ctx = ctxRef.current; const mix = mixRef.current;
     if (!ctx || !mix) return;
     while (nextNoteRef.current < ctx.currentTime + 0.1) {
-      scheduleStep(ctx, mix, stepRef.current, nextNoteRef.current);
+      if (nextNoteRef.current >= pingMuteUntilRef.current) {
+        scheduleStep(ctx, mix, stepRef.current, nextNoteRef.current);
+      }
       stepRef.current = (stepRef.current + 1) % STEPS;
       nextNoteRef.current += STEP_SEC;
     }
     schedulerRef.current = setTimeout(runScheduler, 25);
   }, []);
 
-  // ── Meter animation ──────────────────────────────────────────────────────
+  // ── Test-echo ping ───────────────────────────────────────────────────────
+  // The pluck+drums loop keeps re-triggering the delay, so MOD/FILTER/ANALOG
+  // changes barely show up in the scope. This fires one isolated stab, mutes
+  // the loop for one full scope window so nothing else re-triggers the
+  // delay, and resets the scope history so the whole window is free to show
+  // that single hit's repeats — mirrors Chapter6's PING TAIL.
+  const triggerTestEcho = useCallback(() => {
+    const ctx = ctxRef.current; const mix = mixRef.current;
+    if (!ctx || !mix) return;
+    const t = ctx.currentTime + 0.03;
+    pingMuteUntilRef.current = t + SCOPE_WINDOW_S + 0.5;
+    scopeHistoryRef.current = [];
+    meterClockRef.current = null;
+    synthStab(ctx, mix, t);
+  }, []);
+
+  // ── Meter + scope animation ──────────────────────────────────────────────
+  // Drives the VU meter (post-delay peak) and the live echo scope (smoothed
+  // dry/wet dB history) from the real dry/wet analyser taps.
   const animate = useCallback(() => {
-    const anal = outAnalRef.current;
-    if (anal) {
-      const buf = new Float32Array(anal.fftSize);
-      anal.getFloatTimeDomainData(buf);
+    const dryAnal = dryAnalRef.current; const wetAnal = outAnalRef.current;
+
+    const now = ctxRef.current?.currentTime ?? performance.now() / 1000;
+    const dt  = meterClockRef.current !== null ? Math.max(0, Math.min(0.2, now - meterClockRef.current)) : 0;
+    meterClockRef.current = now;
+
+    if (dryAnal) {
+      const buf = new Float32Array(dryAnal.fftSize); dryAnal.getFloatTimeDomainData(buf);
+      let peak = 0;
+      for (let i = 0; i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i]));
+      const rawInputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
+      smoothedInputDbRef.current = levelBallistic(smoothedInputDbRef.current, rawInputDb, dt);
+    }
+    if (wetAnal) {
+      const buf = new Float32Array(wetAnal.fftSize); wetAnal.getFloatTimeDomainData(buf);
       let peak = 0;
       for (let i = 0; i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i]));
       setVuFills(vuSegmentFills(peak));
+      const rawOutputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
+      smoothedOutputDbRef.current = levelBallistic(smoothedOutputDbRef.current, rawOutputDb, dt);
     }
+
+    if (dryAnal && wetAnal) {
+      const history = scopeHistoryRef.current;
+      history.push({ t: now, inputDb: smoothedInputDbRef.current, outputDb: smoothedOutputDbRef.current });
+      const cutoff = now - SCOPE_WINDOW_S - 0.5;
+      while (history.length > 0 && history[0].t < cutoff) history.shift();
+      if (scopeRef.current) drawDelayScope(scopeRef.current, history, now, true);
+    }
+
     animRef.current = requestAnimationFrame(animate);
   }, []);
 
@@ -429,7 +598,12 @@ export default function Chapter9() {
     limiter.attack.value = 0.003; limiter.release.value = 0.15;
     limiter.connect(ctx.destination);
 
-    const outAnal = ctx.createAnalyser(); outAnal.fftSize = 1024; outAnal.smoothingTimeConstant = 0.35;
+    // ── Live scope taps ── dryAnal reads the raw pluck/loop/track signal
+    // before the delay; outAnal reads the actual Faust delay output
+    // (including its own internal mod/filter/ping-pong/analog-sat/dry-wet
+    // blend) — outAnal feeds both the VU meter and the scope's wet trace.
+    const dryAnal = ctx.createAnalyser(); dryAnal.fftSize = 1024; dryAnal.smoothingTimeConstant = 0.4;
+    const outAnal = ctx.createAnalyser(); outAnal.fftSize = 2048; outAnal.smoothingTimeConstant = 0.35;
     outAnal.connect(limiter);
 
     const factory = { module: dspModuleRef.current, json: JSON.stringify(dspMetaRef.current), soundfiles: {} };
@@ -450,8 +624,12 @@ export default function Chapter9() {
     mixRef.current = mix;
     limiterRef.current = limiter;
     outAnalRef.current = outAnal;
+    dryAnalRef.current = dryAnal;
     faustNodeRef.current = faustNode;
 
+    // ── Wire: mix → dryAnal (viz tap) ─┐
+    //      └→ faustNode (delay + mod + filters + ping-pong + analog sat) → outAnal (viz tap + VU) → limiter → destination ──
+    mix.connect(dryAnal);
     mix.connect(faustNode as unknown as AudioNode);
     (faustNode as unknown as AudioNode).connect(outAnal);
 
@@ -467,9 +645,12 @@ export default function Chapter9() {
     } else {
       nextNoteRef.current = ctx.currentTime + 0.05;
       stepRef.current = 0;
+      pingMuteUntilRef.current = 0;
       runScheduler();
     }
 
+    scopeHistoryRef.current = [];
+    meterClockRef.current = null;
     animRef.current = requestAnimationFrame(animate);
     setIsPlaying(true);
     setHasPlayed(true);
@@ -488,10 +669,16 @@ export default function Chapter9() {
       try { (faustNodeRef.current as unknown as AudioNode).disconnect(); } catch { /* ok */ }
       faustNodeRef.current = null;
     }
-    mixRef.current = null; limiterRef.current = null; outAnalRef.current = null;
+    mixRef.current = null; limiterRef.current = null; outAnalRef.current = null; dryAnalRef.current = null;
     ctxRef.current?.close(); ctxRef.current = null;
+    smoothedInputDbRef.current = METER_FLOOR_DB;
+    smoothedOutputDbRef.current = METER_FLOOR_DB;
+    meterClockRef.current = null;
+    scopeHistoryRef.current = [];
+    pingMuteUntilRef.current = 0;
     setVuFills(vuSegmentFills(0));
     setIsPlaying(false);
+    if (scopeRef.current) drawDelayScope(scopeRef.current, [], 0, false);
   }, []);
 
   useEffect(() => () => {
@@ -727,6 +914,41 @@ export default function Chapter9() {
             {taps.map((tap, i) => (
               <div key={`l${i}`} className="tap-bar-label" style={{ left: `${tap.leftPct}%` }}>{tap.label}</div>
             ))}
+          </div>
+
+          <div className="canvas-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+            <span>
+              LIVE DELAY ECHO SCOPE {!isPlaying && '· HIT PLAY TO SEE LIVE SIGNAL'}
+              <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
+                · real dry input vs wet output over time — the tap chart above is illustrative, this is the actual audio
+              </span>
+            </span>
+            <button
+              className="toggle-btn"
+              style={{ fontSize: '0.6rem', padding: '0.25rem 0.6rem', whiteSpace: 'nowrap' }}
+              onClick={triggerTestEcho}
+              disabled={!isPlaying || activeSourceId !== 'synth'}
+              title={activeSourceId !== 'synth' ? 'Switch to pluck + drums to use the test-echo ping' : 'Fire one isolated hit and mute the loop so the repeats ring out cleanly'}
+            >
+              ⚡ PING ECHO
+            </button>
+          </div>
+          <div className="hdelay-scope-display">
+            <canvas
+              ref={scopeRef}
+              width={760}
+              height={150}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+            />
+          </div>
+          <div className="legend-row" style={{ marginBottom: '1rem' }}>
+            <div className="legend-item"><span className="legend-line" style={{ background: '#F5A623' }} />DRY INPUT</div>
+            <div className="legend-item"><span className="legend-line" style={{ background: '#2DD4BF' }} />WET OUTPUT (ECHOES)</div>
+          </div>
+          <div className="concept-callout" style={{ marginTop: '-0.5rem', marginBottom: '1rem', background: 'rgba(45,212,191,0.05)', borderColor: 'rgba(45,212,191,0.15)' }}>
+            The pluck + drums loop keeps re-triggering the delay, so MOD/FILTER/ANALOG changes can be hard to
+            see in a busy loop. Click <strong style={{ color: 'var(--teal)' }}>PING ECHO</strong>{' '}
+            to hear (and see) one hit's repeats ring out with nothing else in the way.
           </div>
 
           <div className="canvas-label">SYNC DIVISION</div>

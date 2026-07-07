@@ -26,7 +26,20 @@ export default function App() {
         <Chapter2b />
       </div>
 
+      {/* ── Chapter 10 ── */}
+      <div className="chapter-divider">
+        <h2 className="chapter-title">Silence the Noise Floor</h2>
+        <p className="chapter-desc">
+          A noise gate closes on quiet passages and opens on loud ones, muting hiss, hum, and bleed
+          between hits without touching the signal above threshold. Dial in Gate Open / Gate Close,
+          Attack, Hold, Release, and Floor — then compare the noisy vs. gated waveform.
+        </p>
+        <hr className="lab-separator" />
+      </div>
 
+      <div className="screen">
+        <Chapter10 />
+      </div>
 
       {/* ── Chapter 4 ── */}
       <div className="chapter-divider">
@@ -43,36 +56,6 @@ export default function App() {
         <Chapter4 />
       </div>
 
-      {/* ── Chapter 10 ── */}
-      <div className="chapter-divider">
-        <h2 className="chapter-title">Silence the Noise Floor</h2>
-        <p className="chapter-desc">
-          A noise gate closes on quiet passages and opens on loud ones, muting hiss, hum, and bleed
-          between hits without touching the signal above threshold. Dial in Gate Open / Gate Close,
-          Attack, Hold, Release, and Floor — then compare the noisy vs. gated waveform.
-        </p>
-        <hr className="lab-separator" />
-      </div>
-
-      <div className="screen">
-        <Chapter10 />
-      </div>
-
-      {/* ── Chapter 11 ── */}
-      <div className="chapter-divider">
-        <h2 className="chapter-title">Set a Brickwall Ceiling with a Limiter</h2>
-        <p className="chapter-desc">
-          A limiter is a compressor with an infinite ratio: Threshold decides where limiting starts,
-          Out Ceiling decides the hardest cap the output can ever reach. Dial in Threshold, Ceiling,
-          Release, Auto Release, and Link L/R — then catch a hot loop's peaks without pumping the mix.
-        </p>
-        <hr className="lab-separator" />
-      </div>
-
-      <div className="screen">
-        <Chapter11 />
-      </div>
-
       {/* ── Chapter 7 ── */}
       <div className="chapter-divider">
         <h2 className="chapter-title">Add Warmth with Saturation</h2>
@@ -87,6 +70,7 @@ export default function App() {
       <div className="screen">
         <Chapter7 />
       </div>
+
 
       {/* ── Chapter 6 ── */}
       <div className="chapter-divider">
@@ -116,6 +100,22 @@ export default function App() {
 
       <div className="screen">
         <Chapter9 />
+      </div>
+
+
+      {/* ── Chapter 11 ── */}
+      <div className="chapter-divider">
+        <h2 className="chapter-title">Set a Brickwall Ceiling with a Limiter</h2>
+        <p className="chapter-desc">
+          A limiter is a compressor with an infinite ratio: Threshold decides where limiting starts,
+          Out Ceiling decides the hardest cap the output can ever reach. Dial in Threshold, Ceiling,
+          Release, Auto Release, and Link L/R — then catch a hot loop's peaks without pumping the mix.
+        </p>
+        <hr className="lab-separator" />
+      </div>
+
+      <div className="screen">
+        <Chapter11 />
       </div>
 
       {/* ── Chapter 3 ── */}

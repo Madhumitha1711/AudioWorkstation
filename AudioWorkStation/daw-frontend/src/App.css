@@ -846,7 +846,7 @@ body {
   overflow: hidden;
 }
 
-/* Before / after waveform compare */
+/* Before / after waveform compare (Gate/Saturation/Limiter labs) */
 .waveform-compare {
   display: flex;
   flex-direction: column;
@@ -874,6 +874,18 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 3px;
+  overflow: hidden;
+}
+
+/* Live compression scope (Chapter 4) — separate, dedicated analyzer for
+   real input/output level over time (Attack/Release made visible), distinct
+   from the static transfer-function graph above it. */
+.scope-graph {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  height: 150px;
+  position: relative;
   overflow: hidden;
 }
 
@@ -1418,6 +1430,18 @@ body {
 
 .decay-readout strong { color: var(--teal); }
 
+/* Live reverb tail scope — real dry/wet level over time (separate from the
+   illustrative, formula-driven IR diagram above it). */
+.reverb-scope-display {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  height: 150px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
 /* 5-column knob grid for reverb (SIZE/DECAY/PRE-DELAY/DAMPING/DIFFUSION,
    then HI-SHELF freq+gain/LO-SHELF freq+gain/WET-DRY) */
 .reverb-knob-grid {
@@ -1485,6 +1509,19 @@ body {
   transform: translateX(-50%);
   white-space: nowrap;
   transition: left 0.15s ease;
+}
+
+/* Live delay echo scope — real dry/wet level over time (separate from the
+   illustrative, formula-driven tap display above it). Mirrors
+   .reverb-scope-display in Chapter 6. */
+.hdelay-scope-display {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  height: 150px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1rem;
 }
 
 .delay-sync-row { display: flex; gap: 0.4rem; margin-bottom: 1rem; }
