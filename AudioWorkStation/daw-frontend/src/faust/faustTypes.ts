@@ -59,6 +59,14 @@ export interface FaustNodeLike {
   disconnect(destination?: AudioNode): void;
   setParamValue(address: string, value: number): void;
   getParamValue?(address: string): number;
+  // Faust's getParamValue() only reads from the node's registered AudioParams,
+  // which only cover *input* controls (sliders/checkboxes) — read-only UI
+  // outputs like an hbargraph (e.g. a limiter's live Gain_Reduction meter)
+  // are never registered as AudioParams, so getParamValue() on one of those
+  // addresses always returns the 0 fallback. The DSP posts those output
+  // values from the audio thread instead; this registers a callback that
+  // fires with (address, value) whenever one updates.
+  setOutputParamHandler?(handler: (path: string, value: number) => void): void;
 }
 
 /**

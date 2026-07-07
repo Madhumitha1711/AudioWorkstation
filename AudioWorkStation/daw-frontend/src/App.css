@@ -1428,6 +1428,89 @@ body {
 }
 
 /* ════════════════════════════════════════════════════════════════════
+   CHAPTER 9 — DELAY DESIGN STUDIO (H-Delay style: mod + filter + character)
+════════════════════════════════════════════════════════════════════ */
+.hdelay-lab {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.hdelay-body { display: grid; grid-template-columns: 1fr 1fr; }
+.hdelay-left { padding: 1.25rem; border-right: 1px solid var(--border); }
+.hdelay-right { padding: 1.25rem; }
+
+.subsection-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.75rem;
+}
+
+/* Delay tap visualiser — plain positioned divs (left %, height px), driven
+   live from delayTimeMs/feedback/pingPong rather than baked-in mockup values */
+.tap-display {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  height: 140px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+.tap-grid {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255,255,255,0.03) 40px);
+}
+.tap-baseline { position: absolute; bottom: 24px; left: 0; right: 0; height: 1px; background: var(--border-bright); }
+.tap-bar {
+  position: absolute;
+  bottom: 24px;
+  width: 6px;
+  border-radius: 2px 2px 0 0;
+  transition: height 0.15s ease, left 0.15s ease;
+}
+.tap-bar-label {
+  position: absolute;
+  bottom: 6px;
+  font-family: var(--mono);
+  font-size: 0.5rem;
+  color: var(--text-faint);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  transition: left 0.15s ease;
+}
+
+.delay-sync-row { display: flex; gap: 0.4rem; margin-bottom: 1rem; }
+.sync-btn {
+  flex: 1;
+  padding: 0.4rem 0.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+.sync-btn.active { background: var(--teal-dim); border-color: var(--teal); color: var(--teal); }
+.sync-btn:hover:not(.active) { border-color: var(--border-bright); color: var(--text); }
+
+/* Knob grid variants reused across the MODULATION / FILTERS / OUTPUT
+   subsections — column count set per-instance via inline style, same
+   pattern as .reverb-knob-grid. */
+.hdelay-knob-grid { display: grid; gap: 1rem; }
+
+/* ════════════════════════════════════════════════════════════════════
    FAUST PANEL — generic renderer for any Faust dsp-meta.json ui tree
 ════════════════════════════════════════════════════════════════════ */
 .faust-panel { display: flex; flex-direction: column; gap: 1rem; }

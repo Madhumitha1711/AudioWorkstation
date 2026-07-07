@@ -3,6 +3,9 @@ import Chapter3 from './chapters/Chapter3';
 import Chapter4 from './chapters/Chapter4';
 import Chapter6 from './chapters/Chapter6';
 import Chapter7 from './chapters/Chapter7';
+import Chapter9 from './chapters/Chapter9';
+import Chapter10 from './chapters/Chapter10';
+import Chapter11 from './chapters/Chapter11';
 import './App.css';
 
 export default function App() {
@@ -40,6 +43,36 @@ export default function App() {
         <Chapter4 />
       </div>
 
+      {/* ── Chapter 10 ── */}
+      <div className="chapter-divider">
+        <h2 className="chapter-title">Silence the Noise Floor</h2>
+        <p className="chapter-desc">
+          A noise gate closes on quiet passages and opens on loud ones, muting hiss, hum, and bleed
+          between hits without touching the signal above threshold. Dial in Gate Open / Gate Close,
+          Attack, Hold, Release, and Floor — then compare the noisy vs. gated waveform.
+        </p>
+        <hr className="lab-separator" />
+      </div>
+
+      <div className="screen">
+        <Chapter10 />
+      </div>
+
+      {/* ── Chapter 11 ── */}
+      <div className="chapter-divider">
+        <h2 className="chapter-title">Set a Brickwall Ceiling with a Limiter</h2>
+        <p className="chapter-desc">
+          A limiter is a compressor with an infinite ratio: Threshold decides where limiting starts,
+          Out Ceiling decides the hardest cap the output can ever reach. Dial in Threshold, Ceiling,
+          Release, Auto Release, and Link L/R — then catch a hot loop's peaks without pumping the mix.
+        </p>
+        <hr className="lab-separator" />
+      </div>
+
+      <div className="screen">
+        <Chapter11 />
+      </div>
+
       {/* ── Chapter 7 ── */}
       <div className="chapter-divider">
         <h2 className="chapter-title">Add Warmth with Saturation</h2>
@@ -70,6 +103,20 @@ export default function App() {
         <Chapter6 />
       </div>
 
+      {/* ── Chapter 9 ── */}
+      <div className="chapter-divider">
+        <h2 className="chapter-title">Shape Character with Modulated, Filtered Delay</h2>
+        <p className="chapter-desc">
+          Beyond timing and feedback, a great delay has character — filtered repeats, subtle pitch
+          modulation, and analog-style saturation. Dial in a delay that breathes instead of just
+          repeating.
+        </p>
+        <hr className="lab-separator" />
+      </div>
+
+      <div className="screen">
+        <Chapter9 />
+      </div>
 
       {/* ── Chapter 3 ── */}
       <div className="chapter-divider">

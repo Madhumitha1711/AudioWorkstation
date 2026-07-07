@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { FaustMonoDspGenerator } from '@grame/faustwasm';
 import { Knob, type KnobSpec } from '../components/Knob';
 import { compileFaustWasm, type FaustDspMeta, type FaustNodeLike } from '../faust/faustTypes';
+import { downloadAudioBufferAsWav } from '../audio/wavRender';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type PresetKey = 'ROOM' | 'CHAMBER' | 'HALL' | 'CATHEDRAL' | 'PLATE';
@@ -373,6 +374,45 @@ function pushFaustParams(node: FaustNodeLike, p: ReverbParams) {
   node.setParamValue(ADDR.wetDry,      p.wetDry      / 100);
 }
 
+// Renders an uploaded track through the same Faust reverb patch (+ the same
+// safety limiter used live) offline, so it can be exported as a WAV — mirrors
+// the live graph in startAudio() but with no scheduler/meters.
+async function renderReverbOffline(
+  generator: FaustMonoDspGenerator,
+  meta: FaustDspMeta,
+  dspModule: WebAssembly.Module,
+  source: AudioBuffer,
+  params: ReverbParams,
+): Promise<AudioBuffer> {
+  // The reverb tail rings on well past the end of the dry input — rendering
+  // at only source.length would chop the decay off mid-tail. Pad the render
+  // by the room's own effective RT60 (+ a little headroom), capped so an
+  // extreme SIZE/DECAY setting can't produce an unreasonably long file.
+  const tailSeconds = Math.min(12, calcEffectiveRt60(params.size, params.decay) + 1);
+  const totalLength = source.length + Math.ceil(tailSeconds * source.sampleRate);
+  const offlineCtx = new OfflineAudioContext(source.numberOfChannels, totalLength, source.sampleRate);
+  const factory = { module: dspModule, json: JSON.stringify(meta), soundfiles: {} };
+  const node = await generator.createNode(
+    offlineCtx as unknown as AudioContext, meta.name, factory, false, 512,
+  ) as unknown as FaustNodeLike;
+  pushFaustParams(node, params);
+
+  const limiter = offlineCtx.createDynamicsCompressor();
+  limiter.threshold.value = -6;
+  limiter.knee.value      = 0;
+  limiter.ratio.value     = 20;
+  limiter.attack.value    = 0.003;
+  limiter.release.value   = 0.15;
+
+  const src = offlineCtx.createBufferSource();
+  src.buffer = source;
+  src.connect(node as unknown as AudioNode);
+  (node as unknown as AudioNode).connect(limiter);
+  limiter.connect(offlineCtx.destination);
+  src.start();
+  return offlineCtx.startRendering();
+}
+
 // ── Faust engine status type ───────────────────────────────────────────────────
 type EngineStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -391,6 +431,8 @@ export default function Chapter6() {
   const [activeSourceId, setActiveSourceId] = useState<number | 'synth'>('synth');
   const [decoding,       setDecoding]       = useState(false);
   const [uploadError,    setUploadError]    = useState('');
+  const [downloading,    setDownloading]    = useState(false);
+  const [downloadError,  setDownloadError]  = useState('');
   const fileInputRef   = useRef<HTMLInputElement>(null);
   const uploadIdSeqRef = useRef(0);
   const activeSourceIdRef = useRef(activeSourceId);
@@ -646,6 +688,28 @@ export default function Chapter6() {
     }
   }, [stopAudio]);
 
+  // Renders the currently active uploaded track through the reverb (with
+  // current knob settings) and downloads it as a WAV — the "download after
+  // processing" counterpart to the upload button above.
+  const handleDownload = useCallback(async () => {
+    const track = activeTrack;
+    if (!track || !generatorRef.current || !dspMetaRef.current || !dspModuleRef.current) return;
+    setDownloadError('');
+    setDownloading(true);
+    try {
+      const rendered = await renderReverbOffline(
+        generatorRef.current, dspMetaRef.current, dspModuleRef.current,
+        track.buffer, params,
+      );
+      downloadAudioBufferAsWav(rendered, `${track.name || 'reverb-designer'}-reverb.wav`);
+    } catch (err) {
+      console.error('[Chapter6] failed to render audio for download', err);
+      setDownloadError('Could not render the audio for download — see console for details.');
+    } finally {
+      setDownloading(false);
+    }
+  }, [activeTrack, params]);
+
   const currentPreset = ROOM_PRESETS[preset];
   const TASK_LABELS   = ['Select Hall preset', 'Audition reverb', 'Set pre-delay ≥ 15ms'];
 
@@ -724,9 +788,34 @@ export default function Chapter6() {
         <span style={{ fontSize: '0.85rem' }}>{decoding ? '⏳' : '+'}</span>
         <span>{decoding ? 'DECODING…' : 'UPLOAD AUDIO'}</span>
       </button>
+      {activeTrack && (
+        <button
+          onClick={() => { void handleDownload(); }}
+          disabled={downloading}
+          title="Render the active track through the reverb and download it as a WAV"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.35rem',
+            padding: '0.3rem 0.65rem',
+            background: 'var(--surface)',
+            border: '1px dashed var(--border)',
+            borderRadius: '3px',
+            color: 'var(--text-dim)',
+            fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+            cursor: downloading ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+          }}
+        >
+          <span style={{ fontSize: '0.85rem' }}>{downloading ? '⏳' : '⬇'}</span>
+          <span>{downloading ? 'RENDERING…' : 'DOWNLOAD AUDIO'}</span>
+        </button>
+      )}
       {uploadError && (
         <span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>
           {uploadError}
+        </span>
+      )}
+      {downloadError && (
+        <span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>
+          {downloadError}
         </span>
       )}
     </div>
@@ -743,7 +832,7 @@ export default function Chapter6() {
           <div>
             <div className="lab-name">Reverb Designer</div>
             <div className="lab-subtitle">
-              LAB · CH 06 · FAUST REVERBS.LIB · {activeTrack ? activeTrack.name : `DRUM GROOVE @ ${BPM} BPM`}
+              FAUST REVERBS.LIB · {activeTrack ? activeTrack.name : `DRUM GROOVE @ ${BPM} BPM`}
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { Knob } from '../components/Knob';
+import { Fader } from '../components/Fader';
 
 // ── Track definitions ─────────────────────────────────────────────────────────
 interface TrackConfig {
@@ -512,7 +513,7 @@ export default function Chapter3() {
           </div>
           <div>
             <div className="lab-name">Mixing Console</div>
-            <div className="lab-subtitle">LAB · CH 03 · SESSION MIX</div>
+            <div className="lab-subtitle">SESSION MIX</div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
@@ -576,9 +577,8 @@ export default function Chapter3() {
                   onChange={v => setPanValues(prev => { const n = [...prev]; n[i] = v; return n; })}
                 />
 
-                {/* Volume knob */}
-                <Knob
-                  size={52}
+                {/* Volume slider */}
+                <Fader
                   spec={{
                     label: 'LEVEL',
                     min: 0, max: 1, step: 0.005,
