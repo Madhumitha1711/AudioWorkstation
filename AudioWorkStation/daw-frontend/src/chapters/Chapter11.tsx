@@ -975,8 +975,8 @@ export default function Chapter11() {
           cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
         }}
       >
-        <span style={{ fontSize: '0.85rem' }}>🔥</span>
-        <span>HOT MASTER LOOP</span>
+        <span style={{ fontSize: '0.85rem' }}>🔁</span>
+        <span>MASTER LOOP</span>
       </button>
 
       {uploadedTracks.map(track => {
