@@ -889,6 +889,43 @@ body {
   overflow: hidden;
 }
 
+/* Live GR (gain-reduction) meter — horizontal bar at the top of the right
+   (visual) column, to the right of the knob controls. */
+.gr-meter-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+}
+
+.gr-meter-lbl,
+.gr-meter-val {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.gr-meter-val { color: var(--purple); }
+
+.gr-meter-track {
+  flex: 1;
+  height: 8px;
+  background: var(--surface);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.gr-meter-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #00FF87 0%, #F5A623 65%, #FF4D6A 100%);
+  transition: width 0.1s ease;
+}
+
 /* (challenge panel reuses .comp-lab, .comp-body, .comp-controls, .comp-visual) */
 
 /* ════════════════════════════════════════════════════════════════════

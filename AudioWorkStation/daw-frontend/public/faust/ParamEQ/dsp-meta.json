@@ -18,11 +18,14 @@
         "/usr/share/faust",
         "."
     ],
-    "size": 600,
-    "code": "GOi6AZQ9Hw==",
+    "size": 1188,
+    "code": "+DdGBJQ9Hw==",
     "inputs": 2,
     "outputs": 2,
     "meta": [
+        {
+            "analyzers.lib/amp_follower_ar:author": "Jonatan Liljedahl, revised by Romain Michon"
+        },
         {
             "analyzers.lib/name": "Faust Analyzer Library"
         },
@@ -42,15 +45,6 @@
             "filename": "ParamEQ.dsp"
         },
         {
-            "filters.lib/filterbank:author": "Julius O. Smith III"
-        },
-        {
-            "filters.lib/filterbank:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
-        },
-        {
-            "filters.lib/filterbank:license": "MIT-style STK-4.3 license"
-        },
-        {
             "filters.lib/fir:author": "Julius O. Smith III"
         },
         {
@@ -64,15 +58,6 @@
         },
         {
             "filters.lib/highpass:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
-        },
-        {
-            "filters.lib/highshelf:author": "Julius O. Smith III"
-        },
-        {
-            "filters.lib/highshelf:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
-        },
-        {
-            "filters.lib/highshelf:license": "MIT-style STK-4.3 license"
         },
         {
             "filters.lib/iir:author": "Julius O. Smith III"
@@ -99,15 +84,6 @@
             "filters.lib/lowpass:license": "MIT-style STK-4.3 license"
         },
         {
-            "filters.lib/lowshelf:author": "Julius O. Smith III"
-        },
-        {
-            "filters.lib/lowshelf:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
-        },
-        {
-            "filters.lib/lowshelf:license": "MIT-style STK-4.3 license"
-        },
-        {
             "filters.lib/name": "Faust Filters Library"
         },
         {
@@ -129,22 +105,13 @@
             "filters.lib/peak_eq_cq:license": "MIT-style STK-4.3 license"
         },
         {
-            "filters.lib/tf1:author": "Julius O. Smith III"
+            "filters.lib/resonbp:author": "Julius O. Smith III"
         },
         {
-            "filters.lib/tf1:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+            "filters.lib/resonbp:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
         },
         {
-            "filters.lib/tf1:license": "MIT-style STK-4.3 license"
-        },
-        {
-            "filters.lib/tf1s:author": "Julius O. Smith III"
-        },
-        {
-            "filters.lib/tf1s:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
-        },
-        {
-            "filters.lib/tf1s:license": "MIT-style STK-4.3 license"
+            "filters.lib/resonbp:license": "MIT-style STK-4.3 license"
         },
         {
             "filters.lib/tf2:author": "Julius O. Smith III"
@@ -195,6 +162,12 @@
             "signals.lib/name": "Faust Signal Routing Library"
         },
         {
+            "signals.lib/onePoleSwitching:author": "Jonatan Liljedahl, revised by Dario Sanfilippo"
+        },
+        {
+            "signals.lib/onePoleSwitching:licence": "STK-4.3"
+        },
+        {
             "signals.lib/version": "1.6.0"
         }
     ],
@@ -204,12 +177,116 @@
             "label": "ParamEQ",
             "items": [
                 {
+                    "type": "checkbox",
+                    "label": "HPF/Bypass",
+                    "varname": "fCheckbox9",
+                    "shortname": "HPF_Bypass",
+                    "address": "/ParamEQ/HPF_Bypass",
+                    "index": 84,
+                    "meta": [
+                        {
+                            "0": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "High Shelf/Bypass",
+                    "varname": "fCheckbox1",
+                    "shortname": "High_Shelf_Bypass",
+                    "address": "/ParamEQ/High_Shelf_Bypass",
+                    "index": 4,
+                    "meta": [
+                        {
+                            "0": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "LPF/Bypass",
+                    "varname": "fCheckbox0",
+                    "shortname": "LPF_Bypass",
+                    "address": "/ParamEQ/LPF_Bypass",
+                    "index": 0,
+                    "meta": [
+                        {
+                            "0": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Low Shelf/Bypass",
+                    "varname": "fCheckbox7",
+                    "shortname": "Low_Shelf_Bypass",
+                    "address": "/ParamEQ/Low_Shelf_Bypass",
+                    "index": 60,
+                    "meta": [
+                        {
+                            "0": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Peak1/Bypass",
+                    "varname": "fCheckbox6",
+                    "shortname": "Peak1_Bypass",
+                    "address": "/ParamEQ/Peak1_Bypass",
+                    "index": 56,
+                    "meta": [
+                        {
+                            "0": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Peak2/Bypass",
+                    "varname": "fCheckbox5",
+                    "shortname": "Peak2_Bypass",
+                    "address": "/ParamEQ/Peak2_Bypass",
+                    "index": 52,
+                    "meta": [
+                        {
+                            "0": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Peak3/Bypass",
+                    "varname": "fCheckbox4",
+                    "shortname": "Peak3_Bypass",
+                    "address": "/ParamEQ/Peak3_Bypass",
+                    "index": 48,
+                    "meta": [
+                        {
+                            "0": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Peak4/Bypass",
+                    "varname": "fCheckbox3",
+                    "shortname": "Peak4_Bypass",
+                    "address": "/ParamEQ/Peak4_Bypass",
+                    "index": 44,
+                    "meta": [
+                        {
+                            "0": ""
+                        }
+                    ]
+                },
+                {
                     "type": "hslider",
                     "label": "HPF/Freq",
                     "varname": "fHslider2",
                     "shortname": "HPF_Freq",
                     "address": "/ParamEQ/HPF_Freq",
-                    "index": 44,
+                    "index": 92,
                     "meta": [
                         {
                             "1": ""
@@ -225,282 +302,14 @@
                 },
                 {
                     "type": "hslider",
-                    "label": "Low Shelf/Freq",
-                    "varname": "fHslider1",
-                    "shortname": "Low_Shelf_Freq",
-                    "address": "/ParamEQ/Low_Shelf_Freq",
-                    "index": 32,
-                    "meta": [
-                        {
-                            "2": ""
-                        },
-                        {
-                            "unit": "Hz"
-                        }
-                    ],
-                    "init": 75,
-                    "min": 20,
-                    "max": 20000,
-                    "step": 1
-                },
-                {
-                    "type": "hslider",
-                    "label": "Low Shelf/Gain",
-                    "varname": "fHslider3",
-                    "shortname": "Low_Shelf_Gain",
-                    "address": "/ParamEQ/Low_Shelf_Gain",
-                    "index": 96,
-                    "meta": [
-                        {
-                            "2": ""
-                        },
-                        {
-                            "dB": ""
-                        }
-                    ],
-                    "init": 0,
-                    "min": -24,
-                    "max": 24,
-                    "step": 0.1
-                },
-                {
-                    "type": "hslider",
-                    "label": "Peak1/Freq",
-                    "varname": "fHslider4",
-                    "shortname": "Peak1_Freq",
-                    "address": "/ParamEQ/Peak1_Freq",
-                    "index": 128,
-                    "meta": [
-                        {
-                            "3": ""
-                        },
-                        {
-                            "Hz": ""
-                        }
-                    ],
-                    "init": 100,
-                    "min": 20,
-                    "max": 20000,
-                    "step": 1
-                },
-                {
-                    "type": "hslider",
-                    "label": "Peak1/Gain",
-                    "varname": "fHslider5",
-                    "shortname": "Peak1_Gain",
-                    "address": "/ParamEQ/Peak1_Gain",
-                    "index": 140,
-                    "meta": [
-                        {
-                            "3": ""
-                        },
-                        {
-                            "dB": ""
-                        }
-                    ],
-                    "init": 0,
-                    "min": -24,
-                    "max": 24,
-                    "step": 0.1
-                },
-                {
-                    "type": "hslider",
-                    "label": "Peak1/Q",
-                    "varname": "fHslider6",
-                    "shortname": "Peak1_Q",
-                    "address": "/ParamEQ/Peak1_Q",
-                    "index": 152,
-                    "meta": [
-                        {
-                            "3": ""
-                        }
-                    ],
-                    "init": 0.7,
-                    "min": 0.1,
-                    "max": 10,
-                    "step": 0.01
-                },
-                {
-                    "type": "hslider",
-                    "label": "Peak2/Freq",
-                    "varname": "fHslider7",
-                    "shortname": "Peak2_Freq",
-                    "address": "/ParamEQ/Peak2_Freq",
-                    "index": 180,
-                    "meta": [
-                        {
-                            "4": ""
-                        },
-                        {
-                            "Hz": ""
-                        }
-                    ],
-                    "init": 250,
-                    "min": 20,
-                    "max": 20000,
-                    "step": 1
-                },
-                {
-                    "type": "hslider",
-                    "label": "Peak2/Gain",
-                    "varname": "fHslider8",
-                    "shortname": "Peak2_Gain",
-                    "address": "/ParamEQ/Peak2_Gain",
-                    "index": 192,
-                    "meta": [
-                        {
-                            "4": ""
-                        },
-                        {
-                            "dB": ""
-                        }
-                    ],
-                    "init": 0,
-                    "min": -24,
-                    "max": 24,
-                    "step": 0.1
-                },
-                {
-                    "type": "hslider",
-                    "label": "Peak2/Q",
-                    "varname": "fHslider9",
-                    "shortname": "Peak2_Q",
-                    "address": "/ParamEQ/Peak2_Q",
-                    "index": 204,
-                    "meta": [
-                        {
-                            "4": ""
-                        }
-                    ],
-                    "init": 1,
-                    "min": 0.1,
-                    "max": 10,
-                    "step": 0.01
-                },
-                {
-                    "type": "hslider",
-                    "label": "Peak3/Freq",
-                    "varname": "fHslider10",
-                    "shortname": "Peak3_Freq",
-                    "address": "/ParamEQ/Peak3_Freq",
-                    "index": 228,
-                    "meta": [
-                        {
-                            "5": ""
-                        },
-                        {
-                            "Hz": ""
-                        }
-                    ],
-                    "init": 1000,
-                    "min": 20,
-                    "max": 20000,
-                    "step": 1
-                },
-                {
-                    "type": "hslider",
-                    "label": "Peak3/Gain",
-                    "varname": "fHslider11",
-                    "shortname": "Peak3_Gain",
-                    "address": "/ParamEQ/Peak3_Gain",
-                    "index": 240,
-                    "meta": [
-                        {
-                            "5": ""
-                        },
-                        {
-                            "dB": ""
-                        }
-                    ],
-                    "init": 0,
-                    "min": -24,
-                    "max": 24,
-                    "step": 0.1
-                },
-                {
-                    "type": "hslider",
-                    "label": "Peak3/Q",
-                    "varname": "fHslider12",
-                    "shortname": "Peak3_Q",
-                    "address": "/ParamEQ/Peak3_Q",
-                    "index": 252,
-                    "meta": [
-                        {
-                            "5": ""
-                        }
-                    ],
-                    "init": 1,
-                    "min": 0.1,
-                    "max": 10,
-                    "step": 0.01
-                },
-                {
-                    "type": "hslider",
-                    "label": "Peak4/Freq",
-                    "varname": "fHslider13",
-                    "shortname": "Peak4_Freq",
-                    "address": "/ParamEQ/Peak4_Freq",
-                    "index": 276,
-                    "meta": [
-                        {
-                            "6": ""
-                        },
-                        {
-                            "Hz": ""
-                        }
-                    ],
-                    "init": 2500,
-                    "min": 20,
-                    "max": 20000,
-                    "step": 1
-                },
-                {
-                    "type": "hslider",
-                    "label": "Peak4/Gain",
-                    "varname": "fHslider14",
-                    "shortname": "Peak4_Gain",
-                    "address": "/ParamEQ/Peak4_Gain",
-                    "index": 288,
-                    "meta": [
-                        {
-                            "6": ""
-                        },
-                        {
-                            "dB": ""
-                        }
-                    ],
-                    "init": 0,
-                    "min": -24,
-                    "max": 24,
-                    "step": 0.1
-                },
-                {
-                    "type": "hslider",
-                    "label": "Peak4/Q",
-                    "varname": "fHslider15",
-                    "shortname": "Peak4_Q",
-                    "address": "/ParamEQ/Peak4_Q",
-                    "index": 300,
-                    "meta": [
-                        {
-                            "6": ""
-                        }
-                    ],
-                    "init": 1,
-                    "min": 0.1,
-                    "max": 10,
-                    "step": 0.01
-                },
-                {
-                    "type": "hslider",
                     "label": "High Shelf/Freq",
-                    "varname": "fHslider0",
+                    "varname": "fHslider37",
                     "shortname": "High_Shelf_Freq",
                     "address": "/ParamEQ/High_Shelf_Freq",
-                    "index": 16,
+                    "index": 764,
                     "meta": [
                         {
-                            "7": ""
+                            "1": ""
                         },
                         {
                             "Hz": ""
@@ -513,14 +322,134 @@
                 },
                 {
                     "type": "hslider",
-                    "label": "High Shelf/Gain",
-                    "varname": "fHslider16",
-                    "shortname": "High_Shelf_Gain",
-                    "address": "/ParamEQ/High_Shelf_Gain",
-                    "index": 372,
+                    "label": "LPF/Freq",
+                    "varname": "fHslider43",
+                    "shortname": "LPF_Freq",
+                    "address": "/ParamEQ/LPF_Freq",
+                    "index": 876,
                     "meta": [
                         {
-                            "7": ""
+                            "1": ""
+                        },
+                        {
+                            "Hz": ""
+                        }
+                    ],
+                    "init": 20000,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Low Shelf/Freq",
+                    "varname": "fHslider3",
+                    "shortname": "Low_Shelf_Freq",
+                    "address": "/ParamEQ/Low_Shelf_Freq",
+                    "index": 116,
+                    "meta": [
+                        {
+                            "1": ""
+                        },
+                        {
+                            "unit": "Hz"
+                        }
+                    ],
+                    "init": 75,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak1/Freq",
+                    "varname": "fHslider9",
+                    "shortname": "Peak1_Freq",
+                    "address": "/ParamEQ/Peak1_Freq",
+                    "index": 236,
+                    "meta": [
+                        {
+                            "1": ""
+                        },
+                        {
+                            "Hz": ""
+                        }
+                    ],
+                    "init": 100,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak2/Freq",
+                    "varname": "fHslider16",
+                    "shortname": "Peak2_Freq",
+                    "address": "/ParamEQ/Peak2_Freq",
+                    "index": 368,
+                    "meta": [
+                        {
+                            "1": ""
+                        },
+                        {
+                            "Hz": ""
+                        }
+                    ],
+                    "init": 250,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak3/Freq",
+                    "varname": "fHslider23",
+                    "shortname": "Peak3_Freq",
+                    "address": "/ParamEQ/Peak3_Freq",
+                    "index": 500,
+                    "meta": [
+                        {
+                            "1": ""
+                        },
+                        {
+                            "Hz": ""
+                        }
+                    ],
+                    "init": 1000,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak4/Freq",
+                    "varname": "fHslider30",
+                    "shortname": "Peak4_Freq",
+                    "address": "/ParamEQ/Peak4_Freq",
+                    "index": 632,
+                    "meta": [
+                        {
+                            "1": ""
+                        },
+                        {
+                            "Hz": ""
+                        }
+                    ],
+                    "init": 2500,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "High Shelf/Gain",
+                    "varname": "fHslider0",
+                    "shortname": "High_Shelf_Gain",
+                    "address": "/ParamEQ/High_Shelf_Gain",
+                    "index": 20,
+                    "meta": [
+                        {
+                            "2": ""
                         },
                         {
                             "dB": ""
@@ -533,22 +462,864 @@
                 },
                 {
                     "type": "hslider",
-                    "label": "LPF/Freq",
+                    "label": "Low Shelf/Gain",
+                    "varname": "fHslider1",
+                    "shortname": "Low_Shelf_Gain",
+                    "address": "/ParamEQ/Low_Shelf_Gain",
+                    "index": 64,
+                    "meta": [
+                        {
+                            "2": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak1/Gain",
+                    "varname": "fHslider10",
+                    "shortname": "Peak1_Gain",
+                    "address": "/ParamEQ/Peak1_Gain",
+                    "index": 248,
+                    "meta": [
+                        {
+                            "2": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak2/Gain",
                     "varname": "fHslider17",
-                    "shortname": "LPF_Freq",
-                    "address": "/ParamEQ/LPF_Freq",
-                    "index": 384,
+                    "shortname": "Peak2_Gain",
+                    "address": "/ParamEQ/Peak2_Gain",
+                    "index": 380,
+                    "meta": [
+                        {
+                            "2": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak3/Gain",
+                    "varname": "fHslider24",
+                    "shortname": "Peak3_Gain",
+                    "address": "/ParamEQ/Peak3_Gain",
+                    "index": 512,
+                    "meta": [
+                        {
+                            "2": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak4/Gain",
+                    "varname": "fHslider31",
+                    "shortname": "Peak4_Gain",
+                    "address": "/ParamEQ/Peak4_Gain",
+                    "index": 644,
+                    "meta": [
+                        {
+                            "2": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "High Shelf/Q",
+                    "varname": "fHslider38",
+                    "shortname": "High_Shelf_Q",
+                    "address": "/ParamEQ/High_Shelf_Q",
+                    "index": 776,
+                    "meta": [
+                        {
+                            "3": ""
+                        }
+                    ],
+                    "init": 0.7,
+                    "min": 0.1,
+                    "max": 5,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Low Shelf/Q",
+                    "varname": "fHslider4",
+                    "shortname": "Low_Shelf_Q",
+                    "address": "/ParamEQ/Low_Shelf_Q",
+                    "index": 128,
+                    "meta": [
+                        {
+                            "3": ""
+                        }
+                    ],
+                    "init": 0.7,
+                    "min": 0.1,
+                    "max": 5,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak1/Q",
+                    "varname": "fHslider11",
+                    "shortname": "Peak1_Q",
+                    "address": "/ParamEQ/Peak1_Q",
+                    "index": 268,
+                    "meta": [
+                        {
+                            "3": ""
+                        }
+                    ],
+                    "init": 0.7,
+                    "min": 0.1,
+                    "max": 10,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak2/Q",
+                    "varname": "fHslider18",
+                    "shortname": "Peak2_Q",
+                    "address": "/ParamEQ/Peak2_Q",
+                    "index": 400,
+                    "meta": [
+                        {
+                            "3": ""
+                        }
+                    ],
+                    "init": 1,
+                    "min": 0.1,
+                    "max": 10,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak3/Q",
+                    "varname": "fHslider25",
+                    "shortname": "Peak3_Q",
+                    "address": "/ParamEQ/Peak3_Q",
+                    "index": 532,
+                    "meta": [
+                        {
+                            "3": ""
+                        }
+                    ],
+                    "init": 1,
+                    "min": 0.1,
+                    "max": 10,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak4/Q",
+                    "varname": "fHslider32",
+                    "shortname": "Peak4_Q",
+                    "address": "/ParamEQ/Peak4_Q",
+                    "index": 664,
+                    "meta": [
+                        {
+                            "3": ""
+                        }
+                    ],
+                    "init": 1,
+                    "min": 0.1,
+                    "max": 10,
+                    "step": 0.01
+                },
+                {
+                    "type": "checkbox",
+                    "label": "High Shelf/Dynamic On",
+                    "varname": "fCheckbox2",
+                    "shortname": "High_Shelf_Dynamic_On",
+                    "address": "/ParamEQ/High_Shelf_Dynamic_On",
+                    "index": 36,
+                    "meta": [
+                        {
+                            "4": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Low Shelf/Dynamic On",
+                    "varname": "fCheckbox8",
+                    "shortname": "Low_Shelf_Dynamic_On",
+                    "address": "/ParamEQ/Low_Shelf_Dynamic_On",
+                    "index": 76,
+                    "meta": [
+                        {
+                            "4": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Peak1/Dynamic On",
+                    "varname": "fCheckbox10",
+                    "shortname": "Peak1_Dynamic_On",
+                    "address": "/ParamEQ/Peak1_Dynamic_On",
+                    "index": 260,
+                    "meta": [
+                        {
+                            "4": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Peak2/Dynamic On",
+                    "varname": "fCheckbox11",
+                    "shortname": "Peak2_Dynamic_On",
+                    "address": "/ParamEQ/Peak2_Dynamic_On",
+                    "index": 392,
+                    "meta": [
+                        {
+                            "4": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Peak3/Dynamic On",
+                    "varname": "fCheckbox12",
+                    "shortname": "Peak3_Dynamic_On",
+                    "address": "/ParamEQ/Peak3_Dynamic_On",
+                    "index": 524,
+                    "meta": [
+                        {
+                            "4": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Peak4/Dynamic On",
+                    "varname": "fCheckbox13",
+                    "shortname": "Peak4_Dynamic_On",
+                    "address": "/ParamEQ/Peak4_Dynamic_On",
+                    "index": 656,
+                    "meta": [
+                        {
+                            "4": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "hslider",
+                    "label": "High Shelf/Threshold",
+                    "varname": "fHslider41",
+                    "shortname": "High_Shelf_Threshold",
+                    "address": "/ParamEQ/High_Shelf_Threshold",
+                    "index": 832,
+                    "meta": [
+                        {
+                            "5": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": -24,
+                    "min": -60,
+                    "max": 0,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Low Shelf/Threshold",
+                    "varname": "fHslider7",
+                    "shortname": "Low_Shelf_Threshold",
+                    "address": "/ParamEQ/Low_Shelf_Threshold",
+                    "index": 188,
+                    "meta": [
+                        {
+                            "5": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": -24,
+                    "min": -60,
+                    "max": 0,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak1/Threshold",
+                    "varname": "fHslider14",
+                    "shortname": "Peak1_Threshold",
+                    "address": "/ParamEQ/Peak1_Threshold",
+                    "index": 324,
+                    "meta": [
+                        {
+                            "5": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": -24,
+                    "min": -60,
+                    "max": 0,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak2/Threshold",
+                    "varname": "fHslider21",
+                    "shortname": "Peak2_Threshold",
+                    "address": "/ParamEQ/Peak2_Threshold",
+                    "index": 456,
+                    "meta": [
+                        {
+                            "5": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": -24,
+                    "min": -60,
+                    "max": 0,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak3/Threshold",
+                    "varname": "fHslider28",
+                    "shortname": "Peak3_Threshold",
+                    "address": "/ParamEQ/Peak3_Threshold",
+                    "index": 588,
+                    "meta": [
+                        {
+                            "5": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": -24,
+                    "min": -60,
+                    "max": 0,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak4/Threshold",
+                    "varname": "fHslider35",
+                    "shortname": "Peak4_Threshold",
+                    "address": "/ParamEQ/Peak4_Threshold",
+                    "index": 720,
+                    "meta": [
+                        {
+                            "5": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": -24,
+                    "min": -60,
+                    "max": 0,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "High Shelf/Range",
+                    "varname": "fHslider42",
+                    "shortname": "High_Shelf_Range",
+                    "address": "/ParamEQ/High_Shelf_Range",
+                    "index": 844,
+                    "meta": [
+                        {
+                            "6": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 6,
+                    "min": 0,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Low Shelf/Range",
+                    "varname": "fHslider8",
+                    "shortname": "Low_Shelf_Range",
+                    "address": "/ParamEQ/Low_Shelf_Range",
+                    "index": 200,
+                    "meta": [
+                        {
+                            "6": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 6,
+                    "min": 0,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak1/Range",
+                    "varname": "fHslider15",
+                    "shortname": "Peak1_Range",
+                    "address": "/ParamEQ/Peak1_Range",
+                    "index": 336,
+                    "meta": [
+                        {
+                            "6": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 6,
+                    "min": 0,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak2/Range",
+                    "varname": "fHslider22",
+                    "shortname": "Peak2_Range",
+                    "address": "/ParamEQ/Peak2_Range",
+                    "index": 468,
+                    "meta": [
+                        {
+                            "6": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 6,
+                    "min": 0,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak3/Range",
+                    "varname": "fHslider29",
+                    "shortname": "Peak3_Range",
+                    "address": "/ParamEQ/Peak3_Range",
+                    "index": 600,
+                    "meta": [
+                        {
+                            "6": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 6,
+                    "min": 0,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak4/Range",
+                    "varname": "fHslider36",
+                    "shortname": "Peak4_Range",
+                    "address": "/ParamEQ/Peak4_Range",
+                    "index": 732,
+                    "meta": [
+                        {
+                            "6": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 6,
+                    "min": 0,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "High Shelf/Attack",
+                    "varname": "fHslider40",
+                    "shortname": "High_Shelf_Attack",
+                    "address": "/ParamEQ/High_Shelf_Attack",
+                    "index": 812,
+                    "meta": [
+                        {
+                            "7": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.005,
+                    "min": 0.001,
+                    "max": 0.5,
+                    "step": 0.001
+                },
+                {
+                    "type": "hslider",
+                    "label": "Low Shelf/Attack",
+                    "varname": "fHslider6",
+                    "shortname": "Low_Shelf_Attack",
+                    "address": "/ParamEQ/Low_Shelf_Attack",
+                    "index": 168,
+                    "meta": [
+                        {
+                            "7": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.005,
+                    "min": 0.001,
+                    "max": 0.5,
+                    "step": 0.001
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak1/Attack",
+                    "varname": "fHslider13",
+                    "shortname": "Peak1_Attack",
+                    "address": "/ParamEQ/Peak1_Attack",
+                    "index": 304,
+                    "meta": [
+                        {
+                            "7": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.005,
+                    "min": 0.001,
+                    "max": 0.5,
+                    "step": 0.001
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak2/Attack",
+                    "varname": "fHslider20",
+                    "shortname": "Peak2_Attack",
+                    "address": "/ParamEQ/Peak2_Attack",
+                    "index": 436,
+                    "meta": [
+                        {
+                            "7": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.005,
+                    "min": 0.001,
+                    "max": 0.5,
+                    "step": 0.001
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak3/Attack",
+                    "varname": "fHslider27",
+                    "shortname": "Peak3_Attack",
+                    "address": "/ParamEQ/Peak3_Attack",
+                    "index": 568,
+                    "meta": [
+                        {
+                            "7": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.005,
+                    "min": 0.001,
+                    "max": 0.5,
+                    "step": 0.001
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak4/Attack",
+                    "varname": "fHslider34",
+                    "shortname": "Peak4_Attack",
+                    "address": "/ParamEQ/Peak4_Attack",
+                    "index": 700,
+                    "meta": [
+                        {
+                            "7": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.005,
+                    "min": 0.001,
+                    "max": 0.5,
+                    "step": 0.001
+                },
+                {
+                    "type": "hslider",
+                    "label": "High Shelf/Release",
+                    "varname": "fHslider39",
+                    "shortname": "High_Shelf_Release",
+                    "address": "/ParamEQ/High_Shelf_Release",
+                    "index": 800,
                     "meta": [
                         {
                             "8": ""
                         },
                         {
-                            "Hz": ""
+                            "s": ""
                         }
                     ],
-                    "init": 20000,
-                    "min": 20,
-                    "max": 20000,
+                    "init": 0.15,
+                    "min": 0.01,
+                    "max": 2,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Low Shelf/Release",
+                    "varname": "fHslider5",
+                    "shortname": "Low_Shelf_Release",
+                    "address": "/ParamEQ/Low_Shelf_Release",
+                    "index": 152,
+                    "meta": [
+                        {
+                            "8": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.15,
+                    "min": 0.01,
+                    "max": 2,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak1/Release",
+                    "varname": "fHslider12",
+                    "shortname": "Peak1_Release",
+                    "address": "/ParamEQ/Peak1_Release",
+                    "index": 292,
+                    "meta": [
+                        {
+                            "8": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.15,
+                    "min": 0.01,
+                    "max": 2,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak2/Release",
+                    "varname": "fHslider19",
+                    "shortname": "Peak2_Release",
+                    "address": "/ParamEQ/Peak2_Release",
+                    "index": 424,
+                    "meta": [
+                        {
+                            "8": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.15,
+                    "min": 0.01,
+                    "max": 2,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak3/Release",
+                    "varname": "fHslider26",
+                    "shortname": "Peak3_Release",
+                    "address": "/ParamEQ/Peak3_Release",
+                    "index": 556,
+                    "meta": [
+                        {
+                            "8": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.15,
+                    "min": 0.01,
+                    "max": 2,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak4/Release",
+                    "varname": "fHslider33",
+                    "shortname": "Peak4_Release",
+                    "address": "/ParamEQ/Peak4_Release",
+                    "index": 688,
+                    "meta": [
+                        {
+                            "8": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.15,
+                    "min": 0.01,
+                    "max": 2,
+                    "step": 0.01
+                },
+                {
+                    "type": "nentry",
+                    "label": "High Shelf/Mode{-Downward-:0;-Upward-:1}",
+                    "varname": "fEntry0",
+                    "shortname": "High_Shelf_Mode_Downward_0_Upward_1",
+                    "address": "/ParamEQ/High_Shelf_Mode_-Downward-:0;-Upward-:1_",
+                    "index": 40,
+                    "meta": [
+                        {
+                            "9": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1
+                },
+                {
+                    "type": "nentry",
+                    "label": "Low Shelf/Mode{-Downward-:0;-Upward-:1}",
+                    "varname": "fEntry1",
+                    "shortname": "Low_Shelf_Mode_Downward_0_Upward_1",
+                    "address": "/ParamEQ/Low_Shelf_Mode_-Downward-:0;-Upward-:1_",
+                    "index": 80,
+                    "meta": [
+                        {
+                            "9": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1
+                },
+                {
+                    "type": "nentry",
+                    "label": "Peak1/Mode{-Downward-:0;-Upward-:1}",
+                    "varname": "fEntry2",
+                    "shortname": "Peak1_Mode_Downward_0_Upward_1",
+                    "address": "/ParamEQ/Peak1_Mode_-Downward-:0;-Upward-:1_",
+                    "index": 264,
+                    "meta": [
+                        {
+                            "9": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1
+                },
+                {
+                    "type": "nentry",
+                    "label": "Peak2/Mode{-Downward-:0;-Upward-:1}",
+                    "varname": "fEntry3",
+                    "shortname": "Peak2_Mode_Downward_0_Upward_1",
+                    "address": "/ParamEQ/Peak2_Mode_-Downward-:0;-Upward-:1_",
+                    "index": 396,
+                    "meta": [
+                        {
+                            "9": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1
+                },
+                {
+                    "type": "nentry",
+                    "label": "Peak3/Mode{-Downward-:0;-Upward-:1}",
+                    "varname": "fEntry4",
+                    "shortname": "Peak3_Mode_Downward_0_Upward_1",
+                    "address": "/ParamEQ/Peak3_Mode_-Downward-:0;-Upward-:1_",
+                    "index": 528,
+                    "meta": [
+                        {
+                            "9": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1
+                },
+                {
+                    "type": "nentry",
+                    "label": "Peak4/Mode{-Downward-:0;-Upward-:1}",
+                    "varname": "fEntry5",
+                    "shortname": "Peak4_Mode_Downward_0_Upward_1",
+                    "address": "/ParamEQ/Peak4_Mode_-Downward-:0;-Upward-:1_",
+                    "index": 660,
+                    "meta": [
+                        {
+                            "9": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": 0,
+                    "max": 1,
                     "step": 1
                 }
             ]

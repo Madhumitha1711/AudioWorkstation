@@ -1,0 +1,289 @@
+{
+    "name": "deesser",
+    "filename": "deesser.dsp",
+    "version": "2.79.3",
+    "compile_options": "-lang wasm-i -ct 1 -es 1 -mcd 16 -mdd 1024 -mdy 33 -single -ftz 2",
+    "library_list": [
+        "/usr/share/faust/stdfaust.lib",
+        "/usr/share/faust/filters.lib",
+        "/usr/share/faust/maths.lib",
+        "/usr/share/faust/platform.lib",
+        "/usr/share/faust/basics.lib",
+        "/usr/share/faust/analyzers.lib",
+        "/usr/share/faust/signals.lib"
+    ],
+    "include_pathnames": [
+        "/share/faust",
+        "/usr/local/share/faust",
+        "/usr/share/faust",
+        "."
+    ],
+    "size": 168,
+    "code": "SEE+AZQ9Hw==",
+    "inputs": 1,
+    "outputs": 1,
+    "meta": [
+        {
+            "analyzers.lib/amp_follower_ar:author": "Jonatan Liljedahl, revised by Romain Michon"
+        },
+        {
+            "analyzers.lib/name": "Faust Analyzer Library"
+        },
+        {
+            "analyzers.lib/version": "1.2.0"
+        },
+        {
+            "author": "Claude"
+        },
+        {
+            "basics.lib/name": "Faust Basic Element Library"
+        },
+        {
+            "basics.lib/version": "1.21.0"
+        },
+        {
+            "compile_options": "-lang wasm-i -ct 1 -es 1 -mcd 16 -mdd 1024 -mdy 33 -single -ftz 2"
+        },
+        {
+            "description": "Split-band de-esser modeled after Waves RDeEsser (Freq, Type, Thresh, Range only)"
+        },
+        {
+            "filename": "deesser.dsp"
+        },
+        {
+            "filters.lib/bandpass0_bandstop1:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/bandpass0_bandstop1:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/bandpass0_bandstop1:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/bandpass:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/bandpass:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/bandpass:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/fir:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/fir:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/fir:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/highpass:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/highpass:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/iir:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/iir:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/iir:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/lowpass0_highpass1": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/lowpass0_highpass1:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/lowpass:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/lowpass:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/lowpass:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/name": "Faust Filters Library"
+        },
+        {
+            "filters.lib/tf2:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/tf2:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/tf2:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/tf2s:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/tf2s:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/tf2s:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/tf2sb:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/tf2sb:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/tf2sb:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/version": "1.7.1"
+        },
+        {
+            "maths.lib/author": "GRAME"
+        },
+        {
+            "maths.lib/copyright": "GRAME"
+        },
+        {
+            "maths.lib/license": "LGPL with exception"
+        },
+        {
+            "maths.lib/name": "Faust Math Library"
+        },
+        {
+            "maths.lib/version": "2.8.1"
+        },
+        {
+            "name": "deesser"
+        },
+        {
+            "platform.lib/name": "Generic Platform Library"
+        },
+        {
+            "platform.lib/version": "1.3.0"
+        },
+        {
+            "signals.lib/name": "Faust Signal Routing Library"
+        },
+        {
+            "signals.lib/onePoleSwitching:author": "Jonatan Liljedahl, revised by Dario Sanfilippo"
+        },
+        {
+            "signals.lib/onePoleSwitching:licence": "STK-4.3"
+        },
+        {
+            "signals.lib/version": "1.6.0"
+        },
+        {
+            "version": "1.4"
+        }
+    ],
+    "ui": [
+        {
+            "type": "vgroup",
+            "label": "deesser",
+            "items": [
+                {
+                    "type": "hslider",
+                    "label": "Freq",
+                    "varname": "fHslider2",
+                    "shortname": "Freq",
+                    "address": "/deesser/Freq",
+                    "index": 24,
+                    "meta": [
+                        {
+                            "0": ""
+                        },
+                        {
+                            "unit": "Hz"
+                        }
+                    ],
+                    "init": 3385,
+                    "min": 1000,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "nentry",
+                    "label": "Type",
+                    "varname": "fEntry0",
+                    "shortname": "Type",
+                    "address": "/deesser/Type",
+                    "index": 8,
+                    "meta": [
+                        {
+                            "1": ""
+                        },
+                        {
+                            "style": "menu{-High-Pass/Shelf-:0;-Band-Pass-:1}"
+                        }
+                    ],
+                    "init": 0,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Thresh",
+                    "varname": "fHslider1",
+                    "shortname": "Thresh",
+                    "address": "/deesser/Thresh",
+                    "index": 4,
+                    "meta": [
+                        {
+                            "2": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "init": -29.6,
+                    "min": -60,
+                    "max": 0,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Range",
+                    "varname": "fHslider0",
+                    "shortname": "Range",
+                    "address": "/deesser/Range",
+                    "index": 0,
+                    "meta": [
+                        {
+                            "3": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "init": -12.6,
+                    "min": -30,
+                    "max": 0,
+                    "step": 0.1
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Gain_Reduction",
+                    "varname": "fHbargraph0",
+                    "shortname": "Gain_Reduction",
+                    "address": "/deesser/Gain_Reduction",
+                    "index": 144,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -30,
+                    "max": 0
+                }
+            ]
+        }
+    ]
+}

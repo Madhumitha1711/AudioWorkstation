@@ -28,7 +28,7 @@ const C = {
    - Glow filter on active arc + indicator dot
    - Mouse drag + wheel + touch support
 ───────────────────────────────────────────────────── */
-function Knob({ id, value, min, max, onChange, label, displayValue, color = C.purple }) {
+function Knob({ id, value, min, max, onChange, label, displayValue, color = C.purple, flat = false }) {
   const svgRef  = useRef(null);
   // Keep a ref so closures inside imperative listeners always see current values
   const live    = useRef({ value, onChange, min, max });
@@ -134,18 +134,20 @@ function Knob({ id, value, min, max, onChange, label, displayValue, color = C.pu
         </defs>
 
         {/* Drop shadow */}
-        <circle cx={CX} cy={CY + 2.5} r={27} fill="rgba(0,0,0,0.55)" />
+        {!flat && <circle cx={CX} cy={CY + 2.5} r={27} fill="rgba(0,0,0,0.55)" />}
 
         {/* Knob body */}
-        <circle cx={CX} cy={CY} r={27} fill={`url(#${gradId})`} />
+        <circle cx={CX} cy={CY} r={27} fill={flat ? C.surface : `url(#${gradId})`} />
 
         {/* Bevel rim */}
         <circle cx={CX} cy={CY} r={27} fill="none" stroke={C.borderBright} strokeWidth="1.5" />
-        <circle cx={CX} cy={CY} r={26} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+        {!flat && <circle cx={CX} cy={CY} r={26} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />}
 
         {/* Specular glint */}
-        <ellipse cx={CX - 6} cy={CY - 9} rx={7} ry={4}
-          fill="rgba(255,255,255,0.045)" />
+        {!flat && (
+          <ellipse cx={CX - 6} cy={CY - 9} rx={7} ry={4}
+            fill="rgba(255,255,255,0.045)" />
+        )}
 
         {/* Tick marks */}
         {tickAngles.map(a => {
@@ -164,7 +166,7 @@ function Knob({ id, value, min, max, onChange, label, displayValue, color = C.pu
           strokeWidth="4.5" strokeLinecap="round" />
 
         {/* Value arc (glowing) */}
-        {norm > 0.005 && (
+        {!flat && norm > 0.005 && (
           <path d={arc(-135, angleCur)} fill="none" stroke={color}
             strokeWidth="4.5" strokeLinecap="round"
             filter={`url(#${glowId})`} opacity="0.92" />
@@ -549,11 +551,8 @@ export default function CompressionLab() {
 
                   <Knob id="makeup" value={makeupGain} min={0} max={20}
                     onChange={setMakeupGain} label="Makeup Gain"
-                    displayValue={`+${makeupGain.toFixed(1)} dB`} />
+                    displayValue={`+${makeupGain.toFixed(1)} dB`} flat />
                 </div>
-
-                <div style={{ ...monoSm, marginBottom: "0.5rem" }}>GAIN REDUCTION METER</div>
-                <GRMeter gr={grAmount} />
 
                 {/* Concept callout */}
                 <div style={{
@@ -578,6 +577,9 @@ export default function CompressionLab() {
 
                 <div style={{ ...monoSm, marginTop: "1rem", marginBottom: "0.5rem" }}>BEFORE / AFTER WAVEFORM</div>
                 <WaveformCompare ratio={bypass ? 1 : ratio} bypass={bypass} />
+
+                <div style={{ ...monoSm, marginTop: "1rem", marginBottom: "0.5rem" }}>GAIN REDUCTION METER</div>
+                <GRMeter gr={grAmount} />
 
                 {/* Stats row */}
                 <div style={{

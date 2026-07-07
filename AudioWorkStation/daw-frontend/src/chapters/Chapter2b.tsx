@@ -25,23 +25,69 @@ const FAUST_BASE_PATH = '/faust/ParamEQ';
 // ── Param addresses (from public/faust/ParamEQ/dsp-meta.json) ───────────────
 const ADDR = {
   hpfFreq: '/ParamEQ/HPF_Freq',
+  hpfBypass: '/ParamEQ/HPF_Bypass',
   lowShelfFreq: '/ParamEQ/Low_Shelf_Freq',
   lowShelfGain: '/ParamEQ/Low_Shelf_Gain',
+  lowShelfQ: '/ParamEQ/Low_Shelf_Q',
+  lowShelfBypass: '/ParamEQ/Low_Shelf_Bypass',
+  lowShelfDynamicOn: '/ParamEQ/Low_Shelf_Dynamic_On',
+  lowShelfThreshold: '/ParamEQ/Low_Shelf_Threshold',
+  lowShelfRange: '/ParamEQ/Low_Shelf_Range',
+  lowShelfAttack: '/ParamEQ/Low_Shelf_Attack',
+  lowShelfRelease: '/ParamEQ/Low_Shelf_Release',
+  lowShelfMode: '/ParamEQ/Low_Shelf_Mode_-Downward-:0;-Upward-:1_',
   peak1Freq: '/ParamEQ/Peak1_Freq',
   peak1Gain: '/ParamEQ/Peak1_Gain',
   peak1Q: '/ParamEQ/Peak1_Q',
+  peak1Bypass: '/ParamEQ/Peak1_Bypass',
+  peak1DynamicOn: '/ParamEQ/Peak1_Dynamic_On',
+  peak1Threshold: '/ParamEQ/Peak1_Threshold',
+  peak1Range: '/ParamEQ/Peak1_Range',
+  peak1Attack: '/ParamEQ/Peak1_Attack',
+  peak1Release: '/ParamEQ/Peak1_Release',
+  peak1Mode: '/ParamEQ/Peak1_Mode_-Downward-:0;-Upward-:1_',
   peak2Freq: '/ParamEQ/Peak2_Freq',
   peak2Gain: '/ParamEQ/Peak2_Gain',
   peak2Q: '/ParamEQ/Peak2_Q',
+  peak2Bypass: '/ParamEQ/Peak2_Bypass',
+  peak2DynamicOn: '/ParamEQ/Peak2_Dynamic_On',
+  peak2Threshold: '/ParamEQ/Peak2_Threshold',
+  peak2Range: '/ParamEQ/Peak2_Range',
+  peak2Attack: '/ParamEQ/Peak2_Attack',
+  peak2Release: '/ParamEQ/Peak2_Release',
+  peak2Mode: '/ParamEQ/Peak2_Mode_-Downward-:0;-Upward-:1_',
   peak3Freq: '/ParamEQ/Peak3_Freq',
   peak3Gain: '/ParamEQ/Peak3_Gain',
   peak3Q: '/ParamEQ/Peak3_Q',
+  peak3Bypass: '/ParamEQ/Peak3_Bypass',
+  peak3DynamicOn: '/ParamEQ/Peak3_Dynamic_On',
+  peak3Threshold: '/ParamEQ/Peak3_Threshold',
+  peak3Range: '/ParamEQ/Peak3_Range',
+  peak3Attack: '/ParamEQ/Peak3_Attack',
+  peak3Release: '/ParamEQ/Peak3_Release',
+  peak3Mode: '/ParamEQ/Peak3_Mode_-Downward-:0;-Upward-:1_',
   peak4Freq: '/ParamEQ/Peak4_Freq',
   peak4Gain: '/ParamEQ/Peak4_Gain',
   peak4Q: '/ParamEQ/Peak4_Q',
+  peak4Bypass: '/ParamEQ/Peak4_Bypass',
+  peak4DynamicOn: '/ParamEQ/Peak4_Dynamic_On',
+  peak4Threshold: '/ParamEQ/Peak4_Threshold',
+  peak4Range: '/ParamEQ/Peak4_Range',
+  peak4Attack: '/ParamEQ/Peak4_Attack',
+  peak4Release: '/ParamEQ/Peak4_Release',
+  peak4Mode: '/ParamEQ/Peak4_Mode_-Downward-:0;-Upward-:1_',
   highShelfFreq: '/ParamEQ/High_Shelf_Freq',
   highShelfGain: '/ParamEQ/High_Shelf_Gain',
+  highShelfQ: '/ParamEQ/High_Shelf_Q',
+  highShelfBypass: '/ParamEQ/High_Shelf_Bypass',
+  highShelfDynamicOn: '/ParamEQ/High_Shelf_Dynamic_On',
+  highShelfThreshold: '/ParamEQ/High_Shelf_Threshold',
+  highShelfRange: '/ParamEQ/High_Shelf_Range',
+  highShelfAttack: '/ParamEQ/High_Shelf_Attack',
+  highShelfRelease: '/ParamEQ/High_Shelf_Release',
+  highShelfMode: '/ParamEQ/High_Shelf_Mode_-Downward-:0;-Upward-:1_',
   lpfFreq: '/ParamEQ/LPF_Freq',
+  lpfBypass: '/ParamEQ/LPF_Bypass',
 } as const;
 
 type EngineStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -54,48 +100,125 @@ interface UploadedAudioTrack {
   buffer: AudioBuffer;
 }
 
+// The 6 bands below (Low Shelf, Peak1-4, High Shelf) each carry Faust's
+// built-in dynamic (compressor/expander-on-a-band) mode: On/Off, Threshold,
+// Range, Attack, Release and Mode (0 = Downward/ducks above threshold,
+// 1 = Upward/lifts below threshold). HPF/LPF have no gain of their own, so
+// Faust's ParamEQ patch doesn't expose dynamic params for them.
 interface ParamEQBands {
-  hpfFreq: number;
-  lowShelfFreq: number; lowShelfGain: number;
-  peak1Freq: number; peak1Gain: number; peak1Q: number;
-  peak2Freq: number; peak2Gain: number; peak2Q: number;
-  peak3Freq: number; peak3Gain: number; peak3Q: number;
-  peak4Freq: number; peak4Gain: number; peak4Q: number;
-  highShelfFreq: number; highShelfGain: number;
-  lpfFreq: number;
+  hpfFreq: number; hpfBypass: boolean;
+  lowShelfFreq: number; lowShelfGain: number; lowShelfQ: number; lowShelfBypass: boolean;
+  lowShelfDynamicOn: boolean; lowShelfThreshold: number; lowShelfRange: number; lowShelfAttack: number; lowShelfRelease: number; lowShelfMode: number;
+  peak1Freq: number; peak1Gain: number; peak1Q: number; peak1Bypass: boolean;
+  peak1DynamicOn: boolean; peak1Threshold: number; peak1Range: number; peak1Attack: number; peak1Release: number; peak1Mode: number;
+  peak2Freq: number; peak2Gain: number; peak2Q: number; peak2Bypass: boolean;
+  peak2DynamicOn: boolean; peak2Threshold: number; peak2Range: number; peak2Attack: number; peak2Release: number; peak2Mode: number;
+  peak3Freq: number; peak3Gain: number; peak3Q: number; peak3Bypass: boolean;
+  peak3DynamicOn: boolean; peak3Threshold: number; peak3Range: number; peak3Attack: number; peak3Release: number; peak3Mode: number;
+  peak4Freq: number; peak4Gain: number; peak4Q: number; peak4Bypass: boolean;
+  peak4DynamicOn: boolean; peak4Threshold: number; peak4Range: number; peak4Attack: number; peak4Release: number; peak4Mode: number;
+  highShelfFreq: number; highShelfGain: number; highShelfQ: number; highShelfBypass: boolean;
+  highShelfDynamicOn: boolean; highShelfThreshold: number; highShelfRange: number; highShelfAttack: number; highShelfRelease: number; highShelfMode: number;
+  lpfFreq: number; lpfBypass: boolean;
 }
 
-// Matches dsp-meta.json's `init` values — a flat, all-pass-through response.
+// Matches dsp-meta.json's `init` values — a flat, all-pass-through response,
+// every band un-bypassed, and dynamic mode off everywhere.
+const DEFAULT_DYNAMIC = { dynamicOn: false, threshold: -24, range: 6, attack: 0.005, release: 0.15, mode: 0 };
+
 const DEFAULT_BANDS: ParamEQBands = {
-  hpfFreq: 20,
-  lowShelfFreq: 75, lowShelfGain: 0,
-  peak1Freq: 100, peak1Gain: 0, peak1Q: 0.7,
-  peak2Freq: 250, peak2Gain: 0, peak2Q: 1,
-  peak3Freq: 1000, peak3Gain: 0, peak3Q: 1,
-  peak4Freq: 2500, peak4Gain: 0, peak4Q: 1,
-  highShelfFreq: 7500, highShelfGain: 0,
-  lpfFreq: 20000,
+  hpfFreq: 20, hpfBypass: false,
+  lowShelfFreq: 75, lowShelfGain: 0, lowShelfQ: 0.7, lowShelfBypass: false,
+  lowShelfDynamicOn: DEFAULT_DYNAMIC.dynamicOn, lowShelfThreshold: DEFAULT_DYNAMIC.threshold, lowShelfRange: DEFAULT_DYNAMIC.range, lowShelfAttack: DEFAULT_DYNAMIC.attack, lowShelfRelease: DEFAULT_DYNAMIC.release, lowShelfMode: DEFAULT_DYNAMIC.mode,
+  peak1Freq: 100, peak1Gain: 0, peak1Q: 0.7, peak1Bypass: false,
+  peak1DynamicOn: DEFAULT_DYNAMIC.dynamicOn, peak1Threshold: DEFAULT_DYNAMIC.threshold, peak1Range: DEFAULT_DYNAMIC.range, peak1Attack: DEFAULT_DYNAMIC.attack, peak1Release: DEFAULT_DYNAMIC.release, peak1Mode: DEFAULT_DYNAMIC.mode,
+  peak2Freq: 250, peak2Gain: 0, peak2Q: 1, peak2Bypass: false,
+  peak2DynamicOn: DEFAULT_DYNAMIC.dynamicOn, peak2Threshold: DEFAULT_DYNAMIC.threshold, peak2Range: DEFAULT_DYNAMIC.range, peak2Attack: DEFAULT_DYNAMIC.attack, peak2Release: DEFAULT_DYNAMIC.release, peak2Mode: DEFAULT_DYNAMIC.mode,
+  peak3Freq: 1000, peak3Gain: 0, peak3Q: 1, peak3Bypass: false,
+  peak3DynamicOn: DEFAULT_DYNAMIC.dynamicOn, peak3Threshold: DEFAULT_DYNAMIC.threshold, peak3Range: DEFAULT_DYNAMIC.range, peak3Attack: DEFAULT_DYNAMIC.attack, peak3Release: DEFAULT_DYNAMIC.release, peak3Mode: DEFAULT_DYNAMIC.mode,
+  peak4Freq: 2500, peak4Gain: 0, peak4Q: 1, peak4Bypass: false,
+  peak4DynamicOn: DEFAULT_DYNAMIC.dynamicOn, peak4Threshold: DEFAULT_DYNAMIC.threshold, peak4Range: DEFAULT_DYNAMIC.range, peak4Attack: DEFAULT_DYNAMIC.attack, peak4Release: DEFAULT_DYNAMIC.release, peak4Mode: DEFAULT_DYNAMIC.mode,
+  highShelfFreq: 7500, highShelfGain: 0, highShelfQ: 0.7, highShelfBypass: false,
+  highShelfDynamicOn: DEFAULT_DYNAMIC.dynamicOn, highShelfThreshold: DEFAULT_DYNAMIC.threshold, highShelfRange: DEFAULT_DYNAMIC.range, highShelfAttack: DEFAULT_DYNAMIC.attack, highShelfRelease: DEFAULT_DYNAMIC.release, highShelfMode: DEFAULT_DYNAMIC.mode,
+  lpfFreq: 20000, lpfBypass: false,
 };
+
+function setBool(node: FaustNodeLike, addr: string, v: boolean): void {
+  node.setParamValue(addr, v ? 1 : 0);
+}
 
 function applyBandsToNode(node: FaustNodeLike, b: ParamEQBands): void {
   node.setParamValue(ADDR.hpfFreq, b.hpfFreq);
+  setBool(node, ADDR.hpfBypass, b.hpfBypass);
+
   node.setParamValue(ADDR.lowShelfFreq, b.lowShelfFreq);
   node.setParamValue(ADDR.lowShelfGain, b.lowShelfGain);
+  node.setParamValue(ADDR.lowShelfQ, b.lowShelfQ);
+  setBool(node, ADDR.lowShelfBypass, b.lowShelfBypass);
+  setBool(node, ADDR.lowShelfDynamicOn, b.lowShelfDynamicOn);
+  node.setParamValue(ADDR.lowShelfThreshold, b.lowShelfThreshold);
+  node.setParamValue(ADDR.lowShelfRange, b.lowShelfRange);
+  node.setParamValue(ADDR.lowShelfAttack, b.lowShelfAttack);
+  node.setParamValue(ADDR.lowShelfRelease, b.lowShelfRelease);
+  node.setParamValue(ADDR.lowShelfMode, b.lowShelfMode);
+
   node.setParamValue(ADDR.peak1Freq, b.peak1Freq);
   node.setParamValue(ADDR.peak1Gain, b.peak1Gain);
   node.setParamValue(ADDR.peak1Q, b.peak1Q);
+  setBool(node, ADDR.peak1Bypass, b.peak1Bypass);
+  setBool(node, ADDR.peak1DynamicOn, b.peak1DynamicOn);
+  node.setParamValue(ADDR.peak1Threshold, b.peak1Threshold);
+  node.setParamValue(ADDR.peak1Range, b.peak1Range);
+  node.setParamValue(ADDR.peak1Attack, b.peak1Attack);
+  node.setParamValue(ADDR.peak1Release, b.peak1Release);
+  node.setParamValue(ADDR.peak1Mode, b.peak1Mode);
+
   node.setParamValue(ADDR.peak2Freq, b.peak2Freq);
   node.setParamValue(ADDR.peak2Gain, b.peak2Gain);
   node.setParamValue(ADDR.peak2Q, b.peak2Q);
+  setBool(node, ADDR.peak2Bypass, b.peak2Bypass);
+  setBool(node, ADDR.peak2DynamicOn, b.peak2DynamicOn);
+  node.setParamValue(ADDR.peak2Threshold, b.peak2Threshold);
+  node.setParamValue(ADDR.peak2Range, b.peak2Range);
+  node.setParamValue(ADDR.peak2Attack, b.peak2Attack);
+  node.setParamValue(ADDR.peak2Release, b.peak2Release);
+  node.setParamValue(ADDR.peak2Mode, b.peak2Mode);
+
   node.setParamValue(ADDR.peak3Freq, b.peak3Freq);
   node.setParamValue(ADDR.peak3Gain, b.peak3Gain);
   node.setParamValue(ADDR.peak3Q, b.peak3Q);
+  setBool(node, ADDR.peak3Bypass, b.peak3Bypass);
+  setBool(node, ADDR.peak3DynamicOn, b.peak3DynamicOn);
+  node.setParamValue(ADDR.peak3Threshold, b.peak3Threshold);
+  node.setParamValue(ADDR.peak3Range, b.peak3Range);
+  node.setParamValue(ADDR.peak3Attack, b.peak3Attack);
+  node.setParamValue(ADDR.peak3Release, b.peak3Release);
+  node.setParamValue(ADDR.peak3Mode, b.peak3Mode);
+
   node.setParamValue(ADDR.peak4Freq, b.peak4Freq);
   node.setParamValue(ADDR.peak4Gain, b.peak4Gain);
   node.setParamValue(ADDR.peak4Q, b.peak4Q);
+  setBool(node, ADDR.peak4Bypass, b.peak4Bypass);
+  setBool(node, ADDR.peak4DynamicOn, b.peak4DynamicOn);
+  node.setParamValue(ADDR.peak4Threshold, b.peak4Threshold);
+  node.setParamValue(ADDR.peak4Range, b.peak4Range);
+  node.setParamValue(ADDR.peak4Attack, b.peak4Attack);
+  node.setParamValue(ADDR.peak4Release, b.peak4Release);
+  node.setParamValue(ADDR.peak4Mode, b.peak4Mode);
+
   node.setParamValue(ADDR.highShelfFreq, b.highShelfFreq);
   node.setParamValue(ADDR.highShelfGain, b.highShelfGain);
+  node.setParamValue(ADDR.highShelfQ, b.highShelfQ);
+  setBool(node, ADDR.highShelfBypass, b.highShelfBypass);
+  setBool(node, ADDR.highShelfDynamicOn, b.highShelfDynamicOn);
+  node.setParamValue(ADDR.highShelfThreshold, b.highShelfThreshold);
+  node.setParamValue(ADDR.highShelfRange, b.highShelfRange);
+  node.setParamValue(ADDR.highShelfAttack, b.highShelfAttack);
+  node.setParamValue(ADDR.highShelfRelease, b.highShelfRelease);
+  node.setParamValue(ADDR.highShelfMode, b.highShelfMode);
+
   node.setParamValue(ADDR.lpfFreq, b.lpfFreq);
+  setBool(node, ADDR.lpfBypass, b.lpfBypass);
 }
 
 // ── Band descriptors (drives the curve UI generically) ──────────────────────
@@ -110,22 +233,72 @@ interface BandDef {
   freqKey: keyof ParamEQBands;
   gainKey?: keyof ParamEQBands;
   qKey?: keyof ParamEQBands;
+  bypassKey: keyof ParamEQBands;
+  // Present only on the 6 bands Faust's ParamEQ gives dynamic (level-
+  // dependent) processing to — HPF/LPF have no gain stage, so no dynamics.
+  dynamicOnKey?: keyof ParamEQBands;
+  thresholdKey?: keyof ParamEQBands;
+  rangeKey?: keyof ParamEQBands;
+  attackKey?: keyof ParamEQBands;
+  releaseKey?: keyof ParamEQBands;
+  modeKey?: keyof ParamEQBands;
 }
 
 const BAND_DEFS: BandDef[] = [
-  { id: 'hpf', short: 'HPF', label: 'High-Pass', color: '#9AA5B1', kind: 'hpf', freqKey: 'hpfFreq' },
-  { id: 'lowShelf', short: 'LOW SHELF', label: 'Low Shelf', color: '#F5A623', kind: 'lowshelf', freqKey: 'lowShelfFreq', gainKey: 'lowShelfGain' },
-  { id: 'peak1', short: 'PEAK 1', label: 'Peak 1', color: '#D9E86B', kind: 'peak', freqKey: 'peak1Freq', gainKey: 'peak1Gain', qKey: 'peak1Q' },
-  { id: 'peak2', short: 'PEAK 2', label: 'Peak 2', color: '#6BE86B', kind: 'peak', freqKey: 'peak2Freq', gainKey: 'peak2Gain', qKey: 'peak2Q' },
-  { id: 'peak3', short: 'PEAK 3', label: 'Peak 3', color: '#2DD4BF', kind: 'peak', freqKey: 'peak3Freq', gainKey: 'peak3Gain', qKey: 'peak3Q' },
-  { id: 'peak4', short: 'PEAK 4', label: 'Peak 4', color: '#4D9EFF', kind: 'peak', freqKey: 'peak4Freq', gainKey: 'peak4Gain', qKey: 'peak4Q' },
-  { id: 'highShelf', short: 'HIGH SHELF', label: 'High Shelf', color: '#A78BFA', kind: 'highshelf', freqKey: 'highShelfFreq', gainKey: 'highShelfGain' },
-  { id: 'lpf', short: 'LPF', label: 'Low-Pass', color: '#CBD5E1', kind: 'lpf', freqKey: 'lpfFreq' },
+  { id: 'hpf', short: 'HPF', label: 'High-Pass', color: '#9AA5B1', kind: 'hpf', freqKey: 'hpfFreq', bypassKey: 'hpfBypass' },
+  {
+    id: 'lowShelf', short: 'LOW SHELF', label: 'Low Shelf', color: '#F5A623', kind: 'lowshelf',
+    freqKey: 'lowShelfFreq', gainKey: 'lowShelfGain', qKey: 'lowShelfQ', bypassKey: 'lowShelfBypass',
+    dynamicOnKey: 'lowShelfDynamicOn', thresholdKey: 'lowShelfThreshold', rangeKey: 'lowShelfRange',
+    attackKey: 'lowShelfAttack', releaseKey: 'lowShelfRelease', modeKey: 'lowShelfMode',
+  },
+  {
+    id: 'peak1', short: 'PEAK 1', label: 'Peak 1', color: '#D9E86B', kind: 'peak',
+    freqKey: 'peak1Freq', gainKey: 'peak1Gain', qKey: 'peak1Q', bypassKey: 'peak1Bypass',
+    dynamicOnKey: 'peak1DynamicOn', thresholdKey: 'peak1Threshold', rangeKey: 'peak1Range',
+    attackKey: 'peak1Attack', releaseKey: 'peak1Release', modeKey: 'peak1Mode',
+  },
+  {
+    id: 'peak2', short: 'PEAK 2', label: 'Peak 2', color: '#6BE86B', kind: 'peak',
+    freqKey: 'peak2Freq', gainKey: 'peak2Gain', qKey: 'peak2Q', bypassKey: 'peak2Bypass',
+    dynamicOnKey: 'peak2DynamicOn', thresholdKey: 'peak2Threshold', rangeKey: 'peak2Range',
+    attackKey: 'peak2Attack', releaseKey: 'peak2Release', modeKey: 'peak2Mode',
+  },
+  {
+    id: 'peak3', short: 'PEAK 3', label: 'Peak 3', color: '#2DD4BF', kind: 'peak',
+    freqKey: 'peak3Freq', gainKey: 'peak3Gain', qKey: 'peak3Q', bypassKey: 'peak3Bypass',
+    dynamicOnKey: 'peak3DynamicOn', thresholdKey: 'peak3Threshold', rangeKey: 'peak3Range',
+    attackKey: 'peak3Attack', releaseKey: 'peak3Release', modeKey: 'peak3Mode',
+  },
+  {
+    id: 'peak4', short: 'PEAK 4', label: 'Peak 4', color: '#4D9EFF', kind: 'peak',
+    freqKey: 'peak4Freq', gainKey: 'peak4Gain', qKey: 'peak4Q', bypassKey: 'peak4Bypass',
+    dynamicOnKey: 'peak4DynamicOn', thresholdKey: 'peak4Threshold', rangeKey: 'peak4Range',
+    attackKey: 'peak4Attack', releaseKey: 'peak4Release', modeKey: 'peak4Mode',
+  },
+  {
+    id: 'highShelf', short: 'HIGH SHELF', label: 'High Shelf', color: '#A78BFA', kind: 'highshelf',
+    freqKey: 'highShelfFreq', gainKey: 'highShelfGain', qKey: 'highShelfQ', bypassKey: 'highShelfBypass',
+    dynamicOnKey: 'highShelfDynamicOn', thresholdKey: 'highShelfThreshold', rangeKey: 'highShelfRange',
+    attackKey: 'highShelfAttack', releaseKey: 'highShelfRelease', modeKey: 'highShelfMode',
+  },
+  { id: 'lpf', short: 'LPF', label: 'Low-Pass', color: '#CBD5E1', kind: 'lpf', freqKey: 'lpfFreq', bypassKey: 'lpfBypass' },
 ];
 
-function getFreq(b: ParamEQBands, def: BandDef): number { return b[def.freqKey]; }
-function getGain(b: ParamEQBands, def: BandDef): number { return def.gainKey ? b[def.gainKey] : 0; }
-function getQ(b: ParamEQBands, def: BandDef): number | undefined { return def.qKey ? b[def.qKey] : undefined; }
+// Bands that support Faust's dynamic (level-dependent) mode — used to drive
+// the Dynamic EQ panel without re-filtering BAND_DEFS everywhere it's used.
+const DYNAMIC_BAND_DEFS = BAND_DEFS.filter(d => d.dynamicOnKey !== undefined);
+
+function getFreq(b: ParamEQBands, def: BandDef): number { return b[def.freqKey] as number; }
+function getGain(b: ParamEQBands, def: BandDef): number { return def.gainKey ? (b[def.gainKey] as number) : 0; }
+function getQ(b: ParamEQBands, def: BandDef): number | undefined { return def.qKey ? (b[def.qKey] as number) : undefined; }
+function getBypass(b: ParamEQBands, def: BandDef): boolean { return b[def.bypassKey] as boolean; }
+function getDynamicOn(b: ParamEQBands, def: BandDef): boolean { return def.dynamicOnKey ? (b[def.dynamicOnKey] as boolean) : false; }
+function getThreshold(b: ParamEQBands, def: BandDef): number { return def.thresholdKey ? (b[def.thresholdKey] as number) : -24; }
+function getRange(b: ParamEQBands, def: BandDef): number { return def.rangeKey ? (b[def.rangeKey] as number) : 6; }
+function getAttack(b: ParamEQBands, def: BandDef): number { return def.attackKey ? (b[def.attackKey] as number) : 0.005; }
+function getRelease(b: ParamEQBands, def: BandDef): number { return def.releaseKey ? (b[def.releaseKey] as number) : 0.15; }
+function getMode(b: ParamEQBands, def: BandDef): number { return def.modeKey ? (b[def.modeKey] as number) : 0; }
 
 function withFreq(b: ParamEQBands, def: BandDef, v: number): ParamEQBands {
   return { ...b, [def.freqKey]: v };
@@ -137,6 +310,33 @@ function withGain(b: ParamEQBands, def: BandDef, v: number): ParamEQBands {
 function withQ(b: ParamEQBands, def: BandDef, v: number): ParamEQBands {
   if (!def.qKey) return b;
   return { ...b, [def.qKey]: v };
+}
+function withBypass(b: ParamEQBands, def: BandDef, v: boolean): ParamEQBands {
+  return { ...b, [def.bypassKey]: v };
+}
+function withDynamicOn(b: ParamEQBands, def: BandDef, v: boolean): ParamEQBands {
+  if (!def.dynamicOnKey) return b;
+  return { ...b, [def.dynamicOnKey]: v };
+}
+function withThreshold(b: ParamEQBands, def: BandDef, v: number): ParamEQBands {
+  if (!def.thresholdKey) return b;
+  return { ...b, [def.thresholdKey]: v };
+}
+function withRange(b: ParamEQBands, def: BandDef, v: number): ParamEQBands {
+  if (!def.rangeKey) return b;
+  return { ...b, [def.rangeKey]: v };
+}
+function withAttack(b: ParamEQBands, def: BandDef, v: number): ParamEQBands {
+  if (!def.attackKey) return b;
+  return { ...b, [def.attackKey]: v };
+}
+function withRelease(b: ParamEQBands, def: BandDef, v: number): ParamEQBands {
+  if (!def.releaseKey) return b;
+  return { ...b, [def.releaseKey]: v };
+}
+function withMode(b: ParamEQBands, def: BandDef, v: number): ParamEQBands {
+  if (!def.modeKey) return b;
+  return { ...b, [def.modeKey]: v };
 }
 
 // ── Curve math (analytic magnitude-response approximations, in dB) ──────────
@@ -163,21 +363,28 @@ function butterLowpassDB(f: number, fc: number, order: number): number {
   return 10 * Math.log10(Math.max(1 / (1 + ratio), 1e-12));
 }
 // Shelf knee: full gain right at (and past) the corner frequency, tapering
-// to 0 dB over SHELF_KNEE_OCTAVES — as opposed to a symmetric curve centered
-// on fc (which only reaches *half* gain at fc). This keeps the corner
-// frequency the point where the shelf reaches its full, dialed-in gain, so
-// what you type/drag matches what the curve shows right at that node.
+// to 0 dB over a Q-dependent number of octaves — as opposed to a symmetric
+// curve centered on fc (which only reaches *half* gain at fc). This keeps
+// the corner frequency the point where the shelf reaches its full, dialed-in
+// gain, so what you type/drag matches what the curve shows right at that
+// node. SHELF_KNEE_OCTAVES is the knee width at SHELF_REF_Q (the default
+// 0.7 shelf Q, matching the original fixed-width curve); Q scales that width
+// inversely — a higher Q narrows/steepens the transition (a more resonant,
+// aggressive shelf), a lower Q widens it into a gentler slope — so dragging
+// or scrolling a shelf's Q now visibly changes the curve.
 const SHELF_KNEE_OCTAVES = 2;
-function shelfKneeShape(t: number): number {
+const SHELF_REF_Q = 0.7;
+function shelfKneeShape(t: number, q: number): number {
+  const octaves = SHELF_KNEE_OCTAVES * (SHELF_REF_Q / clamp(q, 0.05, 20));
   if (t <= 0) return 1;
-  if (t >= SHELF_KNEE_OCTAVES) return 0;
-  return 0.5 * (1 + Math.cos((Math.PI * t) / SHELF_KNEE_OCTAVES));
+  if (t >= octaves) return 0;
+  return 0.5 * (1 + Math.cos((Math.PI * t) / octaves));
 }
-function lowShelfDB(f: number, fc: number, gainDb: number): number {
-  return gainDb * shelfKneeShape(Math.log2(f / fc));
+function lowShelfDB(f: number, fc: number, gainDb: number, q: number): number {
+  return gainDb * shelfKneeShape(Math.log2(f / fc), q);
 }
-function highShelfDB(f: number, fc: number, gainDb: number): number {
-  return gainDb * shelfKneeShape(Math.log2(fc / f));
+function highShelfDB(f: number, fc: number, gainDb: number, q: number): number {
+  return gainDb * shelfKneeShape(Math.log2(fc / f), q);
 }
 function peakDB(f: number, fc: number, gainDb: number, q: number): number {
   const x = f / fc;
@@ -185,21 +392,38 @@ function peakDB(f: number, fc: number, gainDb: number, q: number): number {
   return gainDb / (1 + bw * bw);
 }
 
-function bandResponseDB(def: BandDef, b: ParamEQBands, f: number): number {
+// The gain a dynamic-enabled band settles on at its most extreme — fully
+// engaged (signal continuously past Threshold). Downward mode ducks *from*
+// the dialed-in Gain *down* by up to Range dB; Upward mode lifts it *up* by
+// up to Range dB. Verified against the actual Faust DSP (fed a tone well
+// past Threshold) that Range is applied this way — as an offset from the
+// static Gain, independent of whether Gain itself is 0. Non-dynamic bands
+// (or dynamic-off bands) just return their static gain unchanged.
+function dynamicExtremeGain(b: ParamEQBands, def: BandDef): number {
+  const gain = getGain(b, def);
+  if (!getDynamicOn(b, def)) return gain;
+  const range = getRange(b, def);
+  const mode = getMode(b, def);
+  return mode === 0 ? gain - range : gain + range;
+}
+
+function bandResponseDB(def: BandDef, b: ParamEQBands, f: number, useDynamicExtreme = false): number {
+  if (getBypass(b, def)) return 0;
   const freq = getFreq(b, def);
+  const gain = useDynamicExtreme ? dynamicExtremeGain(b, def) : getGain(b, def);
   switch (def.kind) {
     case 'hpf': return butterHighpassDB(f, freq, 2);
     case 'lpf': return butterLowpassDB(f, freq, 4);
-    case 'lowshelf': return lowShelfDB(f, freq, getGain(b, def));
-    case 'highshelf': return highShelfDB(f, freq, getGain(b, def));
-    case 'peak': return peakDB(f, freq, getGain(b, def), getQ(b, def) ?? 1);
+    case 'lowshelf': return lowShelfDB(f, freq, gain, getQ(b, def) ?? SHELF_REF_Q);
+    case 'highshelf': return highShelfDB(f, freq, gain, getQ(b, def) ?? SHELF_REF_Q);
+    case 'peak': return peakDB(f, freq, gain, getQ(b, def) ?? 1);
     default: return 0;
   }
 }
 
-function totalResponseDB(b: ParamEQBands, f: number): number {
+function totalResponseDB(b: ParamEQBands, f: number, useDynamicExtreme = false): number {
   let sum = 0;
-  for (const def of BAND_DEFS) sum += bandResponseDB(def, b, f);
+  for (const def of BAND_DEFS) sum += bandResponseDB(def, b, f, useDynamicExtreme);
   return sum;
 }
 
@@ -548,6 +772,39 @@ function drawParamEQCanvas(
   }
 
   strokeCurve(bands, '#4D9EFF', 0.95, 0.22, outputGainDb);
+
+  // Dynamic EQ range overlay — a dashed teal curve + shaded ribbon showing
+  // where the response settles once every "Dynamic On" band is fully
+  // engaged (signal continuously past its Threshold). This has to be drawn
+  // explicitly because, unlike every other control, Dynamic EQ's effect is
+  // level-dependent — it only shows up in the *audio* once real signal
+  // crosses Threshold during playback, so without this overlay the curve
+  // never visibly reacts to Dynamic On / Threshold / Range / Mode at all.
+  const anyDynamicOn = BAND_DEFS.some(def => getDynamicOn(bands, def));
+  if (anyDynamicOn) {
+    const restPts = sampleResponse(bands, (bb, f) => totalResponseDB(bb, f) + outputGainDb);
+    const extremePts = sampleResponse(bands, (bb, f) => totalResponseDB(bb, f, true) + outputGainDb);
+    ctx.save(); ctx.globalAlpha = 0.2; ctx.fillStyle = '#2DD4BF';
+    ctx.beginPath();
+    ctx.moveTo(restPts[0].x, restPts[0].y);
+    for (const p of restPts.slice(1)) ctx.lineTo(p.x, p.y);
+    for (let i = extremePts.length - 1; i >= 0; i--) ctx.lineTo(extremePts[i].x, extremePts[i].y);
+    ctx.closePath(); ctx.fill(); ctx.restore();
+
+    ctx.save();
+    ctx.globalAlpha = 0.85; ctx.strokeStyle = '#2DD4BF'; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(extremePts[0].x, extremePts[0].y);
+    for (const p of extremePts.slice(1)) ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    ctx.fillStyle = 'rgba(45,212,191,0.85)';
+    ctx.font = '9px "JetBrains Mono", monospace';
+    ctx.fillText('┄ DYNAMIC RANGE (FULLY ENGAGED)', 4, 14);
+  }
 }
 
 // ── Interactive band node (drag = freq/gain, wheel = Q) ──────────────────────
@@ -607,9 +864,11 @@ function EQNode({
 
   const size = 13;
   const q = getQ(bands, def);
+  const bypassed = getBypass(bands, def);
   const title = `${def.label}: ${freq >= 1000 ? (freq / 1000).toFixed(2) + 'k' : Math.round(freq)}Hz`
     + (def.gainKey ? ` · ${gain > 0 ? '+' : ''}${gain.toFixed(1)}dB` : '')
-    + (q !== undefined ? ` · Q ${q.toFixed(2)} (scroll to adjust)` : '');
+    + (q !== undefined ? ` · Q ${q.toFixed(2)} (scroll to adjust)` : '')
+    + (bypassed ? ' · BYPASSED' : '');
 
   return (
     <div
@@ -628,9 +887,10 @@ function EQNode({
         marginLeft: -size / 2,
         marginTop: -size / 2,
         borderRadius: '50%',
-        background: def.color,
-        border: '2px solid rgba(0,0,0,0.5)',
-        boxShadow: `0 0 8px ${def.color}88`,
+        background: bypassed ? 'transparent' : def.color,
+        border: `2px solid ${bypassed ? def.color : 'rgba(0,0,0,0.5)'}`,
+        boxShadow: bypassed ? 'none' : `0 0 8px ${def.color}88`,
+        opacity: bypassed ? 0.45 : 1,
         cursor: editable ? 'grab' : 'default',
         touchAction: 'none',
         zIndex: 2,
@@ -885,6 +1145,7 @@ function BandReadout({ bands, onChange }: { bands: ParamEQBands; onChange: (b: P
         const freq = getFreq(bands, def);
         const gain = getGain(bands, def);
         const q = getQ(bands, def);
+        const bypassed = getBypass(bands, def);
         return (
           <div key={def.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem' }}>
             <div style={{ fontSize: '0.5rem', color: def.color, letterSpacing: '0.06em', fontFamily: 'var(--mono)' }}>
@@ -895,6 +1156,7 @@ function BandReadout({ bands, onChange }: { bands: ParamEQBands; onChange: (b: P
               min={FMIN}
               max={FMAX}
               step={1}
+              disabled={bypassed}
               onChange={v => onChange(withFreq(bands, def, clamp(v, FMIN, FMAX)))}
             />
             <NumberField
@@ -902,7 +1164,7 @@ function BandReadout({ bands, onChange }: { bands: ParamEQBands; onChange: (b: P
               min={GMIN}
               max={GMAX}
               step={0.1}
-              disabled={!def.gainKey}
+              disabled={!def.gainKey || bypassed}
               onChange={v => onChange(withGain(bands, def, clamp(v, GMIN, GMAX)))}
             />
             <NumberField
@@ -910,12 +1172,174 @@ function BandReadout({ bands, onChange }: { bands: ParamEQBands; onChange: (b: P
               min={0.1}
               max={10}
               step={0.01}
-              disabled={q === undefined}
+              disabled={q === undefined || bypassed}
               onChange={v => onChange(withQ(bands, def, clamp(v, 0.1, 10)))}
             />
+            <button
+              onClick={() => onChange(withBypass(bands, def, !bypassed))}
+              title={bypassed ? `${def.label}: bypassed — click to re-enable` : `${def.label}: click to bypass`}
+              style={{
+                width: '100%',
+                fontSize: '0.5rem',
+                fontFamily: 'var(--mono)',
+                letterSpacing: '0.05em',
+                padding: '0.12rem 0',
+                borderRadius: '3px',
+                cursor: 'pointer',
+                border: `1px solid ${bypassed ? 'var(--red, #EF4444)' : 'var(--border)'}`,
+                background: bypassed ? 'rgba(239,68,68,0.12)' : 'transparent',
+                color: bypassed ? '#EF4444' : 'var(--text-faint)',
+              }}
+            >
+              {bypassed ? 'BYPASSED' : 'BYPASS'}
+            </button>
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ── Dynamic EQ panel ──────────────────────────────────────────────────────────
+// Faust's ParamEQ gives Low Shelf, Peak1-4 and High Shelf (not HPF/LPF, which
+// have no gain of their own) a built-in dynamic mode: once armed, the band's
+// gain is only applied when the signal crosses Threshold, ramping in over
+// Attack/out over Release, up to a max of ±Range dB — Downward mode ducks the
+// band above the threshold (de-essing/taming resonances), Upward mode lifts
+// it below the threshold (bringing up a buried band). This only audibly does
+// anything during playback/render, since it reacts to the live signal level
+// rather than being a fixed shape — so unlike the rest of the curve it isn't
+// drawn on the canvas above.
+function DynamicBandRow({
+  def, bands, onChange, expanded, onToggleExpand,
+}: {
+  def: BandDef;
+  bands: ParamEQBands;
+  onChange: (b: ParamEQBands) => void;
+  expanded: boolean;
+  onToggleExpand: () => void;
+}) {
+  const dynamicOn = getDynamicOn(bands, def);
+  const threshold = getThreshold(bands, def);
+  const range = getRange(bands, def);
+  const attack = getAttack(bands, def);
+  const release = getRelease(bands, def);
+  const mode = getMode(bands, def);
+
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.35rem 0.6rem',
+          cursor: 'pointer', background: expanded ? 'rgba(255,255,255,0.03)' : 'transparent',
+        }}
+        onClick={onToggleExpand}
+      >
+        <span style={{ fontSize: '0.6rem', color: def.color, fontFamily: 'var(--mono)', letterSpacing: '0.05em', flex: 1 }}>
+          {def.short}
+        </span>
+        <button
+          onClick={e => { e.stopPropagation(); onChange(withDynamicOn(bands, def, !dynamicOn)); }}
+          title={dynamicOn ? 'Dynamic mode on — click to disable' : 'Click to make this band level-dependent'}
+          style={{
+            fontSize: '0.5rem', fontFamily: 'var(--mono)', letterSpacing: '0.05em',
+            padding: '0.15rem 0.5rem', borderRadius: '3px', cursor: 'pointer',
+            border: `1px solid ${dynamicOn ? 'var(--teal)' : 'var(--border)'}`,
+            background: dynamicOn ? 'rgba(45,212,191,0.15)' : 'transparent',
+            color: dynamicOn ? 'var(--teal)' : 'var(--text-faint)',
+          }}
+        >
+          {dynamicOn ? '● DYN ON' : '○ DYN OFF'}
+        </button>
+        <span style={{ fontSize: '0.55rem', color: 'var(--text-faint)', fontFamily: 'var(--mono)' }}>
+          {expanded ? '▾' : '▸'}
+        </span>
+      </div>
+
+      {expanded && (
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem',
+          padding: '0.5rem 0.6rem 0.65rem', background: 'rgba(255,255,255,0.015)',
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.48rem', color: 'var(--text-faint)', fontFamily: 'var(--mono)' }}>THRESH (dB)</span>
+            <NumberField value={roundTo(threshold, 1)} min={-60} max={0} step={0.1} disabled={!dynamicOn}
+              onChange={v => onChange(withThreshold(bands, def, clamp(v, -60, 0)))} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.48rem', color: 'var(--text-faint)', fontFamily: 'var(--mono)' }}>RANGE (dB)</span>
+            <NumberField value={roundTo(range, 1)} min={0} max={24} step={0.1} disabled={!dynamicOn}
+              onChange={v => onChange(withRange(bands, def, clamp(v, 0, 24)))} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.48rem', color: 'var(--text-faint)', fontFamily: 'var(--mono)' }}>ATTACK (s)</span>
+            <NumberField value={roundTo(attack, 3)} min={0.001} max={0.5} step={0.001} disabled={!dynamicOn}
+              onChange={v => onChange(withAttack(bands, def, clamp(v, 0.001, 0.5)))} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.48rem', color: 'var(--text-faint)', fontFamily: 'var(--mono)' }}>RELEASE (s)</span>
+            <NumberField value={roundTo(release, 2)} min={0.01} max={2} step={0.01} disabled={!dynamicOn}
+              onChange={v => onChange(withRelease(bands, def, clamp(v, 0.01, 2)))} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.48rem', color: 'var(--text-faint)', fontFamily: 'var(--mono)' }}>MODE</span>
+            <button
+              onClick={() => onChange(withMode(bands, def, mode === 0 ? 1 : 0))}
+              disabled={!dynamicOn}
+              title="Downward ducks the band above threshold; Upward lifts it below threshold"
+              style={{
+                width: '100%', fontSize: '0.5rem', fontFamily: 'var(--mono)', letterSpacing: '0.02em',
+                padding: '0.18rem 0.2rem', borderRadius: '3px',
+                cursor: dynamicOn ? 'pointer' : 'default',
+                border: '1px solid var(--border)',
+                background: 'transparent',
+                color: dynamicOn ? 'var(--text)' : 'var(--text-faint)',
+                opacity: dynamicOn ? 1 : 0.5,
+              }}
+            >
+              {mode === 0 ? '↓ DOWN' : '↑ UP'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DynamicEQPanel({ bands, onChange }: { bands: ParamEQBands; onChange: (b: ParamEQBands) => void }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const anyOn = DYNAMIC_BAND_DEFS.some(def => getDynamicOn(bands, def));
+
+  return (
+    <div style={{ marginTop: '0.85rem' }}>
+      <div className="canvas-label" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+        DYNAMIC EQ
+        {anyOn && (
+          <span style={{
+            fontSize: '0.48rem', color: 'var(--teal)', border: '1px solid var(--teal)',
+            borderRadius: '3px', padding: '0.05rem 0.35rem', fontFamily: 'var(--mono)',
+          }}>
+            ACTIVE
+          </span>
+        )}
+      </div>
+      <div style={{ fontSize: '0.55rem', color: 'var(--text-faint)', fontFamily: 'var(--mono)', margin: '0.2rem 0 0.35rem', lineHeight: 1.5 }}>
+        Watch the dashed teal line above — it shows how far the band can swing once fully engaged.
+        It only actually moves during playback, and only once the signal crosses Threshold — try lowering
+        Threshold or raising Range if a quiet source isn't triggering it.
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+        {DYNAMIC_BAND_DEFS.map(def => (
+          <DynamicBandRow
+            key={def.id}
+            def={def}
+            bands={bands}
+            onChange={onChange}
+            expanded={expandedId === def.id}
+            onToggleExpand={() => setExpandedId(prev => (prev === def.id ? null : def.id))}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -1477,6 +1901,12 @@ export default function Chapter2b() {
               <div className="legend-row">
                 <div className="legend-item"><div className="legend-line" style={{ background: 'var(--blue)' }} />YOUR CURVE (DRAG NODES)</div>
                 <div className="legend-item"><div className="legend-line" style={{ background: 'var(--text-faint)', height: '1px' }} />FLAT (0 dB)</div>
+                {BAND_DEFS.some(def => getDynamicOn(benchBands, def)) && (
+                  <div className="legend-item">
+                    <div className="legend-line" style={{ background: 'repeating-linear-gradient(90deg, var(--teal) 0 5px, transparent 5px 9px)' }} />
+                    DYNAMIC RANGE (ONLY AUDIBLE PAST THRESHOLD, DURING PLAYBACK)
+                  </div>
+                )}
               </div>
 
               <ParamEQCurve
@@ -1489,6 +1919,7 @@ export default function Chapter2b() {
                 onOutputGainChange={setBenchOutputGain}
               />
               <BandReadout bands={benchBands} onChange={setBenchBands} />
+              <DynamicEQPanel bands={benchBands} onChange={setBenchBands} />
 
               <div className="canvas-label" style={{ margin: '1rem 0 0.5rem' }}>QUICK PRESETS</div>
               <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
@@ -1515,8 +1946,10 @@ export default function Chapter2b() {
                 </div>
                 1. Upload audio (or use the built-in demo loop).<br />
                 2. Drag any node to set its <strong style={{ color: 'var(--text)' }}>freq / gain</strong>.<br />
-                3. Scroll on a peak node to change its <strong style={{ color: 'var(--text)' }}>Q</strong>.<br />
-                4. Play to hear it live, then download the result.
+                3. Scroll on a peak or shelf node to change its <strong style={{ color: 'var(--text)' }}>Q</strong>.<br />
+                4. Hit <strong style={{ color: 'var(--text)' }}>BYPASS</strong> under a band to A/B it in/out.<br />
+                5. Open <strong style={{ color: 'var(--text)' }}>DYNAMIC EQ</strong> below to make a band level-dependent.<br />
+                6. Play to hear it live, then download the result.
               </div>
 
               {!benchBuffer && (
@@ -1568,6 +2001,12 @@ export default function Chapter2b() {
                   {revealed ? 'TARGET CURVE' : 'TARGET (HIDDEN)'}
                 </div>
                 <div className="legend-item"><div className="legend-line" style={{ background: 'var(--blue)' }} />YOUR EQ</div>
+                {BAND_DEFS.some(def => getDynamicOn(myBands, def)) && (
+                  <div className="legend-item">
+                    <div className="legend-line" style={{ background: 'repeating-linear-gradient(90deg, var(--teal) 0 5px, transparent 5px 9px)' }} />
+                    DYNAMIC RANGE (ONLY AUDIBLE PAST THRESHOLD, DURING PLAYBACK)
+                  </div>
+                )}
               </div>
 
               <ParamEQCurve
@@ -1582,6 +2021,7 @@ export default function Chapter2b() {
                 onOutputGainChange={setMyOutputGain}
               />
               <BandReadout bands={myBands} onChange={setMyBands} />
+              <DynamicEQPanel bands={myBands} onChange={setMyBands} />
             </div>
 
             <div className="eq-sidebar">

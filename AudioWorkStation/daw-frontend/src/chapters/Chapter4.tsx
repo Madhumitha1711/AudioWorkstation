@@ -232,28 +232,13 @@ function drawTransfer(canvas: HTMLCanvasElement, params: CompParams) {
   ctx.fillStyle = '#8A8A9A'; ctx.font = '10px "JetBrains Mono", monospace';
   ctx.fillText('THRESH', tx + 3, H - 5);
 
-  // Fill + stroke. The drawn curve is compression (threshold/ratio/knee) PLUS
-  // Makeup Gain added on top — Makeup Gain doesn't change the *shape* Faust
-  // applies (that's the ratio/knee/threshold curve, unchanged), it just lifts
-  // the whole thing vertically, so a shaded ribbon between the two makes that
-  // separation visible instead of only the combined result.
+  // Stroke (+ optional fill under the curve itself). The drawn curve is
+  // compression (threshold/ratio/knee) PLUS Makeup Gain added on top —
+  // Makeup Gain doesn't change the *shape* Faust applies (that's the
+  // ratio/knee/threshold curve, unchanged), it just lifts the whole thing
+  // vertically. No separate shaded region is drawn for the makeup portion.
   const curve = (p: CompParams, stroke: string, fillAlpha: number) => {
-    const baseDb   = (db: number) => applyCompression(db, p);
     const shapedDb = (db: number) => applyCompression(db, p) + p.makeup;
-
-    if (p.makeup !== 0) {
-      ctx.save(); ctx.globalAlpha = 0.28; ctx.fillStyle = '#F5A623';
-      ctx.beginPath();
-      let firstR = true;
-      for (let db = IN_MIN; db <= IN_MAX; db += 0.5) {
-        const x = toX(db), y = toY(baseDb(db));
-        if (firstR) { ctx.moveTo(x, y); firstR = false; } else ctx.lineTo(x, y);
-      }
-      for (let db = IN_MAX; db >= IN_MIN; db -= 0.5) {
-        ctx.lineTo(toX(db), toY(shapedDb(db)));
-      }
-      ctx.closePath(); ctx.fill(); ctx.restore();
-    }
 
     ctx.strokeStyle = stroke; ctx.lineWidth = 2.5;
     if (fillAlpha > 0) {
@@ -380,9 +365,8 @@ function drawCompressorScope(
   // Gain-reduction gap — input vs. compression alone (no makeup). This is
   // the part that should shrink to nothing as Threshold goes up.
   fillBetween(inPts, preMakeupPts, '#FF4D6A', 0.22);
-  // Makeup-boost gap — a flat, constant lift on top of compression, present
-  // any time Makeup Gain is non-zero regardless of Threshold/Ratio.
-  fillBetween(preMakeupPts, outPts, '#F5A623', 0.22);
+  // Makeup Gain's lift is still reflected in the output trace itself
+  // (outPts, drawn below) — no separate shaded region for it here.
 
   // Input trace
   ctx.save(); ctx.globalAlpha = 0.6;
@@ -664,6 +648,13 @@ export default function Chapter4() {
   const smoothedOutputDbRef = useRef(METER_FLOOR_DB);
   const meterClockRef       = useRef<number | null>(null);
 
+  // Live GR (gain-reduction) meter — a horizontal bar to the right of the
+  // controls, updated by direct DOM writes in animate() (same reasoning as
+  // the scope canvas: this changes every frame, so it bypasses React state).
+  const grFillRef  = useRef<HTMLDivElement>(null);
+  const grValueRef = useRef<HTMLSpanElement>(null);
+  const GR_METER_MAX_DB = 24; // full-scale width of the bar
+
   // Knob drag ref (for main lab) — tracks fraction-of-travel (0..1) rather
   // than the raw value, so segmented knobs (Attack/Release) drag through
   // specFromFrac/specToFrac exactly like linear ones.
@@ -758,6 +749,18 @@ export default function Chapter4() {
       if (scopeRef.current) {
         drawCompressorScope(scopeRef.current, history, now, paramsRef.current.threshold, !bypassRef.current);
       }
+    }
+
+    // GR meter — back out the makeup boost to isolate what compression
+    // alone pulled down, same math as the scope's gain-reduction fill.
+    const makeupNow = bypassRef.current ? 0 : paramsRef.current.makeup;
+    const preMakeupOutputDb = smoothedOutputDbRef.current - makeupNow;
+    const grDb = bypassRef.current ? 0 : Math.max(0, smoothedInputDbRef.current - preMakeupOutputDb);
+    if (grFillRef.current) {
+      grFillRef.current.style.width = `${Math.min(100, (grDb / GR_METER_MAX_DB) * 100)}%`;
+    }
+    if (grValueRef.current) {
+      grValueRef.current.textContent = grDb > 0.05 ? `-${grDb.toFixed(1)} dB` : '0.0 dB';
     }
 
     animRef.current = requestAnimationFrame(animate);
@@ -860,6 +863,8 @@ export default function Chapter4() {
       const c = scopeRef.current.getContext('2d')!;
       c.fillStyle = '#0D0D0F'; c.fillRect(0, 0, scopeRef.current.width, scopeRef.current.height);
     }
+    if (grFillRef.current) grFillRef.current.style.width = '0%';
+    if (grValueRef.current) grValueRef.current.textContent = '0.0 dB';
   }, []);
 
   useEffect(() => () => {
@@ -1117,16 +1122,15 @@ export default function Chapter4() {
 
       {/* Body */}
       <div className="comp-body">
-        {/* Left: knobs + GR */}
+        {/* Left: knobs only — the GR meter lives in the right column now */}
         <div className="comp-controls">
           <div className="canvas-label" style={{ marginBottom: '1rem' }}>
             COMPRESSOR PARAMETERS · DRAG KNOBS VERTICALLY
           </div>
 
-          {/* Knobs, evenly spread across the full control column now that the
-              old meter column beside them is gone — the live scope on the
-              right already covers input/output/gain-change, so this panel
-              is just the controls themselves. */}
+          {/* Knobs, evenly spread across the full control column — the GR
+              meter and live scope on the right already cover input/output/
+              gain-change, so this panel is just the controls themselves. */}
           <div className="knob-grid">
             {KNOBS.map(spec => {
               const val = params[spec.key] as number;
@@ -1175,9 +1179,20 @@ export default function Chapter4() {
           </div>
         </div>
 
-        {/* Right: transfer + live scope */}
+        {/* Right: GR meter + transfer + live scope */}
         <div className="comp-visual">
-          <div className="canvas-label" style={{ marginBottom: '0.75rem' }}>
+          <div className="canvas-label" style={{ marginBottom: '0.5rem' }}>
+            GAIN REDUCTION
+          </div>
+          <div className="gr-meter-row">
+            <span className="gr-meter-lbl">0 dB</span>
+            <div className="gr-meter-track">
+              <div ref={grFillRef} className="gr-meter-fill" style={{ width: '0%' }} />
+            </div>
+            <span className="gr-meter-val" ref={grValueRef}>0.0 dB</span>
+          </div>
+
+          <div className="canvas-label" style={{ marginTop: '1rem', marginBottom: '0.75rem' }}>
             TRANSFER FUNCTION — INPUT vs OUTPUT
             <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
               · shape set by THRESHOLD / RATIO / KNEE, <span style={{ color: 'var(--amber)' }}>MAKEUP GAIN</span> shifts it up (amber) — attack &amp; release are time-domain, see scope below
@@ -1200,10 +1215,9 @@ export default function Chapter4() {
             <div className="legend-item"><span className="legend-line" style={{ background: '#00FF87' }} />INPUT</div>
             <div className="legend-item"><span className="legend-line" style={{ background: '#A78BFA' }} />OUTPUT</div>
             <div className="legend-item"><span className="legend-line" style={{ background: '#FF4D6A' }} />GAIN REDUCTION</div>
-            <div className="legend-item"><span className="legend-line" style={{ background: '#F5A623' }} />MAKEUP BOOST</div>
           </div>
           <div style={{ fontFamily: 'var(--mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginTop: '0.35rem', lineHeight: 1.5 }}>
-            Red is real dB, measured off the live signal — it shrinks toward nothing as Threshold rises. Amber is Makeup Gain, a flat boost applied whether or not the compressor is doing anything, so it stays even at a very high Threshold.
+            Red is real dB, measured off the live signal — it shrinks toward nothing as Threshold rises.
           </div>
 
           <div style={{ marginTop: '1rem' }}>

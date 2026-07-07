@@ -6,6 +6,7 @@ import Chapter7 from './chapters/Chapter7';
 import Chapter9 from './chapters/Chapter9';
 import Chapter10 from './chapters/Chapter10';
 import Chapter11 from './chapters/Chapter11';
+import Chapter12 from './chapters/Chapter12';
 import './App.css';
 
 export default function App() {
@@ -130,6 +131,21 @@ export default function App() {
 
       <div className="screen">
         <Chapter3 />
+      </div>
+
+      {/* ── Chapter 12 ── */}
+      <div className="chapter-divider">
+        <h2 className="chapter-title">Tame Sibilance with a Split-Band De-Esser</h2>
+        <p className="chapter-desc">
+          A de-esser splits the signal at a crossover frequency and compresses just the sibilant
+          high band once it crosses threshold. Dial in Freq, Thresh, and Range, pick a High-Pass/Shelf
+          or Band-Pass split, then watch the split-band curve and live scope react to real "s" bursts.
+        </p>
+        <hr className="lab-separator" />
+      </div>
+
+      <div className="screen">
+        <Chapter12 />
       </div>
     </div>
   );
