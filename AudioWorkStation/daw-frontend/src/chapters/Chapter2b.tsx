@@ -1368,7 +1368,7 @@ export default function Chapter2b() {
                   background: 'rgba(167,139,250,0.1)',
                 }}
               >
-                {benchDecoding ? '⏳ Decoding…' : (benchBuffer ? `📁 ${benchFileName}` : '⬆ Upload Audio')}
+                {benchDecoding ? '⏳ Decoding…' : '⬆ Upload Audio'}
               </button>
               {benchUploadError && <span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)' }}>{benchUploadError}</span>}
             </>
