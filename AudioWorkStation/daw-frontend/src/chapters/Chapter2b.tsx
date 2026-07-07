@@ -1298,6 +1298,27 @@ export default function Chapter2b() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          {tab === 'bench' && (
+            <>
+              <input ref={benchFileInputRef} type="file" accept="audio/*" onChange={handleBenchFileSelected} style={{ display: 'none' }} />
+              <button
+                className="btn-secondary"
+                onClick={handleBenchUploadClick}
+                disabled={benchDecoding}
+                style={{
+                  fontSize: '0.65rem',
+                  padding: '0.4rem 0.8rem',
+                  fontWeight: 600,
+                  borderColor: 'rgba(167,139,250,0.5)',
+                  color: 'var(--purple)',
+                  background: 'rgba(167,139,250,0.1)',
+                }}
+              >
+                {benchDecoding ? '⏳ Decoding…' : (benchBuffer ? `📁 ${benchFileName}` : '⬆ Upload Audio')}
+              </button>
+              {benchUploadError && <span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)' }}>{benchUploadError}</span>}
+            </>
+          )}
           <span className="badge" style={{ background: eb.bg, borderColor: eb.border, color: eb.fg, fontFamily: 'var(--mono)', fontSize: '0.55rem', letterSpacing: '0.06em' }}>
             {eb.text}
           </span>
@@ -1397,11 +1418,6 @@ export default function Chapter2b() {
                 4. Play to hear it live, then download the result.
               </div>
 
-              <input ref={benchFileInputRef} type="file" accept="audio/*" onChange={handleBenchFileSelected} style={{ display: 'none' }} />
-              <button className="btn-secondary" onClick={handleBenchUploadClick} disabled={benchDecoding}>
-                {benchDecoding ? '⏳ Decoding…' : (benchBuffer ? `📁 ${benchFileName}` : '+ Upload Audio')}
-              </button>
-              {benchUploadError && <span style={{ fontSize: '0.65rem', color: 'var(--red)', fontFamily: 'var(--mono)' }}>{benchUploadError}</span>}
               {!benchBuffer && (
                 <div style={{ fontSize: '0.6rem', color: 'var(--text-faint)', fontFamily: 'var(--mono)' }}>
                   Using built-in demo loop until you upload your own.
