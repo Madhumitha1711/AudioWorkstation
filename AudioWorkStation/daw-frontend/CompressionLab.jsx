@@ -494,7 +494,7 @@ export default function CompressionLab() {
                   <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: "0.875rem", fontWeight: 600 }}>
                     Compressor Studio
                   </div>
-                  <div style={{ ...monoSm, color: C.dim }}>LAB · CH 04 · DYNAMICS</div>
+                  <div style={{ ...monoSm, color: C.dim }}>DYNAMICS</div>
                 </div>
               </div>
 

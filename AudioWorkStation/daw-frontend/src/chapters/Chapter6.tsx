@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { FaustMonoDspGenerator } from '@grame/faustwasm';
 import { Knob, type KnobSpec } from '../components/Knob';
 import { compileFaustWasm, type FaustDspMeta, type FaustNodeLike } from '../faust/faustTypes';
+import { downloadAudioBufferAsWav } from '../audio/wavRender';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type PresetKey = 'ROOM' | 'CHAMBER' | 'HALL' | 'CATHEDRAL' | 'PLATE';
@@ -202,6 +203,96 @@ function drawIR(canvas: HTMLCanvasElement, preset: RoomPreset, fv: FvParams) {
   timeLabels.forEach((lbl, i) => { if (labelX[i] < W - 10) ctx.fillText(lbl, labelX[i], H - 4); });
 }
 
+// ── Live Reverb Tail Scope ───────────────────────────────────────────────────
+// The IR diagram above is illustrative — a formula-driven approximation of
+// what a room like this *should* look like, redrawn whenever a knob moves,
+// but never actually reacting to real audio. This is the real counterpart:
+// a scrolling, real audio-driven analyzer tapping the actual dry input and
+// the actual Faust reverb output, so students can watch the tail literally
+// ring out after a drum hit and see it change live as SIZE / DECAY / DAMPING
+// / DIFFUSION / PRE-DELAY / WET-DRY are adjusted — instead of only seeing a
+// static diagram redraw. The window is long (6s) since reverb tails run much
+// longer than the transients the compressor/gate/limiter scopes track.
+const SCOPE_WINDOW_S = 6;
+const SCOPE_MIN_DB   = -72;
+const SCOPE_MAX_DB   = 6;
+
+interface ScopePoint { t: number; inputDb: number; outputDb: number; }
+
+function drawReverbScope(canvas: HTMLCanvasElement, history: ScopePoint[], nowT: number, active: boolean) {
+  const hd = hiDpi(canvas); if (!hd) return;
+  const { ctx, W, H } = hd;
+
+  const toY = (db: number) => H - ((Math.min(SCOPE_MAX_DB, Math.max(SCOPE_MIN_DB, db)) - SCOPE_MIN_DB) / (SCOPE_MAX_DB - SCOPE_MIN_DB)) * H;
+  const toX = (t: number) => ((t - (nowT - SCOPE_WINDOW_S)) / SCOPE_WINDOW_S) * W;
+
+  ctx.fillStyle = '#0D0D0F'; ctx.fillRect(0, 0, W, H);
+
+  // dB grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#6A6A7A'; ctx.font = '9px "JetBrains Mono", monospace';
+  for (let db = Math.ceil(SCOPE_MIN_DB / 12) * 12; db <= SCOPE_MAX_DB; db += 12) {
+    const y = toY(db);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    ctx.fillText(`${db > 0 ? '+' : ''}${db}`, 3, y - 2);
+  }
+
+  // 0 dB reference
+  ctx.strokeStyle = '#2E2E3D'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+  const y0 = toY(0);
+  ctx.beginPath(); ctx.moveTo(0, y0); ctx.lineTo(W, y0); ctx.stroke();
+  ctx.setLineDash([]);
+
+  if (!active) {
+    ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.fillText('HIT PLAY TO SEE THE TAIL RING OUT', W / 2 - 110, H / 2);
+    return;
+  }
+
+  const visible = history.filter(p => p.t >= nowT - SCOPE_WINDOW_S - 0.25);
+  if (visible.length < 2) return;
+
+  const inPts  = visible.map(p => ({ x: toX(p.t), y: toY(p.inputDb) }));
+  const outPts = visible.map(p => ({ x: toX(p.t), y: toY(p.outputDb) }));
+
+  // Shaded gap — the reverb tail itself. Wherever the wet output persists
+  // once the dry input has already died away (right after a drum hit), the
+  // widening/lingering teal region is literally the room's contribution —
+  // the same color as the "LATE DECAY (TAIL)" label in the IR diagram above.
+  ctx.save(); ctx.globalAlpha = 0.24; ctx.fillStyle = '#2DD4BF';
+  ctx.beginPath();
+  ctx.moveTo(inPts[0].x, inPts[0].y);
+  for (const p of inPts.slice(1)) ctx.lineTo(p.x, p.y);
+  for (let i = outPts.length - 1; i >= 0; i--) ctx.lineTo(outPts[i].x, outPts[i].y);
+  ctx.closePath(); ctx.fill(); ctx.restore();
+
+  // Dry (input) trace — amber, matching the "DIRECT" color in the IR diagram
+  ctx.save(); ctx.globalAlpha = 0.55;
+  ctx.strokeStyle = '#F5A623'; ctx.lineWidth = 1.25;
+  ctx.beginPath(); ctx.moveTo(inPts[0].x, inPts[0].y);
+  for (const p of inPts.slice(1)) ctx.lineTo(p.x, p.y);
+  ctx.stroke(); ctx.restore();
+
+  // Wet (output) trace — the actual reverb tail reaching the ear
+  ctx.strokeStyle = '#2DD4BF'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(outPts[0].x, outPts[0].y);
+  for (const p of outPts.slice(1)) ctx.lineTo(p.x, p.y);
+  ctx.stroke();
+}
+
+// ── Level ballistics — feeds the live scope's smoothed input/output dB,
+// same fast-attack/slow-release approach as the compressor/gate/limiter
+// scopes elsewhere in this app.
+const METER_FLOOR_DB = -70;
+const LEVEL_ATTACK_S  = 0.015;
+const LEVEL_RELEASE_S = 0.35;
+
+function levelBallistic(prev: number, target: number, dt: number): number {
+  if (dt <= 0) return prev;
+  const tau = target > prev ? LEVEL_ATTACK_S : LEVEL_RELEASE_S;
+  return prev + (target - prev) * (1 - Math.exp(-dt / tau));
+}
+
 // ── Drum synth ────────────────────────────────────────────────────────────────
 const BPM       = 120;
 const STEP_SEC  = 60 / BPM / 2;
@@ -373,6 +464,45 @@ function pushFaustParams(node: FaustNodeLike, p: ReverbParams) {
   node.setParamValue(ADDR.wetDry,      p.wetDry      / 100);
 }
 
+// Renders an uploaded track through the same Faust reverb patch (+ the same
+// safety limiter used live) offline, so it can be exported as a WAV — mirrors
+// the live graph in startAudio() but with no scheduler/meters.
+async function renderReverbOffline(
+  generator: FaustMonoDspGenerator,
+  meta: FaustDspMeta,
+  dspModule: WebAssembly.Module,
+  source: AudioBuffer,
+  params: ReverbParams,
+): Promise<AudioBuffer> {
+  // The reverb tail rings on well past the end of the dry input — rendering
+  // at only source.length would chop the decay off mid-tail. Pad the render
+  // by the room's own effective RT60 (+ a little headroom), capped so an
+  // extreme SIZE/DECAY setting can't produce an unreasonably long file.
+  const tailSeconds = Math.min(12, calcEffectiveRt60(params.size, params.decay) + 1);
+  const totalLength = source.length + Math.ceil(tailSeconds * source.sampleRate);
+  const offlineCtx = new OfflineAudioContext(source.numberOfChannels, totalLength, source.sampleRate);
+  const factory = { module: dspModule, json: JSON.stringify(meta), soundfiles: {} };
+  const node = await generator.createNode(
+    offlineCtx as unknown as AudioContext, meta.name, factory, false, 512,
+  ) as unknown as FaustNodeLike;
+  pushFaustParams(node, params);
+
+  const limiter = offlineCtx.createDynamicsCompressor();
+  limiter.threshold.value = -6;
+  limiter.knee.value      = 0;
+  limiter.ratio.value     = 20;
+  limiter.attack.value    = 0.003;
+  limiter.release.value   = 0.15;
+
+  const src = offlineCtx.createBufferSource();
+  src.buffer = source;
+  src.connect(node as unknown as AudioNode);
+  (node as unknown as AudioNode).connect(limiter);
+  limiter.connect(offlineCtx.destination);
+  src.start();
+  return offlineCtx.startRendering();
+}
+
 // ── Faust engine status type ───────────────────────────────────────────────────
 type EngineStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -391,6 +521,8 @@ export default function Chapter6() {
   const [activeSourceId, setActiveSourceId] = useState<number | 'synth'>('synth');
   const [decoding,       setDecoding]       = useState(false);
   const [uploadError,    setUploadError]    = useState('');
+  const [downloading,    setDownloading]    = useState(false);
+  const [downloadError,  setDownloadError]  = useState('');
   const fileInputRef   = useRef<HTMLInputElement>(null);
   const uploadIdSeqRef = useRef(0);
   const activeSourceIdRef = useRef(activeSourceId);
@@ -402,7 +534,9 @@ export default function Chapter6() {
   const activeTrack = activeSourceId !== 'synth' ? uploadedTracks.find(t => t.id === activeSourceId) : undefined;
 
   // Canvas
-  const irRef = useRef<HTMLCanvasElement>(null);
+  const irRef       = useRef<HTMLCanvasElement>(null);
+  const scopeRef     = useRef<HTMLCanvasElement>(null);
+  const scopeHistoryRef = useRef<ScopePoint[]>([]);
 
   // ── Faust engine (module + meta loaded once on mount; one node instantiated
   // per AudioContext in startAudio) — same pattern as Chapter4's compressor
@@ -440,9 +574,16 @@ export default function Chapter6() {
   const faustNodeRef = useRef<FaustNodeLike | null>(null); // Faust reverb node
   const mixRef       = useRef<GainNode | null>(null);
   const limiterRef   = useRef<DynamicsCompressorNode | null>(null);
+  const dryAnalRef   = useRef<AnalyserNode | null>(null);   // pre-reverb tap, for the live scope
+  const wetAnalRef   = useRef<AnalyserNode | null>(null);   // post-reverb tap, for the live scope
+  const animRef      = useRef<number>(0);
+  const meterClockRef = useRef<number | null>(null);
+  const smoothedInputDbRef  = useRef(METER_FLOOR_DB);
+  const smoothedOutputDbRef = useRef(METER_FLOOR_DB);
   const schedulerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nextNoteRef  = useRef(0);
   const stepRef      = useRef(0);
+  const pingMuteUntilRef = useRef(0); // while ctx.currentTime < this, the drum loop is silenced for a clean test-tail ping
   const startTokenRef = useRef(0); // invalidates in-flight startAudio() on stop
 
   // Mirror params into a ref so audio callbacks always see fresh values
@@ -458,6 +599,14 @@ export default function Chapter6() {
       diffusion: params.diffusion,
     });
   }, [preset, params.size, params.decay, params.damping, params.diffusion]);
+
+  // ── Idle state for the live scope ───────────────────────────────────────────
+  // While stopped, animate() isn't running, so this shows the "hit play"
+  // placeholder on the scope canvas.
+  useEffect(() => {
+    if (isPlaying) return;
+    if (scopeRef.current) drawReverbScope(scopeRef.current, [], 0, false);
+  }, [isPlaying]);
 
   // ── Task tracking ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -481,15 +630,75 @@ export default function Chapter6() {
   }, []);
 
   // ── Scheduler ────────────────────────────────────────────────────────────────
+  // While pingMuteUntilRef is in the future, steps still advance on the beat
+  // (so the groove doesn't drift) but aren't actually triggered — this is
+  // what gives triggerTestTail() a clean, uninterrupted 6s window to let a
+  // single hit ring out in the tail scope below.
   const runScheduler = useCallback(() => {
     const ctx = ctxRef.current; const mix = mixRef.current;
     if (!ctx || !mix) return;
     while (nextNoteRef.current < ctx.currentTime + 0.1) {
-      scheduleStep(ctx, mix, stepRef.current, nextNoteRef.current);
+      if (nextNoteRef.current >= pingMuteUntilRef.current) {
+        scheduleStep(ctx, mix, stepRef.current, nextNoteRef.current);
+      }
       stepRef.current    = (stepRef.current + 1) % STEPS;
       nextNoteRef.current += STEP_SEC;
     }
     schedulerRef.current = setTimeout(runScheduler, 25);
+  }, []);
+
+  // ── Test-tail ping ───────────────────────────────────────────────────────────
+  // The drum groove's near-continuous 8th-note hi-hat means the reverb tail
+  // almost never gets a quiet gap to ring out in — so SIZE/DECAY/DAMPING
+  // changes barely show up in the scope even though the DSP is reacting
+  // correctly. This fires one isolated kick hit, mutes the loop for one full
+  // scope window so nothing else re-triggers the reverb, and resets the
+  // scope history so the whole window is free to show that single tail.
+  const triggerTestTail = useCallback(() => {
+    const ctx = ctxRef.current; const mix = mixRef.current;
+    if (!ctx || !mix) return;
+    const t = ctx.currentTime + 0.03;
+    pingMuteUntilRef.current = t + SCOPE_WINDOW_S + 0.5;
+    scopeHistoryRef.current = [];
+    meterClockRef.current = null;
+    synthKick(ctx, mix, t);
+  }, []);
+
+  // ── Animation loop ───────────────────────────────────────────────────────────
+  // Drives the live scope from the real dry/wet analyser taps — new to this
+  // chapter (the illustrative IR diagram and decay bars never needed a live
+  // loop, since they only redraw when a knob changes).
+  const animate = useCallback(() => {
+    const dryAnal = dryAnalRef.current; const wetAnal = wetAnalRef.current;
+
+    const now = ctxRef.current?.currentTime ?? performance.now() / 1000;
+    const dt  = meterClockRef.current !== null ? Math.max(0, Math.min(0.2, now - meterClockRef.current)) : 0;
+    meterClockRef.current = now;
+
+    if (dryAnal) {
+      const buf = new Float32Array(dryAnal.fftSize); dryAnal.getFloatTimeDomainData(buf);
+      let peak = 0;
+      for (let i = 0; i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i]));
+      const rawInputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
+      smoothedInputDbRef.current = levelBallistic(smoothedInputDbRef.current, rawInputDb, dt);
+    }
+    if (wetAnal) {
+      const buf = new Float32Array(wetAnal.fftSize); wetAnal.getFloatTimeDomainData(buf);
+      let peak = 0;
+      for (let i = 0; i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i]));
+      const rawOutputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
+      smoothedOutputDbRef.current = levelBallistic(smoothedOutputDbRef.current, rawOutputDb, dt);
+    }
+
+    if (dryAnal && wetAnal) {
+      const history = scopeHistoryRef.current;
+      history.push({ t: now, inputDb: smoothedInputDbRef.current, outputDb: smoothedOutputDbRef.current });
+      const cutoff = now - SCOPE_WINDOW_S - 0.5;
+      while (history.length > 0 && history[0].t < cutoff) history.shift();
+      if (scopeRef.current) drawReverbScope(scopeRef.current, history, now, true);
+    }
+
+    animRef.current = requestAnimationFrame(animate);
   }, []);
 
   // ── Start audio ──────────────────────────────────────────────────────────────
@@ -517,6 +726,13 @@ export default function Chapter6() {
     limiter.release.value   = 0.15;
     limiter.connect(ctx.destination);
 
+    // ── Live scope taps ── dryAnal reads the raw drum/track signal before
+    // the reverb; wetAnal reads the actual Faust reverb output (including
+    // its own internal pre-delay/shelves/wet-dry blend) — both feed the
+    // live scope.
+    const dryAnal = ctx.createAnalyser(); dryAnal.fftSize = 1024; dryAnal.smoothingTimeConstant = 0.4;
+    const wetAnal = ctx.createAnalyser(); wetAnal.fftSize = 2048; wetAnal.smoothingTimeConstant = 0.75;
+
     // ── Faust reverb node ── owns pre-delay, both shelving filters (replacing
     // the old external HPF/LPF), SIZE/DECAY/DAMPING/DIFFUSION, and the
     // WET-DRY mix, all internally.
@@ -541,10 +757,15 @@ export default function Chapter6() {
     mixRef.current = mix;
     limiterRef.current = limiter;
     faustNodeRef.current = faustNode;
+    dryAnalRef.current = dryAnal;
+    wetAnalRef.current = wetAnal;
 
-    // ── Wire: mix → faustNode (reverb + shelves + pre-delay + wet/dry) → limiter → destination ──
+    // ── Wire: mix → dryAnal (viz tap) ─┐
+    //      └→ faustNode (reverb + shelves + pre-delay + wet/dry) → wetAnal (viz tap) → limiter → destination ──
+    mix.connect(dryAnal);
     mix.connect(faustNode as unknown as AudioNode);
-    (faustNode as unknown as AudioNode).connect(limiter);
+    (faustNode as unknown as AudioNode).connect(wetAnal);
+    wetAnal.connect(limiter);
 
     // ── Signal source: either the built-in synth drum loop, or a looping
     // uploaded track, feeding into the same `mix` node either way ──
@@ -562,16 +783,21 @@ export default function Chapter6() {
     } else {
       nextNoteRef.current = ctx.currentTime + 0.05;
       stepRef.current     = 0;
+      pingMuteUntilRef.current = 0;
       runScheduler();
     }
 
+    scopeHistoryRef.current = [];
+    meterClockRef.current = null;
+    animRef.current = requestAnimationFrame(animate);
     setIsPlaying(true);
     setHasPlayed(true);
-  }, [engineStatus, runScheduler]);
+  }, [engineStatus, runScheduler, animate]);
 
   // ── Stop audio ───────────────────────────────────────────────────────────────
   const stopAudio = useCallback(() => {
     if (schedulerRef.current) clearTimeout(schedulerRef.current);
+    cancelAnimationFrame(animRef.current);
     if (bufSourceRef.current) {
       try { bufSourceRef.current.stop(); } catch { /* ok */ }
       bufSourceRef.current.disconnect();
@@ -584,14 +810,23 @@ export default function Chapter6() {
     }
     mixRef.current     = null;
     limiterRef.current = null;
+    dryAnalRef.current = null;
+    wetAnalRef.current = null;
     ctxRef.current?.close();
     ctxRef.current = null;
+    smoothedInputDbRef.current = METER_FLOOR_DB;
+    smoothedOutputDbRef.current = METER_FLOOR_DB;
+    meterClockRef.current = null;
+    scopeHistoryRef.current = [];
+    pingMuteUntilRef.current = 0;
     setIsPlaying(false);
+    if (scopeRef.current) drawReverbScope(scopeRef.current, [], 0, false);
   }, []);
 
   useEffect(() => () => {
     startTokenRef.current++;
     if (schedulerRef.current) clearTimeout(schedulerRef.current);
+    cancelAnimationFrame(animRef.current);
     if (bufSourceRef.current) {
       try { bufSourceRef.current.stop(); } catch { /* ok */ }
     }
@@ -645,6 +880,28 @@ export default function Chapter6() {
       setDecoding(false);
     }
   }, [stopAudio]);
+
+  // Renders the currently active uploaded track through the reverb (with
+  // current knob settings) and downloads it as a WAV — the "download after
+  // processing" counterpart to the upload button above.
+  const handleDownload = useCallback(async () => {
+    const track = activeTrack;
+    if (!track || !generatorRef.current || !dspMetaRef.current || !dspModuleRef.current) return;
+    setDownloadError('');
+    setDownloading(true);
+    try {
+      const rendered = await renderReverbOffline(
+        generatorRef.current, dspMetaRef.current, dspModuleRef.current,
+        track.buffer, params,
+      );
+      downloadAudioBufferAsWav(rendered, `${track.name || 'reverb-designer'}-reverb.wav`);
+    } catch (err) {
+      console.error('[Chapter6] failed to render audio for download', err);
+      setDownloadError('Could not render the audio for download — see console for details.');
+    } finally {
+      setDownloading(false);
+    }
+  }, [activeTrack, params]);
 
   const currentPreset = ROOM_PRESETS[preset];
   const TASK_LABELS   = ['Select Hall preset', 'Audition reverb', 'Set pre-delay ≥ 15ms'];
@@ -724,9 +981,34 @@ export default function Chapter6() {
         <span style={{ fontSize: '0.85rem' }}>{decoding ? '⏳' : '+'}</span>
         <span>{decoding ? 'DECODING…' : 'UPLOAD AUDIO'}</span>
       </button>
+      {activeTrack && (
+        <button
+          onClick={() => { void handleDownload(); }}
+          disabled={downloading}
+          title="Render the active track through the reverb and download it as a WAV"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.35rem',
+            padding: '0.3rem 0.65rem',
+            background: 'var(--surface)',
+            border: '1px dashed var(--border)',
+            borderRadius: '3px',
+            color: 'var(--text-dim)',
+            fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+            cursor: downloading ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+          }}
+        >
+          <span style={{ fontSize: '0.85rem' }}>{downloading ? '⏳' : '⬇'}</span>
+          <span>{downloading ? 'RENDERING…' : 'DOWNLOAD AUDIO'}</span>
+        </button>
+      )}
       {uploadError && (
         <span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>
           {uploadError}
+        </span>
+      )}
+      {downloadError && (
+        <span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>
+          {downloadError}
         </span>
       )}
     </div>
@@ -743,7 +1025,7 @@ export default function Chapter6() {
           <div>
             <div className="lab-name">Reverb Designer</div>
             <div className="lab-subtitle">
-              LAB · CH 06 · FAUST REVERBS.LIB · {activeTrack ? activeTrack.name : `DRUM GROOVE @ ${BPM} BPM`}
+              FAUST REVERBS.LIB · {activeTrack ? activeTrack.name : `DRUM GROOVE @ ${BPM} BPM`}
             </div>
           </div>
         </div>
@@ -806,6 +1088,41 @@ export default function Chapter6() {
               height={160}
               style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
             />
+          </div>
+
+          <div className="canvas-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+            <span>
+              LIVE REVERB TAIL SCOPE {!isPlaying && '· HIT PLAY TO SEE LIVE SIGNAL'}
+              <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
+                · real dry input vs wet output over time — the diagram above is illustrative, this is the actual audio
+              </span>
+            </span>
+            <button
+              className="toggle-btn"
+              style={{ fontSize: '0.6rem', padding: '0.25rem 0.6rem', whiteSpace: 'nowrap' }}
+              onClick={triggerTestTail}
+              disabled={!isPlaying || activeSourceId !== 'synth'}
+              title={activeSourceId !== 'synth' ? 'Switch to the drum groove to use the test-tail ping' : 'Fire one isolated hit and mute the loop so the tail rings out cleanly'}
+            >
+              ⚡ PING TAIL
+            </button>
+          </div>
+          <div className="reverb-scope-display">
+            <canvas
+              ref={scopeRef}
+              width={760}
+              height={150}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+            />
+          </div>
+          <div className="legend-row" style={{ marginBottom: '1rem' }}>
+            <div className="legend-item"><span className="legend-line" style={{ background: '#F5A623' }} />DRY INPUT</div>
+            <div className="legend-item"><span className="legend-line" style={{ background: '#2DD4BF' }} />WET OUTPUT (TAIL)</div>
+          </div>
+          <div className="concept-callout" style={{ marginTop: '-0.5rem', marginBottom: '1rem', background: 'rgba(45,212,191,0.05)', borderColor: 'rgba(45,212,191,0.15)' }}>
+            The drum groove's near-continuous hi-hat keeps re-triggering the reverb, so SIZE/DECAY/DAMPING
+            changes can be hard to see in a busy loop. Click <strong style={{ color: 'var(--teal)' }}>PING TAIL</strong>{' '}
+            to hear (and see) one hit ring out with nothing else in the way.
           </div>
 
           <div className="canvas-label">ROOM PRESET</div>

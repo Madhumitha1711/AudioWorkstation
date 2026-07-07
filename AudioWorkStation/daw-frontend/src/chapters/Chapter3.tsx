@@ -1,5 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { Knob } from '../components/Knob';
+import { Fader } from '../components/Fader';
+import { downloadAudioBufferAsWav } from '../audio/wavRender';
 
 // ── Track definitions ─────────────────────────────────────────────────────────
 interface TrackConfig {
@@ -86,7 +88,7 @@ function normalize(d: Float32Array, ceiling: number) {
 }
 
 // KICK: beat 1 & 3 of each bar (index 0, 2, 4, 6 at 120 BPM)
-function makeKick(ctx: AudioContext): AudioBuffer {
+function makeKick(ctx: BaseAudioContext): AudioBuffer {
   const sr = ctx.sampleRate;
   const buf = ctx.createBuffer(1, sr * LOOP_DUR, sr);
   const d = buf.getChannelData(0);
@@ -111,7 +113,7 @@ function makeKick(ctx: AudioContext): AudioBuffer {
 }
 
 // SNARE: beat 2 & 4 of each bar
-function makeSnare(ctx: AudioContext): AudioBuffer {
+function makeSnare(ctx: BaseAudioContext): AudioBuffer {
   const sr = ctx.sampleRate;
   const buf = ctx.createBuffer(1, sr * LOOP_DUR, sr);
   const d = buf.getChannelData(0);
@@ -126,7 +128,7 @@ function makeSnare(ctx: AudioContext): AudioBuffer {
 }
 
 // BASS GUITAR: E1–A1–B1 walking line across 8 quarter-note slots
-function makeBass(ctx: AudioContext): AudioBuffer {
+function makeBass(ctx: BaseAudioContext): AudioBuffer {
   const sr = ctx.sampleRate;
   const buf = ctx.createBuffer(1, sr * LOOP_DUR, sr);
   const d = buf.getChannelData(0);
@@ -157,7 +159,7 @@ function makeBass(ctx: AudioContext): AudioBuffer {
 }
 
 // LEAD VOX: G4-B4-D5 melodic phrase
-function makeVox(ctx: AudioContext): AudioBuffer {
+function makeVox(ctx: BaseAudioContext): AudioBuffer {
   const sr = ctx.sampleRate;
   const buf = ctx.createBuffer(1, sr * LOOP_DUR, sr);
   const d = buf.getChannelData(0);
@@ -187,7 +189,7 @@ function makeVox(ctx: AudioContext): AudioBuffer {
 }
 
 // SYNTH PAD: sustained G-major chord with detuned unison for width
-function makePad(ctx: AudioContext): AudioBuffer {
+function makePad(ctx: BaseAudioContext): AudioBuffer {
   const sr = ctx.sampleRate;
   const buf = ctx.createBuffer(1, sr * LOOP_DUR, sr);
   const d = buf.getChannelData(0);
@@ -216,7 +218,7 @@ function makePad(ctx: AudioContext): AudioBuffer {
 }
 
 // ACOUSTIC GUITAR: G-major chord strums on off-beats with Karplus-ish pluck
-function makeGtr(ctx: AudioContext): AudioBuffer {
+function makeGtr(ctx: BaseAudioContext): AudioBuffer {
   const sr = ctx.sampleRate;
   const buf = ctx.createBuffer(1, sr * LOOP_DUR, sr);
   const d = buf.getChannelData(0);
@@ -270,6 +272,8 @@ export default function Chapter3() {
   const [trackFill,   setTrackFill]   = useState<number[]>(TRACKS.map(() => 0));
   const [taskDone,    setTaskDone]    = useState([false, false, false]);
   const [submitted,   setSubmitted]   = useState(false);
+  const [downloading,   setDownloading]   = useState(false);
+  const [downloadError, setDownloadError] = useState('');
 
   // Audio refs
   const actxRef     = useRef<AudioContext | null>(null);
@@ -392,6 +396,62 @@ export default function Chapter3() {
     }
   }, []);
 
+  // ── Offline render of the full mix (current fader/pan/mute/solo/master
+  // settings) — the "download processed audio" counterpart to the mixer,
+  // matching the pattern used by every effect chapter's download button.
+  const renderMixOffline = useCallback(async (): Promise<AudioBuffer> => {
+    const sr = actxRef.current?.sampleRate ?? 44100;
+    const offline = new OfflineAudioContext(2, Math.ceil(sr * LOOP_DUR), sr);
+
+    const masterG = offline.createGain();
+    masterG.gain.value = posToLinear(masterRef.current);
+    const limiter = offline.createDynamicsCompressor();
+    limiter.threshold.value = -3;
+    limiter.knee.value      = 0;
+    limiter.ratio.value     = 20;
+    limiter.attack.value    = 0.001;
+    limiter.release.value   = 0.08;
+    masterG.connect(limiter);
+    limiter.connect(offline.destination);
+
+    const anySolo = soloedRef.current.some(Boolean);
+
+    for (let i = 0; i < TRACKS.length; i++) {
+      const buf = bufsRef.current[i] ?? MAKERS[i](offline);
+
+      const gain = offline.createGain();
+      const pan  = offline.createStereoPanner();
+      const eff  = mutedRef.current[i] || (anySolo && !soloedRef.current[i]);
+      gain.gain.value = eff ? 0 : posToLinear(faderRef.current[i]);
+      pan.pan.value   = panRef.current[i] / 100;
+
+      gain.connect(pan);
+      pan.connect(masterG);
+
+      const src = offline.createBufferSource();
+      src.buffer = buf;
+      src.connect(gain);
+      src.start(0);
+    }
+
+    return offline.startRendering();
+  }, []);
+
+  // Renders the current mix and downloads it as a WAV.
+  const handleDownload = useCallback(async () => {
+    setDownloadError('');
+    setDownloading(true);
+    try {
+      const rendered = await renderMixOffline();
+      downloadAudioBufferAsWav(rendered, 'session-mix.wav');
+    } catch (err) {
+      console.error('[Chapter3] failed to render mix for download', err);
+      setDownloadError('Could not render the mix for download — see console for details.');
+    } finally {
+      setDownloading(false);
+    }
+  }, [renderMixOffline]);
+
   // ── Meter animation loop ─────────────────────────────────────────────────────
   const startMeters = useCallback(() => {
     const tick = () => {
@@ -512,7 +572,7 @@ export default function Chapter3() {
           </div>
           <div>
             <div className="lab-name">Mixing Console</div>
-            <div className="lab-subtitle">LAB · CH 03 · SESSION MIX</div>
+            <div className="lab-subtitle">SESSION MIX</div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
@@ -576,9 +636,8 @@ export default function Chapter3() {
                   onChange={v => setPanValues(prev => { const n = [...prev]; n[i] = v; return n; })}
                 />
 
-                {/* Volume knob */}
-                <Knob
-                  size={52}
+                {/* Volume slider */}
+                <Fader
                   spec={{
                     label: 'LEVEL',
                     min: 0, max: 1, step: 0.005,
@@ -723,6 +782,11 @@ export default function Chapter3() {
                 : `${taskDone.filter(Boolean).length}/3 tasks done`}
             </span>
           ) : null}
+          {downloadError && (
+            <span style={{ fontFamily: 'var(--mono)', fontSize: '0.6rem', color: 'var(--red)' }}>
+              {downloadError}
+            </span>
+          )}
           <button className="btn-secondary" onClick={isPlaying ? handleStop : handleReset}>
             {isPlaying ? '⏹ Stop' : '↺ Reset'}
           </button>
@@ -732,6 +796,14 @@ export default function Chapter3() {
             style={isPlaying ? { borderColor: 'var(--green)', color: 'var(--green)' } : {}}
           >
             {isPlaying ? '⏸ Playing' : '▶ Play Session'}
+          </button>
+          <button
+            className="btn-secondary"
+            onClick={() => { void handleDownload(); }}
+            disabled={downloading}
+            title="Render the current mix (fader, pan, mute/solo, master gain) and download it as a WAV"
+          >
+            {downloading ? '⏳ Rendering…' : '⬇ Download Mix'}
           </button>
           <button
             className="btn-primary"

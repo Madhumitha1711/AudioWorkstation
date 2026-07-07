@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
+import { downloadAudioBufferAsWav } from '../audio/wavRender';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type SatType = 'tape' | 'tube' | 'transistor' | 'digital';
@@ -452,6 +453,50 @@ function buildSource(
   return { output: osc, nodes };
 }
 
+// Renders an uploaded track through the same waveshaper/tone/mix chain used
+// live (an OfflineAudioContext instead of a live one), so it can be exported
+// as a WAV — mirrors the graph built in startAudio() but with no analysers.
+async function renderSaturatorOffline(
+  source: AudioBuffer,
+  satType: SatType,
+  drive: number,
+  tone: number,
+  mix: number,
+): Promise<AudioBuffer> {
+  const offlineCtx = new OfflineAudioContext(source.numberOfChannels, source.length, source.sampleRate);
+
+  const bufSrc = offlineCtx.createBufferSource();
+  bufSrc.buffer = source;
+
+  const inputGain = offlineCtx.createGain();
+  inputGain.gain.value = 0.7;
+
+  const shaper = offlineCtx.createWaveShaper();
+  shaper.curve      = makeShaperCurve(satType, drive);
+  shaper.oversample = '4x';
+
+  const toneFilter = offlineCtx.createBiquadFilter();
+  toneFilter.type            = 'peaking';
+  toneFilter.frequency.value = 3000;
+  toneFilter.Q.value         = 0.7;
+  toneFilter.gain.value      = (tone - 50) / 50 * 6;
+
+  const wetGain = offlineCtx.createGain(); wetGain.gain.value = mix / 100;
+  const dryGain = offlineCtx.createGain(); dryGain.gain.value = 1 - mix / 100;
+
+  bufSrc.connect(inputGain);
+  inputGain.connect(shaper);
+  shaper.connect(toneFilter);
+  toneFilter.connect(wetGain);
+  wetGain.connect(offlineCtx.destination);
+
+  inputGain.connect(dryGain);
+  dryGain.connect(offlineCtx.destination);
+
+  bufSrc.start();
+  return offlineCtx.startRendering();
+}
+
 function stopSourceNodes(nodes: AudioNode[]) {
   for (const node of nodes) {
     if (node instanceof OscillatorNode || node instanceof AudioBufferSourceNode) {
@@ -476,10 +521,13 @@ export default function Chapter7() {
   const [uploadedTracks, setUploadedTracks] = useState<UploadedTrack[]>([]);
   const [decoding,       setDecoding]       = useState(false);
   const [uploadError,    setUploadError]    = useState('');
+  const [downloading,    setDownloading]    = useState(false);
+  const [downloadError,  setDownloadError]  = useState('');
   const fileInputRef      = useRef<HTMLInputElement>(null);
   const uploadIdSeqRef    = useRef(0);
   const uploadedTracksRef = useRef(uploadedTracks);
   useEffect(() => { uploadedTracksRef.current = uploadedTracks; }, [uploadedTracks]);
+  const activeTrack = typeof srcType === 'number' ? uploadedTracks.find(t => t.id === srcType) : undefined;
 
   const [inputLevel,  setInputLevel]  = useState(0.70);
   const [outputLevel, setOutputLevel] = useState(0.85);
@@ -748,6 +796,25 @@ export default function Chapter7() {
     }
   }, [handleSrcChange]);
 
+  // Renders the currently active uploaded track through the saturator (with
+  // current drive/tone/mix settings) and downloads it as a WAV — the
+  // "download after processing" counterpart to the upload button above.
+  const handleDownload = useCallback(async () => {
+    const track = activeTrack;
+    if (!track) return;
+    setDownloadError('');
+    setDownloading(true);
+    try {
+      const rendered = await renderSaturatorOffline(track.buffer, satType, drive, tone, mix);
+      downloadAudioBufferAsWav(rendered, `${track.name || 'saturation-lab'}-saturated.wav`);
+    } catch (err) {
+      console.error('[Chapter7] failed to render audio for download', err);
+      setDownloadError('Could not render the audio for download — see console for details.');
+    } finally {
+      setDownloading(false);
+    }
+  }, [activeTrack, satType, drive, tone, mix]);
+
   // ── Reset ──────────────────────────────────────────────────────────────────
   const handleReset = useCallback(() => {
     stopAudio();
@@ -786,8 +853,6 @@ export default function Chapter7() {
     return n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`;
   };
 
-  const activeTrack = typeof srcType === 'number' ? uploadedTracks.find(t => t.id === srcType) : undefined;
-
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="sat-lab">
@@ -801,7 +866,7 @@ export default function Chapter7() {
           <div>
             <div className="lab-name">Saturation Lab</div>
             <div className="lab-subtitle">
-              LAB · CH 07 · HARMONIC DISTORTION{activeTrack ? ` · ${activeTrack.name}` : ''}
+              HARMONIC DISTORTION{activeTrack ? ` · ${activeTrack.name}` : ''}
             </div>
           </div>
         </div>
@@ -920,9 +985,34 @@ export default function Chapter7() {
               <span style={{ fontSize: '0.85rem' }}>{decoding ? '⏳' : '+'}</span>
               <span>{decoding ? 'DECODING…' : 'UPLOAD AUDIO'}</span>
             </button>
+            {activeTrack && (
+              <button
+                onClick={() => { void handleDownload(); }}
+                disabled={downloading}
+                title="Render the active track through the saturator and download it as a WAV"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.35rem',
+                  padding: '0.3rem 0.65rem',
+                  background: 'var(--surface)',
+                  border: '1px dashed var(--border)',
+                  borderRadius: '3px',
+                  color: 'var(--text-dim)',
+                  fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+                  cursor: downloading ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+                }}
+              >
+                <span style={{ fontSize: '0.85rem' }}>{downloading ? '⏳' : '⬇'}</span>
+                <span>{downloading ? 'RENDERING…' : 'DOWNLOAD AUDIO'}</span>
+              </button>
+            )}
             {uploadError && (
               <span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>
                 {uploadError}
+              </span>
+            )}
+            {downloadError && (
+              <span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>
+                {downloadError}
               </span>
             )}
           </div>
