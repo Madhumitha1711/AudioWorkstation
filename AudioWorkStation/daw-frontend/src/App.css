@@ -889,41 +889,54 @@ body {
   overflow: hidden;
 }
 
-/* Live GR (gain-reduction) meter — horizontal bar at the top of the right
-   (visual) column, to the right of the knob controls. */
-.gr-meter-row {
+/* Live GR (gain-reduction) meter — vertical bar alongside the transfer
+   graph, in the right (visual) column. */
+.transfer-row {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 0.6rem;
+}
+
+.gr-meter-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  width: 34px;
+  flex-shrink: 0;
   background: var(--black);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 0.5rem 0.75rem;
+  padding: 0.5rem 0.25rem;
 }
 
 .gr-meter-lbl,
-.gr-meter-val {
+.gr-meter-val,
+.gr-meter-unit {
   font-family: var(--mono);
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   color: var(--text-dim);
   white-space: nowrap;
 }
 
-.gr-meter-val { color: var(--purple); }
+.gr-meter-val { color: var(--purple); font-size: 0.6rem; }
+.gr-meter-unit { color: var(--text-faint); letter-spacing: 0.06em; }
 
-.gr-meter-track {
+.gr-meter-track-v {
   flex: 1;
-  height: 8px;
+  width: 8px;
   background: var(--surface);
   border-radius: 4px;
   overflow: hidden;
+  display: flex;
+  align-items: flex-start;
 }
 
-.gr-meter-fill {
-  height: 100%;
+.gr-meter-fill-v {
+  width: 100%;
   border-radius: 4px;
-  background: linear-gradient(90deg, #00FF87 0%, #F5A623 65%, #FF4D6A 100%);
-  transition: width 0.1s ease;
+  background: linear-gradient(180deg, #00FF87 0%, #F5A623 65%, #FF4D6A 100%);
+  transition: height 0.1s ease;
 }
 
 /* (challenge panel reuses .comp-lab, .comp-body, .comp-controls, .comp-visual) */

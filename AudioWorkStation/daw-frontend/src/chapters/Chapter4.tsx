@@ -648,12 +648,12 @@ export default function Chapter4() {
   const smoothedOutputDbRef = useRef(METER_FLOOR_DB);
   const meterClockRef       = useRef<number | null>(null);
 
-  // Live GR (gain-reduction) meter — a horizontal bar to the right of the
-  // controls, updated by direct DOM writes in animate() (same reasoning as
+  // Live GR (gain-reduction) meter — a vertical bar beside the transfer
+  // graph, updated by direct DOM writes in animate() (same reasoning as
   // the scope canvas: this changes every frame, so it bypasses React state).
   const grFillRef  = useRef<HTMLDivElement>(null);
   const grValueRef = useRef<HTMLSpanElement>(null);
-  const GR_METER_MAX_DB = 24; // full-scale width of the bar
+  const GR_METER_MAX_DB = 24; // full-scale height of the bar
 
   // Knob drag ref (for main lab) — tracks fraction-of-travel (0..1) rather
   // than the raw value, so segmented knobs (Attack/Release) drag through
@@ -757,10 +757,10 @@ export default function Chapter4() {
     const preMakeupOutputDb = smoothedOutputDbRef.current - makeupNow;
     const grDb = bypassRef.current ? 0 : Math.max(0, smoothedInputDbRef.current - preMakeupOutputDb);
     if (grFillRef.current) {
-      grFillRef.current.style.width = `${Math.min(100, (grDb / GR_METER_MAX_DB) * 100)}%`;
+      grFillRef.current.style.height = `${Math.min(100, (grDb / GR_METER_MAX_DB) * 100)}%`;
     }
     if (grValueRef.current) {
-      grValueRef.current.textContent = grDb > 0.05 ? `-${grDb.toFixed(1)} dB` : '0.0 dB';
+      grValueRef.current.textContent = grDb > 0.05 ? `-${grDb.toFixed(1)}` : '0.0';
     }
 
     animRef.current = requestAnimationFrame(animate);
@@ -863,8 +863,8 @@ export default function Chapter4() {
       const c = scopeRef.current.getContext('2d')!;
       c.fillStyle = '#0D0D0F'; c.fillRect(0, 0, scopeRef.current.width, scopeRef.current.height);
     }
-    if (grFillRef.current) grFillRef.current.style.width = '0%';
-    if (grValueRef.current) grValueRef.current.textContent = '0.0 dB';
+    if (grFillRef.current) grFillRef.current.style.height = '0%';
+    if (grValueRef.current) grValueRef.current.textContent = '0.0';
   }, []);
 
   useEffect(() => () => {
@@ -1179,27 +1179,26 @@ export default function Chapter4() {
           </div>
         </div>
 
-        {/* Right: GR meter + transfer + live scope */}
+        {/* Right: transfer (+ GR meter alongside) + live scope */}
         <div className="comp-visual">
-          <div className="canvas-label" style={{ marginBottom: '0.5rem' }}>
-            GAIN REDUCTION
-          </div>
-          <div className="gr-meter-row">
-            <span className="gr-meter-lbl">0 dB</span>
-            <div className="gr-meter-track">
-              <div ref={grFillRef} className="gr-meter-fill" style={{ width: '0%' }} />
-            </div>
-            <span className="gr-meter-val" ref={grValueRef}>0.0 dB</span>
-          </div>
-
-          <div className="canvas-label" style={{ marginTop: '1rem', marginBottom: '0.75rem' }}>
+          <div className="canvas-label" style={{ marginBottom: '0.75rem' }}>
             TRANSFER FUNCTION — INPUT vs OUTPUT
             <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
               · shape set by THRESHOLD / RATIO / KNEE, <span style={{ color: 'var(--amber)' }}>MAKEUP GAIN</span> shifts it up (amber) — attack &amp; release are time-domain, see scope below
             </span>
           </div>
-          <div className="transfer-graph">
-            <canvas ref={transferRef} width={400} height={200} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
+          <div className="transfer-row">
+            <div className="transfer-graph" style={{ flex: 1 }}>
+              <canvas ref={transferRef} width={400} height={200} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
+            </div>
+            <div className="gr-meter-col">
+              <span className="gr-meter-lbl">0dB</span>
+              <div className="gr-meter-track-v">
+                <div ref={grFillRef} className="gr-meter-fill-v" style={{ height: '0%' }} />
+              </div>
+              <span className="gr-meter-val" ref={grValueRef}>0.0</span>
+              <span className="gr-meter-unit">GR</span>
+            </div>
           </div>
 
           <div className="canvas-label" style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>
