@@ -35,6 +35,17 @@ with {
 };
  
 gainFor(peak) = min(1, threshLin / max(peak, 0.000001));
+
+// Output-stage makeup gain. When the threshold sits below the ceiling
+// (the normal case), everything is additionally scaled down by the
+// ceiling -- that overall dB reduction is intentional and fine. But when
+// the threshold is set *above* the ceiling, that same multiply would only
+// ever reduce, when what's actually needed is to add gain back up (as far
+// as gainFor already permits, i.e. capped at the threshold) rather than
+// needlessly attenuate below it. In that case we pass at unity and let the
+// hard safety clamp below do the brickwall clipping against the ceiling.
+threshAboveCeiling = threshDb > ceilingDb;
+outCeilGain = select2(threshAboveCeiling, ceilingLin, 1);
  
 //======================================================================
 // lookahead-compensated brickwall stage
@@ -53,8 +64,8 @@ with {
   delayedL = inL : de.fdelay(4096, lookaheadSamples);
   delayedR = inR : de.fdelay(4096, lookaheadSamples);
  
-  rawL = delayedL * gainL * ceilingLin;
-  rawR = delayedR * gainR * ceilingLin;
+  rawL = delayedL * gainL * outCeilGain;
+  rawR = delayedR * gainR * outCeilGain;
  
   // hard safety clamp: guarantees output never exceeds the ceiling
   clampedL = max(-ceilingLin, min(ceilingLin, rawL));

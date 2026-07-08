@@ -708,12 +708,20 @@ function normalizeUploadedBuffer(buf: AudioBuffer, peakTarget = 0.6) {
   }
 }
 
-function scheduleStep(ctx: AudioContext, dest: AudioNode, step: number, time: number) {
-  if (PAT_KICK[step])  synthKick  (ctx, dest, time);
-  if (PAT_SNARE[step]) synthSnare (ctx, dest, time);
-  if (PAT_HAT[step])   synthHihat (ctx, dest, time, false);
-  if (PAT_OPEN[step])  synthHihat (ctx, dest, time, true);
-  if (PAT_BASS[step])  synthBass  (ctx, dest, time, PAT_BASS[step]);
+// `fullDest` gets the whole kit (kick/snare/hats/bass) — that's the "Drum
+// Loop" heard as a main source. `kickDest` gets a second, isolated copy of
+// just the kick hits — that's what "Kick Only" feeds the sidechain with, so
+// picking it as the Sidechain Source is a genuinely different (trigger-only)
+// signal from the full drum loop, not a duplicate of it.
+function scheduleStep(ctx: AudioContext, fullDest: AudioNode, kickDest: AudioNode, step: number, time: number) {
+  if (PAT_KICK[step]) {
+    synthKick(ctx, fullDest, time);
+    synthKick(ctx, kickDest, time);
+  }
+  if (PAT_SNARE[step]) synthSnare (ctx, fullDest, time);
+  if (PAT_HAT[step])   synthHihat (ctx, fullDest, time, false);
+  if (PAT_OPEN[step])  synthHihat (ctx, fullDest, time, true);
+  if (PAT_BASS[step])  synthBass  (ctx, fullDest, time, PAT_BASS[step]);
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -801,7 +809,8 @@ export default function Chapter4() {
   const wetAnalRef          = useRef<AnalyserNode | null>(null);
   const mixRef              = useRef<GainNode | null>(null);        // main signal bus
   const scMixRef            = useRef<GainNode | null>(null);        // sidechain-detector bus (may mirror mixRef)
-  const drumBusRef          = useRef<GainNode | null>(null);        // raw synth drum output, fanned into mix and/or scMix
+  const drumBusRef          = useRef<GainNode | null>(null);        // full drum kit, feeds mix when main source is 'synth'
+  const kickBusRef          = useRef<GainNode | null>(null);        // kick-only, feeds scMix when sidechain source is 'synth'
   const outputRef           = useRef<GainNode | null>(null);        // final sum before destination
   const animRef             = useRef<number>(0);
   const schedulerRef        = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -888,15 +897,17 @@ export default function Chapter4() {
   }, [bands, crossover, sidechain]);
 
   // ── Scheduler ─────────────────────────────────────────────────────────────
-  // Notes always play into drumBus, which startAudio() then fans out into
-  // mix and/or scMix depending on whether the drum loop is the main source,
-  // the sidechain source, or (commonly) both — one scheduler, routed however
-  // the current source selection needs it.
+  // One clock drives two independent buses: drumBus gets the full kit
+  // (kick/snare/hats/bass) and kickBus gets only the kick hits. startAudio()
+  // fans drumBus into mix if the main source is 'synth', and kickBus into
+  // scMix if the sidechain source is 'synth' — so picking "Kick Only" as the
+  // sidechain is a genuinely isolated trigger signal, not a duplicate of the
+  // full drum loop heard on the main input.
   const runScheduler = useCallback(() => {
-    const ctx = ctxRef.current; const drumBus = drumBusRef.current;
-    if (!ctx || !drumBus) return;
+    const ctx = ctxRef.current; const drumBus = drumBusRef.current; const kickBus = kickBusRef.current;
+    if (!ctx || !drumBus || !kickBus) return;
     while (nextNoteRef.current < ctx.currentTime + 0.1) {
-      scheduleStep(ctx, drumBus, currentStepRef.current, nextNoteRef.current);
+      scheduleStep(ctx, drumBus, kickBus, currentStepRef.current, nextNoteRef.current);
       currentStepRef.current = (currentStepRef.current + 1) % STEPS;
       nextNoteRef.current   += STEP_SEC;
     }
@@ -983,9 +994,11 @@ export default function Chapter4() {
 
     // mix (main bus)       → dryAnal (viz tap) ─┐
     // scMix (sidechain bus) ────────────────────┤→ 2ch merger → faustNode → wetAnal → output → destination
-    // drumBus (raw synth notes) fans into mix and/or scMix below, depending
-    // on whether the drum loop is the main source, the sidechain source, or
-    // both — see the source-resolution block further down.
+    // drumBus (full kit) fans into mix, kickBus (kick hits only) fans into
+    // scMix — kept as two separate buses so picking "Kick Only" as the
+    // Sidechain Source is a genuinely different, isolated signal rather than
+    // a duplicate of the full drum loop heard on the main input. See the
+    // source-resolution block further down for exactly when each connects.
     //
     // The Faust node declares 2 audio inputs (main + sidechain, see
     // compressor.dsp's process(mainIn, scIn)), which @grame/faustwasm
@@ -998,6 +1011,7 @@ export default function Chapter4() {
     const mix     = ctx.createGain(); mix.gain.value = 0.85;
     const scMix   = ctx.createGain(); scMix.gain.value = 0.85;
     const drumBus = ctx.createGain();
+    const kickBus = ctx.createGain();
     const dryAnal = ctx.createAnalyser(); dryAnal.fftSize = 1024; dryAnal.smoothingTimeConstant = 0.4;
     const wetAnal = ctx.createAnalyser(); wetAnal.fftSize = 1024; wetAnal.smoothingTimeConstant = 0.4;
     const output = ctx.createGain(); output.gain.value = 1;
@@ -1032,6 +1046,7 @@ export default function Chapter4() {
     mixRef.current = mix;
     scMixRef.current = scMix;
     drumBusRef.current = drumBus;
+    kickBusRef.current = kickBus;
     dryAnalRef.current = dryAnal;
     wetAnalRef.current = wetAnal;
     outputRef.current = output;
@@ -1063,7 +1078,10 @@ export default function Chapter4() {
     // ── Resolve the SIDECHAIN source into `scMix` ───────────────────────
     const scSel = sidechainSourceIdRef.current;
     if (scSel === 'synth') {
-      drumBus.connect(scMix);
+      // Isolated kick hits only — deliberately NOT drumBus, so this never
+      // sounds identical to a "Drum Loop" main source (same performance,
+      // same clock, but only the kick actually reaches the detector).
+      kickBus.connect(scMix);
     } else if (mainTrack && scSel === mainTrack.id && mainBufSrc) {
       // Same uploaded track chosen for both — fan the one playing node into
       // scMix too, so main and sidechain stay perfectly sample-locked
@@ -1117,7 +1135,7 @@ export default function Chapter4() {
     ctxRef.current?.close();
     ctxRef.current = null;
     dryAnalRef.current = null; wetAnalRef.current = null; mixRef.current = null;
-    scMixRef.current = null; drumBusRef.current = null;
+    scMixRef.current = null; drumBusRef.current = null; kickBusRef.current = null;
     outputRef.current = null;
     smoothedInputDbRef.current = METER_FLOOR_DB;
     smoothedOutputDbRef.current = METER_FLOOR_DB;
@@ -1586,22 +1604,32 @@ export default function Chapter4() {
 
           {/* Sidechain — internal (each band's own audio) vs external
               (a filtered detector signal fed into a second input, which can
-              now be a genuinely different track via the source row below) */}
+              now be a genuinely different track via the source row below).
+              "Kick Only" is deliberately NOT the same signal as a "Drum
+              Loop" main source — it's an isolated copy of just the kick
+              hits (see scheduleStep/kickBus in startAudio), so selecting it
+              alongside a drum-loop main input is a real, audible trigger
+              rather than the exact same audio duplicated. */}
           <div className="canvas-label" style={{ marginTop: '0.75rem', marginBottom: '0.5rem' }}>
             SIDECHAIN
           </div>
           <div style={{
             display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.5rem',
           }}>
-            {([['none', 'SAME AS MAIN'], ['synth', 'DRUM LOOP']] as [SidechainSourceId, string][])
+            {([['none', 'SAME AS MAIN'], ['synth', 'KICK ONLY']] as [SidechainSourceId, string][])
               .concat(uploadedTracks.map(t => [t.id, t.name] as [SidechainSourceId, string]))
               .map(([id, label]) => {
                 const active = id === sidechainSourceId;
+                const title = id === 'none'
+                  ? 'Detector hears the same signal as the main input'
+                  : id === 'synth'
+                    ? "Detector hears only the kick drum hits, isolated from the full loop — a classic sidechain trigger"
+                    : `Detector hears ${label} instead of the main input`;
                 return (
                   <button
                     key={String(id)}
                     onClick={() => handleSelectSidechainSource(id)}
-                    title={id === 'none' ? "Detector hears the same signal as the main input" : `Detector hears ${label} instead of the main input`}
+                    title={title}
                     style={{
                       padding: '0.25rem 0.5rem',
                       background: active ? 'rgba(245,166,35,0.13)' : 'var(--surface)',
