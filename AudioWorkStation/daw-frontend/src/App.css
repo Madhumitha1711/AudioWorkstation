@@ -939,6 +939,61 @@ body {
   transition: height 0.1s ease;
 }
 
+/* Compact range slider (Chapter 4's Crossover/Sidechain/Output mini-controls)
+   — native <input type="range"> defaults to a chunky, platform-styled track
+   and a large thumb; this trims it down to a thin 3px rail with a small
+   accent-colored dot, matching the rest of the app's dark, low-chrome look.
+   --mini-range-accent lets a given slider override the thumb color. */
+.mini-range {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 12px;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+}
+.mini-range::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.mini-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--mini-range-accent, var(--purple));
+  border: 1px solid rgba(0,0,0,0.35);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--mini-range-accent, var(--purple)) 60%, transparent);
+  transition: box-shadow 0.15s;
+}
+.mini-range:hover::-webkit-slider-thumb {
+  box-shadow: 0 0 7px color-mix(in srgb, var(--mini-range-accent, var(--purple)) 80%, transparent);
+}
+.mini-range::-moz-range-track {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.mini-range::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--mini-range-accent, var(--purple));
+  border: 1px solid rgba(0,0,0,0.35);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--mini-range-accent, var(--purple)) 60%, transparent);
+}
+.mini-range:focus { outline: none; }
+.mini-range:focus::-webkit-slider-thumb,
+.mini-range:focus::-moz-range-thumb {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mini-range-accent, var(--purple)) 30%, transparent);
+}
+
 /* (challenge panel reuses .comp-lab, .comp-body, .comp-controls, .comp-visual) */
 
 /* ════════════════════════════════════════════════════════════════════
