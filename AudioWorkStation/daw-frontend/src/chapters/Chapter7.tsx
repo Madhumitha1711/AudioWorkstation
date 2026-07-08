@@ -468,9 +468,6 @@ async function renderSaturatorOffline(
   const bufSrc = offlineCtx.createBufferSource();
   bufSrc.buffer = source;
 
-  const inputGain = offlineCtx.createGain();
-  inputGain.gain.value = 0.7;
-
   const shaper = offlineCtx.createWaveShaper();
   shaper.curve      = makeShaperCurve(satType, drive);
   shaper.oversample = '4x';
@@ -484,13 +481,12 @@ async function renderSaturatorOffline(
   const wetGain = offlineCtx.createGain(); wetGain.gain.value = mix / 100;
   const dryGain = offlineCtx.createGain(); dryGain.gain.value = 1 - mix / 100;
 
-  bufSrc.connect(inputGain);
-  inputGain.connect(shaper);
+  bufSrc.connect(shaper);
   shaper.connect(toneFilter);
   toneFilter.connect(wetGain);
   wetGain.connect(offlineCtx.destination);
 
-  inputGain.connect(dryGain);
+  bufSrc.connect(dryGain);
   dryGain.connect(offlineCtx.destination);
 
   bufSrc.start();
@@ -539,7 +535,6 @@ export default function Chapter7() {
   // ── Audio refs ─────────────────────────────────────────────────────────────
   const audioCtxRef     = useRef<AudioContext | null>(null);
   const sourceNodesRef  = useRef<AudioNode[]>([]);
-  const inputGainRef    = useRef<GainNode | null>(null);
   const shaperRef       = useRef<WaveShaperNode | null>(null);
   const toneFilterRef   = useRef<BiquadFilterNode | null>(null);
   const wetGainRef      = useRef<GainNode | null>(null);
@@ -662,9 +657,6 @@ export default function Chapter7() {
     const { output: srcOut, nodes: srcNodes } = buildSource(ac, srcType, uploadedTracksRef.current);
     sourceNodesRef.current = srcNodes;
 
-    const inputGain = ac.createGain();
-    inputGain.gain.value = 0.7;
-
     const shaper = ac.createWaveShaper();
     shaper.curve      = makeShaperCurve(satType, drive);
     shaper.oversample = '4x';
@@ -688,20 +680,18 @@ export default function Chapter7() {
     outAnalyser.smoothingTimeConstant = 0.1;
 
     // Graph:
-    // src → inputGain → inAnalyser → shaper → toneFilter → outAnalyser → wetGain → dest
-    //                 ↘ dryGain → dest   (dry bypass path)
-    srcOut.connect(inputGain);
-    inputGain.connect(inAnalyser);
+    // src → inAnalyser → shaper → toneFilter → outAnalyser → wetGain → dest
+    //     ↘ dryGain → dest   (dry bypass path)
+    srcOut.connect(inAnalyser);
     inAnalyser.connect(shaper);
     shaper.connect(toneFilter);
     toneFilter.connect(outAnalyser);
     outAnalyser.connect(wetGain);
     wetGain.connect(ac.destination);
 
-    inputGain.connect(dryGain);
+    srcOut.connect(dryGain);
     dryGain.connect(ac.destination);
 
-    inputGainRef.current   = inputGain;
     shaperRef.current      = shaper;
     toneFilterRef.current  = toneFilter;
     wetGainRef.current     = wetGain;
@@ -722,7 +712,7 @@ export default function Chapter7() {
     sourceNodesRef.current = [];
 
     for (const ref of [
-      inputGainRef, shaperRef, toneFilterRef,
+      shaperRef, toneFilterRef,
       wetGainRef, dryGainRef, inAnalyserRef, outAnalyserRef,
     ] as React.MutableRefObject<AudioNode | null>[]) {
       try { ref.current?.disconnect(); } catch { /* ok */ }

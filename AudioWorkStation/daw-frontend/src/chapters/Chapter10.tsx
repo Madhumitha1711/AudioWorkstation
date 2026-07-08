@@ -903,8 +903,12 @@ export default function Chapter10() {
     // genuinely different signals (Sidechain Source selector), or scMix can
     // just mirror mix ("Same as main") for the original self-sidechain
     // behavior — same pattern as Chapter4's compressor.
-    const mix     = ctx.createGain(); mix.gain.value = 0.85;
-    const scMix   = ctx.createGain(); scMix.gain.value = 0.85;
+    // mix/scMix stay unity gain — no .gain.value override — since neither
+    // is backed by anything in the interface (no UI control scales the
+    // main or sidechain bus), so they shouldn't silently attenuate the
+    // signal feeding the gate or its detector.
+    const mix     = ctx.createGain();
+    const scMix   = ctx.createGain();
     const kickBus = ctx.createGain();
     const dryAnal = ctx.createAnalyser(); dryAnal.fftSize = 1024; dryAnal.smoothingTimeConstant = 0.4;
     const wetAnal = ctx.createAnalyser(); wetAnal.fftSize = 1024; wetAnal.smoothingTimeConstant = 0.4;

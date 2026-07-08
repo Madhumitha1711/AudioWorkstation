@@ -232,10 +232,6 @@ async function renderDelayOffline(
   const totalLength = source.length + Math.ceil(tailSeconds * source.sampleRate);
   const offlineCtx = new OfflineAudioContext(source.numberOfChannels, totalLength, source.sampleRate);
 
-  const limiter = offlineCtx.createDynamicsCompressor();
-  limiter.threshold.value = -6; limiter.knee.value = 0; limiter.ratio.value = 20;
-  limiter.attack.value = 0.003; limiter.release.value = 0.15;
-
   const factory = { module: dspModule, json: JSON.stringify(meta), soundfiles: {} };
   const node = await generator.createNode(
     offlineCtx as unknown as AudioContext, meta.name, factory, false, 512,
@@ -245,8 +241,7 @@ async function renderDelayOffline(
   const src = offlineCtx.createBufferSource();
   src.buffer = source;
   src.connect(node as unknown as AudioNode);
-  (node as unknown as AudioNode).connect(limiter);
-  limiter.connect(offlineCtx.destination);
+  (node as unknown as AudioNode).connect(offlineCtx.destination);
   src.start();
   return offlineCtx.startRendering();
 }
@@ -449,7 +444,6 @@ export default function Chapter9() {
   const ctxRef        = useRef<AudioContext | null>(null);
   const faustNodeRef  = useRef<FaustNodeLike | null>(null);
   const mixRef        = useRef<GainNode | null>(null);
-  const limiterRef    = useRef<DynamicsCompressorNode | null>(null);
   const outAnalRef    = useRef<AnalyserNode | null>(null);   // post-delay tap — feeds VU meter + scope wet trace
   const dryAnalRef    = useRef<AnalyserNode | null>(null);   // pre-delay tap — feeds scope dry trace
   const animRef       = useRef<number>(0);
@@ -591,12 +585,7 @@ export default function Chapter9() {
     const myToken = ++startTokenRef.current;
 
     const ctx = new AudioContext();
-    const mix = ctx.createGain(); mix.gain.value = 0.8;
-
-    const limiter = ctx.createDynamicsCompressor();
-    limiter.threshold.value = -6; limiter.knee.value = 0; limiter.ratio.value = 20;
-    limiter.attack.value = 0.003; limiter.release.value = 0.15;
-    limiter.connect(ctx.destination);
+    const mix = ctx.createGain();
 
     // ── Live scope taps ── dryAnal reads the raw pluck/loop/track signal
     // before the delay; outAnal reads the actual Faust delay output
@@ -604,7 +593,7 @@ export default function Chapter9() {
     // blend) — outAnal feeds both the VU meter and the scope's wet trace.
     const dryAnal = ctx.createAnalyser(); dryAnal.fftSize = 1024; dryAnal.smoothingTimeConstant = 0.4;
     const outAnal = ctx.createAnalyser(); outAnal.fftSize = 2048; outAnal.smoothingTimeConstant = 0.35;
-    outAnal.connect(limiter);
+    outAnal.connect(ctx.destination);
 
     const factory = { module: dspModuleRef.current, json: JSON.stringify(dspMetaRef.current), soundfiles: {} };
     let faustNode: FaustNodeLike;
@@ -622,13 +611,12 @@ export default function Chapter9() {
 
     ctxRef.current = ctx;
     mixRef.current = mix;
-    limiterRef.current = limiter;
     outAnalRef.current = outAnal;
     dryAnalRef.current = dryAnal;
     faustNodeRef.current = faustNode;
 
     // ── Wire: mix → dryAnal (viz tap) ─┐
-    //      └→ faustNode (delay + mod + filters + ping-pong + analog sat) → outAnal (viz tap + VU) → limiter → destination ──
+    //      └→ faustNode (delay + mod + filters + ping-pong + analog sat) → outAnal (viz tap + VU) → destination ──
     mix.connect(dryAnal);
     mix.connect(faustNode as unknown as AudioNode);
     (faustNode as unknown as AudioNode).connect(outAnal);
@@ -669,7 +657,7 @@ export default function Chapter9() {
       try { (faustNodeRef.current as unknown as AudioNode).disconnect(); } catch { /* ok */ }
       faustNodeRef.current = null;
     }
-    mixRef.current = null; limiterRef.current = null; outAnalRef.current = null; dryAnalRef.current = null;
+    mixRef.current = null; outAnalRef.current = null; dryAnalRef.current = null;
     ctxRef.current?.close(); ctxRef.current = null;
     smoothedInputDbRef.current = METER_FLOOR_DB;
     smoothedOutputDbRef.current = METER_FLOOR_DB;

@@ -350,15 +350,8 @@ export default function Chapter3() {
     masterG.gain.value = posToLinear(masterRef.current);
     const masterA = ctx.createAnalyser();
     masterA.fftSize = 256;
-    const limiter = ctx.createDynamicsCompressor();
-    limiter.threshold.value = -3;
-    limiter.knee.value      = 0;
-    limiter.ratio.value     = 20;
-    limiter.attack.value    = 0.001;
-    limiter.release.value   = 0.08;
     masterG.connect(masterA);
-    masterA.connect(limiter);
-    limiter.connect(ctx.destination);
+    masterA.connect(ctx.destination);
     masterGRef.current = masterG;
     masterARef.current = masterA;
 
@@ -405,14 +398,7 @@ export default function Chapter3() {
 
     const masterG = offline.createGain();
     masterG.gain.value = posToLinear(masterRef.current);
-    const limiter = offline.createDynamicsCompressor();
-    limiter.threshold.value = -3;
-    limiter.knee.value      = 0;
-    limiter.ratio.value     = 20;
-    limiter.attack.value    = 0.001;
-    limiter.release.value   = 0.08;
-    masterG.connect(limiter);
-    limiter.connect(offline.destination);
+    masterG.connect(offline.destination);
 
     const anySolo = soloedRef.current.some(Boolean);
 

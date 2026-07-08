@@ -464,9 +464,9 @@ function pushFaustParams(node: FaustNodeLike, p: ReverbParams) {
   node.setParamValue(ADDR.wetDry,      p.wetDry      / 100);
 }
 
-// Renders an uploaded track through the same Faust reverb patch (+ the same
-// safety limiter used live) offline, so it can be exported as a WAV — mirrors
-// the live graph in startAudio() but with no scheduler/meters.
+// Renders an uploaded track through the same Faust reverb patch offline, so
+// it can be exported as a WAV — mirrors the live graph in startAudio() but
+// with no scheduler/meters.
 async function renderReverbOffline(
   generator: FaustMonoDspGenerator,
   meta: FaustDspMeta,
@@ -487,18 +487,10 @@ async function renderReverbOffline(
   ) as unknown as FaustNodeLike;
   pushFaustParams(node, params);
 
-  const limiter = offlineCtx.createDynamicsCompressor();
-  limiter.threshold.value = -6;
-  limiter.knee.value      = 0;
-  limiter.ratio.value     = 20;
-  limiter.attack.value    = 0.003;
-  limiter.release.value   = 0.15;
-
   const src = offlineCtx.createBufferSource();
   src.buffer = source;
   src.connect(node as unknown as AudioNode);
-  (node as unknown as AudioNode).connect(limiter);
-  limiter.connect(offlineCtx.destination);
+  (node as unknown as AudioNode).connect(offlineCtx.destination);
   src.start();
   return offlineCtx.startRendering();
 }
@@ -573,7 +565,6 @@ export default function Chapter6() {
   const ctxRef       = useRef<AudioContext | null>(null);
   const faustNodeRef = useRef<FaustNodeLike | null>(null); // Faust reverb node
   const mixRef       = useRef<GainNode | null>(null);
-  const limiterRef   = useRef<DynamicsCompressorNode | null>(null);
   const dryAnalRef   = useRef<AnalyserNode | null>(null);   // pre-reverb tap, for the live scope
   const wetAnalRef   = useRef<AnalyserNode | null>(null);   // post-reverb tap, for the live scope
   const animRef      = useRef<number>(0);
@@ -713,18 +704,7 @@ export default function Chapter6() {
     const ctx = new AudioContext();
 
     // ── Mix bus (synth input) ──
-    const mix = ctx.createGain(); mix.gain.value = 0.8;
-
-    // ── Output limiter ── a light safety net against any extreme SIZE/DECAY
-    // setting driving the Faust freeverb's tail into clipping territory,
-    // without otherwise touching the DSP itself.
-    const limiter = ctx.createDynamicsCompressor();
-    limiter.threshold.value = -6;
-    limiter.knee.value      = 0;
-    limiter.ratio.value     = 20;
-    limiter.attack.value    = 0.003;
-    limiter.release.value   = 0.15;
-    limiter.connect(ctx.destination);
+    const mix = ctx.createGain();
 
     // ── Live scope taps ── dryAnal reads the raw drum/track signal before
     // the reverb; wetAnal reads the actual Faust reverb output (including
@@ -755,17 +735,16 @@ export default function Chapter6() {
 
     ctxRef.current = ctx;
     mixRef.current = mix;
-    limiterRef.current = limiter;
     faustNodeRef.current = faustNode;
     dryAnalRef.current = dryAnal;
     wetAnalRef.current = wetAnal;
 
     // ── Wire: mix → dryAnal (viz tap) ─┐
-    //      └→ faustNode (reverb + shelves + pre-delay + wet/dry) → wetAnal (viz tap) → limiter → destination ──
+    //      └→ faustNode (reverb + shelves + pre-delay + wet/dry) → wetAnal (viz tap) → destination ──
     mix.connect(dryAnal);
     mix.connect(faustNode as unknown as AudioNode);
     (faustNode as unknown as AudioNode).connect(wetAnal);
-    wetAnal.connect(limiter);
+    wetAnal.connect(ctx.destination);
 
     // ── Signal source: either the built-in synth drum loop, or a looping
     // uploaded track, feeding into the same `mix` node either way ──
@@ -809,7 +788,6 @@ export default function Chapter6() {
       faustNodeRef.current = null;
     }
     mixRef.current     = null;
-    limiterRef.current = null;
     dryAnalRef.current = null;
     wetAnalRef.current = null;
     ctxRef.current?.close();
