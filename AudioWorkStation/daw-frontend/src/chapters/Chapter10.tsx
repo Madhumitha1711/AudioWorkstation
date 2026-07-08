@@ -27,7 +27,29 @@ interface GateParams {
   hold:      number; // ms  0 → 500   (how long the gate stays open after level drops, before closing begins)
 }
 
+// Sidechain detection — mirrors the compressor's SidechainParams (Chapter4)
+// and the noiseGate.dsp controls added alongside it: "External Sidechain"
+// swaps the detector from the gate's own linked L/R audio onto a separate
+// key input (e.g. trigger the gate open only on a kick, not on bleed from
+// other sources), "SC Listen" auditions that (filtered) detector signal in
+// place of the gated audio, and "SC HPF" pre-filters the key signal before
+// detection (same as a de-esser/compressor sidechain HPF — keeps a low kick
+// or rumble on the key input from constantly re-triggering the gate).
+interface SidechainParams {
+  external: boolean; // detect off the sidechain input instead of the gate's own linked L/R audio
+  listen:   boolean; // audition the (filtered) detector signal instead of the gated output
+  hpf:      number;  // Hz  20 → 2000 — pre-filter applied to the sidechain before detection
+}
+
 interface UploadedTrack { id: number; name: string; buffer: AudioBuffer; }
+
+// The main signal source is always the drums+hiss/hum bed or one uploaded
+// track (see UploadedTrack above). The sidechain source is independently
+// selectable — 'none' mirrors whatever the main source is (self-sidechain,
+// the original single-input gate behavior), 'synth' is an isolated kick-only
+// trigger even when the main source is something else, or a specific
+// uploaded track id — matches Chapter4's SidechainSourceId exactly.
+type SidechainSourceId = number | 'synth' | 'none';
 
 interface KnobSpec {
   key:   keyof GateParams;
@@ -59,6 +81,7 @@ const DEFAULTS: GateParams = {
   release:    30,
   hold:       10,
 };
+const DEFAULT_SIDECHAIN: SidechainParams = { external: false, listen: false, hpf: 20 };
 
 // ── Faust gate engine wiring ─────────────────────────────────────────────────
 // Real DSP: public/faust/Gate/ (dsp-module.wasm + dsp-meta.json), a hysteresis
@@ -67,7 +90,9 @@ const DEFAULTS: GateParams = {
 // reverb / delay patches elsewhere in this app).
 const FAUST_BASE_PATH = '/faust/Gate';
 
-// Faust addresses, from public/faust/Gate/dsp-meta.json's `ui` tree.
+// Faust addresses, from public/faust/Gate/dsp-meta.json's `ui` tree — the
+// sidechain controls (External_Sidechain / SC_Listen / SC_HPF) were added
+// alongside the gate's 3rd audio input (scIn) in noiseGate.dsp.
 const ADDR = {
   floor:     '/NOISE_GATE_STUDIO/Floor',
   gateOpen:  '/NOISE_GATE_STUDIO/Gate_Open',
@@ -75,6 +100,11 @@ const ADDR = {
   attack:    '/NOISE_GATE_STUDIO/Attack',
   release:   '/NOISE_GATE_STUDIO/Release',
   hold:      '/NOISE_GATE_STUDIO/Hold',
+  sidechain: {
+    external: '/NOISE_GATE_STUDIO/External_Sidechain',
+    listen:   '/NOISE_GATE_STUDIO/SC_Listen',
+    hpf:      '/NOISE_GATE_STUDIO/SC_HPF',
+  },
 } as const;
 
 type FaustEngineStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -83,25 +113,61 @@ type FaustEngineStatus = 'idle' | 'loading' | 'ready' | 'error';
 // and wet/dry mixing are done at the WebAudio graph level instead — a
 // dry/wet crossfade around the Faust node — same pattern as Chapter7's
 // saturation dry/wet bypass path.
-function pushFaustParams(node: FaustNodeLike, params: GateParams) {
+function pushFaustParams(node: FaustNodeLike, params: GateParams, sidechain: SidechainParams) {
   node.setParamValue(ADDR.floor,     params.floor);
   node.setParamValue(ADDR.gateOpen,  params.gateOpen);
   node.setParamValue(ADDR.gateClose, Math.min(params.gateClose, params.gateOpen));
   node.setParamValue(ADDR.attack,    params.attack);
   node.setParamValue(ADDR.release,   params.release);
   node.setParamValue(ADDR.hold,      params.hold);
+
+  node.setParamValue(ADDR.sidechain.external, sidechain.external ? 1 : 0);
+  node.setParamValue(ADDR.sidechain.listen,   sidechain.listen ? 1 : 0);
+  node.setParamValue(ADDR.sidechain.hpf,      sidechain.hpf);
+}
+
+// Builds a 3-channel (inL, inR, scIn) stream out of two *independent* audio
+// sources — the Faust node declares 3 audio inputs (see noiseGate.dsp's
+// process(inL, inR, scIn)), which @grame/faustwasm exposes as ONE AudioNode
+// input with channelCount 3 rather than three separate AudioNode inputs. The
+// stereo main signal is split into L/R with a ChannelSplitterNode, then
+// re-merged alongside the (mono) sidechain source onto one 3-channel stream
+// — same idea as the compressor's connectMainAndSidechain (Chapter4), just
+// one channel wider since the gate is stereo instead of mono. Pass the same
+// node as both mainSource (post-split) and sidechainSource to mirror the
+// main signal onto the detector (self-sidechain, the original behavior).
+function connectGateWithSidechain(
+  ctx: BaseAudioContext,
+  mainSource: AudioNode,
+  sidechainSource: AudioNode,
+  destination: AudioNode,
+) {
+  const splitter = ctx.createChannelSplitter(2);
+  const merger    = ctx.createChannelMerger(3);
+  mainSource.connect(splitter);
+  splitter.connect(merger, 0, 0); // L
+  splitter.connect(merger, 1, 1); // R
+  sidechainSource.connect(merger, 0, 2); // sidechain detector, channel 2
+  merger.connect(destination);
+  return merger;
 }
 
 // Renders an uploaded track through the same Faust gate + dry/wet crossfade
 // used live (an OfflineAudioContext instead of a live one), so it can be
 // exported as a WAV — mirrors the graph built in startAudio() but with no
-// analysers/meters.
+// analysers/meters. `sidechainBuffer` is optional: pass a different track's
+// buffer to render with a genuine external sidechain, or omit it to mirror
+// `source` (matches "Same as main" / the built-in drum bed, which can't be
+// rendered offline here without a dedicated offline scheduler) — same
+// convention as the compressor's renderCompressorOffline (Chapter4).
 async function renderGateOffline(
   generator: FaustMonoDspGenerator,
   meta: FaustDspMeta,
   dspModule: WebAssembly.Module,
   source: AudioBuffer,
+  sidechainBuffer: AudioBuffer | undefined,
   params: GateParams,
+  sidechain: SidechainParams,
   bypass: boolean,
 ): Promise<AudioBuffer> {
   const offlineCtx = new OfflineAudioContext(source.numberOfChannels, source.length, source.sampleRate);
@@ -116,19 +182,23 @@ async function renderGateOffline(
   const node = await generator.createNode(
     offlineCtx as unknown as AudioContext, meta.name, factory, false, 512,
   ) as unknown as FaustNodeLike;
-  pushFaustParams(node, params);
+  pushFaustParams(node, params, sidechain);
 
   const src = offlineCtx.createBufferSource();
   src.buffer = source;
+  const scSrc = offlineCtx.createBufferSource();
+  scSrc.buffer = sidechainBuffer ?? source;
+  scSrc.loop = true; // covers the full render even if the sidechain clip is shorter than the main one
 
   src.connect(dryGain);
   dryGain.connect(offlineCtx.destination);
 
-  src.connect(node as unknown as AudioNode);
+  connectGateWithSidechain(offlineCtx, src, scSrc, node as unknown as AudioNode);
   (node as unknown as AudioNode).connect(wetGain);
   wetGain.connect(offlineCtx.destination);
 
   src.start();
+  scSrc.start();
   return offlineCtx.startRendering();
 }
 
@@ -377,6 +447,49 @@ function KnobNumberInput({
     />
   );
 }
+
+// Compact labeled range slider used for the Sidechain HPF control — doesn't
+// warrant a full rotary knob (it's not one of the "learning objective" knobs
+// above), plain and consistent with the app's dark theme via the same CSS
+// variables the rest of this file already uses inline — same component as
+// Chapter4's MiniSlider (Crossover/Sidechain/Output controls there).
+function MiniSlider({
+  label, value, min, max, step, fmt, onChange, accent = 'var(--green)',
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  fmt: (v: number) => string;
+  onChange: (v: number) => void;
+  accent?: string;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+      <span style={{
+        width: 96, fontFamily: 'var(--mono)', fontSize: '0.55rem', color: 'var(--text-dim)',
+        letterSpacing: '0.04em', textTransform: 'uppercase', lineHeight: 1.25,
+      }}>
+        {label}
+      </span>
+      <input
+        type="range"
+        className="mini-range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={e => onChange(parseFloat(e.target.value))}
+        style={{ ['--mini-range-accent' as string]: accent } as React.CSSProperties}
+      />
+      <span style={{ width: 58, textAlign: 'right', fontFamily: 'var(--mono)', fontSize: '0.55rem', color: accent }}>
+        {fmt(value)}
+      </span>
+    </div>
+  );
+}
+
 function polarToCartesian(r: number, angleDeg: number) {
   const rad = ((angleDeg - 90) * Math.PI) / 180;
   return { x: r * Math.cos(rad), y: r * Math.sin(rad) };
@@ -451,9 +564,18 @@ function synthSnare(ctx: AudioContext, dest: AudioNode, time: number) {
   noise.connect(filt); filt.connect(ng); ng.connect(dest); noise.start(time); noise.stop(time + 0.15);
 }
 
-function scheduleStep(ctx: AudioContext, dest: AudioNode, step: number, time: number) {
-  if (PAT_KICK[step])  synthKick(ctx, dest, time);
-  if (PAT_SNARE[step]) synthSnare(ctx, dest, time);
+// `fullDest` gets the whole pattern (kick + snare) — the "Drums + Hiss/Hum"
+// bed heard as a main source. `kickDest` gets a second, isolated copy of just
+// the kick hits — that's what "Kick Only" feeds the sidechain with when it's
+// picked as the Sidechain Source, so it's a genuinely different, isolated
+// trigger signal rather than a duplicate of the main input (same pattern as
+// Chapter4's scheduleStep).
+function scheduleStep(ctx: AudioContext, fullDest: AudioNode, kickDest: AudioNode, step: number, time: number) {
+  if (PAT_KICK[step]) {
+    synthKick(ctx, fullDest, time);
+    synthKick(ctx, kickDest, time);
+  }
+  if (PAT_SNARE[step]) synthSnare(ctx, fullDest, time);
 }
 
 // Persistent low-level noise floor: filtered hiss + a soft 60Hz hum, mixed
@@ -518,28 +640,39 @@ function normalizeUploadedBuffer(buf: AudioBuffer, peakTarget = 0.6) {
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function Chapter10() {
   const [params,    setParams]    = useState<GateParams>(DEFAULTS);
+  const [sidechain, setSidechain] = useState<SidechainParams>(DEFAULT_SIDECHAIN);
   const [isPlaying, setIsPlaying] = useState(false);
   const [bypass,    setBypass]    = useState(false);
   const [gateIsOpen, setGateIsOpen] = useState(true);
   const [tasks, setTasks]         = useState([false, false, false, false]);
 
-  // Signal source — sparse drums + hiss/hum bed, or an uploaded track.
+  // Signal source — sparse drums + hiss/hum bed, or an uploaded track. The
+  // sidechain source is independent of this (see sidechainSourceId below);
+  // 'none' is the default and mirrors whatever the main source is, matching
+  // the original single-input gate behavior (self-sidechain) — same pattern
+  // as Chapter4's compressor.
   const [uploadedTracks, setUploadedTracks] = useState<UploadedTrack[]>([]);
   const [activeSourceId, setActiveSourceId] = useState<number | 'synth'>('synth');
+  const [sidechainSourceId, setSidechainSourceId] = useState<SidechainSourceId>('none');
   const [decoding,       setDecoding]       = useState(false);
   const [uploadError,    setUploadError]    = useState('');
   const [downloading,    setDownloading]    = useState(false);
   const [downloadError,  setDownloadError]  = useState('');
-  const fileInputRef   = useRef<HTMLInputElement>(null);
+  const fileInputRef          = useRef<HTMLInputElement>(null);
+  const sidechainFileInputRef = useRef<HTMLInputElement>(null);
   const uploadIdSeqRef = useRef(0);
-  const activeSourceIdRef  = useRef(activeSourceId);
-  const uploadedTracksRef  = useRef(uploadedTracks);
-  const bufSourceRef       = useRef<AudioBufferSourceNode | null>(null);
+  const activeSourceIdRef      = useRef(activeSourceId);
+  const sidechainSourceIdRef   = useRef(sidechainSourceId);
+  const uploadedTracksRef      = useRef(uploadedTracks);
+  const bufSourceRef       = useRef<AudioBufferSourceNode | null>(null); // main source
+  const scBufSourceRef     = useRef<AudioBufferSourceNode | null>(null); // dedicated sidechain source (only when it differs from main)
   const noiseFloorRef      = useRef<{ stop: () => void } | null>(null);
   useEffect(() => { activeSourceIdRef.current = activeSourceId; }, [activeSourceId]);
+  useEffect(() => { sidechainSourceIdRef.current = sidechainSourceId; }, [sidechainSourceId]);
   useEffect(() => { uploadedTracksRef.current = uploadedTracks; }, [uploadedTracks]);
 
   const activeTrack = activeSourceId !== 'synth' ? uploadedTracks.find(t => t.id === activeSourceId) : undefined;
+  const sidechainTrack = typeof sidechainSourceId === 'number' ? uploadedTracks.find(t => t.id === sidechainSourceId) : undefined;
 
   // Canvas refs
   const transferRef  = useRef<HTMLCanvasElement>(null);
@@ -583,7 +716,10 @@ export default function Chapter10() {
   const faustNodeRef  = useRef<FaustNodeLike | null>(null);
   const dryAnalRef    = useRef<AnalyserNode | null>(null);
   const wetAnalRef    = useRef<AnalyserNode | null>(null);
-  const mixRef        = useRef<GainNode | null>(null);
+  const scAnalRef     = useRef<AnalyserNode | null>(null);    // taps scMix — drives the OPEN/CLOSED estimate when External Sidechain is on
+  const mixRef        = useRef<GainNode | null>(null);        // main signal bus
+  const scMixRef      = useRef<GainNode | null>(null);        // sidechain-detector bus (may mirror mixRef)
+  const kickBusRef    = useRef<GainNode | null>(null);        // kick-only, feeds scMix when sidechain source is 'synth'
   const dryGainRef    = useRef<GainNode | null>(null);
   const wetGainRef    = useRef<GainNode | null>(null);
   const outputRef     = useRef<GainNode | null>(null);       // post-crossfade sum → destination
@@ -594,8 +730,10 @@ export default function Chapter10() {
   const currentStepRef = useRef(0);
   const startTokenRef = useRef(0);
   const paramsRef     = useRef(params);
+  const sidechainRef  = useRef(sidechain);
   const bypassRef     = useRef(bypass);
   useEffect(() => { paramsRef.current = params; }, [params]);
+  useEffect(() => { sidechainRef.current = sidechain; }, [sidechain]);
   useEffect(() => { bypassRef.current = bypass; }, [bypass]);
 
   // Smoothed input/output dB, chased frame-to-frame in animate() and fed
@@ -624,8 +762,8 @@ export default function Chapter10() {
   useEffect(() => {
     const node = faustNodeRef.current;
     if (!node) return;
-    pushFaustParams(node, params);
-  }, [params]);
+    pushFaustParams(node, params, sidechain);
+  }, [params, sidechain]);
 
   // ── Bypass (crossfade to dry) ──────────────────────────────────────────────
   // No user-facing wet/dry mix control (removed, same as the compressor) —
@@ -650,11 +788,16 @@ export default function Chapter10() {
   }, [params]);
 
   // ── Scheduler ─────────────────────────────────────────────────────────────
+  // One clock drives two independent buses: mix gets the full pattern
+  // (kick+snare) and kickBus gets only the kick hits — startAudio() fans
+  // kickBus into scMix when the Sidechain Source is 'synth', so "Kick Only"
+  // is a genuinely isolated trigger rather than a duplicate of the main
+  // input (same reasoning as Chapter4's runScheduler).
   const runScheduler = useCallback(() => {
-    const ctx = ctxRef.current; const mix = mixRef.current;
-    if (!ctx || !mix) return;
+    const ctx = ctxRef.current; const mix = mixRef.current; const kickBus = kickBusRef.current;
+    if (!ctx || !mix || !kickBus) return;
     while (nextNoteRef.current < ctx.currentTime + 0.1) {
-      scheduleStep(ctx, mix, currentStepRef.current, nextNoteRef.current);
+      scheduleStep(ctx, mix, kickBus, currentStepRef.current, nextNoteRef.current);
       currentStepRef.current = (currentStepRef.current + 1) % STEPS;
       nextNoteRef.current   += STEP_SEC;
     }
@@ -664,31 +807,46 @@ export default function Chapter10() {
   // ── Animation loop ────────────────────────────────────────────────────────
   const animate = useCallback(() => {
     const dryAnal = dryAnalRef.current;
+    const scAnal  = scAnalRef.current;
 
     const now = ctxRef.current?.currentTime ?? performance.now() / 1000;
     const dt  = meterClockRef.current !== null ? Math.max(0, Math.min(0.2, now - meterClockRef.current)) : 0;
     meterClockRef.current = now;
 
+    let rawInputDb = METER_FLOOR_DB;
     if (dryAnal) {
       const buf = new Float32Array(dryAnal.fftSize); dryAnal.getFloatTimeDomainData(buf);
 
       let peak = 0;
       for (let i = 0; i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i]));
-      const rawInputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
+      rawInputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
       smoothedInputDbRef.current = levelBallistic(smoothedInputDbRef.current, rawInputDb, dt);
+    }
 
-      // The Faust gate patch has no live open/closed output, so the state is
-      // estimated: run a hysteresis + hold state machine off that same raw
-      // input peak (Gate Open / Gate Close / Hold) — drives the OPEN/CLOSED
-      // badge up top. The actual gate *reduction* is no longer separately
-      // modeled here — the scope below reads real measured input/output
-      // levels straight off the analysers instead.
+    // The Faust gate patch has no live open/closed output, so the state is
+    // estimated: run a hysteresis + hold state machine (Gate Open / Gate
+    // Close / Hold) — drives the OPEN/CLOSED badge up top. When External
+    // Sidechain is on, the estimate reads off scAnal (the actual detector
+    // signal) instead of the main input, so the badge tracks whatever's
+    // really driving the gate rather than always the main signal. The
+    // actual gate *reduction* is no longer separately modeled here — the
+    // scope below reads real measured input/output levels straight off the
+    // analysers instead.
+    if (dryAnal || scAnal) {
+      let detectDb = rawInputDb;
+      if (sidechainRef.current.external && scAnal) {
+        const scBuf = new Float32Array(scAnal.fftSize); scAnal.getFloatTimeDomainData(scBuf);
+        let scPeak = 0;
+        for (let i = 0; i < scBuf.length; i++) scPeak = Math.max(scPeak, Math.abs(scBuf[i]));
+        detectDb = scPeak > 1e-6 ? 20 * Math.log10(scPeak) : METER_FLOOR_DB;
+      }
+
       if (!bypassRef.current) {
         const p = paramsRef.current;
-        if (rawInputDb >= p.gateOpen) {
+        if (detectDb >= p.gateOpen) {
           isOpenRef.current = true;
           holdUntilRef.current = now + p.hold / 1000;
-        } else if (now >= holdUntilRef.current && rawInputDb <= Math.min(p.gateClose, p.gateOpen)) {
+        } else if (now >= holdUntilRef.current && detectDb <= Math.min(p.gateClose, p.gateOpen)) {
           isOpenRef.current = false;
         }
         setGateIsOpen(isOpenRef.current);
@@ -730,11 +888,27 @@ export default function Chapter10() {
 
     const ctx = new AudioContext();
 
-    // mix ─┬→ dryAnal (viz + input-level tap) → dryGain ─┐
-    //      └→ faustNode (gate) → wetAnal (viz tap) → wetGain ─┴→ output → finalAnal → destination
-    const mix = ctx.createGain(); mix.gain.value = 0.85;
+    // mix (main bus)      → dryAnal (viz + input-level tap) → dryGain ─┐
+    // scMix (sidechain bus) ──────────────────────────────────────────┤→ 3ch merger → faustNode → wetAnal → wetGain ─┴→ output → finalAnal → destination
+    // mix also feeds scAnal when External Sidechain is on, so the OPEN/CLOSED
+    // badge's hysteresis estimate (see animate() below) tracks whatever's
+    // actually driving the gate's detector, not always the main input.
+    //
+    // The Faust node declares 3 audio inputs (inL, inR, scIn — see
+    // noiseGate.dsp's process(inL, inR, scIn)), which @grame/faustwasm
+    // exposes as ONE AudioNode input with channelCount 3 rather than three
+    // separate AudioNode inputs — so feeding it a stereo main plus an
+    // independent sidechain means splitting + merging onto one 3-channel
+    // stream with connectGateWithSidechain. mix and scMix can carry
+    // genuinely different signals (Sidechain Source selector), or scMix can
+    // just mirror mix ("Same as main") for the original self-sidechain
+    // behavior — same pattern as Chapter4's compressor.
+    const mix     = ctx.createGain(); mix.gain.value = 0.85;
+    const scMix   = ctx.createGain(); scMix.gain.value = 0.85;
+    const kickBus = ctx.createGain();
     const dryAnal = ctx.createAnalyser(); dryAnal.fftSize = 1024; dryAnal.smoothingTimeConstant = 0.4;
     const wetAnal = ctx.createAnalyser(); wetAnal.fftSize = 1024; wetAnal.smoothingTimeConstant = 0.4;
+    const scAnal  = ctx.createAnalyser(); scAnal.fftSize = 1024; scAnal.smoothingTimeConstant = 0.4;
     // No user-facing wet/dry mix control (removed, same as the compressor) —
     // always fully wet outside of bypass.
     const dryGain = ctx.createGain(); dryGain.gain.value = bypass ? 1 : 0;
@@ -756,12 +930,15 @@ export default function Chapter10() {
 
     if (myToken !== startTokenRef.current) { try { ctx.close(); } catch { /* ok */ } return; }
 
-    pushFaustParams(faustNode, params);
+    pushFaustParams(faustNode, params, sidechain);
 
     ctxRef.current = ctx;
     mixRef.current = mix;
+    scMixRef.current = scMix;
+    kickBusRef.current = kickBus;
     dryAnalRef.current = dryAnal;
     wetAnalRef.current = wetAnal;
+    scAnalRef.current = scAnal;
     dryGainRef.current = dryGain;
     wetGainRef.current = wetGain;
     outputRef.current = output;
@@ -772,7 +949,9 @@ export default function Chapter10() {
     dryAnal.connect(dryGain);
     dryGain.connect(output);
 
-    mix.connect(faustNode as unknown as AudioNode);
+    scMix.connect(scAnal); // tap for the OPEN/CLOSED estimate when External Sidechain is on
+
+    connectGateWithSidechain(ctx, mix, scMix, faustNode as unknown as AudioNode);
     (faustNode as unknown as AudioNode).connect(wetAnal);
     wetAnal.connect(wetGain);
     wetGain.connect(output);
@@ -780,19 +959,53 @@ export default function Chapter10() {
     output.connect(finalAnal);
     finalAnal.connect(ctx.destination);
 
+    // ── Resolve the MAIN source into `mix` ──────────────────────────────
     const track = activeSourceIdRef.current !== 'synth'
       ? uploadedTracksRef.current.find(t => t.id === activeSourceIdRef.current)
       : undefined;
 
+    let mainBufSrc: AudioBufferSourceNode | null = null;
     if (track) {
-      const bufSrc = ctx.createBufferSource();
-      bufSrc.buffer = track.buffer;
-      bufSrc.loop   = true;
-      bufSrc.connect(mix);
-      bufSrc.start();
-      bufSourceRef.current = bufSrc;
+      mainBufSrc = ctx.createBufferSource();
+      mainBufSrc.buffer = track.buffer;
+      mainBufSrc.loop   = true;
+      mainBufSrc.connect(mix);
+      mainBufSrc.start();
+      bufSourceRef.current = mainBufSrc;
     } else {
       noiseFloorRef.current = startNoiseFloor(ctx, mix);
+    }
+
+    // ── Resolve the SIDECHAIN source into `scMix` ───────────────────────
+    const scSel = sidechainSourceIdRef.current;
+    if (scSel === 'synth') {
+      // Isolated kick hits only — deliberately NOT the full pattern, so this
+      // never sounds identical to the "Drums + Hiss/Hum" main source (same
+      // clock, but only the kick actually reaches the detector).
+      kickBus.connect(scMix);
+    } else if (track && scSel === track.id && mainBufSrc) {
+      // Same uploaded track chosen for both — fan the one playing node into
+      // scMix too, so main and sidechain stay perfectly sample-locked
+      // instead of two independent loops slowly drifting apart.
+      mainBufSrc.connect(scMix);
+    } else if (typeof scSel === 'number') {
+      const scTrack = uploadedTracksRef.current.find(t => t.id === scSel);
+      if (scTrack) {
+        const scBufSrc = ctx.createBufferSource();
+        scBufSrc.buffer = scTrack.buffer;
+        scBufSrc.loop   = true;
+        scBufSrc.connect(scMix);
+        scBufSrc.start();
+        scBufSourceRef.current = scBufSrc;
+      } else {
+        mix.connect(scMix); // selected track no longer exists — fall back to mirroring main
+      }
+    } else {
+      mix.connect(scMix); // 'none' — mirror the main signal (self-sidechain)
+    }
+
+    // Drum scheduler runs whenever either source needs the synth pattern.
+    if (!track || scSel === 'synth') {
       nextNoteRef.current = ctx.currentTime + 0.05; currentStepRef.current = 0;
       runScheduler();
     }
@@ -800,7 +1013,7 @@ export default function Chapter10() {
     scopeHistoryRef.current = [];
     animRef.current = requestAnimationFrame(animate);
     setIsPlaying(true);
-  }, [engineStatus, params, bypass, runScheduler, animate]);
+  }, [engineStatus, params, sidechain, bypass, runScheduler, animate]);
 
   const stopAudio = useCallback(() => {
     startTokenRef.current++;
@@ -811,6 +1024,11 @@ export default function Chapter10() {
       bufSourceRef.current.disconnect();
       bufSourceRef.current = null;
     }
+    if (scBufSourceRef.current) {
+      try { scBufSourceRef.current.stop(); } catch { /* ok */ }
+      scBufSourceRef.current.disconnect();
+      scBufSourceRef.current = null;
+    }
     if (noiseFloorRef.current) { noiseFloorRef.current.stop(); noiseFloorRef.current = null; }
     if (faustNodeRef.current) {
       try { (faustNodeRef.current as unknown as AudioNode).disconnect(); } catch { /* ok */ }
@@ -819,6 +1037,7 @@ export default function Chapter10() {
     ctxRef.current?.close();
     ctxRef.current = null;
     dryAnalRef.current = null; wetAnalRef.current = null; mixRef.current = null;
+    scMixRef.current = null; kickBusRef.current = null; scAnalRef.current = null;
     dryGainRef.current = null; wetGainRef.current = null; outputRef.current = null; finalAnalRef.current = null;
     smoothedInputDbRef.current = METER_FLOOR_DB;
     smoothedOutputDbRef.current = METER_FLOOR_DB;
@@ -838,6 +1057,7 @@ export default function Chapter10() {
     if (schedulerRef.current) clearTimeout(schedulerRef.current);
     cancelAnimationFrame(animRef.current);
     if (bufSourceRef.current) { try { bufSourceRef.current.stop(); } catch { /* ok */ } }
+    if (scBufSourceRef.current) { try { scBufSourceRef.current.stop(); } catch { /* ok */ } }
     if (noiseFloorRef.current) { noiseFloorRef.current.stop(); }
     if (faustNodeRef.current) { try { (faustNodeRef.current as unknown as AudioNode).disconnect(); } catch { /* ok */ } }
     ctxRef.current?.close();
@@ -849,17 +1069,21 @@ export default function Chapter10() {
     setActiveSourceId(id);
   }, [stopAudio]);
 
-  const handleUploadClick = useCallback(() => { fileInputRef.current?.click(); }, []);
-
-  const handleFileSelected = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-
+  // The sidechain source graph is only wired up inside startAudio(), so a
+  // change while playing needs a restart to actually take effect — same
+  // reasoning as handleSelectSource above for the main source.
+  const handleSelectSidechainSource = useCallback((id: SidechainSourceId) => {
     stopAudio();
-    setUploadError('');
-    setDecoding(true);
+    setSidechainSourceId(id);
+  }, [stopAudio]);
 
+  // Shared decode step for both the main-source and sidechain-source upload
+  // buttons — turns a File into a normalized, playable UploadedTrack and
+  // adds it to the shared uploadedTracks pool, so once uploaded either
+  // selector row can pick it (a file uploaded as the sidechain source shows
+  // up as a selectable main source too, and vice versa) — same pattern as
+  // Chapter4's decodeAndAddTrack.
+  const decodeAndAddTrack = useCallback(async (file: File): Promise<UploadedTrack> => {
     let tmpCtx: AudioContext | null = null;
     try {
       tmpCtx = new AudioContext();
@@ -874,21 +1098,68 @@ export default function Chapter10() {
         name: file.name.replace(/\.[^/.]+$/, '').toUpperCase().slice(0, 24),
         buffer: decoded,
       };
-
       setUploadedTracks(prev => [...prev, track]);
+      return track;
+    } finally {
+      tmpCtx?.close();
+    }
+  }, []);
+
+  const handleUploadClick = useCallback(() => { fileInputRef.current?.click(); }, []);
+
+  const handleFileSelected = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    stopAudio();
+    setUploadError('');
+    setDecoding(true);
+    try {
+      const track = await decodeAndAddTrack(file);
       setActiveSourceId(track.id);
     } catch (err) {
       console.error('Failed to decode audio file', err);
       setUploadError('Could not read that file — try an mp3, wav, or m4a.');
     } finally {
-      tmpCtx?.close();
       setDecoding(false);
     }
-  }, [stopAudio]);
+  }, [stopAudio, decodeAndAddTrack]);
+
+  // Uploads a file straight into the Sidechain Source selector, without
+  // touching the main source — lets you bring in a second, genuinely
+  // different track (e.g. a kick loop) purely to drive detection.
+  const handleUploadSidechainClick = useCallback(() => {
+    sidechainFileInputRef.current?.click();
+  }, []);
+
+  const handleSidechainFileSelected = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    stopAudio();
+    setUploadError('');
+    setDecoding(true);
+    try {
+      const track = await decodeAndAddTrack(file);
+      setSidechainSourceId(track.id);
+    } catch (err) {
+      console.error('Failed to decode sidechain audio file', err);
+      setUploadError('Could not read that file — try an mp3, wav, or m4a.');
+    } finally {
+      setDecoding(false);
+    }
+  }, [stopAudio, decodeAndAddTrack]);
 
   // Renders the currently active uploaded track through the gate (with
-  // current knob/bypass settings) and downloads it as a WAV — the "download
-  // after processing" counterpart to the upload button above.
+  // current knob/bypass/sidechain settings) and downloads it as a WAV — the
+  // "download after processing" counterpart to the upload button above. If
+  // the Sidechain Source is itself an uploaded track, that buffer is passed
+  // through too, so the download reflects a genuine external sidechain
+  // rather than silently falling back to self-sidechain. A 'synth' sidechain
+  // selection can't be rendered offline here (no offline drum scheduler), so
+  // it falls back to mirroring the main track, same as 'none'.
   const handleDownload = useCallback(async () => {
     const track = activeTrack;
     if (!track || !generatorRef.current || !dspMetaRef.current || !dspModuleRef.current) return;
@@ -897,7 +1168,7 @@ export default function Chapter10() {
     try {
       const rendered = await renderGateOffline(
         generatorRef.current, dspMetaRef.current, dspModuleRef.current,
-        track.buffer, params, bypass,
+        track.buffer, sidechainTrack?.buffer, params, sidechain, bypass,
       );
       downloadAudioBufferAsWav(rendered, `${track.name || 'gate-studio'}-gated.wav`);
     } catch (err) {
@@ -906,7 +1177,7 @@ export default function Chapter10() {
     } finally {
       setDownloading(false);
     }
-  }, [activeTrack, params, bypass]);
+  }, [activeTrack, sidechainTrack, params, sidechain, bypass]);
 
   // ── Main lab knob drag ────────────────────────────────────────────────────
   const onMainKnobDown = useCallback((e: React.MouseEvent, spec: KnobSpec, val: number) => {
@@ -928,7 +1199,7 @@ export default function Chapter10() {
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
   }, []);
 
-  const reset = useCallback(() => setParams(DEFAULTS), []);
+  const reset = useCallback(() => { setParams(DEFAULTS); setSidechain(DEFAULT_SIDECHAIN); }, []);
 
   // Derived
   const TASK_LABELS = ['Set gate open threshold', 'Widen the hysteresis gap', 'Tune attack / hold / release', 'Set a floor (not full silence)'];
@@ -1046,7 +1317,7 @@ export default function Chapter10() {
           <div className="lab-icon" style={{ background: 'var(--green-dim)', border: '1px solid rgba(0,255,135,0.4)' }}>⏚</div>
           <div>
             <div className="lab-name">Gate Studio</div>
-            <div className="lab-subtitle">DYNAMICS — NOISE GATE</div>
+            <div className="lab-subtitle">DYNAMICS — NOISE GATE + SIDECHAIN</div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
@@ -1139,11 +1410,110 @@ export default function Chapter10() {
             })}
           </div>
 
+          {/* Sidechain — internal (the gate's own linked L/R audio) vs
+              external (a filtered detector signal fed into a 3rd input,
+              which can be a genuinely different track via the source row
+              below). "Kick Only" is deliberately NOT the same signal as the
+              "Drums + Hiss/Hum" main source — it's an isolated copy of just
+              the kick hits (see scheduleStep/kickBus in startAudio), so
+              selecting it alongside that main source is a real, audible
+              trigger rather than the exact same audio duplicated — mirrors
+              the compressor's Sidechain section (Chapter4). */}
+          <div className="canvas-label" style={{ marginTop: '0.75rem', marginBottom: '0.5rem' }}>
+            SIDECHAIN
+          </div>
+          <div style={{
+            display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.5rem',
+          }}>
+            {([['none', 'SAME AS MAIN'], ['synth', 'KICK ONLY']] as [SidechainSourceId, string][])
+              .concat(uploadedTracks.map(t => [t.id, t.name] as [SidechainSourceId, string]))
+              .map(([id, label]) => {
+                const active = id === sidechainSourceId;
+                const title = id === 'none'
+                  ? 'Detector hears the same signal as the main input'
+                  : id === 'synth'
+                    ? "Detector hears only the kick drum hits, isolated from the full pattern — a classic sidechain trigger"
+                    : `Detector hears ${label} instead of the main input`;
+                return (
+                  <button
+                    key={String(id)}
+                    onClick={() => handleSelectSidechainSource(id)}
+                    title={title}
+                    style={{
+                      padding: '0.25rem 0.5rem',
+                      background: active ? 'rgba(245,166,35,0.13)' : 'var(--surface)',
+                      border: `1px solid ${active ? 'rgba(245,166,35,0.5)' : 'var(--border)'}`,
+                      borderRadius: '3px',
+                      color: active ? 'var(--amber)' : 'var(--text-dim)',
+                      fontFamily: 'var(--mono)', fontSize: '0.55rem', letterSpacing: '0.04em',
+                      cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            <input
+              ref={sidechainFileInputRef}
+              type="file"
+              accept="audio/*"
+              onChange={handleSidechainFileSelected}
+              style={{ display: 'none' }}
+            />
+            <button
+              onClick={handleUploadSidechainClick}
+              disabled={decoding}
+              title="Upload a separate track to use as the sidechain source — e.g. a kick loop to trigger the gate"
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.3rem',
+                padding: '0.25rem 0.5rem',
+                background: 'var(--surface)',
+                border: '1px dashed var(--border)',
+                borderRadius: '3px',
+                color: 'var(--text-dim)',
+                fontFamily: 'var(--mono)', fontSize: '0.55rem', letterSpacing: '0.04em',
+                cursor: decoding ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+              }}
+            >
+              <span>{decoding ? '⏳' : '+'}</span>
+              <span>{decoding ? 'DECODING…' : 'UPLOAD'}</span>
+            </button>
+          </div>
+          <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.5rem' }}>
+            <button
+              className={`toggle-btn${sidechain.external ? ' on' : ''}`}
+              onClick={() => setSidechain(s => ({ ...s, external: !s.external }))}
+              title="Detect off the Sidechain Source above (filtered) instead of the gate's own linked L/R audio"
+            >
+              EXTERNAL SC
+            </button>
+            <button
+              className={`toggle-btn${sidechain.listen ? ' on' : ''}`}
+              onClick={() => setSidechain(s => ({ ...s, listen: !s.listen }))}
+              title="Audition the detector signal itself, in place of the gated output"
+            >
+              SC LISTEN
+            </button>
+          </div>
+          {sidechainSourceId !== 'none' && !sidechain.external && (
+            <div style={{ fontFamily: 'var(--mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginBottom: '0.5rem', lineHeight: 1.5 }}>
+              A Sidechain Source is selected but EXTERNAL SC is off, so it isn't driving detection yet — turn EXTERNAL SC on to use it.
+            </div>
+          )}
+          <MiniSlider
+            label="SC HPF" value={sidechain.hpf} min={20} max={2000} step={1}
+            fmt={v => `${v.toFixed(0)} Hz`}
+            onChange={v => setSidechain(s => ({ ...s, hpf: v }))}
+          />
+
           <div style={{ marginTop: '1rem' }}>
             <div className="concept-callout" style={{ background: 'var(--green-dim)', borderColor: 'rgba(0,255,135,0.2)' }}>
               <strong style={{ color: 'var(--green)' }}>Concept: </strong>
               Gate Close sits {(params.gateOpen - params.gateClose).toFixed(1)} dB below Gate Open — that gap is the
               hysteresis band, and it's what stops the gate from chattering open/closed right at the threshold.
+              {' '}Turn on <strong style={{ color: 'var(--green)' }}>EXTERNAL SC</strong> and pick{' '}
+              <strong style={{ color: 'var(--amber)' }}>KICK ONLY</strong> to trigger the gate from just the kick
+              instead of the full signal — a classic gating trick for bleed-heavy mics.
               Toggle <strong style={{ color: 'var(--green)' }}>BYPASS</strong> while playing to A/B.
             </div>
           </div>

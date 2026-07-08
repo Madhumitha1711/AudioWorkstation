@@ -5,9 +5,10 @@
     "compile_options": "-lang wasm-i -ct 1 -es 1 -mcd 16 -mdd 1024 -mdy 33 -single -ftz 2",
     "library_list": [
         "/usr/share/faust/stdfaust.lib",
-        "/usr/share/faust/basics.lib",
+        "/usr/share/faust/filters.lib",
         "/usr/share/faust/maths.lib",
         "/usr/share/faust/platform.lib",
+        "/usr/share/faust/basics.lib",
         "/usr/share/faust/analyzers.lib",
         "/usr/share/faust/signals.lib"
     ],
@@ -17,9 +18,9 @@
         "/usr/share/faust",
         "."
     ],
-    "size": 96,
-    "code": "8BnS",
-    "inputs": 2,
+    "size": 124,
+    "code": "IF/z",
+    "inputs": 3,
     "outputs": 2,
     "meta": [
         {
@@ -38,10 +39,64 @@
             "compile_options": "-lang wasm-i -ct 1 -es 1 -mcd 16 -mdd 1024 -mdy 33 -single -ftz 2"
         },
         {
-            "description": "Chapter 10 - hysteresis noise gate with attack, release, and hold"
+            "description": "Chapter 10 - hysteresis noise gate with attack, release, hold, and internal/external sidechain detection"
         },
         {
             "filename": "noiseGate.dsp"
+        },
+        {
+            "filters.lib/fir:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/fir:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/fir:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/highpass:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/highpass:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/iir:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/iir:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/iir:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/lowpass0_highpass1": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/lowpass0_highpass1:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/name": "Faust Filters Library"
+        },
+        {
+            "filters.lib/tf2:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/tf2:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/tf2:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/tf2s:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/tf2s:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/tf2s:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/version": "1.7.1"
         },
         {
             "maths.lib/author": "GRAME"
@@ -85,7 +140,7 @@
                     "varname": "fHslider0",
                     "shortname": "Floor",
                     "address": "/NOISE_GATE_STUDIO/Floor",
-                    "index": 0,
+                    "index": 4,
                     "meta": [
                         {
                             "01": ""
@@ -102,10 +157,10 @@
                 {
                     "type": "hslider",
                     "label": "Gate Open",
-                    "varname": "fHslider1",
+                    "varname": "fHslider2",
                     "shortname": "Gate_Open",
                     "address": "/NOISE_GATE_STUDIO/Gate_Open",
-                    "index": 44,
+                    "index": 72,
                     "meta": [
                         {
                             "02": ""
@@ -122,10 +177,10 @@
                 {
                     "type": "hslider",
                     "label": "Gate Close",
-                    "varname": "fHslider2",
+                    "varname": "fHslider3",
                     "shortname": "Gate_Close",
                     "address": "/NOISE_GATE_STUDIO/Gate_Close",
-                    "index": 48,
+                    "index": 76,
                     "meta": [
                         {
                             "03": ""
@@ -142,10 +197,10 @@
                 {
                     "type": "hslider",
                     "label": "Attack",
-                    "varname": "fHslider5",
+                    "varname": "fHslider6",
                     "shortname": "Attack",
                     "address": "/NOISE_GATE_STUDIO/Attack",
-                    "index": 84,
+                    "index": 112,
                     "meta": [
                         {
                             "04": ""
@@ -162,10 +217,10 @@
                 {
                     "type": "hslider",
                     "label": "Release",
-                    "varname": "fHslider4",
+                    "varname": "fHslider5",
                     "shortname": "Release",
                     "address": "/NOISE_GATE_STUDIO/Release",
-                    "index": 80,
+                    "index": 108,
                     "meta": [
                         {
                             "05": ""
@@ -182,10 +237,10 @@
                 {
                     "type": "hslider",
                     "label": "Hold",
-                    "varname": "fHslider3",
+                    "varname": "fHslider4",
                     "shortname": "Hold",
                     "address": "/NOISE_GATE_STUDIO/Hold",
-                    "index": 56,
+                    "index": 84,
                     "meta": [
                         {
                             "06": ""
@@ -197,6 +252,52 @@
                     "init": 10,
                     "min": 0,
                     "max": 500,
+                    "step": 1
+                },
+                {
+                    "type": "checkbox",
+                    "label": "External Sidechain",
+                    "varname": "fCheckbox1",
+                    "shortname": "External_Sidechain",
+                    "address": "/NOISE_GATE_STUDIO/External_Sidechain",
+                    "index": 24,
+                    "meta": [
+                        {
+                            "07": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "SC Listen",
+                    "varname": "fCheckbox0",
+                    "shortname": "SC_Listen",
+                    "address": "/NOISE_GATE_STUDIO/SC_Listen",
+                    "index": 0,
+                    "meta": [
+                        {
+                            "08": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "hslider",
+                    "label": "SC HPF",
+                    "varname": "fHslider1",
+                    "shortname": "SC_HPF",
+                    "address": "/NOISE_GATE_STUDIO/SC_HPF",
+                    "index": 32,
+                    "meta": [
+                        {
+                            "09": ""
+                        },
+                        {
+                            "unit": "Hz"
+                        }
+                    ],
+                    "init": 20,
+                    "min": 20,
+                    "max": 2000,
                     "step": 1
                 }
             ]

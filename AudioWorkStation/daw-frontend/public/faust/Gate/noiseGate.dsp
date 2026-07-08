@@ -1,20 +1,31 @@
 import("stdfaust.lib");
- 
+
 declare name "Noise Gate Studio";
-declare description "Chapter 10 - hysteresis noise gate with attack, release, and hold";
- 
+declare description "Chapter 10 - hysteresis noise gate with attack, release, hold, and internal/external sidechain detection";
+
+//======================================================================
+// v1.1 - adds a sidechain detection path, mirroring the compressor's
+// convention (public/faust/compressor/compressor.dsp): a 3rd audio input
+// (scIn) carries an external key signal, high-pass filtered before
+// detection. "External Sidechain" swaps the detector from the gate's own
+// (linked L/R) audio onto that filtered external signal; "SC Listen"
+// routes the detector signal itself to both outputs so it can be
+// auditioned in place of the gated audio.
 //======================================================================
 // UI - maps directly onto the Chapter 10 lab knobs
 //======================================================================
 ui_group(x) = vgroup("NOISE GATE STUDIO", x);
- 
+
 floorDb    = ui_group(hslider("[01] Floor[unit:dB]", -60, -96, 0, 1));
 openDb     = ui_group(hslider("[02] Gate Open[unit:dB]", -32, -80, 0, 0.1));
 closeDbRaw = ui_group(hslider("[03] Gate Close[unit:dB]", -38, -80, 0, 0.1));
 attackMs   = ui_group(hslider("[04] Attack[unit:ms]", 2, 0.1, 100, 0.1));
 releaseMs  = ui_group(hslider("[05] Release[unit:ms]", 30, 1, 1000, 1));
 holdMs     = ui_group(hslider("[06] Hold[unit:ms]", 10, 0, 500, 1));
- 
+scExternal = ui_group(checkbox("[07] External Sidechain"));
+scListen   = ui_group(checkbox("[08] SC Listen"));
+scHpfFreq  = ui_group(hslider("[09] SC HPF[unit:Hz]", 20, 20, 2000, 1));
+
 // keep the hysteresis sane: close threshold can never sit above open
 closeDb     = min(closeDbRaw, openDb);
 openThresh  = ba.db2linear(openDb);
@@ -53,11 +64,23 @@ with {
 };
  
 //======================================================================
-// stereo-linked gate: one gain envelope from the combined signal,
-// applied equally to both channels so the stereo image never shifts
+// stereo-linked gate: one gain envelope from the detection source,
+// applied equally to both channels so the stereo image never shifts.
+// A 3rd input (scIn) carries the external sidechain/key signal; when
+// "External Sidechain" is off, detection falls back to the gate's own
+// linked L/R audio (the original, self-detecting behavior).
 //======================================================================
-process(inL, inR) = inL * g, inR * g
+process(inL, inR, scIn) = outL, outR
 with {
   linkedDetect = max(abs(inL), abs(inR));
-  g = gateGain(linkedDetect);
+  scFiltered   = scIn : fi.highpass(2, scHpfFreq);
+  detSource    = select2(scExternal, linkedDetect, scFiltered);
+
+  g = gateGain(detSource);
+
+  // "SC Listen" auditions the raw detector signal (pre-gate) on both
+  // outputs in place of the gated audio, matching the compressor's
+  // scListen convention.
+  outL = select2(scListen, inL * g, detSource);
+  outR = select2(scListen, inR * g, detSource);
 };
