@@ -119,6 +119,47 @@ body {
 .progress-track { width: 80px; height: 3px; background: var(--border); border-radius: 2px; }
 .progress-fill  { width: 20%; height: 100%; background: var(--amber); border-radius: 2px; }
 
+/* ── Top tab bar (chapter switcher) ──────────────────────────────────────── */
+.tab-bar {
+  background: var(--console);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.tab-bar::-webkit-scrollbar { height: 6px; }
+.tab-bar::-webkit-scrollbar-track { background: transparent; }
+.tab-bar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.tab-bar-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  gap: 0.25rem;
+  padding: 0 2rem;
+}
+
+.tab-btn {
+  flex: 0 0 auto;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.9rem 1rem 0.75rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--amber); border-bottom-color: var(--amber); }
+
 /* ── Chapter divider ──────────────────────────────────────────────────────── */
 .chapter-divider {
   padding: 3rem 2rem 0;

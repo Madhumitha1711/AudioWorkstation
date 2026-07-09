@@ -1220,15 +1220,6 @@ export default function Chapter11() {
             <div className="legend-item"><span className="legend-line" style={{ background: '#4D9EFF' }} />OUTPUT</div>
             <div className="legend-item"><span className="legend-line" style={{ background: '#F5A623' }} />GAIN REDUCTION</div>
           </div>
-
-          <div style={{ marginTop: '1rem' }}>
-            <div className="tip-box" style={{ background: 'rgba(245,166,35,0.07)', borderColor: 'rgba(245,166,35,0.2)' }}>
-              <strong style={{ color: 'var(--amber)' }}>Signal:</strong>{' '}
-              {activeTrack
-                ? `Your uploaded track — "${activeTrack.name}". Switch to a different track above, or upload another.`
-                : 'A hot drum + bass loop mixed close to (and sometimes past) 0 dBFS, plus one loud accent hit per loop — the classic case for a brickwall limiter: catch the surprise peak without pumping the rest of the mix.'}
-            </div>
-          </div>
         </div>
       </div>
 

@@ -1789,16 +1789,6 @@ export default function Chapter4() {
           <div style={{ fontFamily: 'var(--mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginTop: '0.35rem', lineHeight: 1.5 }}>
             Red is the real Gain_Reduction the Faust patch reports for this band — it shrinks toward nothing as Threshold rises or Bypass is on.
           </div>
-
-          <div style={{ marginTop: '1rem' }}>
-            <div className="tip-box" style={{ background: 'rgba(245,166,35,0.07)', borderColor: 'rgba(245,166,35,0.2)' }}>
-              <strong style={{ color: 'var(--amber)' }}>Signal:</strong>{' '}
-              {activeTrack
-                ? `Your uploaded track — "${activeTrack.name}". Switch to a different track above, or upload another.`
-                : 'Synthesised drum groove — kick, snare, hi-hat + bass. Percussive transients make compression clearly audible.'}
-              {' '}Flip <strong style={{ color: 'var(--amber)' }}>SC LISTEN</strong> on to hear exactly what's driving the compressor's detector.
-            </div>
-          </div>
         </div>
       </div>
 

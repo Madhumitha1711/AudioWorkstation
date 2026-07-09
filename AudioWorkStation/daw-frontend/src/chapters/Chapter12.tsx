@@ -1194,15 +1194,6 @@ export default function Chapter12() {
             <div className="legend-item"><span className="legend-line" style={{ background: '#4D9EFF' }} />OUTPUT</div>
             <div className="legend-item"><span className="legend-line" style={{ background: '#F5A623' }} />ATTENUATION</div>
           </div>
-
-          <div style={{ marginTop: '1rem' }}>
-            <div className="tip-box" style={{ background: 'rgba(77,158,255,0.07)', borderColor: 'rgba(77,158,255,0.2)' }}>
-              <strong style={{ color: 'var(--blue)' }}>Signal:</strong>{' '}
-              {activeTrack
-                ? `Your uploaded track — "${activeTrack.name}". Switch to a different track above, or upload another.`
-                : 'A sustained vocal-style pad with periodic sibilant "sss" bursts — the classic case for a de-esser: tame the harsh top end without dulling the rest of the voice.'}
-            </div>
-          </div>
         </div>
       </div>
 
