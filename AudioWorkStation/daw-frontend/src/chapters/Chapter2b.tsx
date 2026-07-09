@@ -26,6 +26,7 @@ const FAUST_BASE_PATH = '/faust/ParamEQ';
 const ADDR = {
   hpfFreq: '/ParamEQ/HPF_Freq',
   hpfBypass: '/ParamEQ/HPF_Bypass',
+  hpfOrder: '/ParamEQ/HPF_Order',
   lowShelfFreq: '/ParamEQ/Low_Shelf_Freq',
   lowShelfGain: '/ParamEQ/Low_Shelf_Gain',
   lowShelfQ: '/ParamEQ/Low_Shelf_Q',
@@ -88,7 +89,18 @@ const ADDR = {
   highShelfMode: '/ParamEQ/High_Shelf_Mode_-Downward-:0;-Upward-:1_',
   lpfFreq: '/ParamEQ/LPF_Freq',
   lpfBypass: '/ParamEQ/LPF_Bypass',
+  lpfOrder: '/ParamEQ/LPF_Order',
 } as const;
+
+// HPF/LPF slope, as a Butterworth order (2/4/6/8 = 12/24/36/48 dB/oct). This
+// is the value stored in ParamEQBands/BandDef; the underlying Faust nentry
+// only accepts an index 0-3 (see ParamEQDynamic.dsp's hpf_order_sel /
+// lpf_order_sel), so ORDER_VALUES/orderToIndex below convert between them.
+const ORDER_VALUES = [2, 4, 6, 8] as const;
+function orderToIndex(order: number): number {
+  const i = ORDER_VALUES.indexOf(order as (typeof ORDER_VALUES)[number]);
+  return i === -1 ? 1 : i; // default to index 1 (order 4 / 24dB/oct)
+}
 
 type EngineStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -106,7 +118,7 @@ interface UploadedAudioTrack {
 // 1 = Upward/lifts below threshold). HPF/LPF have no gain of their own, so
 // Faust's ParamEQ patch doesn't expose dynamic params for them.
 interface ParamEQBands {
-  hpfFreq: number; hpfBypass: boolean;
+  hpfFreq: number; hpfBypass: boolean; hpfOrder: number;
   lowShelfFreq: number; lowShelfGain: number; lowShelfQ: number; lowShelfBypass: boolean;
   lowShelfDynamicOn: boolean; lowShelfThreshold: number; lowShelfRange: number; lowShelfAttack: number; lowShelfRelease: number; lowShelfMode: number;
   peak1Freq: number; peak1Gain: number; peak1Q: number; peak1Bypass: boolean;
@@ -119,7 +131,7 @@ interface ParamEQBands {
   peak4DynamicOn: boolean; peak4Threshold: number; peak4Range: number; peak4Attack: number; peak4Release: number; peak4Mode: number;
   highShelfFreq: number; highShelfGain: number; highShelfQ: number; highShelfBypass: boolean;
   highShelfDynamicOn: boolean; highShelfThreshold: number; highShelfRange: number; highShelfAttack: number; highShelfRelease: number; highShelfMode: number;
-  lpfFreq: number; lpfBypass: boolean;
+  lpfFreq: number; lpfBypass: boolean; lpfOrder: number;
 }
 
 // Matches dsp-meta.json's `init` values — a flat, all-pass-through response,
@@ -127,7 +139,7 @@ interface ParamEQBands {
 const DEFAULT_DYNAMIC = { dynamicOn: false, threshold: -24, range: 6, attack: 0.005, release: 0.15, mode: 0 };
 
 const DEFAULT_BANDS: ParamEQBands = {
-  hpfFreq: 20, hpfBypass: false,
+  hpfFreq: 20, hpfBypass: false, hpfOrder: 4,
   lowShelfFreq: 75, lowShelfGain: 0, lowShelfQ: 0.7, lowShelfBypass: false,
   lowShelfDynamicOn: DEFAULT_DYNAMIC.dynamicOn, lowShelfThreshold: DEFAULT_DYNAMIC.threshold, lowShelfRange: DEFAULT_DYNAMIC.range, lowShelfAttack: DEFAULT_DYNAMIC.attack, lowShelfRelease: DEFAULT_DYNAMIC.release, lowShelfMode: DEFAULT_DYNAMIC.mode,
   peak1Freq: 100, peak1Gain: 0, peak1Q: 0.7, peak1Bypass: false,
@@ -140,7 +152,7 @@ const DEFAULT_BANDS: ParamEQBands = {
   peak4DynamicOn: DEFAULT_DYNAMIC.dynamicOn, peak4Threshold: DEFAULT_DYNAMIC.threshold, peak4Range: DEFAULT_DYNAMIC.range, peak4Attack: DEFAULT_DYNAMIC.attack, peak4Release: DEFAULT_DYNAMIC.release, peak4Mode: DEFAULT_DYNAMIC.mode,
   highShelfFreq: 7500, highShelfGain: 0, highShelfQ: 0.7, highShelfBypass: false,
   highShelfDynamicOn: DEFAULT_DYNAMIC.dynamicOn, highShelfThreshold: DEFAULT_DYNAMIC.threshold, highShelfRange: DEFAULT_DYNAMIC.range, highShelfAttack: DEFAULT_DYNAMIC.attack, highShelfRelease: DEFAULT_DYNAMIC.release, highShelfMode: DEFAULT_DYNAMIC.mode,
-  lpfFreq: 20000, lpfBypass: false,
+  lpfFreq: 20000, lpfBypass: false, lpfOrder: 4,
 };
 
 function setBool(node: FaustNodeLike, addr: string, v: boolean): void {
@@ -150,6 +162,7 @@ function setBool(node: FaustNodeLike, addr: string, v: boolean): void {
 function applyBandsToNode(node: FaustNodeLike, b: ParamEQBands): void {
   node.setParamValue(ADDR.hpfFreq, b.hpfFreq);
   setBool(node, ADDR.hpfBypass, b.hpfBypass);
+  node.setParamValue(ADDR.hpfOrder, orderToIndex(b.hpfOrder));
 
   node.setParamValue(ADDR.lowShelfFreq, b.lowShelfFreq);
   node.setParamValue(ADDR.lowShelfGain, b.lowShelfGain);
@@ -219,6 +232,7 @@ function applyBandsToNode(node: FaustNodeLike, b: ParamEQBands): void {
 
   node.setParamValue(ADDR.lpfFreq, b.lpfFreq);
   setBool(node, ADDR.lpfBypass, b.lpfBypass);
+  node.setParamValue(ADDR.lpfOrder, orderToIndex(b.lpfOrder));
 }
 
 // ── Band descriptors (drives the curve UI generically) ──────────────────────
@@ -234,6 +248,9 @@ interface BandDef {
   gainKey?: keyof ParamEQBands;
   qKey?: keyof ParamEQBands;
   bypassKey: keyof ParamEQBands;
+  // Present only on HPF/LPF — their slope (Butterworth order 2/4/6/8, i.e.
+  // 12/24/36/48 dB/oct) instead of the gain/Q the other bands have.
+  orderKey?: keyof ParamEQBands;
   // Present only on the 6 bands Faust's ParamEQ gives dynamic (level-
   // dependent) processing to — HPF/LPF have no gain stage, so no dynamics.
   dynamicOnKey?: keyof ParamEQBands;
@@ -245,7 +262,7 @@ interface BandDef {
 }
 
 const BAND_DEFS: BandDef[] = [
-  { id: 'hpf', short: 'HPF', label: 'High-Pass', color: '#9AA5B1', kind: 'hpf', freqKey: 'hpfFreq', bypassKey: 'hpfBypass' },
+  { id: 'hpf', short: 'HPF', label: 'High-Pass', color: '#9AA5B1', kind: 'hpf', freqKey: 'hpfFreq', bypassKey: 'hpfBypass', orderKey: 'hpfOrder' },
   {
     id: 'lowShelf', short: 'LOW SHELF', label: 'Low Shelf', color: '#F5A623', kind: 'lowshelf',
     freqKey: 'lowShelfFreq', gainKey: 'lowShelfGain', qKey: 'lowShelfQ', bypassKey: 'lowShelfBypass',
@@ -282,7 +299,7 @@ const BAND_DEFS: BandDef[] = [
     dynamicOnKey: 'highShelfDynamicOn', thresholdKey: 'highShelfThreshold', rangeKey: 'highShelfRange',
     attackKey: 'highShelfAttack', releaseKey: 'highShelfRelease', modeKey: 'highShelfMode',
   },
-  { id: 'lpf', short: 'LPF', label: 'Low-Pass', color: '#CBD5E1', kind: 'lpf', freqKey: 'lpfFreq', bypassKey: 'lpfBypass' },
+  { id: 'lpf', short: 'LPF', label: 'Low-Pass', color: '#CBD5E1', kind: 'lpf', freqKey: 'lpfFreq', bypassKey: 'lpfBypass', orderKey: 'lpfOrder' },
 ];
 
 // Bands that support Faust's dynamic (level-dependent) mode — used to drive
@@ -299,6 +316,7 @@ function getRange(b: ParamEQBands, def: BandDef): number { return def.rangeKey ?
 function getAttack(b: ParamEQBands, def: BandDef): number { return def.attackKey ? (b[def.attackKey] as number) : 0.005; }
 function getRelease(b: ParamEQBands, def: BandDef): number { return def.releaseKey ? (b[def.releaseKey] as number) : 0.15; }
 function getMode(b: ParamEQBands, def: BandDef): number { return def.modeKey ? (b[def.modeKey] as number) : 0; }
+function getOrder(b: ParamEQBands, def: BandDef): number { return def.orderKey ? (b[def.orderKey] as number) : 4; }
 
 function withFreq(b: ParamEQBands, def: BandDef, v: number): ParamEQBands {
   return { ...b, [def.freqKey]: v };
@@ -337,6 +355,10 @@ function withRelease(b: ParamEQBands, def: BandDef, v: number): ParamEQBands {
 function withMode(b: ParamEQBands, def: BandDef, v: number): ParamEQBands {
   if (!def.modeKey) return b;
   return { ...b, [def.modeKey]: v };
+}
+function withOrder(b: ParamEQBands, def: BandDef, v: number): ParamEQBands {
+  if (!def.orderKey) return b;
+  return { ...b, [def.orderKey]: v };
 }
 
 // ── Curve math (analytic magnitude-response approximations, in dB) ──────────
@@ -412,8 +434,8 @@ function bandResponseDB(def: BandDef, b: ParamEQBands, f: number, useDynamicExtr
   const freq = getFreq(b, def);
   const gain = useDynamicExtreme ? dynamicExtremeGain(b, def) : getGain(b, def);
   switch (def.kind) {
-    case 'hpf': return butterHighpassDB(f, freq, 4);
-    case 'lpf': return butterLowpassDB(f, freq, 4);
+    case 'hpf': return butterHighpassDB(f, freq, getOrder(b, def));
+    case 'lpf': return butterLowpassDB(f, freq, getOrder(b, def));
     case 'lowshelf': return lowShelfDB(f, freq, gain, getQ(b, def) ?? SHELF_REF_Q);
     case 'highshelf': return highShelfDB(f, freq, gain, getQ(b, def) ?? SHELF_REF_Q);
     case 'peak': return peakDB(f, freq, gain, getQ(b, def) ?? 1);
@@ -1218,14 +1240,40 @@ function BandReadout({ bands, onChange }: { bands: ParamEQBands; onChange: (b: P
               disabled={!def.gainKey || bypassed}
               onChange={v => onChange(withGain(bands, def, clamp(v, GMIN, GMAX)))}
             />
-            <NumberField
-              value={q !== undefined ? roundTo(q, 2) : 1}
-              min={0.1}
-              max={10}
-              step={0.01}
-              disabled={q === undefined || bypassed}
-              onChange={v => onChange(withQ(bands, def, clamp(v, 0.1, 10)))}
-            />
+            {def.orderKey ? (
+              <select
+                value={getOrder(bands, def)}
+                disabled={bypassed}
+                title={`${def.label} slope`}
+                onChange={e => onChange(withOrder(bands, def, Number(e.target.value)))}
+                style={{
+                  width: '100%',
+                  background: bypassed ? 'transparent' : 'var(--surface)',
+                  border: `1px solid ${bypassed ? 'transparent' : 'var(--border)'}`,
+                  borderRadius: '3px',
+                  color: bypassed ? 'var(--text-faint)' : 'var(--text)',
+                  fontFamily: 'var(--mono)',
+                  fontSize: '0.55rem',
+                  textAlign: 'center',
+                  padding: '0.1rem 0.15rem',
+                  outline: 'none',
+                }}
+              >
+                <option value={2}>12dB</option>
+                <option value={4}>24dB</option>
+                <option value={6}>36dB</option>
+                <option value={8}>48dB</option>
+              </select>
+            ) : (
+              <NumberField
+                value={q !== undefined ? roundTo(q, 2) : 1}
+                min={0.1}
+                max={10}
+                step={0.01}
+                disabled={q === undefined || bypassed}
+                onChange={v => onChange(withQ(bands, def, clamp(v, 0.1, 10)))}
+              />
+            )}
             <button
               onClick={() => onChange(withBypass(bands, def, !bypassed))}
               title={bypassed ? `${def.label}: bypassed — click to re-enable` : `${def.label}: click to bypass`}

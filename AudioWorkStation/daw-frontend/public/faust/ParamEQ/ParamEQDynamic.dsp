@@ -65,12 +65,27 @@ with {
 hpf_bypass = checkbox("[0]HPF/Bypass");
 hpf_freq   = hslider("[1]HPF/Freq[unit:Hz]",20,20,20000,1):si.smoo;
 
-// Was order 2 (12dB/oct) — too gentle to read as "on" against the wide
-// analyzer dB range: at 1 octave below the corner it only cut ~22dB, which
-// still shows up as a solid analyzer trace. Order 4 (24dB/oct, matching the
-// LPF below) cuts roughly twice as fast per octave, so content below the
-// corner visibly (and audibly) drops away instead of lingering.
-hpf_stage(x) = select2(hpf_bypass, x : fi.highpass(4,hpf_freq), x);
+// Slope/order is user-configurable: 12/24/36/48 dB/oct (Butterworth order
+// 2/4/6/8). Order 4 (24dB/oct) remains the default — it was previously
+// hardcoded because order 2 (12dB/oct) is too gentle to read as "on" against
+// the wide analyzer dB range (at 1 octave below the corner it only cuts
+// ~22dB, which still shows up as a solid analyzer trace), while order 4
+// cuts roughly twice as fast per octave. Faust's filter order must be a
+// compile-time constant (it fixes how many biquad sections get built), so
+// all four orders are built in parallel here and the nentry index just
+// masks/sums between them at run time — only one term is ever non-zero.
+// Index -> slope: 0=12dB/oct, 1=24dB/oct (default), 2=36dB/oct, 3=48dB/oct.
+// Kept as a plain nentry (no embedded enum labels) so its OSC/param address
+// stays the simple "HPF_Order" form, matching Freq/Bypass above, rather than
+// the enum text getting baked into the address.
+hpf_order_sel = nentry("[2]HPF/Order",1,0,3,1);
+
+hpf_filtered(x) = (x : fi.highpass(2,hpf_freq)) * (hpf_order_sel==0)
+                 + (x : fi.highpass(4,hpf_freq)) * (hpf_order_sel==1)
+                 + (x : fi.highpass(6,hpf_freq)) * (hpf_order_sel==2)
+                 + (x : fi.highpass(8,hpf_freq)) * (hpf_order_sel==3);
+
+hpf_stage(x) = select2(hpf_bypass, hpf_filtered(x), x);
 
 //------------------------------------------------------
 // Low Shelf
@@ -178,7 +193,17 @@ hs_stage(x) = select2(hs_bypass,
 lpf_bypass = checkbox("[0]LPF/Bypass");
 lpf_freq   = hslider("[1]LPF/Freq[Hz]",20000,20,20000,1):si.smoo;
 
-lpf_stage(x) = select2(lpf_bypass, x : fi.lowpass(4,lpf_freq), x);
+// Same configurable-order scheme as the HPF above; order 4 (24dB/oct) is
+// the default, matching the previous fixed slope. Same index -> slope
+// mapping: 0=12dB/oct, 1=24dB/oct (default), 2=36dB/oct, 3=48dB/oct.
+lpf_order_sel = nentry("[2]LPF/Order",1,0,3,1);
+
+lpf_filtered(x) = (x : fi.lowpass(2,lpf_freq)) * (lpf_order_sel==0)
+                 + (x : fi.lowpass(4,lpf_freq)) * (lpf_order_sel==1)
+                 + (x : fi.lowpass(6,lpf_freq)) * (lpf_order_sel==2)
+                 + (x : fi.lowpass(8,lpf_freq)) * (lpf_order_sel==3);
+
+lpf_stage(x) = select2(lpf_bypass, lpf_filtered(x), x);
 
 //======================================================
 // Channel EQ
