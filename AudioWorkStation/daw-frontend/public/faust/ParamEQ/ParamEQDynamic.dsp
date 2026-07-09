@@ -65,7 +65,12 @@ with {
 hpf_bypass = checkbox("[0]HPF/Bypass");
 hpf_freq   = hslider("[1]HPF/Freq[unit:Hz]",20,20,20000,1):si.smoo;
 
-hpf_stage(x) = select2(hpf_bypass, x : fi.highpass(2,hpf_freq), x);
+// Was order 2 (12dB/oct) — too gentle to read as "on" against the wide
+// analyzer dB range: at 1 octave below the corner it only cut ~22dB, which
+// still shows up as a solid analyzer trace. Order 4 (24dB/oct, matching the
+// LPF below) cuts roughly twice as fast per octave, so content below the
+// corner visibly (and audibly) drops away instead of lingering.
+hpf_stage(x) = select2(hpf_bypass, x : fi.highpass(4,hpf_freq), x);
 
 //------------------------------------------------------
 // Low Shelf

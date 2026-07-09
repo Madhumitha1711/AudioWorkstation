@@ -412,7 +412,7 @@ function bandResponseDB(def: BandDef, b: ParamEQBands, f: number, useDynamicExtr
   const freq = getFreq(b, def);
   const gain = useDynamicExtreme ? dynamicExtremeGain(b, def) : getGain(b, def);
   switch (def.kind) {
-    case 'hpf': return butterHighpassDB(f, freq, 2);
+    case 'hpf': return butterHighpassDB(f, freq, 4);
     case 'lpf': return butterLowpassDB(f, freq, 4);
     case 'lowshelf': return lowShelfDB(f, freq, gain, getQ(b, def) ?? SHELF_REF_Q);
     case 'highshelf': return highShelfDB(f, freq, gain, getQ(b, def) ?? SHELF_REF_Q);
@@ -627,6 +627,7 @@ function drawParamEQCanvas(
   targetBands: ParamEQBands | undefined,
   showTarget: boolean,
   analyserData: Uint8Array | null,
+  dryAnalyserData: Uint8Array | null,
   sampleRate: number,
   outputGainDb = 0,
 ): void {
@@ -665,6 +666,39 @@ function drawParamEQCanvas(
     ctx.fillText(`${db > 0 ? '+' : ''}${db}`, 4, gainToFrac(db) * H + 3);
   }
   for (const [f, l] of freqLines) ctx.fillText(l, fToFrac(f) * W - 6, H - 3);
+
+  // Original (pre-EQ / dry) spectrum — tapped straight off the source, before
+  // the Faust node, so it never reflects any band's freq/gain/bypass state.
+  // Drawn as a plain dashed outline (no fill) underneath the post-EQ trace
+  // below, purely as a reference shape: having both traces on screen at once
+  // is what makes it easy to see exactly how the curve is reshaping the
+  // incoming signal in real time, rather than only inferring it from the
+  // drawn EQ curve.
+  if (dryAnalyserData) {
+    const dryPts: { x: number; y: number }[] = [];
+    const nyquist = sampleRate / 2;
+    const binCount = dryAnalyserData.length;
+    for (let i = 1; i < binCount; i++) {
+      const f = (i / binCount) * nyquist;
+      if (f < FMIN || f > FMAX) continue;
+      const db = ANALYSER_MIN_DB + (dryAnalyserData[i] / 255) * (ANALYSER_MAX_DB - ANALYSER_MIN_DB);
+      const levelFrac = clamp((db - ANALYSER_MIN_DB) / (ANALYSER_MAX_DB - ANALYSER_MIN_DB), 0, 1);
+      dryPts.push({ x: fToFrac(f) * W, y: H - levelFrac * H * 0.68 });
+    }
+    if (dryPts.length > 1) {
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      ctx.strokeStyle = '#E5E7EB';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      ctx.moveTo(dryPts[0].x, dryPts[0].y);
+      for (const p of dryPts.slice(1)) ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      ctx.restore();
+      ctx.setLineDash([]);
+    }
+  }
 
   // Live analyzer (post-EQ spectrum) — a level meter, not another EQ curve.
   // getByteFrequencyData() returns bytes already mapped *linearly* between
@@ -997,7 +1031,7 @@ function OutputGainSlider({
 
 // ── Reusable curve widget ─────────────────────────────────────────────────────
 function ParamEQCurve({
-  bands, onChange, targetBands, showTarget, analyserRef, analyserActive, sampleRate,
+  bands, onChange, targetBands, showTarget, analyserRef, dryAnalyserRef, analyserActive, sampleRate,
   outputGainDb, onOutputGainChange,
 }: {
   bands: ParamEQBands;
@@ -1005,6 +1039,11 @@ function ParamEQCurve({
   targetBands?: ParamEQBands;
   showTarget?: boolean;
   analyserRef?: React.RefObject<AnalyserNode | null>;
+  // Second, pre-EQ tap on the same source signal — lets the canvas overlay
+  // the untouched spectrum alongside the post-EQ one so changes are easy to
+  // spot at a glance instead of having to remember what the input looked
+  // like before you started dragging nodes.
+  dryAnalyserRef?: React.RefObject<AnalyserNode | null>;
   analyserActive?: boolean;
   sampleRate: number;
   outputGainDb?: number;
@@ -1013,6 +1052,7 @@ function ParamEQCurve({
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dataRef = useRef<Uint8Array | null>(null);
+  const dryDataRef = useRef<Uint8Array | null>(null);
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -1028,16 +1068,27 @@ function ParamEQCurve({
         if (!analyserRef.current) return;
         const buf = dataRef.current!;
         analyserRef.current.getByteFrequencyData(buf as unknown as Uint8Array<ArrayBuffer>);
-        drawParamEQCanvas(canvas, bands, targetBands, !!showTarget, buf, sampleRate, outputGainDb ?? 0);
+
+        let dryBuf: Uint8Array | null = null;
+        const dryAnalyser = dryAnalyserRef?.current;
+        if (dryAnalyser) {
+          if (!dryDataRef.current || dryDataRef.current.length !== dryAnalyser.frequencyBinCount) {
+            dryDataRef.current = new Uint8Array(dryAnalyser.frequencyBinCount);
+          }
+          dryAnalyser.getByteFrequencyData(dryDataRef.current as unknown as Uint8Array<ArrayBuffer>);
+          dryBuf = dryDataRef.current;
+        }
+
+        drawParamEQCanvas(canvas, bands, targetBands, !!showTarget, buf, dryBuf, sampleRate, outputGainDb ?? 0);
         rafRef.current = requestAnimationFrame(tick);
       };
       rafRef.current = requestAnimationFrame(tick);
       return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
     }
 
-    drawParamEQCanvas(canvas, bands, targetBands, !!showTarget, null, sampleRate, outputGainDb ?? 0);
+    drawParamEQCanvas(canvas, bands, targetBands, !!showTarget, null, null, sampleRate, outputGainDb ?? 0);
     return undefined;
-  }, [bands, targetBands, showTarget, analyserActive, analyserRef, sampleRate, outputGainDb]);
+  }, [bands, targetBands, showTarget, analyserActive, analyserRef, dryAnalyserRef, sampleRate, outputGainDb]);
 
   return (
     <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'stretch' }}>
@@ -1387,6 +1438,11 @@ export default function Chapter2b() {
   const activeNodeRef = useRef<FaustNodeLike | null>(null);
   const outputGainNodeRef = useRef<GainNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  // Second analyser tapped straight off the source, before the Faust node —
+  // never connected onward to the destination, so it's silent/inaudible and
+  // exists purely to let the canvas draw the original (pre-EQ) spectrum
+  // alongside the live, post-EQ one.
+  const dryAnalyserRef = useRef<AnalyserNode | null>(null);
   const demoBufferRef = useRef<AudioBuffer | null>(null);
   const [playSource, setPlaySource] = useState<PlaySource>('idle');
   const [playError, setPlayError] = useState('');
@@ -1464,6 +1520,10 @@ export default function Chapter2b() {
       try { analyserRef.current.disconnect(); } catch { /* ok */ }
       analyserRef.current = null;
     }
+    if (dryAnalyserRef.current) {
+      try { dryAnalyserRef.current.disconnect(); } catch { /* ok */ }
+      dryAnalyserRef.current = null;
+    }
     setPlaySource('idle');
   }, []);
 
@@ -1519,10 +1579,22 @@ export default function Chapter2b() {
     analyser.minDecibels = ANALYSER_MIN_DB;
     analyser.maxDecibels = ANALYSER_MAX_DB;
 
+    // Dry (pre-EQ) analyser — tapped directly off the source, in parallel
+    // with the signal chain into the Faust node, and never connected onward
+    // to the destination, so it's silent and doesn't change what's heard.
+    // Same decibel range/smoothing as the post-EQ analyser above so the two
+    // traces are directly comparable on the same canvas.
+    const dryAnalyser = ctx.createAnalyser();
+    dryAnalyser.fftSize = 2048;
+    dryAnalyser.smoothingTimeConstant = 0.78;
+    dryAnalyser.minDecibels = ANALYSER_MIN_DB;
+    dryAnalyser.maxDecibels = ANALYSER_MAX_DB;
+
     const src = ctx.createBufferSource();
     src.buffer = buffer;
     src.loop = true;
     src.connect(node as unknown as AudioNode);
+    src.connect(dryAnalyser);
     (node as unknown as AudioNode).connect(outputGain);
     outputGain.connect(analyser);
     analyser.connect(ctx.destination);
@@ -1532,6 +1604,7 @@ export default function Chapter2b() {
     activeNodeRef.current = node;
     outputGainNodeRef.current = outputGain;
     analyserRef.current = analyser;
+    dryAnalyserRef.current = dryAnalyser;
     setPlaySource(which);
   }, [playSource, stopAudio, engineStatus, benchBuffer, earBuffer, ensureAudioCtx, ensureDemoBuffer]);
 
@@ -1561,6 +1634,7 @@ export default function Chapter2b() {
     try { (activeNodeRef.current as unknown as AudioNode)?.disconnect(); } catch { /* ok */ }
     outputGainNodeRef.current?.disconnect();
     analyserRef.current?.disconnect();
+    dryAnalyserRef.current?.disconnect();
     audioCtxRef.current?.close();
   }, []);
 
@@ -1901,6 +1975,18 @@ export default function Chapter2b() {
               <div className="legend-row">
                 <div className="legend-item"><div className="legend-line" style={{ background: 'var(--blue)' }} />YOUR CURVE (DRAG NODES)</div>
                 <div className="legend-item"><div className="legend-line" style={{ background: 'var(--text-faint)', height: '1px' }} />FLAT (0 dB)</div>
+                {playSource === 'bench' && (
+                  <>
+                    <div className="legend-item">
+                      <div className="legend-line" style={{ background: 'repeating-linear-gradient(90deg, #E5E7EB 0 2px, transparent 2px 4px)' }} />
+                      ORIGINAL (PRE-EQ)
+                    </div>
+                    <div className="legend-item">
+                      <div className="legend-line" style={{ background: '#FF4D6A' }} />
+                      LIVE SIGNAL (POST-EQ)
+                    </div>
+                  </>
+                )}
                 {BAND_DEFS.some(def => getDynamicOn(benchBands, def)) && (
                   <div className="legend-item">
                     <div className="legend-line" style={{ background: 'repeating-linear-gradient(90deg, var(--teal) 0 5px, transparent 5px 9px)' }} />
@@ -1913,6 +1999,7 @@ export default function Chapter2b() {
                 bands={benchBands}
                 onChange={setBenchBands}
                 analyserRef={analyserRef}
+                dryAnalyserRef={dryAnalyserRef}
                 analyserActive={playSource === 'bench'}
                 sampleRate={sampleRate}
                 outputGainDb={benchOutputGain}
@@ -2001,6 +2088,18 @@ export default function Chapter2b() {
                   {revealed ? 'TARGET CURVE' : 'TARGET (HIDDEN)'}
                 </div>
                 <div className="legend-item"><div className="legend-line" style={{ background: 'var(--blue)' }} />YOUR EQ</div>
+                {(playSource === 'mine' || playSource === 'target') && (
+                  <>
+                    <div className="legend-item">
+                      <div className="legend-line" style={{ background: 'repeating-linear-gradient(90deg, #E5E7EB 0 2px, transparent 2px 4px)' }} />
+                      ORIGINAL (PRE-EQ)
+                    </div>
+                    <div className="legend-item">
+                      <div className="legend-line" style={{ background: '#FF4D6A' }} />
+                      LIVE SIGNAL (POST-EQ)
+                    </div>
+                  </>
+                )}
                 {BAND_DEFS.some(def => getDynamicOn(myBands, def)) && (
                   <div className="legend-item">
                     <div className="legend-line" style={{ background: 'repeating-linear-gradient(90deg, var(--teal) 0 5px, transparent 5px 9px)' }} />
@@ -2015,6 +2114,7 @@ export default function Chapter2b() {
                 targetBands={targetBands}
                 showTarget={revealed}
                 analyserRef={analyserRef}
+                dryAnalyserRef={dryAnalyserRef}
                 analyserActive={playSource === 'mine' || playSource === 'target'}
                 sampleRate={sampleRate}
                 outputGainDb={myOutputGain}
