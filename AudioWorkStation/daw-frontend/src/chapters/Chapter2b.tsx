@@ -758,38 +758,10 @@ function drawParamEQCanvas(
 
   strokeCurve(bands, '#4D9EFF', 0.95, 0.22, outputGainDb);
 
-  // Dynamic EQ range overlay — a dashed teal curve + shaded ribbon showing
-  // where the response settles once every "Dynamic On" band is fully
-  // engaged (signal continuously past its Threshold). This has to be drawn
-  // explicitly because, unlike every other control, Dynamic EQ's effect is
-  // level-dependent — it only shows up in the *audio* once real signal
-  // crosses Threshold during playback, so without this overlay the curve
-  // never visibly reacts to Dynamic On / Threshold / Range / Mode at all.
-  const anyDynamicOn = BAND_DEFS.some(def => getDynamicOn(bands, def));
-  if (anyDynamicOn) {
-    const restPts = sampleResponse(bands, (bb, f) => totalResponseDB(bb, f) + outputGainDb);
-    const extremePts = sampleResponse(bands, (bb, f) => totalResponseDB(bb, f, true) + outputGainDb);
-    ctx.save(); ctx.globalAlpha = 0.2; ctx.fillStyle = '#2DD4BF';
-    ctx.beginPath();
-    ctx.moveTo(restPts[0].x, restPts[0].y);
-    for (const p of restPts.slice(1)) ctx.lineTo(p.x, p.y);
-    for (let i = extremePts.length - 1; i >= 0; i--) ctx.lineTo(extremePts[i].x, extremePts[i].y);
-    ctx.closePath(); ctx.fill(); ctx.restore();
-
-    ctx.save();
-    ctx.globalAlpha = 0.85; ctx.strokeStyle = '#2DD4BF'; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
-    ctx.setLineDash([5, 4]);
-    ctx.beginPath();
-    ctx.moveTo(extremePts[0].x, extremePts[0].y);
-    for (const p of extremePts.slice(1)) ctx.lineTo(p.x, p.y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.restore();
-
-    ctx.fillStyle = 'rgba(45,212,191,0.85)';
-    ctx.font = '9px "JetBrains Mono", monospace';
-    ctx.fillText('┄ DYNAMIC RANGE (FULLY ENGAGED)', 4, 14);
-  }
+  // Dynamic EQ's Threshold used to get a dashed marker here too, but a level
+  // trigger has no honest place on a *gain* axis — it's now drawn on the
+  // analyzer canvas below (drawAnalyzerCanvas), which is already scaled in
+  // real signal level, the same units Threshold is dialed in.
 }
 
 // ── Live spectrum analyzer — own canvas, own scale ───────────────────────────
