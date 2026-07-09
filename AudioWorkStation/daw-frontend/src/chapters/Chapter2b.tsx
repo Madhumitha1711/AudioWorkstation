@@ -648,9 +648,6 @@ function drawParamEQCanvas(
   bands: ParamEQBands,
   targetBands: ParamEQBands | undefined,
   showTarget: boolean,
-  analyserData: Uint8Array | null,
-  dryAnalyserData: Uint8Array | null,
-  sampleRate: number,
   outputGainDb = 0,
 ): void {
   const hd = hiDpi(canvas); if (!hd) return;
@@ -689,80 +686,12 @@ function drawParamEQCanvas(
   }
   for (const [f, l] of freqLines) ctx.fillText(l, fToFrac(f) * W - 6, H - 3);
 
-  // Original (pre-EQ / dry) spectrum — tapped straight off the source, before
-  // the Faust node, so it never reflects any band's freq/gain/bypass state.
-  // Drawn as a plain dashed outline (no fill) underneath the post-EQ trace
-  // below, purely as a reference shape: having both traces on screen at once
-  // is what makes it easy to see exactly how the curve is reshaping the
-  // incoming signal in real time, rather than only inferring it from the
-  // drawn EQ curve.
-  if (dryAnalyserData) {
-    const dryPts: { x: number; y: number }[] = [];
-    const nyquist = sampleRate / 2;
-    const binCount = dryAnalyserData.length;
-    for (let i = 1; i < binCount; i++) {
-      const f = (i / binCount) * nyquist;
-      if (f < FMIN || f > FMAX) continue;
-      const db = ANALYSER_MIN_DB + (dryAnalyserData[i] / 255) * (ANALYSER_MAX_DB - ANALYSER_MIN_DB);
-      const levelFrac = clamp((db - ANALYSER_MIN_DB) / (ANALYSER_MAX_DB - ANALYSER_MIN_DB), 0, 1);
-      dryPts.push({ x: fToFrac(f) * W, y: H - levelFrac * H * 0.68 });
-    }
-    if (dryPts.length > 1) {
-      ctx.save();
-      ctx.globalAlpha = 0.5;
-      ctx.strokeStyle = '#E5E7EB';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([2, 2]);
-      ctx.beginPath();
-      ctx.moveTo(dryPts[0].x, dryPts[0].y);
-      for (const p of dryPts.slice(1)) ctx.lineTo(p.x, p.y);
-      ctx.stroke();
-      ctx.restore();
-      ctx.setLineDash([]);
-    }
-  }
-
-  // Live analyzer (post-EQ spectrum) — a level meter, not another EQ curve.
-  // getByteFrequencyData() returns bytes already mapped *linearly* between
-  // the AnalyserNode's own minDecibels/maxDecibels (see ANALYSER_MIN_DB /
-  // ANALYSER_MAX_DB, set to match on the node itself) — applying another
-  // log10() on top of that (as the old code did) double-transforms the
-  // value and warps the shape so it no longer tracks what the EQ is
-  // actually doing to the signal. Converted correctly here, then plotted on
-  // its own bottom-anchored scale (real signal level, not EQ gain), so a
-  // boosted band visibly rises and a cut band visibly falls.
-  if (analyserData) {
-    const levelPts: { x: number; y: number }[] = [];
-    const nyquist = sampleRate / 2;
-    const binCount = analyserData.length;
-    for (let i = 1; i < binCount; i++) {
-      const f = (i / binCount) * nyquist;
-      if (f < FMIN || f > FMAX) continue;
-      const db = ANALYSER_MIN_DB + (analyserData[i] / 255) * (ANALYSER_MAX_DB - ANALYSER_MIN_DB);
-      const levelFrac = clamp((db - ANALYSER_MIN_DB) / (ANALYSER_MAX_DB - ANALYSER_MIN_DB), 0, 1);
-      levelPts.push({ x: fToFrac(f) * W, y: H - levelFrac * H * 0.68 });
-    }
-    if (levelPts.length > 1) {
-      ctx.save();
-      ctx.globalAlpha = 0.16;
-      ctx.fillStyle = '#FF4D6A';
-      ctx.beginPath();
-      ctx.moveTo(levelPts[0].x, H); ctx.lineTo(levelPts[0].x, levelPts[0].y);
-      for (const p of levelPts.slice(1)) ctx.lineTo(p.x, p.y);
-      ctx.lineTo(levelPts[levelPts.length - 1].x, H);
-      ctx.closePath(); ctx.fill(); ctx.restore();
-
-      ctx.save();
-      ctx.globalAlpha = 0.45;
-      ctx.strokeStyle = '#FF4D6A';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(levelPts[0].x, levelPts[0].y);
-      for (const p of levelPts.slice(1)) ctx.lineTo(p.x, p.y);
-      ctx.stroke();
-      ctx.restore();
-    }
-  }
+  // The live/dry spectrum analyzer used to be overlaid directly on this
+  // graph, sharing pixel space with the EQ gain curve via an ad-hoc 0.68
+  // height factor and its own dB range (ANALYSER_MIN_DB/ANALYSER_MAX_DB) —
+  // two different scales stacked on one axis, which read as a single
+  // confusing trace. It's now drawn in its own canvas with its own grid and
+  // labeled scale — see drawAnalyzerCanvas below.
 
   const sampleResponse = (b: ParamEQBands, responseFn: (bands: ParamEQBands, f: number) => number): { x: number; y: number }[] => {
     const N = 160;
@@ -860,6 +789,123 @@ function drawParamEQCanvas(
     ctx.fillStyle = 'rgba(45,212,191,0.85)';
     ctx.font = '9px "JetBrains Mono", monospace';
     ctx.fillText('┄ DYNAMIC RANGE (FULLY ENGAGED)', 4, 14);
+  }
+}
+
+// ── Live spectrum analyzer — own canvas, own scale ───────────────────────────
+// Split out from the EQ curve graph above: that graph's axis is EQ gain
+// (GMIN..GMAX dB, centered on 0), while the analyzer is a real signal-level
+// meter (ANALYSER_MIN_DB..ANALYSER_MAX_DB, floor-anchored). Cramming both
+// into one set of axes — as before, via an ad-hoc 0.68 height factor — made
+// it look like a single trace on the EQ's own scale. Giving the analyzer its
+// own canvas and its own labeled dB grid keeps each graph readable on the
+// terms it actually measures.
+function drawAnalyzerCanvas(
+  canvas: HTMLCanvasElement,
+  analyserData: Uint8Array | null,
+  dryAnalyserData: Uint8Array | null,
+  sampleRate: number,
+): void {
+  const hd = hiDpi(canvas); if (!hd) return;
+  const { ctx, W, H } = hd;
+
+  ctx.fillStyle = '#0A0A0C';
+  ctx.fillRect(0, 0, W, H);
+
+  // Vertical frequency grid — same log-frequency axis as the curve graph
+  // above, so the two line up when read together.
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  const freqLines: [number, string][] = [
+    [30, '30'], [50, '50'], [100, '100'], [200, '200'], [500, '500'],
+    [1000, '1k'], [2000, '2k'], [5000, '5k'], [10000, '10k'], [20000, '20k'],
+  ];
+  for (const [f] of freqLines) {
+    const x = fToFrac(f) * W;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+
+  // Horizontal dB grid, on the analyzer's own level scale (not EQ gain).
+  const levelToY = (db: number) =>
+    H - clamp((db - ANALYSER_MIN_DB) / (ANALYSER_MAX_DB - ANALYSER_MIN_DB), 0, 1) * H;
+  const dbStep = (ANALYSER_MAX_DB - ANALYSER_MIN_DB) / 4;
+  ctx.font = '9px "JetBrains Mono", monospace';
+  for (let i = 0; i <= 4; i++) {
+    const db = ANALYSER_MIN_DB + i * dbStep;
+    const y = levelToY(db);
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText(`${Math.round(db)}`, 4, y - 2 < 8 ? y + 10 : y - 2);
+  }
+  for (const [f, l] of freqLines) ctx.fillText(l, fToFrac(f) * W - 6, H - 3);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  ctx.fillText('SPECTRUM ANALYZER (dBFS)', 4, 11);
+
+  const toPts = (data: Uint8Array): { x: number; y: number }[] => {
+    const pts: { x: number; y: number }[] = [];
+    const nyquist = sampleRate / 2;
+    const binCount = data.length;
+    for (let i = 1; i < binCount; i++) {
+      const f = (i / binCount) * nyquist;
+      if (f < FMIN || f > FMAX) continue;
+      const db = ANALYSER_MIN_DB + (data[i] / 255) * (ANALYSER_MAX_DB - ANALYSER_MIN_DB);
+      pts.push({ x: fToFrac(f) * W, y: levelToY(db) });
+    }
+    return pts;
+  };
+
+  // Original (pre-EQ / dry) spectrum — tapped straight off the source, before
+  // the Faust node, so it never reflects any band's freq/gain/bypass state.
+  // Drawn as a plain dashed outline (no fill), purely as a reference shape
+  // showing how the curve above is reshaping the incoming signal in real time.
+  if (dryAnalyserData) {
+    const dryPts = toPts(dryAnalyserData);
+    if (dryPts.length > 1) {
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      ctx.strokeStyle = '#E5E7EB';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      ctx.moveTo(dryPts[0].x, dryPts[0].y);
+      for (const p of dryPts.slice(1)) ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      ctx.restore();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // Live analyzer (post-EQ spectrum). getByteFrequencyData() returns bytes
+  // already mapped *linearly* between the AnalyserNode's own
+  // minDecibels/maxDecibels (see ANALYSER_MIN_DB/ANALYSER_MAX_DB, set to
+  // match on the node itself) — applying another log10() on top of that (as
+  // old code once did) double-transforms the value and warps the shape.
+  // Converted correctly here, filling the full height of its own canvas.
+  if (analyserData) {
+    const levelPts = toPts(analyserData);
+    if (levelPts.length > 1) {
+      ctx.save();
+      ctx.globalAlpha = 0.16;
+      ctx.fillStyle = '#FF4D6A';
+      ctx.beginPath();
+      ctx.moveTo(levelPts[0].x, H); ctx.lineTo(levelPts[0].x, levelPts[0].y);
+      for (const p of levelPts.slice(1)) ctx.lineTo(p.x, p.y);
+      ctx.lineTo(levelPts[levelPts.length - 1].x, H);
+      ctx.closePath(); ctx.fill(); ctx.restore();
+
+      ctx.save();
+      ctx.globalAlpha = 0.45;
+      ctx.strokeStyle = '#FF4D6A';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(levelPts[0].x, levelPts[0].y);
+      for (const p of levelPts.slice(1)) ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 }
 
@@ -1073,13 +1119,24 @@ function ParamEQCurve({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const analyzerCanvasRef = useRef<HTMLCanvasElement>(null);
   const dataRef = useRef<Uint8Array | null>(null);
   const dryDataRef = useRef<Uint8Array | null>(null);
   const rafRef = useRef<number | null>(null);
 
+  // EQ curve redraws whenever bands/target/output-gain change — cheap and
+  // doesn't need the animation loop below.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    drawParamEQCanvas(canvas, bands, targetBands, !!showTarget, outputGainDb ?? 0);
+  }, [bands, targetBands, showTarget, outputGainDb]);
+
+  // Analyzer redraws every frame while live audio is flowing — decoupled
+  // from the curve canvas so neither redraw forces the other.
+  useEffect(() => {
+    const analyzerCanvas = analyzerCanvasRef.current;
+    if (!analyzerCanvas) return;
 
     if (analyserActive && analyserRef?.current) {
       const analyser = analyserRef.current;
@@ -1101,35 +1158,40 @@ function ParamEQCurve({
           dryBuf = dryDataRef.current;
         }
 
-        drawParamEQCanvas(canvas, bands, targetBands, !!showTarget, buf, dryBuf, sampleRate, outputGainDb ?? 0);
+        drawAnalyzerCanvas(analyzerCanvas, buf, dryBuf, sampleRate);
         rafRef.current = requestAnimationFrame(tick);
       };
       rafRef.current = requestAnimationFrame(tick);
       return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
     }
 
-    drawParamEQCanvas(canvas, bands, targetBands, !!showTarget, null, null, sampleRate, outputGainDb ?? 0);
+    drawAnalyzerCanvas(analyzerCanvas, null, null, sampleRate);
     return undefined;
-  }, [bands, targetBands, showTarget, analyserActive, analyserRef, dryAnalyserRef, sampleRate, outputGainDb]);
+  }, [analyserActive, analyserRef, dryAnalyserRef, sampleRate]);
 
   return (
-    <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'stretch' }}>
-      <div ref={containerRef} className="spectrum-display" style={{ height: 220, flex: 1 }}>
-        <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
-        {BAND_DEFS.map(def => (
-          <EQNode
-            key={def.id}
-            def={def}
-            bands={bands}
-            containerRef={containerRef}
-            onChange={onChange}
-            editable={!!onChange}
-          />
-        ))}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'stretch' }}>
+        <div ref={containerRef} className="spectrum-display" style={{ height: 220, flex: 1, marginBottom: 0 }}>
+          <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
+          {BAND_DEFS.map(def => (
+            <EQNode
+              key={def.id}
+              def={def}
+              bands={bands}
+              containerRef={containerRef}
+              onChange={onChange}
+              editable={!!onChange}
+            />
+          ))}
+        </div>
+        {onOutputGainChange && (
+          <OutputGainSlider value={outputGainDb ?? 0} onChange={onOutputGainChange} />
+        )}
       </div>
-      {onOutputGainChange && (
-        <OutputGainSlider value={outputGainDb ?? 0} onChange={onOutputGainChange} />
-      )}
+      <div className="spectrum-display" style={{ height: 96 }}>
+        <canvas ref={analyzerCanvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
+      </div>
     </div>
   );
 }
