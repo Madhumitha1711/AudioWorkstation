@@ -1176,7 +1176,13 @@ function ParamEQCurve({
             onChange={onChange}
             editable={!!onChange}
             selected={selectedBandId === def.id}
-            onSelect={onSelectBand ? () => onSelectBand(def.id) : undefined}
+            onSelect={onSelectBand ? () => {
+              onSelectBand(def.id);
+              // Selecting a band's node is a declaration of intent to shape
+              // it — turn it on rather than leaving it selected-but-OFF and
+              // silently doing nothing until a separate ON click.
+              if (onChange && getBypass(bands, def)) onChange(withBypass(bands, def, false));
+            } : undefined}
           />
         ))}
       </div>
@@ -1482,7 +1488,10 @@ function BandEditPanel({
       border: '1px solid var(--border)', borderRadius: '8px',
       background: 'rgba(255,255,255,0.02)', padding: '1rem 1.4rem', marginTop: '0.75rem',
     }}>
-      {/* Band selector — also click a node on the graph above to jump here */}
+      {/* Band selector — also click a node on the graph above to jump here.
+          Selecting a band turns it ON (if it wasn't already) — picking a
+          tab is a declaration you want to work on that band, not just look
+          at it, so it shouldn't need a separate ON click afterward. */}
       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
         {BAND_DEFS.map(d => {
           const active = d.id === selectedId;
@@ -1490,7 +1499,10 @@ function BandEditPanel({
           return (
             <button
               key={d.id}
-              onClick={() => onSelect(d.id)}
+              onClick={() => {
+                onSelect(d.id);
+                if (!bandOn) onChange(withBypass(bands, d, false));
+              }}
               title={d.label}
               style={{
                 padding: '0.32rem 0.7rem', borderRadius: '4px', cursor: 'pointer',
