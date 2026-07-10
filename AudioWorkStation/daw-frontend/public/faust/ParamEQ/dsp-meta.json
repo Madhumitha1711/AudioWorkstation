@@ -18,8 +18,7 @@
         "/usr/share/faust",
         "."
     ],
-    "size": 1604,
-    "code": "0JnYBJQ9Hw==",
+    "size": 1580,
     "inputs": 2,
     "outputs": 2,
     "meta": [
@@ -182,7 +181,7 @@
                     "varname": "fCheckbox9",
                     "shortname": "HPF_Bypass",
                     "address": "/ParamEQ/HPF_Bypass",
-                    "index": 88,
+                    "index": 80,
                     "meta": [
                         {
                             "0": ""
@@ -221,7 +220,7 @@
                     "varname": "fCheckbox7",
                     "shortname": "Low_Shelf_Bypass",
                     "address": "/ParamEQ/Low_Shelf_Bypass",
-                    "index": 64,
+                    "index": 60,
                     "meta": [
                         {
                             "0": ""
@@ -234,7 +233,7 @@
                     "varname": "fCheckbox6",
                     "shortname": "Peak1_Bypass",
                     "address": "/ParamEQ/Peak1_Bypass",
-                    "index": 60,
+                    "index": 56,
                     "meta": [
                         {
                             "0": ""
@@ -247,7 +246,7 @@
                     "varname": "fCheckbox5",
                     "shortname": "Peak2_Bypass",
                     "address": "/ParamEQ/Peak2_Bypass",
-                    "index": 56,
+                    "index": 52,
                     "meta": [
                         {
                             "0": ""
@@ -260,7 +259,7 @@
                     "varname": "fCheckbox4",
                     "shortname": "Peak3_Bypass",
                     "address": "/ParamEQ/Peak3_Bypass",
-                    "index": 52,
+                    "index": 48,
                     "meta": [
                         {
                             "0": ""
@@ -273,7 +272,7 @@
                     "varname": "fCheckbox3",
                     "shortname": "Peak4_Bypass",
                     "address": "/ParamEQ/Peak4_Bypass",
-                    "index": 48,
+                    "index": 44,
                     "meta": [
                         {
                             "0": ""
@@ -286,7 +285,7 @@
                     "varname": "fHslider2",
                     "shortname": "HPF_Freq",
                     "address": "/ParamEQ/HPF_Freq",
-                    "index": 100,
+                    "index": 92,
                     "meta": [
                         {
                             "1": ""
@@ -306,7 +305,7 @@
                     "varname": "fHslider37",
                     "shortname": "High_Shelf_Freq",
                     "address": "/ParamEQ/High_Shelf_Freq",
-                    "index": 880,
+                    "index": 856,
                     "meta": [
                         {
                             "1": ""
@@ -326,7 +325,7 @@
                     "varname": "fHslider43",
                     "shortname": "LPF_Freq",
                     "address": "/ParamEQ/LPF_Freq",
-                    "index": 992,
+                    "index": 968,
                     "meta": [
                         {
                             "1": ""
@@ -346,7 +345,7 @@
                     "varname": "fHslider3",
                     "shortname": "Low_Shelf_Freq",
                     "address": "/ParamEQ/Low_Shelf_Freq",
-                    "index": 232,
+                    "index": 224,
                     "meta": [
                         {
                             "1": ""
@@ -366,7 +365,7 @@
                     "varname": "fHslider9",
                     "shortname": "Peak1_Freq",
                     "address": "/ParamEQ/Peak1_Freq",
-                    "index": 352,
+                    "index": 344,
                     "meta": [
                         {
                             "1": ""
@@ -386,7 +385,7 @@
                     "varname": "fHslider16",
                     "shortname": "Peak2_Freq",
                     "address": "/ParamEQ/Peak2_Freq",
-                    "index": 484,
+                    "index": 472,
                     "meta": [
                         {
                             "1": ""
@@ -406,7 +405,7 @@
                     "varname": "fHslider23",
                     "shortname": "Peak3_Freq",
                     "address": "/ParamEQ/Peak3_Freq",
-                    "index": 616,
+                    "index": 600,
                     "meta": [
                         {
                             "1": ""
@@ -426,7 +425,7 @@
                     "varname": "fHslider30",
                     "shortname": "Peak4_Freq",
                     "address": "/ParamEQ/Peak4_Freq",
-                    "index": 748,
+                    "index": 728,
                     "meta": [
                         {
                             "1": ""
@@ -443,10 +442,10 @@
                 {
                     "type": "nentry",
                     "label": "HPF/Order",
-                    "varname": "fEntry3",
+                    "varname": "fEntry1",
                     "shortname": "HPF_Order",
                     "address": "/ParamEQ/HPF_Order",
-                    "index": 92,
+                    "index": 84,
                     "meta": [
                         {
                             "2": ""
@@ -500,7 +499,7 @@
                     "varname": "fHslider1",
                     "shortname": "Low_Shelf_Gain",
                     "address": "/ParamEQ/Low_Shelf_Gain",
-                    "index": 68,
+                    "index": 64,
                     "meta": [
                         {
                             "2": ""
@@ -520,7 +519,7 @@
                     "varname": "fHslider10",
                     "shortname": "Peak1_Gain",
                     "address": "/ParamEQ/Peak1_Gain",
-                    "index": 364,
+                    "index": 356,
                     "meta": [
                         {
                             "2": ""
@@ -540,7 +539,7 @@
                     "varname": "fHslider17",
                     "shortname": "Peak2_Gain",
                     "address": "/ParamEQ/Peak2_Gain",
-                    "index": 496,
+                    "index": 484,
                     "meta": [
                         {
                             "2": ""
@@ -560,7 +559,7 @@
                     "varname": "fHslider24",
                     "shortname": "Peak3_Gain",
                     "address": "/ParamEQ/Peak3_Gain",
-                    "index": 628,
+                    "index": 612,
                     "meta": [
                         {
                             "2": ""
@@ -580,7 +579,7 @@
                     "varname": "fHslider31",
                     "shortname": "Peak4_Gain",
                     "address": "/ParamEQ/Peak4_Gain",
-                    "index": 760,
+                    "index": 740,
                     "meta": [
                         {
                             "2": ""
@@ -600,7 +599,7 @@
                     "varname": "fHslider38",
                     "shortname": "High_Shelf_Q",
                     "address": "/ParamEQ/High_Shelf_Q",
-                    "index": 892,
+                    "index": 868,
                     "meta": [
                         {
                             "3": ""
@@ -617,7 +616,7 @@
                     "varname": "fHslider4",
                     "shortname": "Low_Shelf_Q",
                     "address": "/ParamEQ/Low_Shelf_Q",
-                    "index": 244,
+                    "index": 236,
                     "meta": [
                         {
                             "3": ""
@@ -634,7 +633,7 @@
                     "varname": "fHslider11",
                     "shortname": "Peak1_Q",
                     "address": "/ParamEQ/Peak1_Q",
-                    "index": 384,
+                    "index": 372,
                     "meta": [
                         {
                             "3": ""
@@ -651,7 +650,7 @@
                     "varname": "fHslider18",
                     "shortname": "Peak2_Q",
                     "address": "/ParamEQ/Peak2_Q",
-                    "index": 516,
+                    "index": 500,
                     "meta": [
                         {
                             "3": ""
@@ -668,7 +667,7 @@
                     "varname": "fHslider25",
                     "shortname": "Peak3_Q",
                     "address": "/ParamEQ/Peak3_Q",
-                    "index": 648,
+                    "index": 628,
                     "meta": [
                         {
                             "3": ""
@@ -685,7 +684,7 @@
                     "varname": "fHslider32",
                     "shortname": "Peak4_Q",
                     "address": "/ParamEQ/Peak4_Q",
-                    "index": 780,
+                    "index": 756,
                     "meta": [
                         {
                             "3": ""
@@ -715,7 +714,7 @@
                     "varname": "fCheckbox8",
                     "shortname": "Low_Shelf_Dynamic_On",
                     "address": "/ParamEQ/Low_Shelf_Dynamic_On",
-                    "index": 80,
+                    "index": 76,
                     "meta": [
                         {
                             "4": ""
@@ -728,7 +727,7 @@
                     "varname": "fCheckbox10",
                     "shortname": "Peak1_Dynamic_On",
                     "address": "/ParamEQ/Peak1_Dynamic_On",
-                    "index": 376,
+                    "index": 368,
                     "meta": [
                         {
                             "4": ""
@@ -741,7 +740,7 @@
                     "varname": "fCheckbox11",
                     "shortname": "Peak2_Dynamic_On",
                     "address": "/ParamEQ/Peak2_Dynamic_On",
-                    "index": 508,
+                    "index": 496,
                     "meta": [
                         {
                             "4": ""
@@ -754,7 +753,7 @@
                     "varname": "fCheckbox12",
                     "shortname": "Peak3_Dynamic_On",
                     "address": "/ParamEQ/Peak3_Dynamic_On",
-                    "index": 640,
+                    "index": 624,
                     "meta": [
                         {
                             "4": ""
@@ -767,7 +766,7 @@
                     "varname": "fCheckbox13",
                     "shortname": "Peak4_Dynamic_On",
                     "address": "/ParamEQ/Peak4_Dynamic_On",
-                    "index": 772,
+                    "index": 752,
                     "meta": [
                         {
                             "4": ""
@@ -780,7 +779,7 @@
                     "varname": "fHslider41",
                     "shortname": "High_Shelf_Threshold",
                     "address": "/ParamEQ/High_Shelf_Threshold",
-                    "index": 948,
+                    "index": 924,
                     "meta": [
                         {
                             "5": ""
@@ -800,7 +799,7 @@
                     "varname": "fHslider7",
                     "shortname": "Low_Shelf_Threshold",
                     "address": "/ParamEQ/Low_Shelf_Threshold",
-                    "index": 304,
+                    "index": 296,
                     "meta": [
                         {
                             "5": ""
@@ -820,7 +819,7 @@
                     "varname": "fHslider14",
                     "shortname": "Peak1_Threshold",
                     "address": "/ParamEQ/Peak1_Threshold",
-                    "index": 440,
+                    "index": 428,
                     "meta": [
                         {
                             "5": ""
@@ -840,7 +839,7 @@
                     "varname": "fHslider21",
                     "shortname": "Peak2_Threshold",
                     "address": "/ParamEQ/Peak2_Threshold",
-                    "index": 572,
+                    "index": 556,
                     "meta": [
                         {
                             "5": ""
@@ -860,7 +859,7 @@
                     "varname": "fHslider28",
                     "shortname": "Peak3_Threshold",
                     "address": "/ParamEQ/Peak3_Threshold",
-                    "index": 704,
+                    "index": 684,
                     "meta": [
                         {
                             "5": ""
@@ -880,7 +879,7 @@
                     "varname": "fHslider35",
                     "shortname": "Peak4_Threshold",
                     "address": "/ParamEQ/Peak4_Threshold",
-                    "index": 836,
+                    "index": 812,
                     "meta": [
                         {
                             "5": ""
@@ -900,7 +899,7 @@
                     "varname": "fHslider42",
                     "shortname": "High_Shelf_Range",
                     "address": "/ParamEQ/High_Shelf_Range",
-                    "index": 960,
+                    "index": 936,
                     "meta": [
                         {
                             "6": ""
@@ -909,8 +908,8 @@
                             "dB": ""
                         }
                     ],
-                    "init": 6,
-                    "min": 0,
+                    "init": -6,
+                    "min": -24,
                     "max": 24,
                     "step": 0.1
                 },
@@ -920,7 +919,7 @@
                     "varname": "fHslider8",
                     "shortname": "Low_Shelf_Range",
                     "address": "/ParamEQ/Low_Shelf_Range",
-                    "index": 316,
+                    "index": 308,
                     "meta": [
                         {
                             "6": ""
@@ -929,8 +928,8 @@
                             "dB": ""
                         }
                     ],
-                    "init": 6,
-                    "min": 0,
+                    "init": -6,
+                    "min": -24,
                     "max": 24,
                     "step": 0.1
                 },
@@ -940,7 +939,7 @@
                     "varname": "fHslider15",
                     "shortname": "Peak1_Range",
                     "address": "/ParamEQ/Peak1_Range",
-                    "index": 452,
+                    "index": 440,
                     "meta": [
                         {
                             "6": ""
@@ -949,8 +948,8 @@
                             "dB": ""
                         }
                     ],
-                    "init": 6,
-                    "min": 0,
+                    "init": -6,
+                    "min": -24,
                     "max": 24,
                     "step": 0.1
                 },
@@ -960,7 +959,7 @@
                     "varname": "fHslider22",
                     "shortname": "Peak2_Range",
                     "address": "/ParamEQ/Peak2_Range",
-                    "index": 584,
+                    "index": 568,
                     "meta": [
                         {
                             "6": ""
@@ -969,8 +968,8 @@
                             "dB": ""
                         }
                     ],
-                    "init": 6,
-                    "min": 0,
+                    "init": -6,
+                    "min": -24,
                     "max": 24,
                     "step": 0.1
                 },
@@ -980,7 +979,7 @@
                     "varname": "fHslider29",
                     "shortname": "Peak3_Range",
                     "address": "/ParamEQ/Peak3_Range",
-                    "index": 716,
+                    "index": 696,
                     "meta": [
                         {
                             "6": ""
@@ -989,8 +988,8 @@
                             "dB": ""
                         }
                     ],
-                    "init": 6,
-                    "min": 0,
+                    "init": -6,
+                    "min": -24,
                     "max": 24,
                     "step": 0.1
                 },
@@ -1000,7 +999,7 @@
                     "varname": "fHslider36",
                     "shortname": "Peak4_Range",
                     "address": "/ParamEQ/Peak4_Range",
-                    "index": 848,
+                    "index": 824,
                     "meta": [
                         {
                             "6": ""
@@ -1009,8 +1008,8 @@
                             "dB": ""
                         }
                     ],
-                    "init": 6,
-                    "min": 0,
+                    "init": -6,
+                    "min": -24,
                     "max": 24,
                     "step": 0.1
                 },
@@ -1020,7 +1019,7 @@
                     "varname": "fHslider40",
                     "shortname": "High_Shelf_Attack",
                     "address": "/ParamEQ/High_Shelf_Attack",
-                    "index": 928,
+                    "index": 904,
                     "meta": [
                         {
                             "7": ""
@@ -1040,7 +1039,7 @@
                     "varname": "fHslider6",
                     "shortname": "Low_Shelf_Attack",
                     "address": "/ParamEQ/Low_Shelf_Attack",
-                    "index": 284,
+                    "index": 276,
                     "meta": [
                         {
                             "7": ""
@@ -1060,7 +1059,7 @@
                     "varname": "fHslider13",
                     "shortname": "Peak1_Attack",
                     "address": "/ParamEQ/Peak1_Attack",
-                    "index": 420,
+                    "index": 408,
                     "meta": [
                         {
                             "7": ""
@@ -1080,7 +1079,7 @@
                     "varname": "fHslider20",
                     "shortname": "Peak2_Attack",
                     "address": "/ParamEQ/Peak2_Attack",
-                    "index": 552,
+                    "index": 536,
                     "meta": [
                         {
                             "7": ""
@@ -1100,7 +1099,7 @@
                     "varname": "fHslider27",
                     "shortname": "Peak3_Attack",
                     "address": "/ParamEQ/Peak3_Attack",
-                    "index": 684,
+                    "index": 664,
                     "meta": [
                         {
                             "7": ""
@@ -1120,7 +1119,7 @@
                     "varname": "fHslider34",
                     "shortname": "Peak4_Attack",
                     "address": "/ParamEQ/Peak4_Attack",
-                    "index": 816,
+                    "index": 792,
                     "meta": [
                         {
                             "7": ""
@@ -1140,7 +1139,7 @@
                     "varname": "fHslider39",
                     "shortname": "High_Shelf_Release",
                     "address": "/ParamEQ/High_Shelf_Release",
-                    "index": 916,
+                    "index": 892,
                     "meta": [
                         {
                             "8": ""
@@ -1160,7 +1159,7 @@
                     "varname": "fHslider5",
                     "shortname": "Low_Shelf_Release",
                     "address": "/ParamEQ/Low_Shelf_Release",
-                    "index": 268,
+                    "index": 260,
                     "meta": [
                         {
                             "8": ""
@@ -1180,7 +1179,7 @@
                     "varname": "fHslider12",
                     "shortname": "Peak1_Release",
                     "address": "/ParamEQ/Peak1_Release",
-                    "index": 408,
+                    "index": 396,
                     "meta": [
                         {
                             "8": ""
@@ -1200,7 +1199,7 @@
                     "varname": "fHslider19",
                     "shortname": "Peak2_Release",
                     "address": "/ParamEQ/Peak2_Release",
-                    "index": 540,
+                    "index": 524,
                     "meta": [
                         {
                             "8": ""
@@ -1220,7 +1219,7 @@
                     "varname": "fHslider26",
                     "shortname": "Peak3_Release",
                     "address": "/ParamEQ/Peak3_Release",
-                    "index": 672,
+                    "index": 652,
                     "meta": [
                         {
                             "8": ""
@@ -1240,7 +1239,7 @@
                     "varname": "fHslider33",
                     "shortname": "Peak4_Release",
                     "address": "/ParamEQ/Peak4_Release",
-                    "index": 804,
+                    "index": 780,
                     "meta": [
                         {
                             "8": ""
@@ -1253,108 +1252,6 @@
                     "min": 0.01,
                     "max": 2,
                     "step": 0.01
-                },
-                {
-                    "type": "nentry",
-                    "label": "High Shelf/Mode{-Downward-:0;-Upward-:1}",
-                    "varname": "fEntry1",
-                    "shortname": "High_Shelf_Mode_Downward_0_Upward_1",
-                    "address": "/ParamEQ/High_Shelf_Mode_-Downward-:0;-Upward-:1_",
-                    "index": 44,
-                    "meta": [
-                        {
-                            "9": ""
-                        }
-                    ],
-                    "init": 0,
-                    "min": 0,
-                    "max": 1,
-                    "step": 1
-                },
-                {
-                    "type": "nentry",
-                    "label": "Low Shelf/Mode{-Downward-:0;-Upward-:1}",
-                    "varname": "fEntry2",
-                    "shortname": "Low_Shelf_Mode_Downward_0_Upward_1",
-                    "address": "/ParamEQ/Low_Shelf_Mode_-Downward-:0;-Upward-:1_",
-                    "index": 84,
-                    "meta": [
-                        {
-                            "9": ""
-                        }
-                    ],
-                    "init": 0,
-                    "min": 0,
-                    "max": 1,
-                    "step": 1
-                },
-                {
-                    "type": "nentry",
-                    "label": "Peak1/Mode{-Downward-:0;-Upward-:1}",
-                    "varname": "fEntry4",
-                    "shortname": "Peak1_Mode_Downward_0_Upward_1",
-                    "address": "/ParamEQ/Peak1_Mode_-Downward-:0;-Upward-:1_",
-                    "index": 380,
-                    "meta": [
-                        {
-                            "9": ""
-                        }
-                    ],
-                    "init": 0,
-                    "min": 0,
-                    "max": 1,
-                    "step": 1
-                },
-                {
-                    "type": "nentry",
-                    "label": "Peak2/Mode{-Downward-:0;-Upward-:1}",
-                    "varname": "fEntry5",
-                    "shortname": "Peak2_Mode_Downward_0_Upward_1",
-                    "address": "/ParamEQ/Peak2_Mode_-Downward-:0;-Upward-:1_",
-                    "index": 512,
-                    "meta": [
-                        {
-                            "9": ""
-                        }
-                    ],
-                    "init": 0,
-                    "min": 0,
-                    "max": 1,
-                    "step": 1
-                },
-                {
-                    "type": "nentry",
-                    "label": "Peak3/Mode{-Downward-:0;-Upward-:1}",
-                    "varname": "fEntry6",
-                    "shortname": "Peak3_Mode_Downward_0_Upward_1",
-                    "address": "/ParamEQ/Peak3_Mode_-Downward-:0;-Upward-:1_",
-                    "index": 644,
-                    "meta": [
-                        {
-                            "9": ""
-                        }
-                    ],
-                    "init": 0,
-                    "min": 0,
-                    "max": 1,
-                    "step": 1
-                },
-                {
-                    "type": "nentry",
-                    "label": "Peak4/Mode{-Downward-:0;-Upward-:1}",
-                    "varname": "fEntry7",
-                    "shortname": "Peak4_Mode_Downward_0_Upward_1",
-                    "address": "/ParamEQ/Peak4_Mode_-Downward-:0;-Upward-:1_",
-                    "index": 776,
-                    "meta": [
-                        {
-                            "9": ""
-                        }
-                    ],
-                    "init": 0,
-                    "min": 0,
-                    "max": 1,
-                    "step": 1
                 }
             ]
         }

@@ -498,7 +498,7 @@ body {
 
 .eq-body {
   display: grid;
-  grid-template-columns: 1fr 220px;
+  grid-template-columns: 1fr 190px;
 }
 
 .eq-main {

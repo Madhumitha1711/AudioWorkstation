@@ -25,22 +25,22 @@ import { downloadAudioBufferAsWav } from '../audio/wavRender';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface LimiterParams {
-  threshold:   number;  // dB  -30 → 0   (level above which limiting engages)
-  ceiling:     number;  // dB  -30 → 0   (Out Ceiling — the hard output maximum)
-  release:     number;  //      0 → 2    (release character; ignored while Auto Release is on)
-  linkLR:      boolean; // link stereo gain reduction so the image doesn't shift
+  threshold: number;  // dB  -30 → 0   (level above which limiting engages)
+  ceiling: number;  // dB  -30 → 0   (Out Ceiling — the hard output maximum)
+  release: number;  //      0 → 2    (release character; ignored while Auto Release is on)
+  linkLR: boolean; // link stereo gain reduction so the image doesn't shift
   autoRelease: boolean; // let the patch pick its own program-dependent release
 }
 
 interface UploadedTrack { id: number; name: string; buffer: AudioBuffer; }
 
 interface KnobSpec {
-  key:  keyof Pick<LimiterParams, 'threshold' | 'ceiling' | 'release'>;
+  key: keyof Pick<LimiterParams, 'threshold' | 'ceiling' | 'release'>;
   label: string;
-  min:   number;
-  max:   number;
-  step:  number;
-  fmt:   (v: number) => string;
+  min: number;
+  max: number;
+  step: number;
+  fmt: (v: number) => string;
 }
 
 // Ranges mirror the live bounds in public/faust/limiter/dsp-meta.json (the
@@ -49,19 +49,19 @@ interface KnobSpec {
 // turning). Release has no "unit" meta on the patch — it's a 0–2 character
 // knob (lower = tighter/faster recovery, higher = looser/slower), not ms.
 const KNOBS: KnobSpec[] = [
-  { key: 'threshold', label: 'THRESHOLD', min: -30, max: 0, step: 0.1,  fmt: v => `${v.toFixed(1)} dB` },
-  { key: 'ceiling',   label: 'CEILING',   min: -30, max: 0, step: 0.1,  fmt: v => `${v.toFixed(1)} dB` },
-  { key: 'release',   label: 'RELEASE',   min: 0,   max: 2, step: 0.01, fmt: v => v.toFixed(2) },
+  { key: 'threshold', label: 'THRESHOLD', min: -30, max: 0, step: 0.1, fmt: v => `${v.toFixed(1)} dB` },
+  { key: 'ceiling', label: 'CEILING', min: -30, max: 0, step: 0.1, fmt: v => `${v.toFixed(1)} dB` },
+  { key: 'release', label: 'RELEASE', min: 0, max: 2, step: 0.01, fmt: v => v.toFixed(2) },
 ];
 
 // Defaults — mirror the `init` values in public/faust/limiter/dsp-meta.json
 // (checkboxes have no init in the patch, so they start off — same "explore
 // away from the default" pattern the task checklist below uses).
 const DEFAULTS: LimiterParams = {
-  threshold:   -6.6,
-  ceiling:     -0.3,
-  release:      1,
-  linkLR:      false,
+  threshold: -6.6,
+  ceiling: -0.3,
+  release: 1,
+  linkLR: false,
   autoRelease: false,
 };
 
@@ -74,11 +74,11 @@ const FAUST_BASE_PATH = '/faust/limiter';
 
 // Faust addresses, from public/faust/limiter/dsp-meta.json's `ui` tree.
 const ADDR = {
-  threshold:     '/BRICKWALL_LIMITER/Threshold',
-  ceiling:       '/BRICKWALL_LIMITER/Out_Ceiling',
-  release:       '/BRICKWALL_LIMITER/Release',
-  linkLR:        '/BRICKWALL_LIMITER/Link_L_R',
-  autoRelease:   '/BRICKWALL_LIMITER/Auto_Release',
+  threshold: '/BRICKWALL_LIMITER/Threshold',
+  ceiling: '/BRICKWALL_LIMITER/Out_Ceiling',
+  release: '/BRICKWALL_LIMITER/Release',
+  linkLR: '/BRICKWALL_LIMITER/Link_L_R',
+  autoRelease: '/BRICKWALL_LIMITER/Auto_Release',
   gainReduction: '/BRICKWALL_LIMITER/Gain_Reduction', // read-only hbargraph output
 } as const;
 
@@ -88,10 +88,10 @@ type FaustEngineStatus = 'idle' | 'loading' | 'ready' | 'error';
 // bypass and wet/dry mixing are done at the WebAudio graph level instead — a
 // dry/wet crossfade around the Faust node — same pattern Chapter10's gate uses.
 function pushFaustParams(node: FaustNodeLike, params: LimiterParams) {
-  node.setParamValue(ADDR.threshold,   params.threshold);
-  node.setParamValue(ADDR.ceiling,     params.ceiling);
-  node.setParamValue(ADDR.release,     params.release);
-  node.setParamValue(ADDR.linkLR,      params.linkLR      ? 1 : 0);
+  node.setParamValue(ADDR.threshold, params.threshold);
+  node.setParamValue(ADDR.ceiling, params.ceiling);
+  node.setParamValue(ADDR.release, params.release);
+  node.setParamValue(ADDR.linkLR, params.linkLR ? 1 : 0);
   node.setParamValue(ADDR.autoRelease, params.autoRelease ? 1 : 0);
 }
 
@@ -152,10 +152,10 @@ function applyLimiter(inputDb: number, p: ShapeParams): number {
 // ── HiDPI canvas helper ───────────────────────────────────────────────────────
 function hiDpi(canvas: HTMLCanvasElement) {
   const dpr = window.devicePixelRatio || 1;
-  const W   = canvas.clientWidth  || canvas.width;
-  const H   = canvas.clientHeight || canvas.height;
+  const W = canvas.clientWidth || canvas.width;
+  const H = canvas.clientHeight || canvas.height;
   if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) {
-    canvas.width  = Math.round(W * dpr);
+    canvas.width = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
   }
   const ctx = canvas.getContext('2d');
@@ -251,8 +251,8 @@ function drawTransfer(canvas: HTMLCanvasElement, params: LimiterParams) {
 // trace pokes above it, then Release governs how quickly the gap between
 // them (the amber shading) closes back down once the peak has passed.
 const SCOPE_WINDOW_S = 4;
-const SCOPE_MIN_DB   = -66;
-const SCOPE_MAX_DB   = 12;
+const SCOPE_MIN_DB = -66;
+const SCOPE_MAX_DB = 12;
 
 interface ScopePoint { t: number; inputDb: number; outputDb: number; }
 
@@ -306,7 +306,7 @@ function drawLimiterScope(
   const visible = history.filter(p => p.t >= nowT - SCOPE_WINDOW_S - 0.25);
   if (visible.length < 2) return;
 
-  const inPts  = visible.map(p => ({ x: toX(p.t), y: toY(p.inputDb) }));
+  const inPts = visible.map(p => ({ x: toX(p.t), y: toY(p.inputDb) }));
   const outPts = visible.map(p => ({ x: toX(p.t), y: toY(p.outputDb) }));
 
   // Shaded gap between input and output — the actual gain reduction in
@@ -407,7 +407,7 @@ function describeArc(r: number, start: number, end: number) {
 // displays them now.
 const METER_FLOOR_DB = -60;
 
-const LEVEL_ATTACK_S  = 0.015;
+const LEVEL_ATTACK_S = 0.015;
 const LEVEL_RELEASE_S = 0.35;
 
 function levelBallistic(prev: number, target: number, dt: number): number {
@@ -437,19 +437,19 @@ function grReadoutSmooth(prev: number, target: number, dt: number): number {
 // scale) plus an occasional loud accent hit, so with the limiter bypassed
 // the input meter visibly pokes above 0 dBFS and you can hear the difference
 // once Play + a sane Ceiling are engaged.
-const BPM      = 128
+const BPM = 128
 const STEP_SEC = 60 / BPM / 2;
-const STEPS    = 16;
-const PAT_KICK  = [1,0,0,0, 0,0,1,0, 1,0,0,1, 0,0,0,0];
-const PAT_SNARE = [0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0];
-const PAT_HAT   = [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,0,1];
-const PAT_BASS  = [82,0,0,0, 98,0,0,0, 82,0,0,0, 62,0,0,0];
-const PAT_ACCENT = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,1]; // one loud hit per bar-loop — the "surprise peak" a limiter exists for
+const STEPS = 16;
+const PAT_KICK = [1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0];
+const PAT_SNARE = [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0];
+const PAT_HAT = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1];
+const PAT_BASS = [82, 0, 0, 0, 98, 0, 0, 0, 82, 0, 0, 0, 62, 0, 0, 0];
+const PAT_ACCENT = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]; // one loud hit per bar-loop — the "surprise peak" a limiter exists for
 
 function noiseBuffer(ctx: AudioContext, dur: number): AudioBuffer {
   const len = Math.ceil(ctx.sampleRate * dur);
   const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-  const d   = buf.getChannelData(0);
+  const d = buf.getChannelData(0);
   for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
   return buf;
 }
@@ -472,21 +472,21 @@ function synthSnare(ctx: AudioContext, dest: AudioNode, time: number) {
   body.connect(bg); bg.connect(dest); body.start(time); body.stop(time + 0.15);
 
   const noise = ctx.createBufferSource(); noise.buffer = noiseBuffer(ctx, 0.15);
-  const filt  = ctx.createBiquadFilter(); filt.type = 'bandpass'; filt.frequency.value = 2200; filt.Q.value = 0.6;
-  const ng    = ctx.createGain(); ng.gain.setValueAtTime(0.75, time); ng.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+  const filt = ctx.createBiquadFilter(); filt.type = 'bandpass'; filt.frequency.value = 2200; filt.Q.value = 0.6;
+  const ng = ctx.createGain(); ng.gain.setValueAtTime(0.75, time); ng.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
   noise.connect(filt); filt.connect(ng); ng.connect(dest); noise.start(time); noise.stop(time + 0.15);
 }
 
 function synthHihat(ctx: AudioContext, dest: AudioNode, time: number) {
   const noise = ctx.createBufferSource(); noise.buffer = noiseBuffer(ctx, 0.05);
-  const filt  = ctx.createBiquadFilter(); filt.type = 'highpass'; filt.frequency.value = 9000;
-  const g     = ctx.createGain();
+  const filt = ctx.createBiquadFilter(); filt.type = 'highpass'; filt.frequency.value = 9000;
+  const g = ctx.createGain();
   g.gain.setValueAtTime(0.25, time); g.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
   noise.connect(filt); filt.connect(g); g.connect(dest); noise.start(time); noise.stop(time + 0.05);
 }
 
 function synthBass(ctx: AudioContext, dest: AudioNode, time: number, freq: number) {
-  const osc  = ctx.createOscillator(); const filt = ctx.createBiquadFilter(); const g = ctx.createGain();
+  const osc = ctx.createOscillator(); const filt = ctx.createBiquadFilter(); const g = ctx.createGain();
   osc.type = 'sawtooth'; osc.frequency.value = freq;
   filt.type = 'lowpass';
   filt.frequency.setValueAtTime(1000, time); filt.frequency.exponentialRampToValueAtTime(200, time + 0.25);
@@ -504,16 +504,16 @@ function synthAccent(ctx: AudioContext, dest: AudioNode, time: number) {
   osc.connect(g); g.connect(dest); osc.start(time); osc.stop(time + 0.2);
 
   const noise = ctx.createBufferSource(); noise.buffer = noiseBuffer(ctx, 0.2);
-  const filt  = ctx.createBiquadFilter(); filt.type = 'highpass'; filt.frequency.value = 4000;
-  const ng    = ctx.createGain(); ng.gain.setValueAtTime(0.7, time); ng.gain.exponentialRampToValueAtTime(0.001, time + 0.18);
+  const filt = ctx.createBiquadFilter(); filt.type = 'highpass'; filt.frequency.value = 4000;
+  const ng = ctx.createGain(); ng.gain.setValueAtTime(0.7, time); ng.gain.exponentialRampToValueAtTime(0.001, time + 0.18);
   noise.connect(filt); filt.connect(ng); ng.connect(dest); noise.start(time); noise.stop(time + 0.2);
 }
 
 function scheduleStep(ctx: AudioContext, dest: AudioNode, step: number, time: number) {
-  if (PAT_KICK[step])   synthKick  (ctx, dest, time);
-  if (PAT_SNARE[step])  synthSnare (ctx, dest, time);
-  if (PAT_HAT[step])    synthHihat (ctx, dest, time);
-  if (PAT_BASS[step])   synthBass  (ctx, dest, time, PAT_BASS[step]);
+  if (PAT_KICK[step]) synthKick(ctx, dest, time);
+  if (PAT_SNARE[step]) synthSnare(ctx, dest, time);
+  if (PAT_HAT[step]) synthHihat(ctx, dest, time);
+  if (PAT_BASS[step]) synthBass(ctx, dest, time, PAT_BASS[step]);
   if (PAT_ACCENT[step]) synthAccent(ctx, dest, time);
 }
 
@@ -539,42 +539,42 @@ function normalizeUploadedBuffer(buf: AudioBuffer, peakTarget = 0.95) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function Chapter11() {
-  const [params,    setParams]    = useState<LimiterParams>(DEFAULTS);
+  const [params, setParams] = useState<LimiterParams>(DEFAULTS);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [bypass,    setBypass]    = useState(false);
-  const [gainReduction, setGR]    = useState(0);
-  const [tasks, setTasks]         = useState([false, false, false, false]);
+  const [bypass, setBypass] = useState(false);
+  const [gainReduction, setGR] = useState(0);
+  const [tasks, setTasks] = useState([false, false, false, false]);
 
   // Signal source — hot drum+bass loop, or an uploaded track.
   const [uploadedTracks, setUploadedTracks] = useState<UploadedTrack[]>([]);
   const [activeSourceId, setActiveSourceId] = useState<number | 'synth'>('synth');
-  const [decoding,       setDecoding]       = useState(false);
-  const [uploadError,    setUploadError]    = useState('');
-  const [downloading,    setDownloading]    = useState(false);
-  const [downloadError,  setDownloadError]  = useState('');
-  const fileInputRef   = useRef<HTMLInputElement>(null);
+  const [decoding, setDecoding] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadIdSeqRef = useRef(0);
-  const activeSourceIdRef  = useRef(activeSourceId);
-  const uploadedTracksRef  = useRef(uploadedTracks);
-  const bufSourceRef       = useRef<AudioBufferSourceNode | null>(null);
+  const activeSourceIdRef = useRef(activeSourceId);
+  const uploadedTracksRef = useRef(uploadedTracks);
+  const bufSourceRef = useRef<AudioBufferSourceNode | null>(null);
   useEffect(() => { activeSourceIdRef.current = activeSourceId; }, [activeSourceId]);
   useEffect(() => { uploadedTracksRef.current = uploadedTracks; }, [uploadedTracks]);
 
   const activeTrack = activeSourceId !== 'synth' ? uploadedTracks.find(t => t.id === activeSourceId) : undefined;
 
   // Canvas refs
-  const transferRef  = useRef<HTMLCanvasElement>(null);
-  const scopeRef     = useRef<HTMLCanvasElement>(null);
+  const transferRef = useRef<HTMLCanvasElement>(null);
+  const scopeRef = useRef<HTMLCanvasElement>(null);
   const scopeHistoryRef = useRef<ScopePoint[]>([]);
 
   // Faust limiter engine (module + meta loaded once on mount, one node
   // instantiated per AudioContext in startAudio — same pattern as Chapter4's
   // compressor / Chapter10's gate).
   const [engineStatus, setEngineStatus] = useState<FaustEngineStatus>('idle');
-  const [engineError,  setEngineError]  = useState<string | null>(null);
-  const dspMetaRef    = useRef<FaustDspMeta | null>(null);
-  const dspModuleRef  = useRef<WebAssembly.Module | null>(null);
-  const generatorRef  = useRef<FaustMonoDspGenerator | null>(null);
+  const [engineError, setEngineError] = useState<string | null>(null);
+  const dspMetaRef = useRef<FaustDspMeta | null>(null);
+  const dspModuleRef = useRef<WebAssembly.Module | null>(null);
+  const generatorRef = useRef<FaustMonoDspGenerator | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -600,30 +600,30 @@ export default function Chapter11() {
   }, []);
 
   // Audio refs
-  const ctxRef        = useRef<AudioContext | null>(null);
-  const faustNodeRef  = useRef<FaustNodeLike | null>(null);
-  const dryAnalRef    = useRef<AnalyserNode | null>(null);
-  const wetAnalRef    = useRef<AnalyserNode | null>(null);
-  const mixRef        = useRef<GainNode | null>(null);
-  const dryGainRef    = useRef<GainNode | null>(null);
-  const wetGainRef    = useRef<GainNode | null>(null);
-  const outputRef     = useRef<GainNode | null>(null);       // post-crossfade sum → destination
-  const finalAnalRef  = useRef<AnalyserNode | null>(null);    // taps the actual blended output (reflects bypass/mix)
-  const animRef       = useRef<number>(0);
-  const schedulerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const nextNoteRef   = useRef(0);
+  const ctxRef = useRef<AudioContext | null>(null);
+  const faustNodeRef = useRef<FaustNodeLike | null>(null);
+  const dryAnalRef = useRef<AnalyserNode | null>(null);
+  const wetAnalRef = useRef<AnalyserNode | null>(null);
+  const mixRef = useRef<GainNode | null>(null);
+  const dryGainRef = useRef<GainNode | null>(null);
+  const wetGainRef = useRef<GainNode | null>(null);
+  const outputRef = useRef<GainNode | null>(null);       // post-crossfade sum → destination
+  const finalAnalRef = useRef<AnalyserNode | null>(null);    // taps the actual blended output (reflects bypass/mix)
+  const animRef = useRef<number>(0);
+  const schedulerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nextNoteRef = useRef(0);
   const currentStepRef = useRef(0);
   const startTokenRef = useRef(0);
-  const paramsRef     = useRef(params);
-  const bypassRef     = useRef(bypass);
+  const paramsRef = useRef(params);
+  const bypassRef = useRef(bypass);
   useEffect(() => { paramsRef.current = params; }, [params]);
   useEffect(() => { bypassRef.current = bypass; }, [bypass]);
 
   // Meter ballistics state
-  const smoothedInputDbRef  = useRef(METER_FLOOR_DB);
+  const smoothedInputDbRef = useRef(METER_FLOOR_DB);
   const smoothedOutputDbRef = useRef(METER_FLOOR_DB);
-  const smoothedGrDbRef     = useRef(0);
-  const meterClockRef       = useRef<number | null>(null);
+  const smoothedGrDbRef = useRef(0);
+  const meterClockRef = useRef<number | null>(null);
 
   // Latest raw Gain_Reduction value pushed from the audio thread — see the
   // setOutputParamHandler wiring in startAudio() and the comment on
@@ -658,7 +658,7 @@ export default function Chapter11() {
     const wet = wetGainRef.current, dry = dryGainRef.current, ac = ctxRef.current;
     if (!wet || !dry || !ac) return;
     const w = bypass ? 0 : 1;
-    wet.gain.setTargetAtTime(w,     ac.currentTime, 0.01);
+    wet.gain.setTargetAtTime(w, ac.currentTime, 0.01);
     dry.gain.setTargetAtTime(1 - w, ac.currentTime, 0.01);
   }, [bypass]);
 
@@ -666,8 +666,8 @@ export default function Chapter11() {
   useEffect(() => {
     setTasks([
       params.threshold !== DEFAULTS.threshold,
-      params.ceiling   !== DEFAULTS.ceiling,
-      params.release   !== DEFAULTS.release,
+      params.ceiling !== DEFAULTS.ceiling,
+      params.release !== DEFAULTS.release,
       params.linkLR || params.autoRelease,
     ]);
   }, [params]);
@@ -679,7 +679,7 @@ export default function Chapter11() {
     while (nextNoteRef.current < ctx.currentTime + 0.1) {
       scheduleStep(ctx, mix, currentStepRef.current, nextNoteRef.current);
       currentStepRef.current = (currentStepRef.current + 1) % STEPS;
-      nextNoteRef.current   += STEP_SEC;
+      nextNoteRef.current += STEP_SEC;
     }
     schedulerRef.current = setTimeout(runScheduler, 25);
   }, []);
@@ -689,7 +689,7 @@ export default function Chapter11() {
     const dryAnal = dryAnalRef.current;
 
     const now = ctxRef.current?.currentTime ?? performance.now() / 1000;
-    const dt  = meterClockRef.current !== null ? Math.max(0, Math.min(0.2, now - meterClockRef.current)) : 0;
+    const dt = meterClockRef.current !== null ? Math.max(0, Math.min(0.2, now - meterClockRef.current)) : 0;
     meterClockRef.current = now;
 
     if (dryAnal) {
@@ -757,7 +757,7 @@ export default function Chapter11() {
     // and gate) — always fully wet outside of bypass.
     const dryGain = ctx.createGain(); dryGain.gain.value = bypass ? 1 : 0;
     const wetGain = ctx.createGain(); wetGain.gain.value = bypass ? 0 : 1;
-    const output  = ctx.createGain(); output.gain.value = 1;
+    const output = ctx.createGain(); output.gain.value = 1;
     const finalAnal = ctx.createAnalyser(); finalAnal.fftSize = 1024; finalAnal.smoothingTimeConstant = 0.35;
 
     const factory = { module: dspModuleRef.current, json: JSON.stringify(dspMetaRef.current), soundfiles: {} };
@@ -814,7 +814,7 @@ export default function Chapter11() {
     if (track) {
       const bufSrc = ctx.createBufferSource();
       bufSrc.buffer = track.buffer;
-      bufSrc.loop   = true;
+      bufSrc.loop = true;
       bufSrc.connect(mix);
       bufSrc.start();
       bufSourceRef.current = bufSrc;
@@ -890,7 +890,7 @@ export default function Chapter11() {
       if (tmpCtx.state === 'suspended') await tmpCtx.resume();
 
       const arrayBuf = await file.arrayBuffer();
-      const decoded  = await tmpCtx.decodeAudioData(arrayBuf);
+      const decoded = await tmpCtx.decodeAudioData(arrayBuf);
       normalizeUploadedBuffer(decoded);
 
       const track: UploadedTrack = {
@@ -941,14 +941,14 @@ export default function Chapter11() {
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       const d = mainDragRef.current; if (!d) return;
-      const frac    = Math.min(1, Math.max(0, d.startFrac + (d.startY - e.clientY) / 220));
-      const raw     = specFromFrac(d.spec, frac);
+      const frac = Math.min(1, Math.max(0, d.startFrac + (d.startY - e.clientY) / 220));
+      const raw = specFromFrac(d.spec, frac);
       const clamped = Math.min(d.spec.max, Math.max(d.spec.min, Math.round(raw / d.spec.step) * d.spec.step));
       setParams(p => ({ ...p, [d.spec.key]: clamped }));
     };
     const onUp = () => { mainDragRef.current = null; };
     window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup',   onUp);
+    window.addEventListener('mouseup', onUp);
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
   }, []);
 
@@ -1098,8 +1098,8 @@ export default function Chapter11() {
           <div className="lab-status" style={{ color: isPlaying ? 'var(--amber)' : 'var(--text-dim)' }}>
             <div className="status-dot" style={{
               background: isPlaying ? 'var(--amber)' : 'var(--text-faint)',
-              boxShadow:  isPlaying ? '0 0 6px var(--amber)' : 'none',
-              animation:  isPlaying ? undefined : 'none',
+              boxShadow: isPlaying ? '0 0 6px var(--amber)' : 'none',
+              animation: isPlaying ? undefined : 'none',
             }} />
             {isPlaying ? (bypass ? 'BYPASSED' : 'ACTIVE') : 'STOPPED'}
           </div>

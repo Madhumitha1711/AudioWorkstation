@@ -2,23 +2,31 @@ import("stdfaust.lib");
 //======================================================
 // 8-BAND DYNAMIC PARAMETRIC EQ (Stereo)
 // Each band: bypass switch. Shelf/Peak bands: optional
-// dynamic gain (threshold/range/attack/release/mode).
+// dynamic gain (threshold/range/attack/release) — range is signed, so a
+// single band can duck (cut) or boost, same freq/gain/Q as a normal EQ band.
 //======================================================
 
 //------------------------------------------------------
 // Shared dynamic-EQ engine
-// mode 0 = Downward (cut when level > threshold)
-// mode 1 = Upward   (boost when level < threshold)
+// Standard (FabFilter Pro-Q-style) dynamic EQ: the band's level is tracked
+// through a bandpass at its own freq/Q, and whenever that level rises above
+// Threshold, the band's gain moves away from 0 toward `range` dB, scaled by
+// how far above threshold the level is (clamped at |range|). `range` is
+// signed: negative range cuts the band (a de-esser/ducking move — gain
+// decreases as the signal gets louder), positive range boosts it (gain
+// increases as the signal gets louder). This replaces the old hardcoded
+// Downward/Upward mode switch — direction now simply follows the sign of
+// range, exactly like dragging Pro-Q's dynamic range indicator above or
+// below the static gain line.
 //------------------------------------------------------
-dyn_gain_db(dyn_on,thresh,range,att,rel,mode,fc,q,x) = gain
+dyn_gain_db(dyn_on,thresh,range,att,rel,fc,q,x) = gain
 with {
-    sc      = x : fi.resonbp(fc,q,1);
-    env     = sc : an.amp_follower_ar(att,rel);
-    env_db  = 20*log10(max(env,ma.EPSILON));
-    diff    = env_db - thresh;
-    downward = 0 - max(0, min(diff,range));
-    upward   = max(0, min(0-diff,range));
-    raw_gain = select2(mode,downward,upward);
+    sc       = x : fi.resonbp(fc,q,1);
+    env      = sc : an.amp_follower_ar(att,rel);
+    env_db   = 20*log10(max(env,ma.EPSILON));
+    excess   = max(0, env_db - thresh);
+    mag      = min(excess, abs(range));
+    raw_gain = mag * ((range>0) - (range<0));
     gain     = select2(dyn_on,0,raw_gain) : si.smoo;
 };
 
@@ -96,21 +104,20 @@ ls_gain    = hslider("[2]Low Shelf/Gain[dB]",0,-24,24,0.1):si.smoo;
 ls_q       = hslider("[3]Low Shelf/Q",0.7,0.1,5,0.01):si.smoo;
 ls_dyn_on  = checkbox("[4]Low Shelf/Dynamic On");
 ls_thresh  = hslider("[5]Low Shelf/Threshold[dB]",-24,-60,0,0.1):si.smoo;
-ls_range   = hslider("[6]Low Shelf/Range[dB]",6,0,24,0.1):si.smoo;
+ls_range   = hslider("[6]Low Shelf/Range[dB]",-6,-24,24,0.1):si.smoo;
 ls_att     = hslider("[7]Low Shelf/Attack[s]",0.005,0.001,0.5,0.001):si.smoo;
 ls_rel     = hslider("[8]Low Shelf/Release[s]",0.15,0.01,2,0.01):si.smoo;
-ls_mode    = nentry("[9]Low Shelf/Mode{'Downward':0;'Upward':1}",0,0,1,1);
 
 ls_stage(x) = select2(ls_bypass,
-    rbj_lowshelf(ls_gain + dyn_gain_db(ls_dyn_on,ls_thresh,ls_range,ls_att,ls_rel,ls_mode,ls_freq,ls_q,x), ls_freq, ls_q, x),
+    rbj_lowshelf(ls_gain + dyn_gain_db(ls_dyn_on,ls_thresh,ls_range,ls_att,ls_rel,ls_freq,ls_q,x), ls_freq, ls_q, x),
     x);
 
 //------------------------------------------------------
 // Peak band generator (used for Peak1-4)
 //------------------------------------------------------
-peak_stage(bypass,dyn_on,thresh,range,att,rel,mode,freq,gain,q,x) =
+peak_stage(bypass,dyn_on,thresh,range,att,rel,freq,gain,q,x) =
     select2(bypass,
-        x : fi.peak_eq_cq(gain + dyn_gain_db(dyn_on,thresh,range,att,rel,mode,freq,q,x), freq, q),
+        x : fi.peak_eq_cq(gain + dyn_gain_db(dyn_on,thresh,range,att,rel,freq,q,x), freq, q),
         x);
 
 //---- Peak 1 ----
@@ -120,12 +127,11 @@ p1_gain   = hslider("[2]Peak1/Gain[dB]",0,-24,24,0.1):si.smoo;
 p1_q      = hslider("[3]Peak1/Q",0.7,0.1,10,0.01):si.smoo;
 p1_dyn_on = checkbox("[4]Peak1/Dynamic On");
 p1_thresh = hslider("[5]Peak1/Threshold[dB]",-24,-60,0,0.1):si.smoo;
-p1_range  = hslider("[6]Peak1/Range[dB]",6,0,24,0.1):si.smoo;
+p1_range  = hslider("[6]Peak1/Range[dB]",-6,-24,24,0.1):si.smoo;
 p1_att    = hslider("[7]Peak1/Attack[s]",0.005,0.001,0.5,0.001):si.smoo;
 p1_rel    = hslider("[8]Peak1/Release[s]",0.15,0.01,2,0.01):si.smoo;
-p1_mode   = nentry("[9]Peak1/Mode{'Downward':0;'Upward':1}",0,0,1,1);
 
-p1_stage(x) = peak_stage(p1_bypass,p1_dyn_on,p1_thresh,p1_range,p1_att,p1_rel,p1_mode,p1_freq,p1_gain,p1_q,x);
+p1_stage(x) = peak_stage(p1_bypass,p1_dyn_on,p1_thresh,p1_range,p1_att,p1_rel,p1_freq,p1_gain,p1_q,x);
 
 //---- Peak 2 ----
 p2_bypass = checkbox("[0]Peak2/Bypass");
@@ -134,12 +140,11 @@ p2_gain   = hslider("[2]Peak2/Gain[dB]",0,-24,24,0.1):si.smoo;
 p2_q      = hslider("[3]Peak2/Q",1.0,0.1,10,0.01):si.smoo;
 p2_dyn_on = checkbox("[4]Peak2/Dynamic On");
 p2_thresh = hslider("[5]Peak2/Threshold[dB]",-24,-60,0,0.1):si.smoo;
-p2_range  = hslider("[6]Peak2/Range[dB]",6,0,24,0.1):si.smoo;
+p2_range  = hslider("[6]Peak2/Range[dB]",-6,-24,24,0.1):si.smoo;
 p2_att    = hslider("[7]Peak2/Attack[s]",0.005,0.001,0.5,0.001):si.smoo;
 p2_rel    = hslider("[8]Peak2/Release[s]",0.15,0.01,2,0.01):si.smoo;
-p2_mode   = nentry("[9]Peak2/Mode{'Downward':0;'Upward':1}",0,0,1,1);
 
-p2_stage(x) = peak_stage(p2_bypass,p2_dyn_on,p2_thresh,p2_range,p2_att,p2_rel,p2_mode,p2_freq,p2_gain,p2_q,x);
+p2_stage(x) = peak_stage(p2_bypass,p2_dyn_on,p2_thresh,p2_range,p2_att,p2_rel,p2_freq,p2_gain,p2_q,x);
 
 //---- Peak 3 ----
 p3_bypass = checkbox("[0]Peak3/Bypass");
@@ -148,12 +153,11 @@ p3_gain   = hslider("[2]Peak3/Gain[dB]",0,-24,24,0.1):si.smoo;
 p3_q      = hslider("[3]Peak3/Q",1.0,0.1,10,0.01):si.smoo;
 p3_dyn_on = checkbox("[4]Peak3/Dynamic On");
 p3_thresh = hslider("[5]Peak3/Threshold[dB]",-24,-60,0,0.1):si.smoo;
-p3_range  = hslider("[6]Peak3/Range[dB]",6,0,24,0.1):si.smoo;
+p3_range  = hslider("[6]Peak3/Range[dB]",-6,-24,24,0.1):si.smoo;
 p3_att    = hslider("[7]Peak3/Attack[s]",0.005,0.001,0.5,0.001):si.smoo;
 p3_rel    = hslider("[8]Peak3/Release[s]",0.15,0.01,2,0.01):si.smoo;
-p3_mode   = nentry("[9]Peak3/Mode{'Downward':0;'Upward':1}",0,0,1,1);
 
-p3_stage(x) = peak_stage(p3_bypass,p3_dyn_on,p3_thresh,p3_range,p3_att,p3_rel,p3_mode,p3_freq,p3_gain,p3_q,x);
+p3_stage(x) = peak_stage(p3_bypass,p3_dyn_on,p3_thresh,p3_range,p3_att,p3_rel,p3_freq,p3_gain,p3_q,x);
 
 //---- Peak 4 ----
 p4_bypass = checkbox("[0]Peak4/Bypass");
@@ -162,12 +166,11 @@ p4_gain   = hslider("[2]Peak4/Gain[dB]",0,-24,24,0.1):si.smoo;
 p4_q      = hslider("[3]Peak4/Q",1.0,0.1,10,0.01):si.smoo;
 p4_dyn_on = checkbox("[4]Peak4/Dynamic On");
 p4_thresh = hslider("[5]Peak4/Threshold[dB]",-24,-60,0,0.1):si.smoo;
-p4_range  = hslider("[6]Peak4/Range[dB]",6,0,24,0.1):si.smoo;
+p4_range  = hslider("[6]Peak4/Range[dB]",-6,-24,24,0.1):si.smoo;
 p4_att    = hslider("[7]Peak4/Attack[s]",0.005,0.001,0.5,0.001):si.smoo;
 p4_rel    = hslider("[8]Peak4/Release[s]",0.15,0.01,2,0.01):si.smoo;
-p4_mode   = nentry("[9]Peak4/Mode{'Downward':0;'Upward':1}",0,0,1,1);
 
-p4_stage(x) = peak_stage(p4_bypass,p4_dyn_on,p4_thresh,p4_range,p4_att,p4_rel,p4_mode,p4_freq,p4_gain,p4_q,x);
+p4_stage(x) = peak_stage(p4_bypass,p4_dyn_on,p4_thresh,p4_range,p4_att,p4_rel,p4_freq,p4_gain,p4_q,x);
 
 //------------------------------------------------------
 // High Shelf
@@ -178,13 +181,12 @@ hs_gain    = hslider("[2]High Shelf/Gain[dB]",0,-24,24,0.1):si.smoo;
 hs_q       = hslider("[3]High Shelf/Q",0.7,0.1,5,0.01):si.smoo;
 hs_dyn_on  = checkbox("[4]High Shelf/Dynamic On");
 hs_thresh  = hslider("[5]High Shelf/Threshold[dB]",-24,-60,0,0.1):si.smoo;
-hs_range   = hslider("[6]High Shelf/Range[dB]",6,0,24,0.1):si.smoo;
+hs_range   = hslider("[6]High Shelf/Range[dB]",-6,-24,24,0.1):si.smoo;
 hs_att     = hslider("[7]High Shelf/Attack[s]",0.005,0.001,0.5,0.001):si.smoo;
 hs_rel     = hslider("[8]High Shelf/Release[s]",0.15,0.01,2,0.01):si.smoo;
-hs_mode    = nentry("[9]High Shelf/Mode{'Downward':0;'Upward':1}",0,0,1,1);
 
 hs_stage(x) = select2(hs_bypass,
-    rbj_highshelf(hs_gain + dyn_gain_db(hs_dyn_on,hs_thresh,hs_range,hs_att,hs_rel,hs_mode,hs_freq,hs_q,x), hs_freq, hs_q, x),
+    rbj_highshelf(hs_gain + dyn_gain_db(hs_dyn_on,hs_thresh,hs_range,hs_att,hs_rel,hs_freq,hs_q,x), hs_freq, hs_q, x),
     x);
 
 //------------------------------------------------------
