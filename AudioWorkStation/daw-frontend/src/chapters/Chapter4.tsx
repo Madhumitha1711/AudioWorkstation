@@ -127,6 +127,11 @@ function makeDefaultBands(): Record<BandId, BandParams> {
 const DEFAULT_CROSSOVER: CrossoverParams = { loLowMid: 150, lowMidHiMid: 1000, hiMidHigh: 5000 };
 const DEFAULT_SIDECHAIN: SidechainParams = { external: false, listen: false, hpf: 20 };
 const DEFAULT_OUTPUT_GAIN = 0;
+// Matches the Faust patch's own "Multiband/Enable" checkbox default (off) —
+// see public/faust/compressor/compressor.dsp v3.1. Off = single-band: the
+// Low Band controls act on the whole, unsplit signal and the other 3 bands
+// are silent. On = the full 4-band crossover split.
+const DEFAULT_MULTIBAND = false;
 
 // ── Faust compressor engine wiring ───────────────────────────────────────────
 // Real DSP: public/faust/compressor/ (dsp-module.wasm + dsp-meta.json), a
@@ -146,6 +151,9 @@ function bandAddr(band: BandId, suffix: string) {
   return `/compressor/${BAND_PREFIX[band]}_${suffix}`;
 }
 const ADDR = {
+  multiband: {
+    enable: '/compressor/Multiband_Enable',
+  },
   band: (b: BandId) => ({
     bypass:    bandAddr(b, 'Bypass'),
     threshold: bandAddr(b, 'Threshold'),
@@ -187,7 +195,9 @@ function pushFaustParams(
   sidechain: SidechainParams,
   outputGainDb: number,
   bypass: boolean,
+  multibandEnabled: boolean,
 ) {
+  node.setParamValue(ADDR.multiband.enable, multibandEnabled ? 1 : 0);
   for (const b of BAND_IDS) {
     const a = ADDR.band(b);
     const p = bands[b];
@@ -244,13 +254,14 @@ async function renderCompressorOffline(
   sidechain: SidechainParams,
   outputGainDb: number,
   bypass: boolean,
+  multibandEnabled: boolean,
 ): Promise<AudioBuffer> {
   const offlineCtx = new OfflineAudioContext(source.numberOfChannels, source.length, source.sampleRate);
   const factory = { module: dspModule, json: JSON.stringify(meta), soundfiles: {} };
   const node = await generator.createNode(
     offlineCtx as unknown as AudioContext, meta.name, factory, false, 512,
   ) as unknown as FaustNodeLike;
-  pushFaustParams(node, bands, crossover, sidechain, outputGainDb, bypass);
+  pushFaustParams(node, bands, crossover, sidechain, outputGainDb, bypass, multibandEnabled);
 
   const mainSrc = offlineCtx.createBufferSource();
   mainSrc.buffer = source;
@@ -695,7 +706,12 @@ function normalizeUploadedBuffer(buf: AudioBuffer, peakTarget = 0.6) {
     for (let i = 0; i < data.length; i++) peak = Math.max(peak, Math.abs(data[i]));
   }
   if (peak < 1e-6) return;
-  const scale = peakTarget / peak;
+  // Ceiling, not a target: only ever turn a hot file DOWN to avoid clipping.
+  // `peakTarget / peak` alone would also turn a quiet file UP to hit 0.6,
+  // baking a silent gain boost into the uploaded buffer itself — audible
+  // even with the compressor bypassed, since it happens once at upload
+  // time, before Bypass or any DSP ever sees the audio.
+  const scale = Math.min(1, peakTarget / peak);
   const fadeSamples = Math.min(Math.round(buf.sampleRate * 0.01), Math.floor(buf.length / 2));
   for (let ch = 0; ch < buf.numberOfChannels; ch++) {
     const data = buf.getChannelData(ch);
@@ -734,6 +750,10 @@ export default function Chapter4() {
   const [sidechain,  setSidechain]  = useState<SidechainParams>(DEFAULT_SIDECHAIN);
   const [outputGainDb, setOutputGainDb] = useState(DEFAULT_OUTPUT_GAIN);
   const [selectedBand, setSelectedBand] = useState<BandId>('low');
+  // Off by default (single-band, using the Low Band controls on the whole
+  // signal) — matches the Faust patch's own Multiband/Enable default. On
+  // restores the 4-band crossover split.
+  const [multibandEnabled, setMultibandEnabled] = useState(DEFAULT_MULTIBAND);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [bypass,    setBypass]    = useState(false);
@@ -877,8 +897,15 @@ export default function Chapter4() {
   useEffect(() => {
     const node = faustNodeRef.current;
     if (!node) return;
-    pushFaustParams(node, bands, crossover, sidechain, outputGainDb, bypass);
-  }, [bands, crossover, sidechain, outputGainDb, bypass]);
+    pushFaustParams(node, bands, crossover, sidechain, outputGainDb, bypass, multibandEnabled);
+  }, [bands, crossover, sidechain, outputGainDb, bypass, multibandEnabled]);
+
+  // Single-band mode only exposes the Low Band controls (see compressor.dsp
+  // v3.1) — if Multiband gets switched off while a different band is
+  // selected, snap the selection back to the one band that's actually live.
+  useEffect(() => {
+    if (!multibandEnabled) setSelectedBand('low');
+  }, [multibandEnabled]);
 
   // ── Task tracking ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1035,7 +1062,7 @@ export default function Chapter4() {
     // stopAudio() (or a second startAudio()) ran while we were awaiting — bail
     if (myToken !== startTokenRef.current) { try { ctx.close(); } catch { /* ok */ } return; }
 
-    pushFaustParams(faustNode, bands, crossover, sidechain, outputGainDb, bypass);
+    pushFaustParams(faustNode, bands, crossover, sidechain, outputGainDb, bypass, multibandEnabled);
 
     // Subscribe to all 4 bands' live Gain_Reduction outputs.
     grRawRef.current = { low: 0, lowMid: 0, highMid: 0, high: 0 };
@@ -1116,7 +1143,7 @@ export default function Chapter4() {
     scopeHistoryRef.current = [];
     animRef.current = requestAnimationFrame(animate);
     setIsPlaying(true);
-  }, [engineStatus, bands, crossover, sidechain, outputGainDb, bypass, runScheduler, animate]);
+  }, [engineStatus, bands, crossover, sidechain, outputGainDb, bypass, multibandEnabled, runScheduler, animate]);
 
   const stopAudio = useCallback(() => {
     startTokenRef.current++; // invalidate any in-flight startAudio()
@@ -1282,7 +1309,7 @@ export default function Chapter4() {
     try {
       const rendered = await renderCompressorOffline(
         generatorRef.current, dspMetaRef.current, dspModuleRef.current,
-        track.buffer, sidechainTrack?.buffer, bands, crossover, sidechain, outputGainDb, bypass,
+        track.buffer, sidechainTrack?.buffer, bands, crossover, sidechain, outputGainDb, bypass, multibandEnabled,
       );
       downloadAudioBufferAsWav(rendered, `${track.name || 'compressor-studio'}-compressed.wav`);
     } catch (err) {
@@ -1291,7 +1318,7 @@ export default function Chapter4() {
     } finally {
       setDownloading(false);
     }
-  }, [activeTrack, sidechainTrack, bands, crossover, sidechain, outputGainDb, bypass]);
+  }, [activeTrack, sidechainTrack, bands, crossover, sidechain, outputGainDb, bypass, multibandEnabled]);
 
   // ── Main lab knob drag ────────────────────────────────────────────────────
   const onMainKnobDown = useCallback((e: React.MouseEvent, spec: KnobSpec, val: number) => {
@@ -1331,11 +1358,17 @@ export default function Chapter4() {
     setSidechain(DEFAULT_SIDECHAIN);
     setOutputGainDb(DEFAULT_OUTPUT_GAIN);
     setSelectedBand('low');
+    setMultibandEnabled(DEFAULT_MULTIBAND);
   }, []);
 
   // Derived
   const selBand = bands[selectedBand];
   const TASK_LABELS = ['Compress a band', 'Reshape the crossover', 'Try External Sidechain', 'Apply makeup gain'];
+
+  // In single-band mode (Multiband off) only "low" is actually live — its
+  // controls act on the whole signal (see compressor.dsp v3.1), so it reads
+  // as "COMPRESSOR" rather than "LOW" everywhere in the UI.
+  const bandLabel = (b: BandId) => (!multibandEnabled && b === 'low') ? 'COMPRESSOR' : BAND_LABELS[b];
 
   // Signal-source tab row — lets the source be switched (or a new one uploaded).
   const renderSourceRow = () => (
@@ -1447,9 +1480,13 @@ export default function Chapter4() {
   // meter are shown, the ⦸ half bypasses *that* band's compression on its
   // own. Splitting them means any combination of bands can be bypassed at
   // once — bypass no longer follows the selection around.
+  //
+  // In single-band mode (Multiband off) only "low" is live in the DSP (see
+  // compressor.dsp v3.1), so the other 3 tabs are hidden rather than shown
+  // disabled — their controls would have no audible effect right now.
   const renderBandTabs = () => (
     <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.75rem' }}>
-      {BAND_IDS.map(b => {
+      {(multibandEnabled ? BAND_IDS : (['low'] as BandId[])).map(b => {
         const active = b === selectedBand;
         const byp = bands[b].bypass;
         const borderColor = active ? 'rgba(167,139,250,0.5)' : 'var(--border)';
@@ -1463,7 +1500,7 @@ export default function Chapter4() {
           >
             <button
               onClick={() => setSelectedBand(b)}
-              title={`Edit the ${BAND_LABELS[b]} band`}
+              title={`Edit the ${bandLabel(b)} band`}
               style={{
                 padding: '0.3rem 0.6rem', border: 'none',
                 background: active ? 'rgba(167,139,250,0.13)' : 'var(--surface)',
@@ -1473,11 +1510,11 @@ export default function Chapter4() {
                 textDecoration: byp ? 'line-through' : 'none',
               }}
             >
-              {BAND_LABELS[b]}
+              {bandLabel(b)}
             </button>
             <button
               onClick={() => toggleBandBypass(b)}
-              title={byp ? `${BAND_LABELS[b]} is bypassed — click to re-enable` : `Bypass the ${BAND_LABELS[b]} band (its audio still passes through, unprocessed)`}
+              title={byp ? `${bandLabel(b)} is bypassed — click to re-enable` : `Bypass the ${bandLabel(b)} band (its audio still passes through, unprocessed)`}
               style={{
                 padding: '0.3rem 0.45rem', border: 'none', borderLeft: `1px solid ${borderColor}`,
                 background: byp ? 'rgba(255,77,106,0.16)' : 'var(--surface)',
@@ -1494,6 +1531,47 @@ export default function Chapter4() {
     </div>
   );
 
+  // Mode switch — Single Band vs Multiband, as its own two-option segmented
+  // control in its own row (not squeezed into the band-tab row, which is
+  // what was clipping/wrapping the label text before). Mutually exclusive,
+  // so each button sets the mode directly rather than toggling.
+  const renderModeSwitch = () => (
+    <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem' }}>
+      <button
+        onClick={() => setMultibandEnabled(false)}
+        title="One compressor acting on the whole signal"
+        style={{
+          flex: 1,
+          padding: '0.35rem 0.5rem',
+          background: !multibandEnabled ? 'rgba(0,255,135,0.13)' : 'var(--surface)',
+          border: `1px solid ${!multibandEnabled ? 'rgba(0,255,135,0.5)' : 'var(--border)'}`,
+          borderRadius: '3px',
+          color: !multibandEnabled ? 'var(--green)' : 'var(--text-dim)',
+          fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.04em',
+          cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+        }}
+      >
+        SINGLE BAND
+      </button>
+      <button
+        onClick={() => setMultibandEnabled(true)}
+        title="Split the signal into 4 independent bands (Low / Low-Mid / High-Mid / High), each with its own compressor"
+        style={{
+          flex: 1,
+          padding: '0.35rem 0.5rem',
+          background: multibandEnabled ? 'rgba(0,255,135,0.13)' : 'var(--surface)',
+          border: `1px solid ${multibandEnabled ? 'rgba(0,255,135,0.5)' : 'var(--border)'}`,
+          borderRadius: '3px',
+          color: multibandEnabled ? 'var(--green)' : 'var(--text-dim)',
+          fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.04em',
+          cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+        }}
+      >
+        MULTIBAND
+      </button>
+    </div>
+  );
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="comp-lab">
@@ -1503,7 +1581,7 @@ export default function Chapter4() {
           <div className="lab-icon" style={{ background: 'var(--purple-dim)', border: '1px solid rgba(167,139,250,0.4)' }}>⬡</div>
           <div>
             <div className="lab-name">Compressor Studio</div>
-            <div className="lab-subtitle">DYNAMICS · 4-BAND + SIDECHAIN</div>
+            <div className="lab-subtitle">DYNAMICS · {multibandEnabled ? '4-BAND' : 'SINGLE-BAND'} + SIDECHAIN</div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
@@ -1541,6 +1619,11 @@ export default function Chapter4() {
       <div className="comp-body">
         {/* Left: band tabs + knobs + crossover/sidechain controls */}
         <div className="comp-controls">
+          <div className="canvas-label" style={{ marginBottom: '0.5rem' }}>
+            MODE
+          </div>
+          {renderModeSwitch()}
+
           <div className="canvas-label" style={{ marginBottom: '0.5rem' }}>
             BAND · DRAG KNOBS VERTICALLY
           </div>
@@ -1586,25 +1669,36 @@ export default function Chapter4() {
             })}
           </div>
 
-          {/* Crossover — 3 points splitting the signal into 4 bands */}
+          {/* Crossover — 3 points splitting the signal into 4 bands. Only
+              meaningful (and only sent anywhere audible) once Multiband is
+              on — see compressor.dsp v3.1, where the crossover filters are
+              bypassed entirely in single-band mode. */}
           <div className="canvas-label" style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
             CROSSOVER
           </div>
-          <MiniSlider
-            label="Low – Low-Mid" value={crossover.loLowMid} min={20} max={1000} step={1}
-            fmt={v => `${v.toFixed(0)} Hz`}
-            onChange={v => setCrossover(c => ({ ...c, loLowMid: v }))}
-          />
-          <MiniSlider
-            label="Low-Mid – High-Mid" value={crossover.lowMidHiMid} min={200} max={5000} step={1}
-            fmt={v => `${v.toFixed(0)} Hz`}
-            onChange={v => setCrossover(c => ({ ...c, lowMidHiMid: v }))}
-          />
-          <MiniSlider
-            label="High-Mid – High" value={crossover.hiMidHigh} min={500} max={20000} step={1}
-            fmt={v => `${v.toFixed(0)} Hz`}
-            onChange={v => setCrossover(c => ({ ...c, hiMidHigh: v }))}
-          />
+          {multibandEnabled ? (
+            <>
+              <MiniSlider
+                label="Low – Low-Mid" value={crossover.loLowMid} min={20} max={1000} step={1}
+                fmt={v => `${v.toFixed(0)} Hz`}
+                onChange={v => setCrossover(c => ({ ...c, loLowMid: v }))}
+              />
+              <MiniSlider
+                label="Low-Mid – High-Mid" value={crossover.lowMidHiMid} min={200} max={5000} step={1}
+                fmt={v => `${v.toFixed(0)} Hz`}
+                onChange={v => setCrossover(c => ({ ...c, lowMidHiMid: v }))}
+              />
+              <MiniSlider
+                label="High-Mid – High" value={crossover.hiMidHigh} min={500} max={20000} step={1}
+                fmt={v => `${v.toFixed(0)} Hz`}
+                onChange={v => setCrossover(c => ({ ...c, hiMidHigh: v }))}
+              />
+            </>
+          ) : (
+            <div style={{ fontFamily: 'var(--mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginBottom: '0.5rem', lineHeight: 1.5 }}>
+              One compressor, whole signal. Turn on <strong style={{ color: 'var(--green)' }}>MULTIBAND</strong> above to split into 4 bands with independent crossover points.
+            </div>
+          )}
 
           {/* Sidechain — internal (each band's own audio) vs external
               (a filtered detector signal fed into a second input, which can
@@ -1714,9 +1808,12 @@ export default function Chapter4() {
           <div style={{ marginTop: '1rem' }}>
             <div className="concept-callout" style={{ background: 'var(--purple-dim)', borderColor: 'rgba(167,139,250,0.2)' }}>
               <strong style={{ color: 'var(--purple)' }}>Concept: </strong>
-              {BAND_LABELS[selectedBand]} band at {selBand.ratio.toFixed(0)}:1 —{' '}
+              {bandLabel(selectedBand)}{multibandEnabled ? ' band' : ''} at {selBand.ratio.toFixed(0)}:1 —{' '}
               {selBand.ratio > 10 ? 'Limiting territory. Very aggressive.' : selBand.ratio > 6 ? 'Heavy compression. Peak control.' : selBand.ratio > 3 ? 'Classic glue. Musical.' : 'Gentle, transparent.'}
-              {' '}Each band compresses independently — try a fast, tight ratio on one band while leaving another gentle.
+              {' '}
+              {multibandEnabled
+                ? 'Each band compresses independently — try a fast, tight ratio on one band while leaving another gentle.'
+                : 'Acting on the whole signal right now — turn on MULTIBAND above to split it into 4 independently-compressed bands.'}
               {' '}Toggle <strong style={{ color: 'var(--purple)' }}>BYPASS</strong> while playing to A/B.
             </div>
           </div>
@@ -1725,7 +1822,7 @@ export default function Chapter4() {
         {/* Right: transfer (+ GR meter alongside) + live scope */}
         <div className="comp-visual">
           <div className="canvas-label" style={{ marginBottom: '0.75rem' }}>
-            TRANSFER FUNCTION — {BAND_LABELS[selectedBand]} BAND
+            TRANSFER FUNCTION — {bandLabel(selectedBand)}{multibandEnabled ? ' BAND' : ''}
             <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
               · shape set by THRESHOLD / RATIO / KNEE, <span style={{ color: 'var(--amber)' }}>MAKEUP GAIN</span> shifts it up (amber) — attack &amp; release are time-domain, see scope below
             </span>
@@ -1744,13 +1841,15 @@ export default function Chapter4() {
             </div>
           </div>
 
-          {/* All 4 bands' real gain reduction at a glance — click a label to
-              jump the knob column / transfer graph / scope to that band. */}
+          {/* All live bands' real gain reduction at a glance — click a label
+              to jump the knob column / transfer graph / scope to that band.
+              Single-band mode only has one live band, so this collapses to
+              one entry instead of 4. */}
           <div className="canvas-label" style={{ marginTop: '0.75rem', marginBottom: '0.4rem' }}>
-            ALL BANDS — GAIN REDUCTION
+            {multibandEnabled ? 'ALL BANDS — GAIN REDUCTION' : 'GAIN REDUCTION'}
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.25rem' }}>
-            {BAND_IDS.map(b => (
+            {(multibandEnabled ? BAND_IDS : (['low'] as BandId[])).map(b => (
               <div
                 key={b}
                 onClick={() => setSelectedBand(b)}
@@ -1760,7 +1859,7 @@ export default function Chapter4() {
                   fontFamily: 'var(--mono)', fontSize: '0.5rem', textAlign: 'center', letterSpacing: '0.04em',
                   color: b === selectedBand ? 'var(--purple)' : 'var(--text-faint)',
                 }}>
-                  {BAND_LABELS[b]}
+                  {bandLabel(b)}
                 </div>
                 <div style={{ height: 6, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 3, overflow: 'hidden' }}>
                   <div
@@ -1775,7 +1874,7 @@ export default function Chapter4() {
           <div className="canvas-label" style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>
             LIVE COMPRESSION SCOPE {!isPlaying && '· HIT PLAY TO SEE LIVE SIGNAL'}
             <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
-              · real broadband input/output level over time — red shows the {BAND_LABELS[selectedBand]} band's real gain reduction
+              · real broadband input/output level over time — red shows the {bandLabel(selectedBand)}{multibandEnabled ? ' band' : ''}'s real gain reduction
             </span>
           </div>
           <div className="scope-graph">
@@ -1784,7 +1883,7 @@ export default function Chapter4() {
           <div className="legend-row" style={{ marginTop: '0.5rem', marginBottom: 0, flexWrap: 'wrap' }}>
             <div className="legend-item"><span className="legend-line" style={{ background: '#00FF87' }} />INPUT</div>
             <div className="legend-item"><span className="legend-line" style={{ background: '#A78BFA' }} />OUTPUT</div>
-            <div className="legend-item"><span className="legend-line" style={{ background: '#FF4D6A' }} />{BAND_LABELS[selectedBand]} GAIN REDUCTION</div>
+            <div className="legend-item"><span className="legend-line" style={{ background: '#FF4D6A' }} />{bandLabel(selectedBand)} GAIN REDUCTION</div>
           </div>
           <div style={{ fontFamily: 'var(--mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginTop: '0.35rem', lineHeight: 1.5 }}>
             Red is the real Gain_Reduction the Faust patch reports for this band — it shrinks toward nothing as Threshold rises or Bypass is on.

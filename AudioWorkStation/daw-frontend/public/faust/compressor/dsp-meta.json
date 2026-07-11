@@ -18,8 +18,8 @@
         "/usr/share/faust",
         "."
     ],
-    "size": 440,
-    "code": "mCK6AZQ9Hw==",
+    "size": 444,
+    "code": "YHm7AZQ9Hw==",
     "inputs": 2,
     "outputs": 1,
     "meta": [
@@ -57,7 +57,7 @@
             "compressors.lib/version": "1.6.0"
         },
         {
-            "description": "4-band multiband compressor with internal/external sidechain detection"
+            "description": "Single/4-band multiband compressor with internal/external sidechain detection"
         },
         {
             "filename": "compressor.dsp"
@@ -162,7 +162,7 @@
             "signals.lib/version": "1.6.0"
         },
         {
-            "version": "3.0"
+            "version": "3.1"
         }
     ],
     "ui": [
@@ -173,10 +173,10 @@
                 {
                     "type": "hslider",
                     "label": "Crossover/Low-LowMid",
-                    "varname": "fHslider3",
+                    "varname": "fHslider4",
                     "shortname": "Crossover_Low_LowMid",
                     "address": "/compressor/Crossover_Low-LowMid",
-                    "index": 32,
+                    "index": 56,
                     "meta": [
                         {
                             "0": ""
@@ -193,10 +193,10 @@
                 {
                     "type": "checkbox",
                     "label": "High Band/Bypass",
-                    "varname": "fCheckbox5",
+                    "varname": "fCheckbox6",
                     "shortname": "High_Band_Bypass",
                     "address": "/compressor/High_Band_Bypass",
-                    "index": 376,
+                    "index": 380,
                     "meta": [
                         {
                             "0": ""
@@ -206,10 +206,10 @@
                 {
                     "type": "checkbox",
                     "label": "High-Mid Band/Bypass",
-                    "varname": "fCheckbox4",
+                    "varname": "fCheckbox5",
                     "shortname": "High_Mid_Band_Bypass",
                     "address": "/compressor/High-Mid_Band_Bypass",
-                    "index": 260,
+                    "index": 264,
                     "meta": [
                         {
                             "0": ""
@@ -232,10 +232,23 @@
                 {
                     "type": "checkbox",
                     "label": "Low-Mid Band/Bypass",
-                    "varname": "fCheckbox3",
+                    "varname": "fCheckbox4",
                     "shortname": "Low_Mid_Band_Bypass",
                     "address": "/compressor/Low-Mid_Band_Bypass",
-                    "index": 144,
+                    "index": 148,
+                    "meta": [
+                        {
+                            "0": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Multiband/Enable",
+                    "varname": "fCheckbox2",
+                    "shortname": "Multiband_Enable",
+                    "address": "/compressor/Multiband_Enable",
+                    "index": 20,
                     "meta": [
                         {
                             "0": ""
@@ -245,10 +258,10 @@
                 {
                     "type": "hslider",
                     "label": "Output/Wet-Dry",
-                    "varname": "fHslider1",
+                    "varname": "fHslider0",
                     "shortname": "Output_Wet_Dry",
                     "address": "/compressor/Output_Wet-Dry",
-                    "index": 8,
+                    "index": 4,
                     "meta": [
                         {
                             "0": ""
@@ -265,10 +278,10 @@
                 {
                     "type": "checkbox",
                     "label": "Sidechain/External Sidechain",
-                    "varname": "fCheckbox2",
+                    "varname": "fCheckbox3",
                     "shortname": "Sidechain_External_Sidechain",
                     "address": "/compressor/Sidechain_External_Sidechain",
-                    "index": 40,
+                    "index": 24,
                     "meta": [
                         {
                             "0": ""
@@ -281,7 +294,7 @@
                     "varname": "fHslider11",
                     "shortname": "Crossover_LowMid_HighMid",
                     "address": "/compressor/Crossover_LowMid-HighMid",
-                    "index": 152,
+                    "index": 156,
                     "meta": [
                         {
                             "1": ""
@@ -301,7 +314,7 @@
                     "varname": "fHslider27",
                     "shortname": "High_Band_Threshold",
                     "address": "/compressor/High_Band_Threshold",
-                    "index": 412,
+                    "index": 416,
                     "meta": [
                         {
                             "1": ""
@@ -321,7 +334,7 @@
                     "varname": "fHslider21",
                     "shortname": "High_Mid_Band_Threshold",
                     "address": "/compressor/High-Mid_Band_Threshold",
-                    "index": 324,
+                    "index": 328,
                     "meta": [
                         {
                             "1": ""
@@ -341,7 +354,7 @@
                     "varname": "fHslider7",
                     "shortname": "Low_Band_Threshold",
                     "address": "/compressor/Low_Band_Threshold",
-                    "index": 104,
+                    "index": 108,
                     "meta": [
                         {
                             "1": ""
@@ -361,7 +374,7 @@
                     "varname": "fHslider14",
                     "shortname": "Low_Mid_Band_Threshold",
                     "address": "/compressor/Low-Mid_Band_Threshold",
-                    "index": 208,
+                    "index": 212,
                     "meta": [
                         {
                             "1": ""
@@ -378,10 +391,10 @@
                 {
                     "type": "hslider",
                     "label": "Output/Gain",
-                    "varname": "fHslider0",
+                    "varname": "fHslider1",
                     "shortname": "Output_Gain",
                     "address": "/compressor/Output_Gain",
-                    "index": 4,
+                    "index": 8,
                     "meta": [
                         {
                             "1": ""
@@ -414,7 +427,7 @@
                     "varname": "fHslider18",
                     "shortname": "Crossover_HighMid_High",
                     "address": "/compressor/Crossover_HighMid-High",
-                    "index": 268,
+                    "index": 272,
                     "meta": [
                         {
                             "2": ""
@@ -434,7 +447,7 @@
                     "varname": "fHslider24",
                     "shortname": "High_Band_Ratio",
                     "address": "/compressor/High_Band_Ratio",
-                    "index": 380,
+                    "index": 384,
                     "meta": [
                         {
                             "2": ""
@@ -451,7 +464,7 @@
                     "varname": "fHslider17",
                     "shortname": "High_Mid_Band_Ratio",
                     "address": "/compressor/High-Mid_Band_Ratio",
-                    "index": 264,
+                    "index": 268,
                     "meta": [
                         {
                             "2": ""
@@ -485,7 +498,7 @@
                     "varname": "fHslider10",
                     "shortname": "Low_Mid_Band_Ratio",
                     "address": "/compressor/Low-Mid_Band_Ratio",
-                    "index": 148,
+                    "index": 152,
                     "meta": [
                         {
                             "2": ""
@@ -499,10 +512,10 @@
                 {
                     "type": "hslider",
                     "label": "Sidechain/SC HPF",
-                    "varname": "fHslider4",
+                    "varname": "fHslider3",
                     "shortname": "Sidechain_SC_HPF",
                     "address": "/compressor/Sidechain_SC_HPF",
-                    "index": 44,
+                    "index": 40,
                     "meta": [
                         {
                             "2": ""
@@ -522,7 +535,7 @@
                     "varname": "fHslider28",
                     "shortname": "High_Band_Knee",
                     "address": "/compressor/High_Band_Knee",
-                    "index": 416,
+                    "index": 420,
                     "meta": [
                         {
                             "3": ""
@@ -542,7 +555,7 @@
                     "varname": "fHslider22",
                     "shortname": "High_Mid_Band_Knee",
                     "address": "/compressor/High-Mid_Band_Knee",
-                    "index": 328,
+                    "index": 332,
                     "meta": [
                         {
                             "3": ""
@@ -562,7 +575,7 @@
                     "varname": "fHslider8",
                     "shortname": "Low_Band_Knee",
                     "address": "/compressor/Low_Band_Knee",
-                    "index": 108,
+                    "index": 112,
                     "meta": [
                         {
                             "3": ""
@@ -582,7 +595,7 @@
                     "varname": "fHslider15",
                     "shortname": "Low_Mid_Band_Knee",
                     "address": "/compressor/Low-Mid_Band_Knee",
-                    "index": 212,
+                    "index": 216,
                     "meta": [
                         {
                             "3": ""
@@ -602,7 +615,7 @@
                     "varname": "fHslider26",
                     "shortname": "High_Band_Attack",
                     "address": "/compressor/High_Band_Attack",
-                    "index": 400,
+                    "index": 404,
                     "meta": [
                         {
                             "4": ""
@@ -622,7 +635,7 @@
                     "varname": "fHslider20",
                     "shortname": "High_Mid_Band_Attack",
                     "address": "/compressor/High-Mid_Band_Attack",
-                    "index": 312,
+                    "index": 316,
                     "meta": [
                         {
                             "4": ""
@@ -642,7 +655,7 @@
                     "varname": "fHslider6",
                     "shortname": "Low_Band_Attack",
                     "address": "/compressor/Low_Band_Attack",
-                    "index": 92,
+                    "index": 96,
                     "meta": [
                         {
                             "4": ""
@@ -662,7 +675,7 @@
                     "varname": "fHslider13",
                     "shortname": "Low_Mid_Band_Attack",
                     "address": "/compressor/Low-Mid_Band_Attack",
-                    "index": 196,
+                    "index": 200,
                     "meta": [
                         {
                             "4": ""
@@ -682,7 +695,7 @@
                     "varname": "fHslider25",
                     "shortname": "High_Band_Release",
                     "address": "/compressor/High_Band_Release",
-                    "index": 396,
+                    "index": 400,
                     "meta": [
                         {
                             "5": ""
@@ -702,7 +715,7 @@
                     "varname": "fHslider19",
                     "shortname": "High_Mid_Band_Release",
                     "address": "/compressor/High-Mid_Band_Release",
-                    "index": 308,
+                    "index": 312,
                     "meta": [
                         {
                             "5": ""
@@ -722,7 +735,7 @@
                     "varname": "fHslider5",
                     "shortname": "Low_Band_Release",
                     "address": "/compressor/Low_Band_Release",
-                    "index": 84,
+                    "index": 88,
                     "meta": [
                         {
                             "5": ""
@@ -742,7 +755,7 @@
                     "varname": "fHslider12",
                     "shortname": "Low_Mid_Band_Release",
                     "address": "/compressor/Low-Mid_Band_Release",
-                    "index": 192,
+                    "index": 196,
                     "meta": [
                         {
                             "5": ""
@@ -762,7 +775,7 @@
                     "varname": "fHslider29",
                     "shortname": "High_Band_Makeup_Gain",
                     "address": "/compressor/High_Band_Makeup_Gain",
-                    "index": 424,
+                    "index": 428,
                     "meta": [
                         {
                             "6": ""
@@ -782,7 +795,7 @@
                     "varname": "fHslider23",
                     "shortname": "High_Mid_Band_Makeup_Gain",
                     "address": "/compressor/High-Mid_Band_Makeup_Gain",
-                    "index": 336,
+                    "index": 340,
                     "meta": [
                         {
                             "6": ""
@@ -802,7 +815,7 @@
                     "varname": "fHslider9",
                     "shortname": "Low_Band_Makeup_Gain",
                     "address": "/compressor/Low_Band_Makeup_Gain",
-                    "index": 116,
+                    "index": 120,
                     "meta": [
                         {
                             "6": ""
@@ -822,7 +835,7 @@
                     "varname": "fHslider16",
                     "shortname": "Low_Mid_Band_Makeup_Gain",
                     "address": "/compressor/Low-Mid_Band_Makeup_Gain",
-                    "index": 220,
+                    "index": 224,
                     "meta": [
                         {
                             "6": ""
@@ -842,7 +855,7 @@
                     "varname": "fHbargraph3",
                     "shortname": "High_Band_Gain_Reduction",
                     "address": "/compressor/High_Band_Gain_Reduction",
-                    "index": 420,
+                    "index": 424,
                     "meta": [
                         {
                             "7": ""
@@ -860,7 +873,7 @@
                     "varname": "fHbargraph2",
                     "shortname": "High_Mid_Band_Gain_Reduction",
                     "address": "/compressor/High-Mid_Band_Gain_Reduction",
-                    "index": 332,
+                    "index": 336,
                     "meta": [
                         {
                             "7": ""
@@ -878,7 +891,7 @@
                     "varname": "fHbargraph0",
                     "shortname": "Low_Band_Gain_Reduction",
                     "address": "/compressor/Low_Band_Gain_Reduction",
-                    "index": 112,
+                    "index": 116,
                     "meta": [
                         {
                             "7": ""
@@ -896,7 +909,7 @@
                     "varname": "fHbargraph1",
                     "shortname": "Low_Mid_Band_Gain_Reduction",
                     "address": "/compressor/Low-Mid_Band_Gain_Reduction",
-                    "index": 216,
+                    "index": 220,
                     "meta": [
                         {
                             "7": ""

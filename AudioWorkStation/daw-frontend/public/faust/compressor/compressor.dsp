@@ -2,10 +2,21 @@ import("stdfaust.lib");
 
 declare name "compressor";
 declare author "Claude";
-declare version "3.0";
-declare description "4-band multiband compressor with internal/external sidechain detection";
+declare version "3.1";
+declare description "Single/4-band multiband compressor with internal/external sidechain detection";
 
 //======================================================================
+// v3.1 - single-band by default, multiband is now an explicit opt-in.
+//
+// New: "Multiband/Enable" checkbox, default OFF. When off, the input is
+// NOT split by the crossover at all - the full-bandwidth signal (and,
+// for detection, the full-bandwidth sidechain/detector signal) runs
+// through exactly one compressor: the "Low Band" controls, which double
+// as the single-band compressor's controls when Multiband is off. The
+// Low-Mid/High-Mid/High bands contribute silence to the sum in that
+// mode, so they have no effect on the output. Turning Multiband on
+// restores the full 4-band split from v3.0 with no other change.
+//
 // v3.0 - 4-band rewrite (v2.0 was 3-band: Low/Mid/High).
 //
 // BREAKING CHANGES vs v2:
@@ -49,6 +60,13 @@ declare description "4-band multiband compressor with internal/external sidechai
 // crossover so each band still only reacts to its own frequency range
 // of the sidechain signal.
 //======================================================================
+
+//----------------------------------------------------------------------
+// Mode
+//----------------------------------------------------------------------
+// Off (default) = single-band: the Low Band controls act on the whole,
+// unsplit signal. On = the v3.0 4-band split.
+multibandOn = checkbox("[0]Multiband/Enable");
 
 //----------------------------------------------------------------------
 // Crossover (3 points -> 4 bands)
@@ -153,15 +171,20 @@ with {
     scFiltered = scIn : fi.highpass(2, scHpfFreq);
     detSource  = select2(scExternal, mainIn, scFiltered);
 
-    mainLow     = bandLow(mainIn);
-    mainLowMid  = bandLowMid(mainIn);
-    mainHighMid = bandHighMid(mainIn);
-    mainHigh    = bandHigh(mainIn);
+    // Multiband off (default): the Low Band compressor gets the whole,
+    // unsplit signal (mainIn / detSource straight through, no crossover
+    // filtering); the other 3 bands are fed silence so they contribute
+    // nothing to wetSum below, whatever their own controls are set to.
+    // Multiband on: the v3.0 4-way Linkwitz-Riley split, unchanged.
+    mainLow     = select2(multibandOn, mainIn, bandLow(mainIn));
+    mainLowMid  = select2(multibandOn, 0.0,    bandLowMid(mainIn));
+    mainHighMid = select2(multibandOn, 0.0,    bandHighMid(mainIn));
+    mainHigh    = select2(multibandOn, 0.0,    bandHigh(mainIn));
 
-    detLow     = bandLow(detSource);
-    detLowMid  = bandLowMid(detSource);
-    detHighMid = bandHighMid(detSource);
-    detHigh    = bandHigh(detSource);
+    detLow     = select2(multibandOn, detSource, bandLow(detSource));
+    detLowMid  = select2(multibandOn, 0.0,       bandLowMid(detSource));
+    detHighMid = select2(multibandOn, 0.0,       bandHighMid(detSource));
+    detHigh    = select2(multibandOn, 0.0,       bandHigh(detSource));
 
     lowGainDb      = detLow : co.peak_compression_gain_mono_db(co.ratio2strength(lowRatio), lowThresh, lowAttack, lowRelease, lowKnee, 0);
     lowGainLin     = ba.db2linear(lowGainDb);
@@ -183,8 +206,18 @@ with {
     // Sum bands, parallel wet/dry against the original (unsplit) input,
     // trim with output gain, and let "SC Listen" audition the raw
     // detector source (pre-split) in place of the processed signal.
+    //
+    // Output Gain is applied to the WET contribution only, before the
+    // blend, not to the (dry+wet) sum as a whole — it used to be
+    // `(mainIn*(1-wetDry) + wetSum*wetDry) * outGain`, which meant
+    // raising Output Gain also scaled the dry path, so Bypass
+    // (Wet-Dry = 0) was never a true unity-gain passthrough whenever
+    // Output Gain was non-zero ("even unprocessed" audio came out
+    // boosted/attenuated by whatever Output Gain was dialed in). Scaling
+    // wetSum by outGain before the blend keeps the dry path exactly
+    // equal to mainIn regardless of Output Gain.
     //------------------------------------------------------------------
     wetSum     = lowOut + lowMidOut + highMidOut + highOut;
-    compressed = (mainIn * (1.0 - wetDry) + wetSum * wetDry) * outGain;
+    compressed = mainIn * (1.0 - wetDry) + (wetSum * outGain) * wetDry;
     out        = select2(scListen, compressed, detSource);
 };

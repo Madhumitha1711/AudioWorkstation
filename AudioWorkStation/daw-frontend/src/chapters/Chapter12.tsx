@@ -519,7 +519,12 @@ function normalizeUploadedBuffer(buf: AudioBuffer, peakTarget = 0.85) {
     for (let i = 0; i < data.length; i++) peak = Math.max(peak, Math.abs(data[i]));
   }
   if (peak < 1e-6) return;
-  const scale = peakTarget / peak;
+  // Ceiling, not a target: only ever turn a hot file DOWN to avoid clipping.
+  // `peakTarget / peak` alone would also turn a quiet file UP to hit
+  // peakTarget, baking a silent gain boost into the uploaded buffer itself —
+  // audible even with the effect bypassed, since it happens once at upload
+  // time, before Bypass or any DSP ever sees the audio.
+  const scale = Math.min(1, peakTarget / peak);
   const fadeSamples = Math.min(Math.round(buf.sampleRate * 0.01), Math.floor(buf.length / 2));
   for (let ch = 0; ch < buf.numberOfChannels; ch++) {
     const data = buf.getChannelData(ch);
