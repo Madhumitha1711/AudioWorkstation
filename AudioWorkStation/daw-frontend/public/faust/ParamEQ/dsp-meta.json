@@ -18,7 +18,8 @@
         "/usr/share/faust",
         "."
     ],
-    "size": 1580,
+    "size": 1628,
+    "code": "yCnVBJQ9Hw==",
     "inputs": 2,
     "outputs": 2,
     "meta": [
@@ -305,7 +306,7 @@
                     "varname": "fHslider37",
                     "shortname": "High_Shelf_Freq",
                     "address": "/ParamEQ/High_Shelf_Freq",
-                    "index": 856,
+                    "index": 876,
                     "meta": [
                         {
                             "1": ""
@@ -325,7 +326,7 @@
                     "varname": "fHslider43",
                     "shortname": "LPF_Freq",
                     "address": "/ParamEQ/LPF_Freq",
-                    "index": 968,
+                    "index": 992,
                     "meta": [
                         {
                             "1": ""
@@ -365,7 +366,7 @@
                     "varname": "fHslider9",
                     "shortname": "Peak1_Freq",
                     "address": "/ParamEQ/Peak1_Freq",
-                    "index": 344,
+                    "index": 348,
                     "meta": [
                         {
                             "1": ""
@@ -385,7 +386,7 @@
                     "varname": "fHslider16",
                     "shortname": "Peak2_Freq",
                     "address": "/ParamEQ/Peak2_Freq",
-                    "index": 472,
+                    "index": 480,
                     "meta": [
                         {
                             "1": ""
@@ -405,7 +406,7 @@
                     "varname": "fHslider23",
                     "shortname": "Peak3_Freq",
                     "address": "/ParamEQ/Peak3_Freq",
-                    "index": 600,
+                    "index": 612,
                     "meta": [
                         {
                             "1": ""
@@ -425,7 +426,7 @@
                     "varname": "fHslider30",
                     "shortname": "Peak4_Freq",
                     "address": "/ParamEQ/Peak4_Freq",
-                    "index": 728,
+                    "index": 744,
                     "meta": [
                         {
                             "1": ""
@@ -519,7 +520,7 @@
                     "varname": "fHslider10",
                     "shortname": "Peak1_Gain",
                     "address": "/ParamEQ/Peak1_Gain",
-                    "index": 356,
+                    "index": 360,
                     "meta": [
                         {
                             "2": ""
@@ -539,7 +540,7 @@
                     "varname": "fHslider17",
                     "shortname": "Peak2_Gain",
                     "address": "/ParamEQ/Peak2_Gain",
-                    "index": 484,
+                    "index": 492,
                     "meta": [
                         {
                             "2": ""
@@ -559,7 +560,7 @@
                     "varname": "fHslider24",
                     "shortname": "Peak3_Gain",
                     "address": "/ParamEQ/Peak3_Gain",
-                    "index": 612,
+                    "index": 624,
                     "meta": [
                         {
                             "2": ""
@@ -579,7 +580,7 @@
                     "varname": "fHslider31",
                     "shortname": "Peak4_Gain",
                     "address": "/ParamEQ/Peak4_Gain",
-                    "index": 740,
+                    "index": 756,
                     "meta": [
                         {
                             "2": ""
@@ -599,7 +600,7 @@
                     "varname": "fHslider38",
                     "shortname": "High_Shelf_Q",
                     "address": "/ParamEQ/High_Shelf_Q",
-                    "index": 868,
+                    "index": 888,
                     "meta": [
                         {
                             "3": ""
@@ -633,7 +634,7 @@
                     "varname": "fHslider11",
                     "shortname": "Peak1_Q",
                     "address": "/ParamEQ/Peak1_Q",
-                    "index": 372,
+                    "index": 376,
                     "meta": [
                         {
                             "3": ""
@@ -650,7 +651,7 @@
                     "varname": "fHslider18",
                     "shortname": "Peak2_Q",
                     "address": "/ParamEQ/Peak2_Q",
-                    "index": 500,
+                    "index": 508,
                     "meta": [
                         {
                             "3": ""
@@ -667,7 +668,7 @@
                     "varname": "fHslider25",
                     "shortname": "Peak3_Q",
                     "address": "/ParamEQ/Peak3_Q",
-                    "index": 628,
+                    "index": 640,
                     "meta": [
                         {
                             "3": ""
@@ -684,7 +685,7 @@
                     "varname": "fHslider32",
                     "shortname": "Peak4_Q",
                     "address": "/ParamEQ/Peak4_Q",
-                    "index": 756,
+                    "index": 772,
                     "meta": [
                         {
                             "3": ""
@@ -727,7 +728,7 @@
                     "varname": "fCheckbox10",
                     "shortname": "Peak1_Dynamic_On",
                     "address": "/ParamEQ/Peak1_Dynamic_On",
-                    "index": 368,
+                    "index": 372,
                     "meta": [
                         {
                             "4": ""
@@ -740,7 +741,7 @@
                     "varname": "fCheckbox11",
                     "shortname": "Peak2_Dynamic_On",
                     "address": "/ParamEQ/Peak2_Dynamic_On",
-                    "index": 496,
+                    "index": 504,
                     "meta": [
                         {
                             "4": ""
@@ -753,7 +754,7 @@
                     "varname": "fCheckbox12",
                     "shortname": "Peak3_Dynamic_On",
                     "address": "/ParamEQ/Peak3_Dynamic_On",
-                    "index": 624,
+                    "index": 636,
                     "meta": [
                         {
                             "4": ""
@@ -766,7 +767,7 @@
                     "varname": "fCheckbox13",
                     "shortname": "Peak4_Dynamic_On",
                     "address": "/ParamEQ/Peak4_Dynamic_On",
-                    "index": 752,
+                    "index": 768,
                     "meta": [
                         {
                             "4": ""
@@ -779,7 +780,7 @@
                     "varname": "fHslider41",
                     "shortname": "High_Shelf_Threshold",
                     "address": "/ParamEQ/High_Shelf_Threshold",
-                    "index": 924,
+                    "index": 944,
                     "meta": [
                         {
                             "5": ""
@@ -819,7 +820,7 @@
                     "varname": "fHslider14",
                     "shortname": "Peak1_Threshold",
                     "address": "/ParamEQ/Peak1_Threshold",
-                    "index": 428,
+                    "index": 432,
                     "meta": [
                         {
                             "5": ""
@@ -839,7 +840,7 @@
                     "varname": "fHslider21",
                     "shortname": "Peak2_Threshold",
                     "address": "/ParamEQ/Peak2_Threshold",
-                    "index": 556,
+                    "index": 564,
                     "meta": [
                         {
                             "5": ""
@@ -859,7 +860,7 @@
                     "varname": "fHslider28",
                     "shortname": "Peak3_Threshold",
                     "address": "/ParamEQ/Peak3_Threshold",
-                    "index": 684,
+                    "index": 696,
                     "meta": [
                         {
                             "5": ""
@@ -879,7 +880,7 @@
                     "varname": "fHslider35",
                     "shortname": "Peak4_Threshold",
                     "address": "/ParamEQ/Peak4_Threshold",
-                    "index": 812,
+                    "index": 828,
                     "meta": [
                         {
                             "5": ""
@@ -899,7 +900,7 @@
                     "varname": "fHslider42",
                     "shortname": "High_Shelf_Range",
                     "address": "/ParamEQ/High_Shelf_Range",
-                    "index": 936,
+                    "index": 956,
                     "meta": [
                         {
                             "6": ""
@@ -939,7 +940,7 @@
                     "varname": "fHslider15",
                     "shortname": "Peak1_Range",
                     "address": "/ParamEQ/Peak1_Range",
-                    "index": 440,
+                    "index": 444,
                     "meta": [
                         {
                             "6": ""
@@ -959,7 +960,7 @@
                     "varname": "fHslider22",
                     "shortname": "Peak2_Range",
                     "address": "/ParamEQ/Peak2_Range",
-                    "index": 568,
+                    "index": 576,
                     "meta": [
                         {
                             "6": ""
@@ -979,7 +980,7 @@
                     "varname": "fHslider29",
                     "shortname": "Peak3_Range",
                     "address": "/ParamEQ/Peak3_Range",
-                    "index": 696,
+                    "index": 708,
                     "meta": [
                         {
                             "6": ""
@@ -999,7 +1000,7 @@
                     "varname": "fHslider36",
                     "shortname": "Peak4_Range",
                     "address": "/ParamEQ/Peak4_Range",
-                    "index": 824,
+                    "index": 840,
                     "meta": [
                         {
                             "6": ""
@@ -1019,7 +1020,7 @@
                     "varname": "fHslider40",
                     "shortname": "High_Shelf_Attack",
                     "address": "/ParamEQ/High_Shelf_Attack",
-                    "index": 904,
+                    "index": 924,
                     "meta": [
                         {
                             "7": ""
@@ -1059,7 +1060,7 @@
                     "varname": "fHslider13",
                     "shortname": "Peak1_Attack",
                     "address": "/ParamEQ/Peak1_Attack",
-                    "index": 408,
+                    "index": 412,
                     "meta": [
                         {
                             "7": ""
@@ -1079,7 +1080,7 @@
                     "varname": "fHslider20",
                     "shortname": "Peak2_Attack",
                     "address": "/ParamEQ/Peak2_Attack",
-                    "index": 536,
+                    "index": 544,
                     "meta": [
                         {
                             "7": ""
@@ -1099,7 +1100,7 @@
                     "varname": "fHslider27",
                     "shortname": "Peak3_Attack",
                     "address": "/ParamEQ/Peak3_Attack",
-                    "index": 664,
+                    "index": 676,
                     "meta": [
                         {
                             "7": ""
@@ -1119,7 +1120,7 @@
                     "varname": "fHslider34",
                     "shortname": "Peak4_Attack",
                     "address": "/ParamEQ/Peak4_Attack",
-                    "index": 792,
+                    "index": 808,
                     "meta": [
                         {
                             "7": ""
@@ -1139,7 +1140,7 @@
                     "varname": "fHslider39",
                     "shortname": "High_Shelf_Release",
                     "address": "/ParamEQ/High_Shelf_Release",
-                    "index": 892,
+                    "index": 912,
                     "meta": [
                         {
                             "8": ""
@@ -1179,7 +1180,7 @@
                     "varname": "fHslider12",
                     "shortname": "Peak1_Release",
                     "address": "/ParamEQ/Peak1_Release",
-                    "index": 396,
+                    "index": 400,
                     "meta": [
                         {
                             "8": ""
@@ -1199,7 +1200,7 @@
                     "varname": "fHslider19",
                     "shortname": "Peak2_Release",
                     "address": "/ParamEQ/Peak2_Release",
-                    "index": 524,
+                    "index": 532,
                     "meta": [
                         {
                             "8": ""
@@ -1219,7 +1220,7 @@
                     "varname": "fHslider26",
                     "shortname": "Peak3_Release",
                     "address": "/ParamEQ/Peak3_Release",
-                    "index": 652,
+                    "index": 664,
                     "meta": [
                         {
                             "8": ""
@@ -1239,7 +1240,7 @@
                     "varname": "fHslider33",
                     "shortname": "Peak4_Release",
                     "address": "/ParamEQ/Peak4_Release",
-                    "index": 780,
+                    "index": 796,
                     "meta": [
                         {
                             "8": ""
@@ -1252,6 +1253,222 @@
                     "min": 0.01,
                     "max": 2,
                     "step": 0.01
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "High Shelf/Live Gain",
+                    "varname": "fHbargraph5",
+                    "shortname": "P61_ParamEQ_High_Shelf_Live_Gain",
+                    "address": "/ParamEQ/High_Shelf_Live_Gain",
+                    "index": 976,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "High Shelf/Live Gain",
+                    "varname": "fHbargraph11",
+                    "shortname": "P61_ParamEQ_High_Shelf_Live_Gain",
+                    "address": "/ParamEQ/High_Shelf_Live_Gain",
+                    "index": 976,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Low Shelf/Live Gain",
+                    "varname": "fHbargraph0",
+                    "shortname": "P63_ParamEQ_Low_Shelf_Live_Gain",
+                    "address": "/ParamEQ/Low_Shelf_Live_Gain",
+                    "index": 1272,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Low Shelf/Live Gain",
+                    "varname": "fHbargraph6",
+                    "shortname": "P63_ParamEQ_Low_Shelf_Live_Gain",
+                    "address": "/ParamEQ/Low_Shelf_Live_Gain",
+                    "index": 1272,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Peak1/Live Gain",
+                    "varname": "fHbargraph1",
+                    "shortname": "P65_ParamEQ_Peak1_Live_Gain",
+                    "address": "/ParamEQ/Peak1_Live_Gain",
+                    "index": 1316,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Peak1/Live Gain",
+                    "varname": "fHbargraph7",
+                    "shortname": "P65_ParamEQ_Peak1_Live_Gain",
+                    "address": "/ParamEQ/Peak1_Live_Gain",
+                    "index": 1316,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Peak2/Live Gain",
+                    "varname": "fHbargraph2",
+                    "shortname": "P67_ParamEQ_Peak2_Live_Gain",
+                    "address": "/ParamEQ/Peak2_Live_Gain",
+                    "index": 1360,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Peak2/Live Gain",
+                    "varname": "fHbargraph8",
+                    "shortname": "P67_ParamEQ_Peak2_Live_Gain",
+                    "address": "/ParamEQ/Peak2_Live_Gain",
+                    "index": 1360,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Peak3/Live Gain",
+                    "varname": "fHbargraph3",
+                    "shortname": "P69_ParamEQ_Peak3_Live_Gain",
+                    "address": "/ParamEQ/Peak3_Live_Gain",
+                    "index": 1404,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Peak3/Live Gain",
+                    "varname": "fHbargraph9",
+                    "shortname": "P69_ParamEQ_Peak3_Live_Gain",
+                    "address": "/ParamEQ/Peak3_Live_Gain",
+                    "index": 1404,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Peak4/Live Gain",
+                    "varname": "fHbargraph4",
+                    "shortname": "P71_ParamEQ_Peak4_Live_Gain",
+                    "address": "/ParamEQ/Peak4_Live_Gain",
+                    "index": 860,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Peak4/Live Gain",
+                    "varname": "fHbargraph10",
+                    "shortname": "P71_ParamEQ_Peak4_Live_Gain",
+                    "address": "/ParamEQ/Peak4_Live_Gain",
+                    "index": 860,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
                 }
             ]
         }

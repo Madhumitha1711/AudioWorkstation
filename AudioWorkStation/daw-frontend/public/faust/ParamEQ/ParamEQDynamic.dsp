@@ -30,6 +30,24 @@ with {
     gain     = select2(dyn_on,0,raw_gain) : si.smoo;
 };
 
+// Per-band read-only meters tapping the *actually-applied* dynamic gain —
+// the real, currently-in-effect dB movement (0 when idle, sliding toward
+// `range` as the envelope follower crosses Threshold), not the static Gain
+// knob and not the "if fully engaged" extreme preview. Faust's hbargraph
+// requires a literal string label (can't be passed through a function
+// parameter or built with "+" at a call site — both fail to parse), so
+// unlike dyn_gain_db above these can't be a single parameterized helper;
+// one named meter per band, each piped on after that band's dyn_gain_db
+// call below, matching the flat, no-vgroup() label convention this patch
+// (and compressor.dsp's per-band Gain_Reduction meters) already use. The
+// host reads these live via setOutputParamHandler.
+lsLiveGainMeter = hbargraph("[9]Low Shelf/Live Gain[unit:dB]",-24,24);
+p1LiveGainMeter = hbargraph("[9]Peak1/Live Gain[unit:dB]",-24,24);
+p2LiveGainMeter = hbargraph("[9]Peak2/Live Gain[unit:dB]",-24,24);
+p3LiveGainMeter = hbargraph("[9]Peak3/Live Gain[unit:dB]",-24,24);
+p4LiveGainMeter = hbargraph("[9]Peak4/Live Gain[unit:dB]",-24,24);
+hsLiveGainMeter = hbargraph("[9]High Shelf/Live Gain[unit:dB]",-24,24);
+
 //------------------------------------------------------
 // Q-configurable shelving filters (RBJ Audio-EQ-Cookbook)
 // Standard fi.lowshelf/highshelf have no Q control, so
@@ -109,15 +127,15 @@ ls_att     = hslider("[7]Low Shelf/Attack[s]",0.005,0.001,0.5,0.001):si.smoo;
 ls_rel     = hslider("[8]Low Shelf/Release[s]",0.15,0.01,2,0.01):si.smoo;
 
 ls_stage(x) = select2(ls_bypass,
-    rbj_lowshelf(ls_gain + dyn_gain_db(ls_dyn_on,ls_thresh,ls_range,ls_att,ls_rel,ls_freq,ls_q,x), ls_freq, ls_q, x),
+    rbj_lowshelf(ls_gain + (dyn_gain_db(ls_dyn_on,ls_thresh,ls_range,ls_att,ls_rel,ls_freq,ls_q,x) : lsLiveGainMeter), ls_freq, ls_q, x),
     x);
 
 //------------------------------------------------------
 // Peak band generator (used for Peak1-4)
 //------------------------------------------------------
-peak_stage(bypass,dyn_on,thresh,range,att,rel,freq,gain,q,x) =
+peak_stage(meter,bypass,dyn_on,thresh,range,att,rel,freq,gain,q,x) =
     select2(bypass,
-        x : fi.peak_eq_cq(gain + dyn_gain_db(dyn_on,thresh,range,att,rel,freq,q,x), freq, q),
+        x : fi.peak_eq_cq(gain + (dyn_gain_db(dyn_on,thresh,range,att,rel,freq,q,x) : meter), freq, q),
         x);
 
 //---- Peak 1 ----
@@ -131,7 +149,7 @@ p1_range  = hslider("[6]Peak1/Range[dB]",-6,-24,24,0.1):si.smoo;
 p1_att    = hslider("[7]Peak1/Attack[s]",0.005,0.001,0.5,0.001):si.smoo;
 p1_rel    = hslider("[8]Peak1/Release[s]",0.15,0.01,2,0.01):si.smoo;
 
-p1_stage(x) = peak_stage(p1_bypass,p1_dyn_on,p1_thresh,p1_range,p1_att,p1_rel,p1_freq,p1_gain,p1_q,x);
+p1_stage(x) = peak_stage(p1LiveGainMeter,p1_bypass,p1_dyn_on,p1_thresh,p1_range,p1_att,p1_rel,p1_freq,p1_gain,p1_q,x);
 
 //---- Peak 2 ----
 p2_bypass = checkbox("[0]Peak2/Bypass");
@@ -144,7 +162,7 @@ p2_range  = hslider("[6]Peak2/Range[dB]",-6,-24,24,0.1):si.smoo;
 p2_att    = hslider("[7]Peak2/Attack[s]",0.005,0.001,0.5,0.001):si.smoo;
 p2_rel    = hslider("[8]Peak2/Release[s]",0.15,0.01,2,0.01):si.smoo;
 
-p2_stage(x) = peak_stage(p2_bypass,p2_dyn_on,p2_thresh,p2_range,p2_att,p2_rel,p2_freq,p2_gain,p2_q,x);
+p2_stage(x) = peak_stage(p2LiveGainMeter,p2_bypass,p2_dyn_on,p2_thresh,p2_range,p2_att,p2_rel,p2_freq,p2_gain,p2_q,x);
 
 //---- Peak 3 ----
 p3_bypass = checkbox("[0]Peak3/Bypass");
@@ -157,7 +175,7 @@ p3_range  = hslider("[6]Peak3/Range[dB]",-6,-24,24,0.1):si.smoo;
 p3_att    = hslider("[7]Peak3/Attack[s]",0.005,0.001,0.5,0.001):si.smoo;
 p3_rel    = hslider("[8]Peak3/Release[s]",0.15,0.01,2,0.01):si.smoo;
 
-p3_stage(x) = peak_stage(p3_bypass,p3_dyn_on,p3_thresh,p3_range,p3_att,p3_rel,p3_freq,p3_gain,p3_q,x);
+p3_stage(x) = peak_stage(p3LiveGainMeter,p3_bypass,p3_dyn_on,p3_thresh,p3_range,p3_att,p3_rel,p3_freq,p3_gain,p3_q,x);
 
 //---- Peak 4 ----
 p4_bypass = checkbox("[0]Peak4/Bypass");
@@ -170,7 +188,7 @@ p4_range  = hslider("[6]Peak4/Range[dB]",-6,-24,24,0.1):si.smoo;
 p4_att    = hslider("[7]Peak4/Attack[s]",0.005,0.001,0.5,0.001):si.smoo;
 p4_rel    = hslider("[8]Peak4/Release[s]",0.15,0.01,2,0.01):si.smoo;
 
-p4_stage(x) = peak_stage(p4_bypass,p4_dyn_on,p4_thresh,p4_range,p4_att,p4_rel,p4_freq,p4_gain,p4_q,x);
+p4_stage(x) = peak_stage(p4LiveGainMeter,p4_bypass,p4_dyn_on,p4_thresh,p4_range,p4_att,p4_rel,p4_freq,p4_gain,p4_q,x);
 
 //------------------------------------------------------
 // High Shelf
@@ -186,7 +204,7 @@ hs_att     = hslider("[7]High Shelf/Attack[s]",0.005,0.001,0.5,0.001):si.smoo;
 hs_rel     = hslider("[8]High Shelf/Release[s]",0.15,0.01,2,0.01):si.smoo;
 
 hs_stage(x) = select2(hs_bypass,
-    rbj_highshelf(hs_gain + dyn_gain_db(hs_dyn_on,hs_thresh,hs_range,hs_att,hs_rel,hs_freq,hs_q,x), hs_freq, hs_q, x),
+    rbj_highshelf(hs_gain + (dyn_gain_db(hs_dyn_on,hs_thresh,hs_range,hs_att,hs_rel,hs_freq,hs_q,x) : hsLiveGainMeter), hs_freq, hs_q, x),
     x);
 
 //------------------------------------------------------
