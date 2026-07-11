@@ -516,6 +516,24 @@ export default function Chapter3() {
     setTaskDone([false, false, false]);
   }, [handleStop]);
 
+  // ── Spacebar toggles play/stop ─────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) return;
+      e.preventDefault();
+      if (isPlaying) {
+        handleStop();
+      } else {
+        void handlePlay();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPlaying, handlePlay, handleStop]);
+
   // ── Cleanup on unmount ──────────────────────────────────────────────────────────
   useEffect(() => () => { handleStop(); }, [handleStop]);
 

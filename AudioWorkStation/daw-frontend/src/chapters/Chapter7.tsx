@@ -735,6 +735,24 @@ export default function Chapter7() {
     drawPreview(satWaveRef.current, 'sat', srcType, satType, drive);
   }, [drawPreview]);
 
+  // ── Spacebar toggles play/stop ─────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) return;
+      e.preventDefault();
+      if (isPlaying) {
+        stopAudio();
+      } else {
+        void startAudio();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPlaying, startAudio, stopAudio]);
+
   // ── Source change — restart if playing ──────────────────────────────────────
   // newSrc is either a built-in SrcType or the numeric id of an uploaded track.
   const handleSrcChange = useCallback((newSrc: SrcType | number) => {

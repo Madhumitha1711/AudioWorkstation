@@ -2348,6 +2348,24 @@ export default function Chapter2b() {
   const eb = engineBadge[engineStatus];
   const engineReady = engineStatus === 'ready';
 
+  // ── Spacebar toggles play/stop ─────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) return;
+      e.preventDefault();
+      if (playSource !== 'idle') {
+        stopAudio();
+      } else if (engineReady) {
+        void play(tab === 'bench' ? 'bench' : 'target');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [playSource, engineReady, tab, play, stopAudio]);
+
   return (
     <div className="eq-lab">
       {/* Top bar */}

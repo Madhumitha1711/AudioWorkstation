@@ -683,6 +683,24 @@ export default function Chapter9() {
     ctxRef.current?.close();
   }, []);
 
+  // ── Spacebar toggles play/stop ─────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) return;
+      e.preventDefault();
+      if (isPlaying) {
+        stopAudio();
+      } else if (engineStatus === 'ready') {
+        void startAudio();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPlaying, engineStatus, startAudio, stopAudio]);
+
   // ── Signal source: switch tab / upload new track ──────────────────────────
   const handleSelectSource = useCallback((id: PresetOrSynth) => {
     stopAudio();
