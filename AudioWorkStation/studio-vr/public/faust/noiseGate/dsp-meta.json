@@ -1,0 +1,205 @@
+{
+    "name": "noiseGate",
+    "filename": "noiseGate.dsp",
+    "version": "2.79.3",
+    "compile_options": "-lang wasm-i -ct 1 -es 1 -mcd 16 -mdd 1024 -mdy 33 -single -ftz 2",
+    "library_list": [
+        "/usr/share/faust/stdfaust.lib",
+        "/usr/share/faust/basics.lib",
+        "/usr/share/faust/maths.lib",
+        "/usr/share/faust/platform.lib",
+        "/usr/share/faust/analyzers.lib",
+        "/usr/share/faust/signals.lib"
+    ],
+    "include_pathnames": [
+        "/share/faust",
+        "/usr/local/share/faust",
+        "/usr/share/faust",
+        "."
+    ],
+    "size": 96,
+    "code": "8BnS",
+    "inputs": 2,
+    "outputs": 2,
+    "meta": [
+        {
+            "analyzers.lib/name": "Faust Analyzer Library"
+        },
+        {
+            "analyzers.lib/version": "1.2.0"
+        },
+        {
+            "basics.lib/name": "Faust Basic Element Library"
+        },
+        {
+            "basics.lib/version": "1.21.0"
+        },
+        {
+            "compile_options": "-lang wasm-i -ct 1 -es 1 -mcd 16 -mdd 1024 -mdy 33 -single -ftz 2"
+        },
+        {
+            "description": "Chapter 10 - hysteresis noise gate with attack, release, and hold"
+        },
+        {
+            "filename": "noiseGate.dsp"
+        },
+        {
+            "maths.lib/author": "GRAME"
+        },
+        {
+            "maths.lib/copyright": "GRAME"
+        },
+        {
+            "maths.lib/license": "LGPL with exception"
+        },
+        {
+            "maths.lib/name": "Faust Math Library"
+        },
+        {
+            "maths.lib/version": "2.8.1"
+        },
+        {
+            "name": "noiseGate"
+        },
+        {
+            "platform.lib/name": "Generic Platform Library"
+        },
+        {
+            "platform.lib/version": "1.3.0"
+        },
+        {
+            "signals.lib/name": "Faust Signal Routing Library"
+        },
+        {
+            "signals.lib/version": "1.6.0"
+        }
+    ],
+    "ui": [
+        {
+            "type": "vgroup",
+            "label": "NOISE GATE STUDIO",
+            "items": [
+                {
+                    "type": "hslider",
+                    "label": "Floor",
+                    "varname": "fHslider0",
+                    "shortname": "Floor",
+                    "address": "/NOISE_GATE_STUDIO/Floor",
+                    "index": 0,
+                    "meta": [
+                        {
+                            "01": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "init": -60,
+                    "min": -96,
+                    "max": 0,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Gate Open",
+                    "varname": "fHslider1",
+                    "shortname": "Gate_Open",
+                    "address": "/NOISE_GATE_STUDIO/Gate_Open",
+                    "index": 44,
+                    "meta": [
+                        {
+                            "02": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "init": -32,
+                    "min": -80,
+                    "max": 0,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Gate Close",
+                    "varname": "fHslider2",
+                    "shortname": "Gate_Close",
+                    "address": "/NOISE_GATE_STUDIO/Gate_Close",
+                    "index": 48,
+                    "meta": [
+                        {
+                            "03": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "init": -38,
+                    "min": -80,
+                    "max": 0,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Attack",
+                    "varname": "fHslider5",
+                    "shortname": "Attack",
+                    "address": "/NOISE_GATE_STUDIO/Attack",
+                    "index": 84,
+                    "meta": [
+                        {
+                            "04": ""
+                        },
+                        {
+                            "unit": "ms"
+                        }
+                    ],
+                    "init": 2,
+                    "min": 0.1,
+                    "max": 100,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Release",
+                    "varname": "fHslider4",
+                    "shortname": "Release",
+                    "address": "/NOISE_GATE_STUDIO/Release",
+                    "index": 80,
+                    "meta": [
+                        {
+                            "05": ""
+                        },
+                        {
+                            "unit": "ms"
+                        }
+                    ],
+                    "init": 30,
+                    "min": 1,
+                    "max": 1000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Hold",
+                    "varname": "fHslider3",
+                    "shortname": "Hold",
+                    "address": "/NOISE_GATE_STUDIO/Hold",
+                    "index": 56,
+                    "meta": [
+                        {
+                            "06": ""
+                        },
+                        {
+                            "unit": "ms"
+                        }
+                    ],
+                    "init": 10,
+                    "min": 0,
+                    "max": 500,
+                    "step": 1
+                }
+            ]
+        }
+    ]
+}
