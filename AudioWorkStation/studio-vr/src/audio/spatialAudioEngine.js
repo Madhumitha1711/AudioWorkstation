@@ -33,6 +33,7 @@ let ambientSource = null;
 let ambientGain = null;
 let ambientFilter = null;
 let ambientDriftLfoGain = null;
+let ambientDriftLfo = null;
 // Master mute: silences ALL audio via outputGain. Fully independent of
 // binauralEnabled below — toggling one must never move the other.
 let fullyMuted = false;
@@ -170,19 +171,62 @@ function startAmbientBed(profile = DEFAULT_AMBIENCE) {
 
   // Very slow, subtle gain drift so it reads as gently moving air rather
   // than a dead-flat tone.
-  const driftLfo = audioCtx.createOscillator();
-  driftLfo.type = "sine";
-  driftLfo.frequency.value = 0.07; // one drift cycle every ~14s
+  ambientDriftLfo = audioCtx.createOscillator();
+  ambientDriftLfo.type = "sine";
+  ambientDriftLfo.frequency.value = 0.07; // one drift cycle every ~14s
   ambientDriftLfoGain = audioCtx.createGain();
   ambientDriftLfoGain.gain.value = profile.gustDepth;
-  driftLfo.connect(ambientDriftLfoGain).connect(ambientGain.gain);
-  driftLfo.start();
+  ambientDriftLfo.connect(ambientDriftLfoGain).connect(ambientGain.gain);
+  ambientDriftLfo.start();
 
   ambientSource
     .connect(ambientFilter)
     .connect(ambientGain)
     .connect(masterGain);
   ambientSource.start();
+}
+
+/**
+ * Stops and tears down the ambient bed (buffer source, drift LFO, and their
+ * gain/filter nodes). Needed because the bed is otherwise a fire-and-forget
+ * loop with no natural end — leaving a screen that started it (e.g. the VR
+ * studio tour) without stopping it here would let it keep playing
+ * indefinitely in the background after navigating elsewhere, since
+ * audioCtx/masterGain are a module-level singleton that outlives any one
+ * screen. Safe to call even if nothing is currently playing. After this,
+ * startAmbientBed()/setRoomAmbience() will start a fresh bed on next use.
+ */
+export function stopAmbientBed() {
+  if (ambientDriftLfo) {
+    try {
+      ambientDriftLfo.stop();
+    } catch {
+      // already stopped
+    }
+    ambientDriftLfo.disconnect();
+    ambientDriftLfo = null;
+  }
+  if (ambientSource) {
+    try {
+      ambientSource.stop();
+    } catch {
+      // already stopped
+    }
+    ambientSource.disconnect();
+    ambientSource = null;
+  }
+  if (ambientFilter) {
+    ambientFilter.disconnect();
+    ambientFilter = null;
+  }
+  if (ambientGain) {
+    ambientGain.disconnect();
+    ambientGain = null;
+  }
+  if (ambientDriftLfoGain) {
+    ambientDriftLfoGain.disconnect();
+    ambientDriftLfoGain = null;
+  }
 }
 
 /**

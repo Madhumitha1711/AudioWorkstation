@@ -14,6 +14,7 @@ import {
   playHotspotNarration,
   stopHotspotNarration,
   setRoomAmbience,
+  stopAmbientBed,
   setMuted,
   isMuted,
   setBinauralEnabled,
@@ -297,6 +298,11 @@ function PanoramaTour() {
       window.removeEventListener("keydown", onKeyDown);
       clearInterval(orientationInterval);
       stopHotspotNarration();
+      // The ambient bed lives in a module-level singleton (spatialAudioEngine),
+      // not React state, so it otherwise keeps playing after this screen
+      // unmounts — e.g. following "Start course" into /course. Stop it here
+      // so leaving the VR tour actually silences the room tone.
+      stopAmbientBed();
       viewer.destroy();
     };
   }, []);
