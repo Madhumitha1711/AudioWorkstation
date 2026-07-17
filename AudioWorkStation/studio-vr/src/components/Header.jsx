@@ -1,9 +1,13 @@
-function Header({ screen, studentName, onNavigateHome }) {
-  // Landing, payment, and course screens ship their own headers, so the
+import { ThemeToggle } from "../theme/ThemeToggle";
+
+function Header({ pathname, studentName, onNavigateHome }) {
+  // Landing, payment, and course pages ship their own headers, so the
   // shared app chrome only needs to appear for login and the studio itself.
-  if (screen === "landing" || screen === "payment" || screen === "course") {
+  if (pathname === "/" || pathname === "/payment" || pathname === "/course") {
     return null;
   }
+
+  const isStudio = pathname === "/studio";
 
   return (
     <header style={containerStyle}>
@@ -12,7 +16,7 @@ function Header({ screen, studentName, onNavigateHome }) {
       </div>
 
       <div style={rightStyle}>
-        {screen === "studio" && (
+        {isStudio ? (
           <>
             {studentName && (
               <span style={greetingStyle}>Hi, {studentName}</span>
@@ -21,10 +25,10 @@ function Header({ screen, studentName, onNavigateHome }) {
               Exit to home
             </button>
           </>
-        )}
-        {screen !== "studio" && (
+        ) : (
           <span style={taglineStyle}>Learn audio engineering in 360°</span>
         )}
+        <ThemeToggle style={themeToggleStyle} />
       </div>
     </header>
   );
@@ -37,10 +41,10 @@ const containerStyle = {
   alignItems: "center",
   justifyContent: "space-between",
   padding: "0 20px",
-  background: "rgba(8, 9, 12, 0.92)",
-  borderBottom: "1px solid rgba(255,255,255,0.08)",
+  background: "var(--shell-bg)",
+  borderBottom: "1px solid var(--shell-border-soft)",
   fontFamily: "sans-serif",
-  color: "#fff",
+  color: "var(--shell-text)",
   zIndex: 10,
   position: "relative",
 };
@@ -58,8 +62,8 @@ const logoMarkStyle = {
   width: "26px",
   height: "26px",
   borderRadius: "50%",
-  background: "radial-gradient(circle at 32% 28%, #7dffb8, #17c76a 70%)",
-  color: "#04160a",
+  background: "var(--shell-gradient-accent)",
+  color: "var(--shell-accent-ink)",
   fontSize: "14px",
   fontWeight: 700,
 };
@@ -83,13 +87,24 @@ const taglineStyle = {
 
 const exitButtonStyle = {
   padding: "6px 14px",
-  background: "rgba(255,255,255,0.08)",
-  color: "#fff",
-  border: "1px solid rgba(255,255,255,0.2)",
+  background: "var(--shell-panel)",
+  color: "var(--shell-text)",
+  border: "1px solid var(--shell-border)",
   borderRadius: "999px",
   fontSize: "12.5px",
   fontWeight: 600,
   cursor: "pointer",
+};
+
+const themeToggleStyle = {
+  width: "30px",
+  height: "30px",
+  borderRadius: "50%",
+  border: "1px solid var(--shell-border-soft)",
+  background: "var(--shell-panel)",
+  color: "var(--shell-text-dim)",
+  justifyContent: "center",
+  flexShrink: 0,
 };
 
 export default Header;

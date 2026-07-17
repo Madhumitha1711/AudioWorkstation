@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useDispatch } from "react-redux";
-import { setScreen } from "../store/uiSlice";
+import { useNavigate } from "react-router-dom";
+import { ThemeToggle } from "../theme/ThemeToggle";
 import "./LandingPage.css";
 
 const TOPICS = [
@@ -21,11 +21,11 @@ const HOW_STEPS = [
 ];
 
 function LandingPage() {
-  const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [videoOpen, setVideoOpen] = useState(false);
 
-  const goToPayment = () => dispatch(setScreen("payment"));
-  const goToSignIn = () => dispatch(setScreen("login"));
+  const goToPayment = () => navigate("/payment");
+  const goToSignIn = () => navigate("/login");
 
   const scrollToCurriculum = () => {
     document.getElementById("curriculum")?.scrollIntoView({ behavior: "smooth" });
@@ -47,6 +47,7 @@ function LandingPage() {
           <button className="btn-primary" onClick={goToPayment}>
             Sign up
           </button>
+          <ThemeToggle className="theme-toggle-btn" />
         </div>
       </header>
 

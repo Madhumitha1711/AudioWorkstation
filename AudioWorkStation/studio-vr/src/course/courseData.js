@@ -12,6 +12,10 @@ export const TOPICS = [
     intro:
       "Studio monitors are the lens you mix through — everything you learn here is about trusting what you hear.",
     ready: true,
+    // Real photogrammetry scan of the room's actual speaker — rendered as a
+    // rotatable 3D preview on this topic's lessons (see GearModelViewer).
+    // `kind` is the procedural-placeholder fallback if the scan is missing.
+    model: { kind: "speaker", url: "/model/speaker.glb" },
     lessons: [
       {
         id: "monitor-types",

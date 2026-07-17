@@ -984,14 +984,14 @@ export default function Saturator() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '1rem 0 0.4rem' }}>
             <div className="canvas-label" style={{ margin: 0 }}>WAVEFORM COMPARISON</div>
             <div style={{ display: 'flex', gap: '1rem', fontSize: '0.65rem', color: 'var(--text-faint)' }}>
-              <span><span style={{ color: '#4D9EFF' }}>■</span> DRY = pre-shaper</span>
-              <span><span style={{ color: '#FF7A45' }}>■</span> SAT = post-shaper</span>
+              <span><span style={{ color: 'var(--blue)' }}>■</span> DRY = pre-shaper</span>
+              <span><span style={{ color: 'var(--sat)' }}>■</span> SAT = post-shaper</span>
             </div>
           </div>
 
           <div className="waveform-compare">
             <div className="compare-row">
-              <div className="compare-lbl" style={{ color: '#4D9EFF' }}>DRY</div>
+              <div className="compare-lbl" style={{ color: 'var(--blue)' }}>DRY</div>
               <div className="mini-wave" style={{ height: 68, borderColor: 'rgba(77,158,255,0.2)', background: '#0D0D0F' }}>
                 <canvas ref={dryWaveRef} width={600} height={140} style={{ width: '100%', height: '100%', display: 'block' }}/>
               </div>

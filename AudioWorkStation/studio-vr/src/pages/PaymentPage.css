@@ -107,6 +107,27 @@
     font-weight: 800;
   }
 
+  .pay-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .theme-toggle-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px solid var(--border-soft);
+    background: var(--panel);
+    color: var(--text-dimmer);
+    justify-content: center;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+
+    &:hover {
+      color: var(--text);
+    }
+  }
+
   .pay-wrap {
     max-width: 980px;
     margin: 56px auto 0;
@@ -256,5 +277,25 @@
     .pay-wrap {
       grid-template-columns: 1fr;
     }
+  }
+}
+
+/* ── Light theme ─────────────────────────────────────────────────────────── */
+:root[data-theme='light'] .svr-payment {
+  --panel: rgba(4, 20, 12, 0.04);
+  --border: rgba(4, 20, 12, 0.14);
+  --border-soft: rgba(4, 20, 12, 0.09);
+  --text: #0c130f;
+  --text-dim: rgba(12, 19, 15, 0.7);
+  --text-dimmer: rgba(12, 19, 15, 0.5);
+  --accent: #047857;
+  --accent2: #10b981;
+  --accent-ink: #ffffff;
+
+  background: radial-gradient(ellipse at top, #ffffff 0%, #edf1ee 60%);
+
+  .field {
+    background: rgba(4, 20, 12, 0.04);
+    color: var(--text);
   }
 }

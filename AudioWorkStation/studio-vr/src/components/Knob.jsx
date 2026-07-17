@@ -1,7 +1,26 @@
 import { useRef, useEffect, useCallback } from 'react';
+import { useTheme } from '../theme/ThemeContext';
 // ── Shared rotary knob ───────────────────────────────────────────────────────
 // Originally built for Chapter 6 (Reverb Designer); pulled out here so every
 // lab uses the same drag-to-adjust dial instead of one-off sliders/faders.
+// The knob body reads as a physical metal/plastic disc, so it gets its own
+// light-mode gradient (brushed aluminum) rather than page chrome — same
+// treatment as .big-knob/.sat-knob/.pan-knob in chapters.css and the
+// Equalizer chapter's own local Knob (KNOB_BODY there).
+const KNOB_BODY = {
+    dark: {
+        enabled: 'radial-gradient(circle at 35% 35%, #1F4F49, #1A1A22)',
+        disabled: 'radial-gradient(circle at 35% 35%, #222230, #1A1A22)',
+        tick: '#E8E8EC',
+        tickDisabled: '#4A4A5A',
+    },
+    light: {
+        enabled: 'radial-gradient(circle at 35% 35%, #f2f7f5, #c3d6cf)',
+        disabled: 'radial-gradient(circle at 35% 35%, #f0f1ec, #d2d6c9)',
+        tick: '#12140f',
+        tickDisabled: '#9aa08f',
+    },
+};
 function knobRot(v, min, max) {
     return -140 + ((v - min) / (max - min)) * 280;
 }
@@ -17,6 +36,8 @@ function arc(r, start, end) {
     return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 ${lg} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
 }
 export function Knob({ spec, value, onChange, disabled = false, target, size = 64 }) {
+    const { theme } = useTheme();
+    const body = KNOB_BODY[theme] ?? KNOB_BODY.dark;
     const rot = knobRot(value, spec.min, spec.max);
     const accent = spec.accent ?? 'var(--teal)';
     const dragRef = useRef(null);
@@ -59,22 +80,20 @@ export function Knob({ spec, value, onChange, disabled = false, target, size = 6
     return (<div className="knob-wrap" style={disabled ? { opacity: 0.35, pointerEvents: 'none' } : {}}>
       <div style={{ position: 'relative', width: size, height: size }}>
         <svg style={{ position: 'absolute', top: 0, left: 0 }} width={size} height={size} viewBox={`${-size / 2} ${-size / 2} ${size} ${size}`}>
-          <path d={arc(radius, -140, 140)} fill="none" stroke="#2E2E3D" strokeWidth={3} strokeLinecap="round"/>
+          <path d={arc(radius, -140, 140)} fill="none" stroke="var(--border)" strokeWidth={3} strokeLinecap="round"/>
           <path d={arc(radius, -140, rot)} fill="none" stroke={accent} strokeWidth={3} strokeLinecap="round" opacity={0.85}/>
           {targetPt && (<line x1={targetPt.a.x} y1={targetPt.a.y} x2={targetPt.b.x} y2={targetPt.b.y} stroke="var(--amber)" strokeWidth={2} strokeLinecap="round"/>)}
         </svg>
         <div className="big-knob" style={{
             position: 'absolute', top: offset, left: offset, width: bigSize, height: bigSize,
-            background: disabled
-                ? 'radial-gradient(circle at 35% 35%, #222230, var(--console))'
-                : 'radial-gradient(circle at 35% 35%, #1F4F49, var(--console))',
+            background: disabled ? body.disabled : body.enabled,
             cursor: disabled ? 'not-allowed' : 'ns-resize',
             userSelect: 'none',
         }} onMouseDown={onDown}>
           <div style={{
             position: 'absolute', top: '50%', left: '50%',
             width: tickW, height: tickH,
-            background: disabled ? '#4A4A5A' : '#E8E8EC',
+            background: disabled ? body.tickDisabled : body.tick,
             borderRadius: 2,
             transformOrigin: 'bottom center',
             transform: `translate(-50%, -100%) rotate(${rot}deg)`,

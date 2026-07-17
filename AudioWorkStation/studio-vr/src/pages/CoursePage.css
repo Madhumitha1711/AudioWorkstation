@@ -15,6 +15,11 @@
   width: 100%;
   height: 100%;
   overflow-y: auto;
+  /* Safety net: nothing on this page should ever be able to push it wider
+     than the viewport (see .course-main's min-width fix below for the
+     actual root cause) — this just guarantees a rogue element can't shift
+     the sidebar out of view instead of wrapping/scrolling. */
+  overflow-x: hidden;
   background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -149,6 +154,30 @@
     font-size: 13px;
   }
 
+  .course-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .theme-toggle-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--border-soft);
+    background: var(--panel);
+    color: var(--text-dim);
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+
+    &:hover {
+      background: var(--panel-hover);
+      color: var(--text);
+    }
+  }
+
   .course-layout {
     display: grid;
     grid-template-columns: 300px 1fr;
@@ -162,6 +191,11 @@
     top: 78px;
     max-height: calc(100vh - 78px);
     overflow-y: auto;
+    /* Grid items default to min-width: auto (shrink-to-fit their content's
+       intrinsic width), which can silently override the 300px track and
+       force the whole grid — and the page — wider than the viewport. This
+       lets it actually shrink to the track width instead. */
+    min-width: 0;
   }
 
   .sidebar-section-label {
@@ -309,12 +343,21 @@
 
   .course-main {
     padding: 36px 48px 90px;
-    /* Fill the grid's remaining column instead of capping to a fixed
-       reading width — that cap was leaving a lot of dead space on wide
-       screens for every section, not just prose. Paragraph text still gets
-       its own comfortable width via .lesson-article below, so long lines
-       don't stretch edge-to-edge on a wide monitor. */
-    max-width: none;
+    /* Same fix as .course-sidebar: without this, this column's min-width
+       defaults to its content's intrinsic width instead of the 1fr track,
+       so it can force the grid wider than the viewport. */
+    min-width: 0;
+  }
+
+  /* A single capped, centered column for every section of a lesson —
+     heading, media row, prose, actions, CTA all share the same left/right
+     edges instead of each picking its own width (which is what made the
+     page look unaligned, with prose stuck at a fraction of the width the
+     media row used). Centering it also spreads the leftover space evenly
+     on wide screens instead of dumping it all on the right. */
+  .course-content {
+    max-width: 960px;
+    margin: 0 auto;
   }
 
   .topic-eyebrow {
@@ -337,7 +380,6 @@
     line-height: 1.7;
     color: var(--text-dim);
     margin: 0 0 8px;
-    max-width: 640px;
   }
   .topic-progress-row {
     display: flex;
@@ -349,13 +391,18 @@
     width: 120px;
   }
 
-  .lesson-video {
+  /* Video is always its own full-width row. The 3D model, when present,
+     pairs with the lesson text instead — see .lesson-body-row below. */
+  .lesson-video,
+  .topic-model-box {
     position: relative;
     border-radius: 14px;
     overflow: hidden;
+    border: 1px solid var(--border-soft);
+  }
+  .lesson-video {
     aspect-ratio: 16 / 9;
     margin-bottom: 8px;
-    border: 1px solid var(--border-soft);
     cursor: pointer;
   }
   .lesson-video img {
@@ -365,7 +412,7 @@
     filter: brightness(0.72);
     display: block;
   }
-  .lesson-video .vtag {
+  .vtag {
     position: absolute;
     left: 16px;
     bottom: 14px;
@@ -405,6 +452,25 @@
     margin: 0 0 30px;
   }
 
+  .lesson-body-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 28px;
+  }
+  .lesson-body-row > * {
+    min-width: 0;
+  }
+  .lesson-body-row.has-model .topic-model-box {
+    flex: 0 0 320px;
+    /* Stays in view while the (often much longer) lesson text scrolls
+       past it — same sticky pattern as .course-sidebar. */
+    position: sticky;
+    top: 94px;
+  }
+  .lesson-body-row .lesson-text-col {
+    flex: 1 1 0;
+  }
+
   .lesson-kicker,
   .interactive-kicker {
     font-size: 11.5px;
@@ -427,7 +493,6 @@
     font-size: 15px;
     line-height: 1.8;
     color: var(--text-dim);
-    max-width: 720px;
   }
   .lesson-article p {
     margin: 0 0 20px;
@@ -527,5 +592,47 @@
     .course-main {
       padding: 28px 22px 70px;
     }
+    .lesson-body-row {
+      flex-direction: column;
+    }
+    .lesson-body-row.has-model .topic-model-box {
+      flex: 1 1 auto;
+      width: 100%;
+      position: static;
+    }
+  }
+}
+
+/* ── Light theme ─────────────────────────────────────────────────────────── */
+:root[data-theme='light'] .svr-course {
+  --bg: #f6f8f6;
+  --panel: rgba(4, 20, 12, 0.04);
+  --panel-hover: rgba(4, 20, 12, 0.07);
+  --border: rgba(4, 20, 12, 0.14);
+  --border-soft: rgba(4, 20, 12, 0.09);
+  --text: #0c130f;
+  --text-dim: rgba(12, 19, 15, 0.7);
+  --text-dimmer: rgba(12, 19, 15, 0.5);
+  --accent: #047857;
+  --accent2: #10b981;
+  --accent-ink: #ffffff;
+
+  .course-topbar {
+    background: rgba(246, 248, 246, 0.92);
+  }
+  .btn-secondary {
+    background: rgba(4, 20, 12, 0.05);
+  }
+  .progress-track {
+    background: rgba(4, 20, 12, 0.08);
+  }
+  .topic-head:hover,
+  .lesson-item:hover,
+  .lesson-item.active,
+  .arrow-btn:hover:not(:disabled) {
+    color: var(--text);
+  }
+  .tsoon {
+    background: rgba(4, 20, 12, 0.06);
   }
 }

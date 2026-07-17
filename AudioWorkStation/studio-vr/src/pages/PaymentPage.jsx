@@ -1,15 +1,17 @@
 import { useDispatch, useSelector } from "react-redux";
-import { setScreen } from "../store/uiSlice";
+import { useNavigate } from "react-router-dom";
 import { setEmail, setFullName, PRICE } from "../store/checkoutSlice";
 import { setStudentName, markPaid } from "../store/sessionSlice";
 import { initAudio, resumeAudio } from "../audio/spatialAudioEngine";
+import { ThemeToggle } from "../theme/ThemeToggle";
 import "./PaymentPage.css";
 
 function PaymentPage() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { email, fullName } = useSelector((state) => state.checkout);
 
-  const goBack = () => dispatch(setScreen("landing"));
+  const goBack = () => navigate("/");
 
   const handleContinue = (e) => {
     e.preventDefault();
@@ -22,10 +24,10 @@ function PaymentPage() {
     // Card capture lives with the external payment gateway, not here.
     // Once that integration is wired up, this is the hand-off point:
     // redirect/open the gateway with { email, fullName, amount: PRICE },
-    // then call markPaid() + setScreen("course") from its success callback
+    // then call markPaid() + navigate("/course") from its success callback
     // instead of doing it immediately below.
     dispatch(markPaid());
-    dispatch(setScreen("course"));
+    navigate("/course");
   };
 
   return (
@@ -41,7 +43,10 @@ function PaymentPage() {
           <span className="dot" />
           <span>Start course</span>
         </div>
-        <span className="brand-mark">◎</span>
+        <div className="pay-topbar-right">
+          <ThemeToggle className="theme-toggle-btn" />
+          <span className="brand-mark">◎</span>
+        </div>
       </div>
 
       <div className="pay-wrap">

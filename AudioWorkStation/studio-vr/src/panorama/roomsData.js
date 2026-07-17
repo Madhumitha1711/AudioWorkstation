@@ -20,18 +20,10 @@
 //      shown on screen — copy those numbers into a new entry below.
 //
 // Each marker's `audio` field is the recorded narration clip that plays,
-// spatialized to that hotspot's direction, when it's selected. Drop the
-// matching file into public/audio/ using these exact names and it'll be
-// picked up automatically — nothing else needs to change. Any common web
-// audio format works (mp3, m4a, ogg, wav). If a file is missing, that
-// hotspot just silently skips narration.
-//
-// The `-clean` files are the originals run through a noise-reduction +
-// loudness-normalization pass (see public/audio/ for both versions). To
-// re-process a newly uploaded original the same way:
-//   ffmpeg -i original.m4a -af "highpass=f=90,afftdn=nr=18:nf=-25,\
-//     loudnorm=I=-16:TP=-1.5:LRA=7,alimiter=limit=0.95" -c:a aac -b:a 192k \
-//     original-clean.m4a
+// spatialized to that hotspot's direction, when it's selected — the path
+// must match a real file in public/audio/ exactly. Any common web audio
+// format works (mp3, m4a, ogg, wav). If a file is missing, that hotspot
+// just silently skips narration.
 
 export const ROOMS = [
   {
@@ -56,7 +48,10 @@ export const ROOMS = [
         yaw: 322.3,
         pitch: -3.3,
         title: "Speakers",
-        audio: "/audio/speaker-clean.m4a",
+        audio: "/audio/speaker.mp3",
+        // The rotatable 3D scan preview for this piece of gear now lives on
+        // the matching lesson page instead (see TOPICS[0].model in
+        // course/courseData.js) — the hotspot panel stays text + audio only.
         description:
           "A two-way nearfield/midfield monitor: a dome tweeter handles high frequencies while the larger woofer below covers mids and bass. The slots on either side of the tweeter are bass reflex ports — they vent air pressure from behind the woofer to extend low-frequency output without needing a larger sealed cabinet.",
         course: {
@@ -74,7 +69,7 @@ export const ROOMS = [
         yaw: 357.4,
         pitch: -21.8,
         title: "Mixing Console",
-        audio: "/audio/mixing-console-clean.m4a",
+        audio: "/audio/mixing-console.mp3",
         description:
           "The centerpiece of the control room. A large-format analog console sums every microphone and instrument signal, giving the engineer independent control over level, EQ, and routing for each channel before it's mixed down to a stereo or surround master.",
         course: {
@@ -92,8 +87,7 @@ export const ROOMS = [
         yaw: 0,
         pitch: 8,
         title: "DAW Workstation",
-        // Uploaded filename is singular ("daw-screen"), not "daw-screens".
-        audio: "/audio/daw-screen-clean.m4a",
+        audio: "/audio/daw.mp3",
         description:
           "The dual displays run the Digital Audio Workstation (DAW) — the software where recorded tracks are edited, arranged, processed with plugins, and mixed. Modern studios pair analog hardware like the console and outboard rack with a DAW for editing flexibility and recall.",
         course: {
@@ -111,7 +105,7 @@ export const ROOMS = [
         yaw: 208.0,
         pitch: -13.8,
         title: "Patch Bay",
-        audio: "/audio/patch-bay-clean.m4a",
+        audio: "/audio/patch-bay.mp3",
         description:
           "A patch bay exposes the inputs and outputs of every piece of gear in the room on a single panel, letting an engineer route signal between the console, outboard gear, and DAW interface using patch cables instead of permanently wiring everything together.",
         course: {
@@ -129,7 +123,7 @@ export const ROOMS = [
         yaw: 236.5,
         pitch: -10.8,
         title: "Preamp Rack",
-        audio: "/audio/preamp-rack-clean.m4a",
+        audio: "/audio/preamp.mp3",
         description:
           "Microphone preamps boost the very low-level signal from a microphone up to line level before it reaches the console or converter. Different preamps impart their own character — transformer-based designs add warmth and saturation, while clean designs aim for transparency.",
         course: {
@@ -147,7 +141,7 @@ export const ROOMS = [
         yaw: 63.7,
         pitch: 17.8,
         title: "Acoustic Diffuser",
-        audio: "/audio/diffuser-panel-clean.m4a",
+        audio: "/audio/diffuser.mp3",
         description:
           "Unlike absorption panels, which soak up sound energy, diffusers scatter reflections in many directions. This breaks up strong early reflections and flutter echo while preserving the room's liveliness, which is why control rooms often mix diffusion and absorption rather than deadening the room completely.",
         course: {
@@ -165,7 +159,7 @@ export const ROOMS = [
         yaw: 73.8,
         pitch: -22.3,
         title: "Low Frequency Emitter",
-        audio: "/audio/lf-emitter-clean.m4a",
+        audio: "/audio/lfe.mp3",
         description:
           "A dedicated low-frequency driver (sometimes called a subwoofer or LFE unit) reproduces the bottom octaves that a monitor's woofer can't move enough air to handle cleanly. Because bass wavelengths are long and room modes color low end heavily, placement and room correction matter as much as the driver itself.",
         course: {
@@ -183,7 +177,7 @@ export const ROOMS = [
         yaw: 26.7,
         pitch: -15.4,
         title: "Sound Card",
-        audio: "/audio/sound-card-clean.m4a",
+        audio: "/audio/sound-card.mp3",
         description:
           "The audio interface (sound card) converts analog signal from mics and instruments into digital audio the DAW can record, and converts it back to analog for monitoring. Its converters, clocking, and I/O count set the practical limits on recording quality and how many channels can be tracked at once.",
         course: {

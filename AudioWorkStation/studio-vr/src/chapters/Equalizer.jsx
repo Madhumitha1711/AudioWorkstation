@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { FaustMonoDspGenerator } from '@grame/faustwasm';
 import { compileFaustWasm } from '../faust/faustTypes';
 import { downloadBlob, audioBufferToWavBlob } from '../audio/wavRender';
+import { useTheme } from '../theme/ThemeContext';
 import './chapters.css';
 // ═══════════════════════════════════════════════════════════════════════════
 // Chapter 2b — ParamEQ (Logic-style parametric EQ, Faust WASM)
@@ -215,46 +216,58 @@ function applyBandsToNode(node, b) {
 // have. dynamicOnKey/thresholdKey/rangeKey/attackKey/releaseKey are present
 // only on the 6 bands Faust's ParamEQ gives dynamic (level-dependent)
 // processing to — HPF/LPF have no gain stage, so no dynamics.
+// Each band carries two colors: `color` is the bright/pastel tone tuned to
+// glow against the graph's permanently-dark canvas (curve nodes, drag
+// tooltip, canvas draw calls) — that surface never changes with the theme,
+// so it's used as-is everywhere below. `lightColor` is a deeper equivalent
+// for the same swatch used as text/border/dot on the *panel* chrome (band
+// selector tabs, band label) once that chrome goes light — the bright
+// version was unreadable there. See uiColor().
 const BAND_DEFS = [
-    { id: 'hpf', short: 'HPF', label: 'High-Pass', color: '#9AA5B1', kind: 'hpf', freqKey: 'hpfFreq', bypassKey: 'hpfBypass', orderKey: 'hpfOrder' },
+    { id: 'hpf', short: 'HPF', label: 'High-Pass', color: '#9AA5B1', lightColor: '#5b6472', kind: 'hpf', freqKey: 'hpfFreq', bypassKey: 'hpfBypass', orderKey: 'hpfOrder' },
     {
-        id: 'lowShelf', short: 'LOW SHELF', label: 'Low Shelf', color: '#F5A623', kind: 'lowshelf',
+        id: 'lowShelf', short: 'LOW SHELF', label: 'Low Shelf', color: '#F5A623', lightColor: '#ad6a12', kind: 'lowshelf',
         freqKey: 'lowShelfFreq', gainKey: 'lowShelfGain', qKey: 'lowShelfQ', bypassKey: 'lowShelfBypass',
         dynamicOnKey: 'lowShelfDynamicOn', thresholdKey: 'lowShelfThreshold', rangeKey: 'lowShelfRange',
         attackKey: 'lowShelfAttack', releaseKey: 'lowShelfRelease',
     },
     {
-        id: 'peak1', short: 'PEAK 1', label: 'Peak 1', color: '#D9E86B', kind: 'peak',
+        id: 'peak1', short: 'PEAK 1', label: 'Peak 1', color: '#D9E86B', lightColor: '#7a8a1a', kind: 'peak',
         freqKey: 'peak1Freq', gainKey: 'peak1Gain', qKey: 'peak1Q', bypassKey: 'peak1Bypass',
         dynamicOnKey: 'peak1DynamicOn', thresholdKey: 'peak1Threshold', rangeKey: 'peak1Range',
         attackKey: 'peak1Attack', releaseKey: 'peak1Release',
     },
     {
-        id: 'peak2', short: 'PEAK 2', label: 'Peak 2', color: '#6BE86B', kind: 'peak',
+        id: 'peak2', short: 'PEAK 2', label: 'Peak 2', color: '#6BE86B', lightColor: '#1f9d43', kind: 'peak',
         freqKey: 'peak2Freq', gainKey: 'peak2Gain', qKey: 'peak2Q', bypassKey: 'peak2Bypass',
         dynamicOnKey: 'peak2DynamicOn', thresholdKey: 'peak2Threshold', rangeKey: 'peak2Range',
         attackKey: 'peak2Attack', releaseKey: 'peak2Release',
     },
     {
-        id: 'peak3', short: 'PEAK 3', label: 'Peak 3', color: '#2DD4BF', kind: 'peak',
+        id: 'peak3', short: 'PEAK 3', label: 'Peak 3', color: '#2DD4BF', lightColor: '#0f9488', kind: 'peak',
         freqKey: 'peak3Freq', gainKey: 'peak3Gain', qKey: 'peak3Q', bypassKey: 'peak3Bypass',
         dynamicOnKey: 'peak3DynamicOn', thresholdKey: 'peak3Threshold', rangeKey: 'peak3Range',
         attackKey: 'peak3Attack', releaseKey: 'peak3Release',
     },
     {
-        id: 'peak4', short: 'PEAK 4', label: 'Peak 4', color: '#4D9EFF', kind: 'peak',
+        id: 'peak4', short: 'PEAK 4', label: 'Peak 4', color: '#4D9EFF', lightColor: '#2563eb', kind: 'peak',
         freqKey: 'peak4Freq', gainKey: 'peak4Gain', qKey: 'peak4Q', bypassKey: 'peak4Bypass',
         dynamicOnKey: 'peak4DynamicOn', thresholdKey: 'peak4Threshold', rangeKey: 'peak4Range',
         attackKey: 'peak4Attack', releaseKey: 'peak4Release',
     },
     {
-        id: 'highShelf', short: 'HIGH SHELF', label: 'High Shelf', color: '#A78BFA', kind: 'highshelf',
+        id: 'highShelf', short: 'HIGH SHELF', label: 'High Shelf', color: '#A78BFA', lightColor: '#7c3aed', kind: 'highshelf',
         freqKey: 'highShelfFreq', gainKey: 'highShelfGain', qKey: 'highShelfQ', bypassKey: 'highShelfBypass',
         dynamicOnKey: 'highShelfDynamicOn', thresholdKey: 'highShelfThreshold', rangeKey: 'highShelfRange',
         attackKey: 'highShelfAttack', releaseKey: 'highShelfRelease',
     },
-    { id: 'lpf', short: 'LPF', label: 'Low-Pass', color: '#CBD5E1', kind: 'lpf', freqKey: 'lpfFreq', bypassKey: 'lpfBypass', orderKey: 'lpfOrder' },
+    { id: 'lpf', short: 'LPF', label: 'Low-Pass', color: '#CBD5E1', lightColor: '#64748b', kind: 'lpf', freqKey: 'lpfFreq', bypassKey: 'lpfBypass', orderKey: 'lpfOrder' },
 ];
+// Picks the graph-canvas color or the panel-chrome color for a band,
+// depending on the active theme — see the comment on BAND_DEFS above.
+function uiColor(def, theme) {
+    return theme === 'light' ? def.lightColor : def.color;
+}
 function getFreq(b, def) { return b[def.freqKey]; }
 function getGain(b, def) { return def.gainKey ? b[def.gainKey] : 0; }
 function getQ(b, def) { return def.qKey ? b[def.qKey] : undefined; }
@@ -616,16 +629,63 @@ const GAIN_GRID_DB = [18, 12, 6, 0, -6, -12, -18];
 // per-band highlight on the curve (see strokeCurve's activity-highlight
 // block below).
 const ACTIVITY_EPS_DB = 0.05;
+// The graph used to stay a fixed near-black "screen" in both themes, like
+// every other chapter's oscilloscope/meter. Moved to its own light palette
+// instead, on request — a light-mode "graph paper" look (light background,
+// deepened trace colors) rather than a black rectangle sitting in an
+// otherwise light panel. Every color below is picked to hold reasonable
+// contrast against its own background: axis text at ~0.75 alpha over a
+// near-white canvas reads clearly, and the curve/spectrum colors reuse the
+// same deepened hues as the rest of the light theme (see uiColor() and the
+// --amber/--blue/--teal/--purple/--red overrides in chapters.css) so the
+// graph and the panel around it read as one consistent palette.
+const EQ_GRAPH_PALETTE = {
+    dark: {
+        bg: '#0A0A0C',
+        gridMinor: 'rgba(255,255,255,0.05)',
+        gridMinorH: 'rgba(255,255,255,0.04)',
+        gridZero: '#2E2E3D',
+        gainLabel: 'rgba(120,170,255,0.55)',
+        levelLabel: 'rgba(255,77,106,0.5)',
+        freqLabel: 'rgba(255,255,255,0.45)',
+        dryStroke: '#E5E7EB',
+        liveFill: '#FF4D6A',
+        liveStroke: '#FF4D6A',
+        curveTarget: '#F5A623',
+        curveMine: '#4D9EFF',
+        dynPreview: '#2DD4BF',
+        outputGainRibbon: '#A78BFA',
+        targetHiddenText: 'rgba(245,166,35,0.3)',
+    },
+    light: {
+        bg: '#fbfcf8',
+        gridMinor: 'rgba(18,20,15,0.07)',
+        gridMinorH: 'rgba(18,20,15,0.09)',
+        gridZero: '#98a08c',
+        gainLabel: 'rgba(37,99,235,0.75)',
+        levelLabel: 'rgba(192,41,63,0.75)',
+        freqLabel: 'rgba(18,20,15,0.55)',
+        dryStroke: '#8b93a0',
+        liveFill: '#c0293f',
+        liveStroke: '#c0293f',
+        curveTarget: '#ad6a12',
+        curveMine: '#2563eb',
+        dynPreview: '#0f9488',
+        outputGainRibbon: '#7c3aed',
+        targetHiddenText: 'rgba(173,106,18,0.4)',
+    },
+};
 function drawEQGraph(canvas, opts) {
-    const { bands, targetBands, showTarget, outputGainDb, analyserData, dryAnalyserData, sampleRate, highlightBandId, liveDynGain, liveDynGainTarget = 'bands', } = opts;
+    const { bands, targetBands, showTarget, outputGainDb, analyserData, dryAnalyserData, sampleRate, highlightBandId, liveDynGain, liveDynGainTarget = 'bands', theme = 'dark', } = opts;
+    const pal = EQ_GRAPH_PALETTE[theme] ?? EQ_GRAPH_PALETTE.dark;
     const hd = hiDpi(canvas);
     if (!hd)
         return;
     const { ctx, W, H } = hd;
-    ctx.fillStyle = '#0A0A0C';
+    ctx.fillStyle = pal.bg;
     ctx.fillRect(0, 0, W, H);
     // Vertical frequency grid — shared x-axis for curve + spectrum.
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.strokeStyle = pal.gridMinor;
     ctx.lineWidth = 1;
     const freqLines = [
         [30, '30'], [50, '50'], [100, '100'], [200, '200'], [500, '500'],
@@ -644,7 +704,7 @@ function drawEQGraph(canvas, opts) {
     ctx.font = '9px "JetBrains Mono", monospace';
     for (const g of GAIN_GRID_DB) {
         const y = gainToFrac(g) * H;
-        ctx.strokeStyle = g === 0 ? '#2E2E3D' : 'rgba(255,255,255,0.04)';
+        ctx.strokeStyle = g === 0 ? pal.gridZero : pal.gridMinorH;
         ctx.lineWidth = g === 0 ? 1.5 : 1;
         ctx.setLineDash(g === 0 ? [5, 5] : []);
         ctx.beginPath();
@@ -652,16 +712,16 @@ function drawEQGraph(canvas, opts) {
         ctx.lineTo(W, y);
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.fillStyle = 'rgba(120,170,255,0.55)';
+        ctx.fillStyle = pal.gainLabel;
         ctx.textAlign = 'left';
         ctx.fillText(`${g > 0 ? '+' : ''}${g}`, 4, y + 3);
         const levelAtY = ANALYSER_MAX_DB - (y / H) * (ANALYSER_MAX_DB - ANALYSER_MIN_DB);
-        ctx.fillStyle = 'rgba(255,77,106,0.5)';
+        ctx.fillStyle = pal.levelLabel;
         ctx.textAlign = 'right';
         ctx.fillText(`${Math.round(levelAtY)}`, W - 4, y + 3);
     }
     ctx.textAlign = 'left';
-    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.fillStyle = pal.freqLabel;
     for (const [f, l] of freqLines)
         ctx.fillText(l, fToFrac(f) * W - 6, H - 3);
     // ---- Spectrum (drawn first, so the curve sits on top of it) ----
@@ -687,7 +747,7 @@ function drawEQGraph(canvas, opts) {
         if (dryPts.length > 1) {
             ctx.save();
             ctx.globalAlpha = 0.5;
-            ctx.strokeStyle = '#E5E7EB';
+            ctx.strokeStyle = pal.dryStroke;
             ctx.lineWidth = 1;
             ctx.setLineDash([2, 2]);
             ctx.beginPath();
@@ -709,7 +769,7 @@ function drawEQGraph(canvas, opts) {
         if (levelPts.length > 1) {
             ctx.save();
             ctx.globalAlpha = 0.16;
-            ctx.fillStyle = '#FF4D6A';
+            ctx.fillStyle = pal.liveFill;
             ctx.beginPath();
             ctx.moveTo(levelPts[0].x, H);
             ctx.lineTo(levelPts[0].x, levelPts[0].y);
@@ -721,7 +781,7 @@ function drawEQGraph(canvas, opts) {
             ctx.restore();
             ctx.save();
             ctx.globalAlpha = 0.45;
-            ctx.strokeStyle = '#FF4D6A';
+            ctx.strokeStyle = pal.liveStroke;
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(levelPts[0].x, levelPts[0].y);
@@ -775,7 +835,7 @@ function drawEQGraph(canvas, opts) {
             const shiftedPts = sampleResponse(b, (bb, f) => totalResponseDB(bb, f, false, curveLiveDynGain) + outputGain);
             ctx.save();
             ctx.globalAlpha = 0.3;
-            ctx.fillStyle = '#A78BFA';
+            ctx.fillStyle = pal.outputGainRibbon;
             ctx.beginPath();
             ctx.moveTo(basePts[0].x, basePts[0].y);
             for (const p of basePts.slice(1))
@@ -814,9 +874,10 @@ function drawEQGraph(canvas, opts) {
                 if (g === undefined || Math.abs(g) <= ACTIVITY_EPS_DB)
                     continue;
                 const aPts = sampleResponse(b, (bb, f) => bandResponseDB(def, bb, f, false, g));
+                const bandColor = uiColor(def, theme);
                 ctx.save();
                 ctx.globalAlpha = 0.22;
-                ctx.fillStyle = def.color;
+                ctx.fillStyle = bandColor;
                 ctx.beginPath();
                 ctx.moveTo(aPts[0].x, y0);
                 ctx.lineTo(aPts[0].x, aPts[0].y);
@@ -828,7 +889,7 @@ function drawEQGraph(canvas, opts) {
                 ctx.restore();
                 ctx.save();
                 ctx.globalAlpha = 0.75;
-                ctx.strokeStyle = def.color;
+                ctx.strokeStyle = bandColor;
                 ctx.lineWidth = 1.5;
                 ctx.lineJoin = 'round';
                 ctx.beginPath();
@@ -849,7 +910,7 @@ function drawEQGraph(canvas, opts) {
         const dynPts = sampleResponse(bands, (bb, f) => totalResponseDB(bb, f, true) + outputGainDb);
         ctx.save();
         ctx.globalAlpha = 0.6;
-        ctx.strokeStyle = '#2DD4BF';
+        ctx.strokeStyle = pal.dynPreview;
         ctx.lineWidth = 1.5;
         ctx.setLineDash([5, 4]);
         ctx.beginPath();
@@ -861,14 +922,14 @@ function drawEQGraph(canvas, opts) {
         ctx.setLineDash([]);
     }
     if (targetBands && showTarget) {
-        strokeCurve(targetBands, '#F5A623', 0.9, 0.16, 0, liveDynGainTarget === 'target' ? liveDynGain : undefined);
+        strokeCurve(targetBands, pal.curveTarget, 0.9, 0.16, 0, liveDynGainTarget === 'target' ? liveDynGain : undefined);
     }
     else if (targetBands && !showTarget) {
-        ctx.fillStyle = 'rgba(245,166,35,0.3)';
+        ctx.fillStyle = pal.targetHiddenText;
         ctx.font = '10px "JetBrains Mono", monospace';
         ctx.fillText('TARGET HIDDEN — LISTEN & MATCH BY EAR', W / 2 - 150, 14);
     }
-    strokeCurve(bands, '#4D9EFF', 0.95, 0.22, outputGainDb, liveDynGainTarget === 'target' ? undefined : liveDynGain);
+    strokeCurve(bands, pal.curveMine, 0.95, 0.22, outputGainDb, liveDynGainTarget === 'target' ? undefined : liveDynGain);
     // ---- Active-drag highlight — this one band's own (un-summed) response,
     // in its own color, layered on top of everything above. Mirrors FabFilter
     // shading the band you're currently moving so the gain you're dialing in
@@ -878,9 +939,10 @@ function drawEQGraph(canvas, opts) {
         if (hDef && !getBypass(bands, hDef)) {
             const hLiveGain = liveDynGainTarget === 'target' ? 0 : (liveDynGain?.[hDef.id] ?? 0);
             const hPts = sampleResponse(bands, (bb, f) => bandResponseDB(hDef, bb, f, false, hLiveGain));
+            const hColor = uiColor(hDef, theme);
             ctx.save();
             ctx.globalAlpha = 0.3;
-            ctx.fillStyle = hDef.color;
+            ctx.fillStyle = hColor;
             ctx.beginPath();
             ctx.moveTo(hPts[0].x, y0);
             ctx.lineTo(hPts[0].x, hPts[0].y);
@@ -892,7 +954,7 @@ function drawEQGraph(canvas, opts) {
             ctx.restore();
             ctx.save();
             ctx.globalAlpha = 0.95;
-            ctx.strokeStyle = hDef.color;
+            ctx.strokeStyle = hColor;
             ctx.lineWidth = 1.75;
             ctx.lineJoin = 'round';
             ctx.beginPath();
@@ -1091,6 +1153,9 @@ function OutputGainSlider({ value, onChange, min = -15, max = 15, }) {
 // spectrum share the same plot instead of two stacked canvases, so the
 // waveform and the response curve are always on one screen together.
 function ParamEQCurve({ bands, onChange, targetBands, showTarget, analyserRef, dryAnalyserRef, analyserActive, sampleRate, outputGainDb, onOutputGainChange, selectedBandId, onSelectBand, liveDynGainRef, liveDynGainActive, liveDynGainTarget, }) {
+    const { theme } = useTheme();
+    const themeRef = useRef(theme);
+    useEffect(() => { themeRef.current = theme; }, [theme]);
     const containerRef = useRef(null);
     const canvasRef = useRef(null);
     const dataRef = useRef(null);
@@ -1128,9 +1193,9 @@ function ParamEQCurve({ bands, onChange, targetBands, showTarget, analyserRef, d
             analyserData: dataRef.current, dryAnalyserData: dryDataRef.current, sampleRate,
             highlightBandId: draggingBandId,
             liveDynGain: liveDynGainActive ? liveDynGainRef?.current : undefined,
-            liveDynGainTarget,
+            liveDynGainTarget, theme,
         });
-    }, [bands, targetBands, showTarget, outputGainDb, sampleRate, draggingBandId, liveDynGainActive, liveDynGainRef, liveDynGainTarget]);
+    }, [bands, targetBands, showTarget, outputGainDb, sampleRate, draggingBandId, liveDynGainActive, liveDynGainRef, liveDynGainTarget, theme]);
     // Live RAF loop while audio is playing — animates the spectrum and keeps
     // redrawing the curve every frame too, so drags made mid-playback track
     // just as responsively as when stopped.
@@ -1144,7 +1209,7 @@ function ParamEQCurve({ bands, onChange, targetBands, showTarget, analyserRef, d
                 outputGainDb: outputGainRef.current ?? 0, analyserData: null, dryAnalyserData: null, sampleRate,
                 highlightBandId: draggingBandRef.current,
                 liveDynGain: liveDynGainActiveRef.current ? liveDynGainRef?.current : undefined,
-                liveDynGainTarget: liveDynGainTargetRef.current,
+                liveDynGainTarget: liveDynGainTargetRef.current, theme: themeRef.current,
             });
             return undefined;
         }
@@ -1171,7 +1236,7 @@ function ParamEQCurve({ bands, onChange, targetBands, showTarget, analyserRef, d
                 outputGainDb: outputGainRef.current ?? 0, analyserData: buf, dryAnalyserData: dryBuf, sampleRate,
                 highlightBandId: draggingBandRef.current,
                 liveDynGain: liveDynGainActiveRef.current ? liveDynGainRef?.current : undefined,
-                liveDynGainTarget: liveDynGainTargetRef.current,
+                liveDynGainTarget: liveDynGainTargetRef.current, theme: themeRef.current,
             });
             rafRef.current = requestAnimationFrame(tick);
         };
@@ -1285,7 +1350,25 @@ function knobArcPath(r, startDeg, endDeg) {
     const largeArc = endDeg - startDeg > 180 ? 1 : 0;
     return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 ${largeArc} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
 }
+// Same light-vs-dark metal treatment as the shared components/Knob.jsx and
+// the .big-knob/.sat-knob/.pan-knob CSS knobs — a physical control reads as
+// a raised metal/plastic disc, brushed aluminum in light mode rather than
+// the same near-black plastic body regardless of theme.
+const KNOB_BODY = {
+    dark: {
+        background: 'radial-gradient(circle at 35% 30%, #2b2b32, #131316 75%)',
+        shadow: 'inset 0 1px 2px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.04)',
+        track: 'rgba(255,255,255,0.1)',
+    },
+    light: {
+        background: 'radial-gradient(circle at 35% 30%, #fbfcf8, #ccd2c2 75%)',
+        shadow: 'inset 0 1px 2px rgba(18,20,15,0.15), 0 1px 0 rgba(255,255,255,0.8), 0 2px 5px rgba(18,20,15,0.12)',
+        track: 'rgba(18,20,15,0.16)',
+    },
+};
 function Knob({ value, onChange, min, max, disabled, color = 'var(--blue)', log = false, size = 56, }) {
+    const { theme } = useTheme();
+    const body = KNOB_BODY[theme] ?? KNOB_BODY.dark;
     const dragRef = useRef(null);
     const frac = valueToFrac(value, min, max, log);
     const angle = KNOB_START_DEG + frac * KNOB_SWEEP_DEG;
@@ -1314,15 +1397,15 @@ function Knob({ value, onChange, min, max, disabled, color = 'var(--blue)', log 
     };
     return (<div onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onWheel={handleWheel} style={{
             position: 'relative', width: size, height: size, borderRadius: '50%',
-            background: 'radial-gradient(circle at 35% 30%, #2b2b32, #131316 75%)',
-            boxShadow: disabled ? 'none' : 'inset 0 1px 2px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.04)',
+            background: body.background,
+            boxShadow: disabled ? 'none' : body.shadow,
             cursor: disabled ? 'default' : 'ns-resize',
             touchAction: 'none',
             opacity: disabled ? 0.4 : 1,
             flexShrink: 0,
         }}>
       <svg width={size} height={size} viewBox={`${-size / 2} ${-size / 2} ${size} ${size}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-        <path d={knobArcPath(r, KNOB_START_DEG, KNOB_START_DEG + KNOB_SWEEP_DEG)} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={3.5} strokeLinecap="round"/>
+        <path d={knobArcPath(r, KNOB_START_DEG, KNOB_START_DEG + KNOB_SWEEP_DEG)} fill="none" stroke={body.track} strokeWidth={3.5} strokeLinecap="round"/>
         <path d={knobArcPath(r, KNOB_START_DEG, angle)} fill="none" stroke={disabled ? 'var(--text-faint)' : color} strokeWidth={3.5} strokeLinecap="round"/>
       </svg>
       <div style={{
@@ -1398,6 +1481,7 @@ function withDynModeUI(bands, def, mode) {
 // plus Threshold/Range/Attack/Release. Replaces the old all-bands-at-once
 // BandReadout grid + separate DynamicEQPanel list with one focused panel.
 function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
+    const { theme } = useTheme();
     // Explicit per-band mode choice, so BOTH sticks even while Gain sits at 0
     // (see getDynModeUI above) — falls back to the gain-based heuristic for
     // any band whose mode hasn't been explicitly clicked in this panel yet.
@@ -1420,6 +1504,11 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
     const range = getRange(bands, def);
     const attack = getAttack(bands, def);
     const release = getRelease(bands, def);
+    // Freq/Q are intentionally neutral-colored (not tied to the band's own
+    // color) — see the comment above the FREQUENCY group. #9AA5B1 is a light
+    // gray-blue tuned for the dark knob body; needs a darker equivalent once
+    // the knob itself goes light (see KNOB_BODY above).
+    const neutralKnobColor = theme === 'light' ? '#5b6472' : '#9AA5B1';
     const goto = (delta) => {
         const next = (idx + delta + BAND_DEFS.length) % BAND_DEFS.length;
         onSelect(BAND_DEFS[next].id);
@@ -1437,6 +1526,7 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
         {BAND_DEFS.map(d => {
             const active = d.id === selectedId;
             const bandOn = !getBypass(bands, d);
+            const c = uiColor(d, theme);
             return (<button key={d.id} onClick={() => {
                     if (active) {
                         onChange(withBypass(bands, d, bandOn));
@@ -1451,15 +1541,15 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
                     : d.label} style={{
                     display: 'flex', alignItems: 'center', gap: '0.35rem',
                     padding: '0.32rem 0.7rem', borderRadius: '4px', cursor: 'pointer',
-                    border: `1px solid ${active ? d.color : 'var(--border)'}`,
-                    background: active ? `${d.color}22` : 'transparent',
-                    color: active ? d.color : bandOn ? 'var(--text-dim)' : 'var(--text-faint)',
+                    border: `1px solid ${active ? c : 'var(--border)'}`,
+                    background: active ? `${c}22` : 'transparent',
+                    color: active ? c : bandOn ? 'var(--text-dim)' : 'var(--text-faint)',
                     fontFamily: 'var(--mono)', fontSize: '0.64rem', letterSpacing: '0.04em',
                     opacity: bandOn ? 1 : 0.5,
                 }}>
               <span style={{
                     width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
-                    background: bandOn ? (active ? d.color : 'var(--text-dim)') : 'var(--text-faint)',
+                    background: bandOn ? (active ? c : 'var(--text-dim)') : 'var(--text-faint)',
                 }}/>
               {d.short}
             </button>);
@@ -1484,7 +1574,7 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <button onClick={() => goto(-1)} title="Previous band" style={navBtnStyle}>‹</button>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 92 }}>
-              <span style={{ fontSize: '0.68rem', color: def.color, fontFamily: 'var(--mono)', letterSpacing: '0.05em' }}>{def.label}</span>
+              <span style={{ fontSize: '0.68rem', color: uiColor(def, theme), fontFamily: 'var(--mono)', letterSpacing: '0.05em' }}>{def.label}</span>
               <span style={{ fontSize: '0.5rem', color: 'var(--text-faint)', fontFamily: 'var(--mono)', letterSpacing: '0.05em' }}>{SHAPE_LABEL[def.kind]}</span>
             </div>
             <button onClick={() => goto(1)} title="Next band" style={navBtnStyle}>›</button>
@@ -1508,7 +1598,7 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
         }}>
           <div style={{ height: KNOB_HEADER_H }}/>
           <div style={{ display: 'flex', gap: '1.4rem' }}>
-            <KnobField label="FREQ (Hz)" value={freq} min={FMIN} max={FMAX} step={1} decimals={0} log color="#9AA5B1" disabled={bypassed} onChange={v => onChange(withFreq(bands, def, clamp(v, FMIN, FMAX)))}/>
+            <KnobField label="FREQ (Hz)" value={freq} min={FMIN} max={FMAX} step={1} decimals={0} log color={neutralKnobColor} disabled={bypassed} onChange={v => onChange(withFreq(bands, def, clamp(v, FMIN, FMAX)))}/>
             {def.orderKey ? (<Field label="SLOPE">
                 <select value={getOrder(bands, def)} disabled={bypassed} onChange={e => onChange(withOrder(bands, def, Number(e.target.value)))} style={{
                 background: bypassed ? 'transparent' : 'var(--surface)',
@@ -1522,7 +1612,7 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
                   <option value={6}>36dB</option>
                   <option value={8}>48dB</option>
                 </select>
-              </Field>) : def.qKey ? (<KnobField label="Q" value={q ?? 1} min={0.1} max={10} step={0.01} decimals={2} color="#9AA5B1" disabled={bypassed} onChange={v => onChange(withQ(bands, def, clamp(v, 0.1, 10)))}/>) : null}
+              </Field>) : def.qKey ? (<KnobField label="Q" value={q ?? 1} min={0.1} max={10} step={0.01} decimals={2} color={neutralKnobColor} disabled={bypassed} onChange={v => onChange(withQ(bands, def, clamp(v, 0.1, 10)))}/>) : null}
           </div>
         </div>
 
@@ -1583,6 +1673,19 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
 }
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 export default function Equalizer() {
+    const { theme } = useTheme();
+    // The "original pre-EQ" trace is drawn near-white (#E5E7EB) on the
+    // graph canvas, which always stays dark — fine there, but the tiny
+    // legend swatch that echoes this color sits on the panel below the
+    // graph, which does follow the theme, so it needs its own darker
+    // equivalent once that panel goes light.
+    const originalLineColor = theme === 'light' ? '#8b93a0' : '#E5E7EB';
+    // Same idea for the "live GR/boost" legend swatch — a 3-stop gradient
+    // sampling a few bands' bright canvas colors, swapped for their darker
+    // panel-chrome equivalents in light mode.
+    const grBoostGradient = theme === 'light'
+        ? 'linear-gradient(90deg, #7a8a1a, #0f9488, #7c3aed)'
+        : 'linear-gradient(90deg, #D9E86B, #2DD4BF, #A78BFA)';
     const [tab, setTab] = useState('bench');
     // ── Faust engine (loaded once) ─────────────────────────────────────────────
     const [engineStatus, setEngineStatus] = useState('idle');
@@ -2172,7 +2275,7 @@ export default function Equalizer() {
                 <div className="legend-item"><div className="legend-line" style={{ background: 'var(--text-faint)', height: '1px' }}/>FLAT (0 dB)</div>
                 {playSource === 'bench' && (<>
                     <div className="legend-item">
-                      <div className="legend-line" style={{ background: 'repeating-linear-gradient(90deg, #E5E7EB 0 2px, transparent 2px 4px)' }}/>
+                      <div className="legend-line" style={{ background: `repeating-linear-gradient(90deg, ${originalLineColor} 0 2px, transparent 2px 4px)` }}/>
                       ORIGINAL (PRE-EQ)
                     </div>
                     <div className="legend-item">
@@ -2186,7 +2289,7 @@ export default function Equalizer() {
                       DYNAMIC RANGE (ONLY AUDIBLE PAST THRESHOLD, DURING PLAYBACK)
                     </div>
                     {playSource === 'bench' && (<div className="legend-item">
-                        <div className="legend-line" style={{ background: 'linear-gradient(90deg, #D9E86B, #2DD4BF, #A78BFA)' }}/>
+                        <div className="legend-line" style={{ background: grBoostGradient }}/>
                         LIVE GR/BOOST (EACH BAND'S OWN COLOR, WHILE IT'S ACTUALLY MOVING)
                       </div>)}
                   </>)}
@@ -2234,7 +2337,7 @@ export default function Equalizer() {
                 <div className="legend-item"><div className="legend-line" style={{ background: 'var(--blue)' }}/>YOUR EQ</div>
                 {(playSource === 'mine' || playSource === 'target') && (<>
                     <div className="legend-item">
-                      <div className="legend-line" style={{ background: 'repeating-linear-gradient(90deg, #E5E7EB 0 2px, transparent 2px 4px)' }}/>
+                      <div className="legend-line" style={{ background: `repeating-linear-gradient(90deg, ${originalLineColor} 0 2px, transparent 2px 4px)` }}/>
                       ORIGINAL (PRE-EQ)
                     </div>
                     <div className="legend-item">
@@ -2248,7 +2351,7 @@ export default function Equalizer() {
                       DYNAMIC RANGE (ONLY AUDIBLE PAST THRESHOLD, DURING PLAYBACK)
                     </div>
                     {(playSource === 'mine' || playSource === 'target') && (<div className="legend-item">
-                        <div className="legend-line" style={{ background: 'linear-gradient(90deg, #D9E86B, #2DD4BF, #A78BFA)' }}/>
+                        <div className="legend-line" style={{ background: grBoostGradient }}/>
                         LIVE GR/BOOST (EACH BAND'S OWN COLOR, WHILE IT'S ACTUALLY MOVING)
                       </div>)}
                   </>)}

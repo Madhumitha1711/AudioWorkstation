@@ -155,3 +155,22 @@
 .assess-actions {
   margin-top: 28px;
 }
+
+/* ── Light theme ─────────────────────────────────────────────────────────
+   .assess-feedback text colors are pastel green/red tuned for a dark
+   background — too washed out on white, so they get darker equivalents
+   here instead of just inheriting the variable swap. */
+:root[data-theme='light'] .svr-course .assess {
+  .assess-q-num {
+    background: rgba(4, 20, 12, 0.06);
+  }
+  .assess-option {
+    background: rgba(4, 20, 12, 0.03);
+  }
+  .assess-feedback.good {
+    color: #0e7a45;
+  }
+  .assess-feedback.bad {
+    color: #c23a3a;
+  }
+}

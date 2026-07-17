@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { setScreen, setPendingTopic } from "../store/uiSlice";
+import { useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { TOPICS, buildStepList, firstStepIdForTopic } from "../course/courseData";
 import AssessmentSection from "../course/AssessmentSection";
 import InteractiveSection from "../course/InteractiveSection";
+import GearModelViewer from "../panorama/GearModelViewer";
+import { ThemeToggle } from "../theme/ThemeToggle";
 import "./CoursePage.css";
 
 const STEPS = buildStepList(TOPICS);
@@ -11,11 +12,14 @@ const STEPS = buildStepList(TOPICS);
 const STEP_TAG = { assessment: "Quiz", interactive: "Lab" };
 
 function CoursePage() {
-  const dispatch = useDispatch();
-  const pendingTopicId = useSelector((state) => state.ui.pendingTopicId);
-
+  const navigate = useNavigate();
+  const location = useLocation();
   // If a hotspot in the VR tour requested a specific topic (via "Start
-  // course"), open straight to it; otherwise fall back to the first step.
+  // course"), it's passed as route state — open straight to it; otherwise
+  // fall back to the first step. Read once, at mount: revisiting this page
+  // later shouldn't keep reopening a stale request.
+  const pendingTopicId = useMemo(() => location.state?.topicId ?? null, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const initialStepId = useMemo(() => {
     const requested = pendingTopicId && firstStepIdForTopic(STEPS, pendingTopicId);
     return requested ?? STEPS[0]?.id;
@@ -29,13 +33,6 @@ function CoursePage() {
   const [activeStepId, setActiveStepId] = useState(initialStepId);
   const [completed, setCompleted] = useState(() => new Set());
 
-  // Requested topic has been consumed for this visit — clear it so a later,
-  // unrelated navigation to the course screen doesn't reopen it.
-  useEffect(() => {
-    if (pendingTopicId) dispatch(setPendingTopic(null));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once, at mount
-  }, []);
-
   const activeIndex = STEPS.findIndex((s) => s.id === activeStepId);
   const activeStep = STEPS[activeIndex] ?? STEPS[0];
   const activeTopic = TOPICS.find((t) => t.id === activeStep?.topicId);
@@ -48,8 +45,8 @@ function CoursePage() {
   const topicPct = stepsInTopic.length ? Math.round((doneInTopic / stepsInTopic.length) * 100) : 0;
   const overallPct = STEPS.length ? Math.round((completed.size / STEPS.length) * 100) : 0;
 
-  const goToStudio = () => dispatch(setScreen("studio"));
-  const goHome = () => dispatch(setScreen("landing"));
+  const goToStudio = () => navigate("/studio");
+  const goHome = () => navigate("/");
 
   const toggleTopic = (topicId) => {
     setOpenTopics((prev) => {
@@ -117,9 +114,12 @@ function CoursePage() {
             </div>
           </div>
         </div>
-        <button className="btn-primary" onClick={goToStudio}>
-          Launch VR studio →
-        </button>
+        <div className="course-topbar-right">
+          <ThemeToggle className="theme-toggle-btn" />
+          <button className="btn-primary" onClick={goToStudio}>
+            Launch VR studio →
+          </button>
+        </div>
       </div>
 
       <div className="course-layout">
@@ -179,7 +179,7 @@ function CoursePage() {
 
         <main className="course-main">
           {activeTopic && activeStep && (
-            <>
+            <div className="course-content">
               <div className="topic-eyebrow">
                 Control Room · {activeTopic.title}
               </div>
@@ -203,15 +203,30 @@ function CoursePage() {
                   </div>
                   <p className="video-caption">Watch first, then read the full lesson below.</p>
 
-                  <div className="lesson-kicker">
-                    Lesson {lessonIndex + 1} of {activeTopic.lessons.length}
-                  </div>
-                  <h2 className="lesson-title">{activeStep.data.title}</h2>
+                  <div className={`lesson-body-row${activeTopic.model ? " has-model" : ""}`}>
+                    {activeTopic.model && (
+                      <div className="topic-model-box">
+                        <GearModelViewer
+                          url={activeTopic.model.url}
+                          kind={activeTopic.model.kind}
+                          height={320}
+                        />
+                        <div className="vtag">Inspect in 3D · drag to rotate</div>
+                      </div>
+                    )}
 
-                  <div className="lesson-article">
-                    {activeStep.data.paragraphs.map((p, i) => (
-                      <p key={i}>{p}</p>
-                    ))}
+                    <div className="lesson-text-col">
+                      <div className="lesson-kicker">
+                        Lesson {lessonIndex + 1} of {activeTopic.lessons.length}
+                      </div>
+                      <h2 className="lesson-title">{activeStep.data.title}</h2>
+
+                      <div className="lesson-article">
+                        {activeStep.data.paragraphs.map((p, i) => (
+                          <p key={i}>{p}</p>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="lesson-actions">
@@ -295,7 +310,7 @@ function CoursePage() {
                   Launch VR studio →
                 </button>
               </div>
-            </>
+            </div>
           )}
         </main>
       </div>

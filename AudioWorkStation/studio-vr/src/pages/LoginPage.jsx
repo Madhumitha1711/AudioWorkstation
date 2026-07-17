@@ -1,8 +1,14 @@
 import { useState } from "react";
+import { useDispatch } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import { setStudentName } from "../store/sessionSlice";
 import { initAudio, resumeAudio } from "../audio/spatialAudioEngine";
+import { ThemeToggle } from "../theme/ThemeToggle";
 
-function LoginPage({ onLogin, onBack }) {
+function LoginPage() {
   const [name, setName] = useState("");
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -10,14 +16,16 @@ function LoginPage({ onLogin, onBack }) {
     // this click is the most reliable place to unlock it for the whole app.
     initAudio();
     resumeAudio();
-    onLogin(name.trim() || "Student");
+    dispatch(setStudentName(name.trim() || "Student"));
+    navigate("/studio");
   };
 
   return (
     <div style={containerStyle}>
-      <button onClick={onBack} style={backButtonStyle}>
+      <button onClick={() => navigate("/")} style={backButtonStyle}>
         ← Back
       </button>
+      <ThemeToggle style={themeToggleStyle} />
 
       <form onSubmit={handleSubmit} style={cardStyle}>
         <div style={badgeStyle}>◎</div>
@@ -49,8 +57,7 @@ const containerStyle = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  background:
-    "radial-gradient(ellipse at center, #16181d 0%, #08090b 100%)",
+  background: "var(--shell-page-bg)",
   fontFamily: "sans-serif",
 };
 
@@ -60,19 +67,32 @@ const backButtonStyle = {
   left: "20px",
   background: "none",
   border: "none",
-  color: "rgba(255,255,255,0.6)",
+  color: "var(--shell-text-dim)",
   fontSize: "13px",
   cursor: "pointer",
 };
 
+const themeToggleStyle = {
+  position: "absolute",
+  top: "20px",
+  right: "20px",
+  width: "30px",
+  height: "30px",
+  borderRadius: "50%",
+  border: "1px solid var(--shell-border-soft)",
+  background: "var(--shell-panel)",
+  color: "var(--shell-text-dim)",
+  justifyContent: "center",
+};
+
 const cardStyle = {
   width: "320px",
-  background: "rgba(255,255,255,0.04)",
-  border: "1px solid rgba(255,255,255,0.12)",
+  background: "var(--shell-panel)",
+  border: "1px solid var(--shell-border)",
   borderRadius: "14px",
   padding: "32px 28px",
   textAlign: "center",
-  color: "#fff",
+  color: "var(--shell-text)",
 };
 
 const badgeStyle = {
@@ -82,8 +102,8 @@ const badgeStyle = {
   width: "44px",
   height: "44px",
   borderRadius: "50%",
-  background: "radial-gradient(circle at 32% 28%, #7dffb8, #17c76a 70%)",
-  color: "#04160a",
+  background: "var(--shell-gradient-accent)",
+  color: "var(--shell-accent-ink)",
   fontSize: "22px",
   fontWeight: 700,
   marginBottom: "14px",
@@ -106,10 +126,10 @@ const inputStyle = {
   boxSizing: "border-box",
   padding: "10px 14px",
   marginBottom: "16px",
-  background: "rgba(255,255,255,0.06)",
-  border: "1px solid rgba(255,255,255,0.18)",
+  background: "var(--shell-panel-hover)",
+  border: "1px solid var(--shell-border)",
   borderRadius: "8px",
-  color: "#fff",
+  color: "var(--shell-text)",
   fontSize: "14px",
   outline: "none",
 };
@@ -117,8 +137,8 @@ const inputStyle = {
 const submitButtonStyle = {
   width: "100%",
   padding: "11px 0",
-  background: "radial-gradient(circle at 32% 28%, #7dffb8, #17c76a 70%)",
-  color: "#04160a",
+  background: "var(--shell-gradient-accent)",
+  color: "var(--shell-accent-ink)",
   border: "none",
   borderRadius: "999px",
   fontWeight: 700,

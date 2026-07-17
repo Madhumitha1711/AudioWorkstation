@@ -57,6 +57,62 @@
   --body:    'Inter', sans-serif;
 }
 
+/* ── Light theme ──────────────────────────────────────────────────────────
+   Flips the rack chassis (console/panel/surface/border/text) to a light
+   palette. --black stays dark in both themes — every rule that uses it is
+   an oscilloscope/meter/graph "screen", and those read as lit displays
+   (like real hardware, or any DAW's light-mode metering) rather than page
+   background, so they intentionally don't follow the rest of the flip. */
+:root[data-theme='light'] .chapter-lab {
+  /* Elevation now reads bottom-to-top as console (recessed) → panel (shell)
+     → surface (raised — inputs, inactive tab fills), each step lighter, the
+     same direction as the dark palette. --border/--border-bright are kept
+     a clear ~15-25% darker than --surface so tabs/inputs/dividers actually
+     read as bordered chips instead of blending into the panel — the first
+     pass here was too close in lightness across the board and washed out. */
+  --console:      #e7eae1;
+  --panel:        #f0f2eb;
+  --surface:      #f9faf6;
+  --border:       #c6cbbe;
+  --border-bright:#98a08c;
+
+  --text:         #12140f;
+  --text-dim:     #565b52;
+  --text-faint:   #838a7c;
+
+  /* The module accent colors are pastel/neon tones tuned to glow on a dark
+     rack — as text or borders on the new light chassis they're too low
+     contrast, so each gets a deeper, more saturated equivalent here. Their
+     -dim/-glow translucent variants are left alone; a faint tint still
+     reads fine over a light panel. */
+  --amber:  #ad6a12;
+  --green:  #0f9d58;
+  --blue:   #2563eb;
+  --red:    #c0293f;
+  --purple: #7c3aed;
+  --sat:    #c2521f;
+  --teal:   #0f9488;
+
+  /* Physical control knobs: a light brushed-metal gradient instead of the
+     dark plastic/metal one (same call as the shared Knob.jsx component and
+     Equalizer.jsx's own local Knob) — matches a light-mode DAW's knurled
+     aluminum knobs rather than leaving them as black discs on a light rack. */
+  .big-knob { background: radial-gradient(circle at 35% 35%, #fbfcf8, #ccd2c2); box-shadow: 0 2px 6px rgba(18,20,15,0.18), inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -3px 5px rgba(18,20,15,0.08); }
+  .sat-knob { background: radial-gradient(circle at 35% 35%, #fdf8f3, #ddc9b6); box-shadow: 0 2px 6px rgba(18,20,15,0.18), inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -3px 5px rgba(18,20,15,0.08); }
+  .pan-knob { background: radial-gradient(circle at 35% 35%, #fbfcf8, #cfd3d9); }
+
+  /* .btn-primary pairs a near-black label with a bright amber fill — keep
+     that fill at full brightness even though --amber itself was darkened
+     above for text/border contrast elsewhere, so the dark label stays
+     legible on it. */
+  .btn-primary {
+    background: #f5a623;
+  }
+  .btn-primary:hover {
+    background: #ffb83d;
+  }
+}
+
 /* ── Reset ────────────────────────────────────────────────────────────────── */
 
 /* ── App shell ────────────────────────────────────────────────────────────── */

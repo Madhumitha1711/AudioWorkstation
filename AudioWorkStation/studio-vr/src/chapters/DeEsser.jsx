@@ -1052,13 +1052,13 @@ export default function DeEsser() {
             return (<div className="knob-wrap" key={spec.key}>
                   <div style={{ position: 'relative', width: 64, height: 64 }}>
                     <svg style={{ position: 'absolute', top: 0, left: 0 }} width={64} height={64} viewBox="-32 -32 64 64">
-                      <path d={describeArc(28, -140, 140)} fill="none" stroke="#2E2E3D" strokeWidth={3} strokeLinecap="round"/>
-                      <path d={describeArc(28, -140, rot)} fill="none" stroke="#4D9EFF" strokeWidth={3} strokeLinecap="round" opacity={0.85}/>
+                      <path d={describeArc(28, -140, 140)} fill="none" stroke="var(--border)" strokeWidth={3} strokeLinecap="round"/>
+                      <path d={describeArc(28, -140, rot)} fill="none" stroke="var(--blue)" strokeWidth={3} strokeLinecap="round" opacity={0.85}/>
                     </svg>
                     <div className="big-knob" style={{ position: 'absolute', top: 6, left: 6, width: 52, height: 52, cursor: 'ns-resize', userSelect: 'none' }} onMouseDown={e => onMainKnobDown(e, spec, val)}>
                       <div style={{
                     position: 'absolute', top: '50%', left: '50%',
-                    width: 3, height: 16, background: '#E8E8EC', borderRadius: 2,
+                    width: 3, height: 16, background: 'var(--text)', borderRadius: 2,
                     transformOrigin: 'bottom center',
                     transform: `translate(-50%, -100%) rotate(${rot}deg)`,
                     marginTop: -2,

@@ -16,19 +16,39 @@
 // comment on that function for why.
 
 let audioCtx = null;
+// Final stage before the speakers — the ONLY thing setMuted()/isMuted()
+// touches. Both masterGain and narrationGain feed into this, so toggling it
+// silences everything (ambient bed + narration, spatial or not) and
+// restores everything exactly as it was, with no side effects on the
+// binaural routing below.
+let outputGain = null;
 let masterGain = null;
-// Separate output path for hotspot narration that stays audible even when
-// "binaural" is switched off — see setMuted(). masterGain only carries the
-// spatial-only ambient bed, so muting that doesn't have to mean total
-// silence.
+// Separate output path for hotspot narration used when binaural is
+// switched off (see setBinauralEnabled()) — plain, non-spatial playback
+// instead of routing through the HRTF panner. Both this and masterGain feed
+// into outputGain, so the master mute above still silences narration
+// either way.
 let narrationGain = null;
 let ambientSource = null;
 let ambientGain = null;
 let ambientFilter = null;
 let ambientDriftLfoGain = null;
-let muted = false;
+// Master mute: silences ALL audio via outputGain. Fully independent of
+// binauralEnabled below — toggling one must never move the other.
+let fullyMuted = false;
+// Binaural/spatial toggle: crossfades whichever narration clip is playing
+// right now between the HRTF panner path and the plain narrationGain path
+// (see currentNarrationRouting below), and sets which path any new clip
+// starts on. Never touches outputGain, so flipping it can't ever mute
+// anything — only ever moves signal between the two always-audible paths.
+let binauralEnabled = true;
 const bufferCache = new Map();
 let currentNarrationSource = null;
+// The currently playing clip's spatial-path and plain-path gain nodes, kept
+// around so setBinauralEnabled() can crossfade between them live — i.e.
+// actually change how a clip sounds mid-playback, not just decide the route
+// for whatever plays next.
+let currentNarrationRouting = null;
 
 // Default ambient profile used until a room supplies its own (see
 // setRoomAmbience()). Values chosen to match the original "mild air" bed.
@@ -87,16 +107,22 @@ export function initAudio() {
 
   audioCtx = new Ctx();
 
-  masterGain = audioCtx.createGain();
-  masterGain.gain.value = muted ? 0 : 0.9;
-  masterGain.connect(audioCtx.destination);
+  outputGain = audioCtx.createGain();
+  outputGain.gain.value = fullyMuted ? 0 : 1;
+  outputGain.connect(audioCtx.destination);
 
-  // Always at full volume regardless of `muted` — narration should keep
-  // playing (in plain, non-spatial form) even with binaural/ambient audio
-  // switched off, rather than going completely silent.
+  // Always at full volume — ambient bed audibility is controlled solely by
+  // the master mute (outputGain) above, never by the binaural toggle.
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.9;
+  masterGain.connect(outputGain);
+
+  // Also always at full volume — narration should keep playing (in plain,
+  // non-spatial form) even with binaural switched off, rather than going
+  // silent. The master mute above still applies to this path too.
   narrationGain = audioCtx.createGain();
   narrationGain.gain.value = 0.9;
-  narrationGain.connect(audioCtx.destination);
+  narrationGain.connect(outputGain);
 
   startAmbientBed();
 
@@ -226,9 +252,13 @@ async function loadAudioBuffer(url) {
  * uploaded audio file (e.g. "/audio/speaker.mp3"). If the file doesn't
  * exist yet, this fails quietly (logs a warning) rather than throwing.
  *
- * When "binaural" is switched off (see setMuted()), this still plays —
- * just as plain, non-spatial audio through narrationGain instead of the
- * HRTF panner/masterGain path — rather than going silent.
+ * Both the HRTF-spatial path and the plain non-spatial path are built every
+ * time and left connected for the whole clip — which one is actually
+ * audible is controlled by a pair of gain nodes crossfaded according to
+ * binauralEnabled. That's what lets setBinauralEnabled() flip a clip that's
+ * already mid-playback between spatial and plain instead of only affecting
+ * whatever plays next. Master mute (setMuted()) is independent of this and
+ * silences either path equally.
  */
 export async function playHotspotNarration(url, yawDeg, pitchDeg) {
   stopHotspotNarration();
@@ -258,36 +288,42 @@ export async function playHotspotNarration(url, yawDeg, pitchDeg) {
 
   const source = audioCtx.createBufferSource();
   source.buffer = buffer;
+  source.connect(compressor).connect(makeupGain);
 
-  if (muted) {
-    // Binaural off: plain non-spatial playback, always-on output path.
-    source.connect(compressor).connect(makeupGain).connect(narrationGain);
-  } else {
-    const panner = audioCtx.createPanner();
-    panner.panningModel = "HRTF";
-    panner.distanceModel = "inverse";
-    panner.refDistance = 1;
+  // Plain (non-spatial) path — always built, gated by plainPathGain.
+  const plainPathGain = audioCtx.createGain();
+  plainPathGain.gain.value = binauralEnabled ? 0 : 1;
+  makeupGain.connect(plainPathGain).connect(narrationGain);
 
-    const pos = sphericalToCartesian(yawDeg, pitchDeg, 2.5);
-    if (panner.positionX) {
-      panner.positionX.value = pos.x;
-      panner.positionY.value = pos.y;
-      panner.positionZ.value = pos.z;
-    } else if (panner.setPosition) {
-      panner.setPosition(pos.x, pos.y, pos.z);
-    }
-    const elevationShelf = createElevationShelf(pitchDeg);
+  // Spatial (HRTF) path — always built, gated by spatialPathGain, so
+  // toggling binaural mid-clip is just a crossfade between the two rather
+  // than tearing down/rebuilding the graph.
+  const panner = audioCtx.createPanner();
+  panner.panningModel = "HRTF";
+  panner.distanceModel = "inverse";
+  panner.refDistance = 1;
 
-    source
-      .connect(compressor)
-      .connect(makeupGain)
-      .connect(elevationShelf)
-      .connect(panner)
-      .connect(masterGain);
+  const pos = sphericalToCartesian(yawDeg, pitchDeg, 2.5);
+  if (panner.positionX) {
+    panner.positionX.value = pos.x;
+    panner.positionY.value = pos.y;
+    panner.positionZ.value = pos.z;
+  } else if (panner.setPosition) {
+    panner.setPosition(pos.x, pos.y, pos.z);
   }
+  const elevationShelf = createElevationShelf(pitchDeg);
+
+  const spatialPathGain = audioCtx.createGain();
+  spatialPathGain.gain.value = binauralEnabled ? 1 : 0;
+  makeupGain
+    .connect(elevationShelf)
+    .connect(panner)
+    .connect(spatialPathGain)
+    .connect(masterGain);
 
   source.start();
   currentNarrationSource = source;
+  currentNarrationRouting = { plainPathGain, spatialPathGain };
 }
 
 /** Stops whatever narration clip is currently playing, if any. */
@@ -301,24 +337,48 @@ export function stopHotspotNarration() {
     currentNarrationSource.disconnect();
     currentNarrationSource = null;
   }
+  currentNarrationRouting = null;
 }
 
 /**
- * Toggles "binaural" mode. This is NOT a full mute: it only silences the
- * ambient bed via masterGain. Hotspot narration keeps playing regardless —
- * see playHotspotNarration(), which routes through the always-on
- * narrationGain and drops the HRTF panner while this is true.
- *
- * The ambient bed itself isn't stopped, just silenced via masterGain, so it
- * picks back up instantly when re-enabled.
+ * Master mute — silences EVERYTHING (ambient bed + hotspot narration,
+ * spatial or not) via the single outputGain stage both paths feed into.
+ * Fully independent of setBinauralEnabled(): muting/unmuting never changes
+ * whether narration is spatialized, and toggling binaural never changes
+ * whether anything is audible.
  */
 export function setMuted(value) {
-  muted = value;
-  if (masterGain) {
-    masterGain.gain.value = value ? 0 : 0.9;
+  fullyMuted = value;
+  if (outputGain) {
+    outputGain.gain.value = value ? 0 : 1;
   }
 }
 
 export function isMuted() {
-  return muted;
+  return fullyMuted;
+}
+
+/**
+ * Toggles binaural/spatial mode. This does NOT mute or unmute anything — it
+ * crossfades whichever narration clip is currently playing between the
+ * HRTF-panned path and the plain non-spatial path (both are always built
+ * per-clip, see playHotspotNarration()), and sets the path any new clip
+ * starts on. Both paths are equally audible/inaudible according to
+ * setMuted() above, so flipping this can never go silent.
+ */
+export function setBinauralEnabled(value) {
+  binauralEnabled = value;
+  if (audioCtx && currentNarrationRouting) {
+    const now = audioCtx.currentTime;
+    const RAMP = 0.06; // short crossfade so the switch isn't an audible click
+    const { plainPathGain, spatialPathGain } = currentNarrationRouting;
+    spatialPathGain.gain.cancelScheduledValues(now);
+    spatialPathGain.gain.linearRampToValueAtTime(value ? 1 : 0, now + RAMP);
+    plainPathGain.gain.cancelScheduledValues(now);
+    plainPathGain.gain.linearRampToValueAtTime(value ? 0 : 1, now + RAMP);
+  }
+}
+
+export function isBinauralEnabled() {
+  return binauralEnabled;
 }

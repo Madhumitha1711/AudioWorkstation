@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useDispatch } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { Viewer } from "@photo-sphere-viewer/core";
 import { VirtualTourPlugin } from "@photo-sphere-viewer/virtual-tour-plugin";
 import { MarkersPlugin } from "@photo-sphere-viewer/markers-plugin";
@@ -7,7 +7,6 @@ import "@photo-sphere-viewer/core/index.css";
 import "@photo-sphere-viewer/markers-plugin/index.css";
 import "@photo-sphere-viewer/virtual-tour-plugin/index.css";
 import { ROOMS, START_NODE_ID } from "./roomsData";
-import { setScreen, setPendingTopic } from "../store/uiSlice";
 import {
   initAudio,
   resumeAudio,
@@ -17,9 +16,16 @@ import {
   setRoomAmbience,
   setMuted,
   isMuted,
+  setBinauralEnabled,
+  isBinauralEnabled,
 } from "../audio/spatialAudioEngine";
 
 const DEFAULT_AMBIENCE = { filterFreq: 500, gain: 0.03, gustDepth: 0.015 };
+// The wide, "standing in the middle of the room" resting view — used both
+// for the first-arrival reveal and to zoom back out whenever a hotspot's
+// gear panel is closed, so the camera doesn't just stay parked at whatever
+// hotspot zoomLvl it walked up to.
+const REST_ZOOM_LVL = 5;
 
 const deg = (value) => `${value}deg`;
 
@@ -75,7 +81,7 @@ function buildNodes() {
           // Deliberately no hover tooltip here: the library auto-flips it
           // above/below the icon depending on available screen space, which
           // reads as "the info card randomly jumps around". The real
-          // information card is the fixed panel (gearPanelStyle) that opens
+          // information card is the fixed panel (.svr-tour-gear-panel) that opens
           // on click, always pinned to the same spot regardless of where
           // the marker lands on screen.
           data: {
@@ -111,7 +117,7 @@ function buildNodes() {
 }
 
 function PanoramaTour() {
-  const dispatch = useDispatch();
+  const navigate = useNavigate();
   const containerRef = useRef(null);
   const placementModeRef = useRef(false);
   const viewerRef = useRef(null);
@@ -119,11 +125,6 @@ function PanoramaTour() {
   const virtualTourRef = useRef(null);
   const goToMarkerRef = useRef(null);
   const hasArrivedRef = useRef(false);
-  // Which room's ambient bed is currently active — so toggleMute() can
-  // re-trigger it for the right room when binaural is switched back on,
-  // without needing its own copy of the room-lookup logic.
-  const currentRoomIdRef = useRef(null);
-  const activateRoomAudioRef = useRef(null);
   // Tracks whichever hotspot was requested most recently, so that if a
   // second hotspot is clicked before the first one's arrival animation
   // finishes, the first one's now-stale ".then()" can't overwrite the panel
@@ -131,12 +132,15 @@ function PanoramaTour() {
   const latestRequestRef = useRef(null);
 
   const [currentRoomName, setCurrentRoomName] = useState("");
+  const [currentRoomId, setCurrentRoomId] = useState(START_NODE_ID);
   const [activeGear, setActiveGear] = useState(null);
   const [placementMode, setPlacementMode] = useState(false);
   const [lastPlacement, setLastPlacement] = useState(null);
   const [status, setStatus] = useState("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [audioMuted, setAudioMuted] = useState(isMuted());
+  const [binauralOn, setBinauralOn] = useState(isBinauralEnabled());
+  const [hintOpen, setHintOpen] = useState(false);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -148,14 +152,25 @@ function PanoramaTour() {
 
     const viewer = new Viewer({
       container: containerRef.current,
-      // Start zoomed in; on arrival we animate back out to zoomLvl 10 for a
+      // Start zoomed in; on arrival we animate back out to zoomLvl 5 for a
       // "zoom out to normal position" reveal instead of just appearing.
       defaultZoomLvl: 75,
-      // Lower than the library default (30deg) so full zoom-in (via the
-      // navbar slider, scroll, or a hotspot's zoomLvl) gets noticeably
-      // closer — gear reads as bigger/more detailed instead of capping out
-      // at a fairly wide view.
-      minFov: 15,
+      // Caps how far zoom-in can go (via the navbar slider, scroll, or a
+      // hotspot's zoomLvl). Raised back up from the library default of 30 —
+      // it had been lowered to 15 to allow an extreme close-in, but that let
+      // gear hotspots zoom in tight enough to feel disorienting/cropped.
+      // Higher minFov = less maximum magnification.
+      minFov: 30,
+      // Higher than the library default (90deg) so the resting/establishing
+      // view (see the zoomLvl: 5 reveal below) shows noticeably more of the
+      // room at once — the room reads as bigger/more spacious instead of
+      // feeling boxed in. There's no separate "sphere size" control in this
+      // library (the panorama is projected on a fixed-radius sphere); a
+      // wider max field of view is what actually makes the space feel
+      // larger. Past ~120 the wide-angle distortion gets noticeable, so
+      // this stays comfortably under that. Zoom-out/FOV is otherwise
+      // unchanged — only the zoom-in ceiling above was tightened.
+      maxFov: 110,
       navbar: ["zoom", "caption", "fullscreen"],
       plugins: [
         [
@@ -187,35 +202,29 @@ function PanoramaTour() {
     markersRef.current = markers;
 
     // Crossfades the ambient bed to this room's own character. Called on
-    // every room change, and again by toggleMute() when binaural is
-    // switched back on (the bed is silenced, not stopped, while it's off —
-    // see setMuted()).
+    // every room change. The bed's audibility is governed solely by master
+    // mute (setMuted()/isMuted()) further down the signal chain, so this
+    // always re-tunes regardless of mute or binaural state.
     const activateRoomAudio = (room) => {
       if (!room) return;
       setRoomAmbience(room.ambience ?? DEFAULT_AMBIENCE);
     };
-    activateRoomAudioRef.current = activateRoomAudio;
 
     const onNodeChanged = (e) => {
       setCurrentRoomName(e.node.name || e.node.id);
+      setCurrentRoomId(e.node.id);
       setActiveGear(null);
       latestRequestRef.current = null;
       setStatus("ready");
-      currentRoomIdRef.current = e.node.id;
 
       // Only on first arrival: reveal the room by zooming back out to the
       // normal establishing view, instead of just popping in already zoomed.
       if (!hasArrivedRef.current) {
         hasArrivedRef.current = true;
-        viewer.animate({ zoom: 10, speed: "10rpm" });
+        viewer.animate({ zoom: REST_ZOOM_LVL, speed: "10rpm" });
       }
 
-      // Don't re-tune the ambient bed if binaural is currently off — it's
-      // deliberately silenced, and should stay that way until toggleMute()
-      // re-enables it.
-      if (!isMuted()) {
-        activateRoomAudio(ROOMS.find((r) => r.id === e.node.id));
-      }
+      activateRoomAudio(ROOMS.find((r) => r.id === e.node.id));
     };
     virtualTour.addEventListener("node-changed", onNodeChanged);
 
@@ -272,6 +281,9 @@ function PanoramaTour() {
       if (e.key.toLowerCase() !== "p") return;
       placementModeRef.current = !placementModeRef.current;
       setPlacementMode(placementModeRef.current);
+      // Placement mode is a dev tool — surface the hint drawer automatically
+      // so the yaw/pitch readout isn't hidden behind a collapsed chip.
+      if (placementModeRef.current) setHintOpen(true);
     };
     window.addEventListener("keydown", onKeyDown);
 
@@ -289,27 +301,31 @@ function PanoramaTour() {
     };
   }, []);
 
-  // Just closes the panel — the camera stays wherever it currently is
-  // (i.e. at the hotspot), it does not zoom back out.
+  // Closes the panel and eases the camera back out to the wide resting
+  // view instead of leaving it parked at the hotspot's zoomed-in position.
   const closeGearPanel = () => {
     stopHotspotNarration();
     setActiveGear(null);
+    viewerRef.current?.animate({ zoom: REST_ZOOM_LVL, speed: "10rpm" });
   };
 
-  // Toggles binaural/spatial audio — NOT a full mute. setMuted() silences
-  // the ambient bed; hotspot narration keeps playing regardless, just as
-  // plain non-spatial audio while this is off (see
-  // spatialAudioEngine.playHotspotNarration). Turning it back on re-tunes
-  // the bed for whichever room the student is currently standing in.
-  const toggleMute = () => {
+  // Master mute — silences everything (ambient bed + narration, spatial or
+  // not) via the single output stage in spatialAudioEngine. Fully
+  // independent of the binaural toggle below.
+  const toggleMasterMute = () => {
     const next = !isMuted();
     setMuted(next);
     setAudioMuted(next);
-    if (!next) {
-      activateRoomAudioRef.current?.(
-        ROOMS.find((r) => r.id === currentRoomIdRef.current),
-      );
-    }
+  };
+
+  // Binaural/spatial toggle — does NOT mute or unmute anything. It only
+  // decides whether the *next* hotspot narration plays HRTF-spatialized or
+  // as plain stereo (see spatialAudioEngine.playHotspotNarration). The
+  // ambient bed is unaffected either way.
+  const toggleBinaural = () => {
+    const next = !isBinauralEnabled();
+    setBinauralEnabled(next);
+    setBinauralOn(next);
   };
 
   // Selecting a door hotspot: walk through to the linked room. The
@@ -330,142 +346,187 @@ function PanoramaTour() {
       });
       return;
     }
-    const all = markers.getMarkers();
+    // getMarkers() returns every marker registered in the current room,
+    // gear hotspots AND doorways alike. "Next" should only ever cycle
+    // through gear — landing on a door marker here previously opened the
+    // gear panel with a door's data (no title/description/course), showing
+    // up as an empty info panel once you'd stepped through every real
+    // hotspot.
+    const gearMarkers = markers.getMarkers().filter((m) => m.data?.kind === "gear");
     console.log(
-      "[next-hotspot] registered marker ids:",
-      all.map((m) => m.id),
+      "[next-hotspot] registered gear marker ids:",
+      gearMarkers.map((m) => m.id),
       "current:",
       activeGear.id,
     );
-    const currentIndex = all.findIndex((m) => m.id === activeGear.id);
+    const currentIndex = gearMarkers.findIndex((m) => m.id === activeGear.id);
     if (currentIndex === -1) {
-      console.warn("[next-hotspot] blocked: current marker id not found in registered markers");
+      console.warn("[next-hotspot] blocked: current marker id not found in registered gear markers");
       return;
     }
-    if (all.length < 2) {
-      console.warn("[next-hotspot] blocked: only one marker registered, nothing to advance to");
+    if (gearMarkers.length < 2) {
+      console.warn("[next-hotspot] blocked: only one gear marker registered, nothing to advance to");
       return;
     }
-    const next = all[(currentIndex + 1) % all.length];
+    const next = gearMarkers[(currentIndex + 1) % gearMarkers.length];
     console.log("[next-hotspot] advancing to:", next.id);
     goToMarkerRef.current?.(next.id);
   };
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
-      <style>{hotspotStyles}</style>
+      <style>{tourStyles}</style>
       <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
 
       {status === "loading" && (
-        <div style={overlayCenterStyle}>Loading studio tour...</div>
-      )}
-
-      {status === "error" && (
-        <div style={{ ...overlayCenterStyle, color: "#f66" }}>
-          {errorMsg}
+        <div className="svr-tour-loading">
+          <div className="svr-tour-spinner" />
+          <div className="svr-tour-loading-text">Loading studio tour…</div>
         </div>
       )}
 
-      {status === "ready" && currentRoomName && (
-        <div style={roomLabelStyle}>{currentRoomName}</div>
+      {status === "error" && (
+        <div className="svr-tour-loading">
+          <div className="svr-tour-loading-text svr-tour-error-text">
+            {errorMsg}
+          </div>
+        </div>
       )}
 
       {status === "ready" && (
-        <button
-          onClick={toggleMute}
-          style={muteButtonStyle}
-          aria-label={audioMuted ? "Unmute audio" : "Mute audio"}
-        >
-          {audioMuted ? "🔇" : "🔊"} Binaural audio (preview)
-        </button>
+        <div className="svr-tour-toolbar">
+          <div className="svr-tour-room-block">
+            <div className="svr-tour-room-name">{currentRoomName}</div>
+            {ROOMS.length > 1 && (
+              <div className="svr-tour-room-dots">
+                {ROOMS.map((room) => (
+                  <button
+                    key={room.id}
+                    className={
+                      "svr-tour-room-dot" +
+                      (room.id === currentRoomId ? " current" : "")
+                    }
+                    onClick={() => goToRoom(room.id)}
+                    aria-label={`Go to ${room.name}`}
+                    title={room.name}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="svr-tour-divider" />
+          <button
+            onClick={toggleBinaural}
+            className={"svr-tour-binaural-btn" + (binauralOn ? " on" : " off")}
+            aria-pressed={binauralOn}
+            aria-label={binauralOn ? "Turn off binaural audio" : "Turn on binaural audio"}
+            title={binauralOn ? "Binaural: on — click to turn off" : "Binaural: off — click to turn on"}
+          >
+            <span className="svr-tour-binaural-icon" aria-hidden="true">🎧</span>
+            <span className="svr-tour-binaural-label">
+              Binaural {binauralOn ? "on" : "off"}
+            </span>
+          </button>
+          <button
+            onClick={toggleMasterMute}
+            className="svr-tour-icon-btn"
+            aria-label={audioMuted ? "Unmute audio" : "Mute audio"}
+            title={audioMuted ? "Unmute" : "Mute"}
+          >
+            {audioMuted ? "🔇" : "🔊"}
+          </button>
+        </div>
       )}
 
-      <div style={hintStyle}>
-        Press "P" to toggle hotspot placement mode, then click a doorway or
-        piece of gear to read its yaw/pitch (also logged to the console).
-        {placementMode && (
-          <div style={{ marginTop: "4px", color: "#7CFC9A" }}>
-            Placement mode ON
-            {lastPlacement &&
-              ` — last click: yaw ${lastPlacement.yaw}deg, pitch ${lastPlacement.pitch}deg`}
+      {status === "ready" && (
+        <div
+          className={"svr-tour-hint-chip" + (hintOpen ? " open" : "")}
+          onClick={() => setHintOpen((v) => !v)}
+        >
+          <button
+            className="svr-tour-icon-btn active"
+            style={{ pointerEvents: "none" }}
+            aria-hidden="true"
+            tabIndex={-1}
+          >
+            ?
+          </button>
+          <div className="svr-tour-hint-text">
+            Press "P" to toggle hotspot placement mode, then click a doorway
+            or piece of gear to read its yaw/pitch (also logged to the
+            console).
+            {placementMode && (
+              <div className="svr-tour-hint-placement">
+                Placement mode ON
+                {lastPlacement &&
+                  ` — last click: yaw ${lastPlacement.yaw}deg, pitch ${lastPlacement.pitch}deg`}
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {activeGear && (
-        <div style={gearPanelStyle}>
-          <button
-            onClick={closeGearPanel}
-            style={closeButtonStyle}
-            aria-label="Close"
-          >
-            ×
-          </button>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              marginBottom: "8px",
-            }}
-          >
-            <span style={panelBadgeStyle}>{activeGear.number}</span>
-            <span style={{ fontWeight: 700, fontSize: "15px" }}>
-              {activeGear.title}
-            </span>
-          </div>
-          <div style={{ fontSize: "13px", lineHeight: 1.5, opacity: 0.9 }}>
-            {activeGear.description}
-          </div>
-
-          {activeGear.course?.objectives?.length > 0 && (
-            <>
-              <div
-                style={{
-                  fontSize: "11px",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  opacity: 0.55,
-                  margin: "14px 0 6px",
-                }}
-              >
-                What you'll learn
+        <div className="svr-tour-gear-panel">
+          <div className="svr-tour-gear-panel__head">
+            <span className="svr-tour-gear-badge">{activeGear.number}</span>
+            <div className="svr-tour-gear-panel__titles">
+              <div className="svr-tour-gear-panel__title">
+                {activeGear.title}
               </div>
-              <ul
-                style={{
-                  margin: 0,
-                  paddingLeft: "18px",
-                  fontSize: "12.5px",
-                  lineHeight: 1.6,
-                  opacity: 0.9,
-                }}
-              >
-                {activeGear.course.objectives.map((point, i) => (
-                  <li key={i}>{point}</li>
-                ))}
-              </ul>
-            </>
-          )}
-
-          {activeGear.course?.id && (
+              <div className="svr-tour-gear-panel__kicker">Gear info</div>
+            </div>
             <button
-              onClick={() => {
-                // activeGear.id is the hotspot's marker id (e.g. "speaker",
-                // "daw-screens"), which is also the topic id in
-                // src/course/courseData.js — CoursePage uses this to open
-                // directly on the right topic instead of the default one.
-                dispatch(setPendingTopic(activeGear.id));
-                dispatch(setScreen("course"));
-              }}
-              style={startCourseButtonStyle}
+              onClick={closeGearPanel}
+              className="svr-tour-gear-panel__close"
+              aria-label="Close"
             >
-              Start course
+              ×
             </button>
-          )}
+          </div>
 
-          <button onClick={goToNextMarker} style={nextButtonStyle}>
-            Next hotspot →
-          </button>
+          <div className="svr-tour-gear-panel__body">
+            <div className="svr-tour-gear-panel__desc">
+              {activeGear.description}
+            </div>
+
+            {activeGear.course?.objectives?.length > 0 && (
+              <>
+                <div className="svr-tour-section-label">
+                  What you'll learn
+                </div>
+                <ul className="svr-tour-checklist">
+                  {activeGear.course.objectives.map((point, i) => (
+                    <li key={i}>{point}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+
+          <div className="svr-tour-gear-panel__footer">
+            <button
+              onClick={goToNextMarker}
+              className="svr-tour-btn svr-tour-btn-secondary"
+            >
+              Next →
+            </button>
+            {activeGear.course?.id && (
+              <button
+                onClick={() => {
+                  // activeGear.id is the hotspot's marker id (e.g. "speaker",
+                  // "daw-screens"), which is also the topic id in
+                  // src/course/courseData.js — CoursePage reads this route
+                  // state to open directly on the right topic instead of the
+                  // default one.
+                  navigate("/course", { state: { topicId: activeGear.id } });
+                }}
+                className="svr-tour-btn svr-tour-btn-primary"
+              >
+                Start course
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -473,8 +534,12 @@ function PanoramaTour() {
 }
 
 // Injected globally so the plain-HTML marker content (rendered by the
-// markers plugin outside of React) can use these classes/keyframes.
-const hotspotStyles = `
+// markers plugin outside of React) can use these classes/keyframes, plus
+// every other floating piece of tour chrome (toolbar, hint chip, gear
+// panel, loading state). Built on the app's own --shell-* tokens (see
+// index.css) so this screen follows the light/dark theme toggle instead of
+// hardcoding its own black.
+const tourStyles = `
   /* The virtual-tour plugin's own floating 3D doorway arrows are hidden —
      they drift across the screen as the camera turns. Doorways are instead
      rendered as regular hotspot markers (.hotspot-marker--door below),
@@ -512,6 +577,10 @@ const hotspotStyles = `
       0 0 10px rgba(34, 255, 130, 0.75),
       inset 0 0 5px rgba(255, 255, 255, 0.5);
     animation: hotspot-breathe 2.2s ease-in-out infinite;
+    transition: transform 0.15s ease;
+  }
+  .hotspot-marker:hover .hotspot-marker__dot {
+    transform: scale(1.15);
   }
   @keyframes hotspot-pulse {
     0% {
@@ -544,124 +613,368 @@ const hotspotStyles = `
       0 0 10px rgba(70, 150, 255, 0.75),
       inset 0 0 5px rgba(255, 255, 255, 0.5);
   }
+
+  /* ---------- Shared chrome (glass) ---------- */
+  .svr-tour-icon-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--shell-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    flex-shrink: 0;
+    transition: background 0.15s ease;
+  }
+  .svr-tour-icon-btn:hover {
+    background: var(--shell-panel-hover);
+  }
+  .svr-tour-icon-btn.active {
+    background: var(--shell-panel);
+    border-color: var(--shell-border);
+  }
+
+  /* ---------- Top toolbar: room name + progress dots + audio ---------- */
+  .svr-tour-toolbar {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--shell-bg);
+    border: 1px solid var(--shell-border);
+    border-radius: 999px;
+    padding: 6px;
+    backdrop-filter: blur(14px);
+    box-shadow: var(--shadow);
+    max-width: calc(100vw - 32px);
+    font-family: sans-serif;
+    z-index: 5;
+  }
+  .svr-tour-room-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 8px;
+    min-width: 0;
+  }
+  .svr-tour-room-name {
+    color: var(--shell-text);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+  .svr-tour-room-dots {
+    display: flex;
+    gap: 5px;
+    margin-top: 4px;
+  }
+  .svr-tour-room-dot {
+    width: 6px;
+    height: 6px;
+    padding: 0;
+    border-radius: 50%;
+    border: none;
+    background: var(--shell-border);
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+  }
+  .svr-tour-room-dot:hover {
+    background: var(--shell-text-dim);
+  }
+  .svr-tour-room-dot.current {
+    background: #22ff88;
+    transform: scale(1.3);
+  }
+  .svr-tour-divider {
+    width: 1px;
+    align-self: stretch;
+    margin: 4px 0;
+    background: var(--shell-border-soft);
+  }
+
+  /* ---------- Binaural toggle: a labeled, colored pill instead of a
+     same-shaped icon button with only a subtle shading difference, so
+     on/off reads at a glance. */
+  .svr-tour-binaural-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 12px 0 10px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  .svr-tour-binaural-icon {
+    font-size: 14px;
+    line-height: 1;
+    transition: filter 0.15s ease, opacity 0.15s ease;
+  }
+  .svr-tour-binaural-btn.on {
+    background: #22ff55;
+    border: 1px solid transparent;
+    color: #0a0a0a;
+  }
+  .svr-tour-binaural-btn.on:hover {
+    opacity: 0.9;
+  }
+  .svr-tour-binaural-btn.off {
+    background: transparent;
+    border: 1px solid var(--shell-border);
+    color: var(--shell-text-dimmer);
+  }
+  .svr-tour-binaural-btn.off .svr-tour-binaural-icon {
+    filter: grayscale(1);
+    opacity: 0.6;
+  }
+  .svr-tour-binaural-btn.off:hover {
+    background: var(--shell-panel-hover);
+    color: var(--shell-text-dim);
+  }
+
+  /* ---------- Collapsible hint chip ---------- */
+  .svr-tour-hint-chip {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: var(--shell-bg);
+    border: 1px solid var(--shell-border);
+    border-radius: 12px;
+    backdrop-filter: blur(14px);
+    padding: 6px;
+    max-width: 320px;
+    cursor: pointer;
+    font-family: sans-serif;
+    z-index: 5;
+  }
+  .svr-tour-hint-chip.open {
+    padding: 8px 12px 10px 8px;
+    cursor: default;
+  }
+  .svr-tour-hint-text {
+    display: none;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--shell-text-dim);
+    padding-top: 5px;
+  }
+  .svr-tour-hint-chip.open .svr-tour-hint-text {
+    display: block;
+  }
+  .svr-tour-hint-placement {
+    margin-top: 4px;
+    color: #7cfc9a;
+  }
+
+  /* ---------- Gear info panel ---------- */
+  .svr-tour-gear-panel {
+    position: absolute;
+    top: 74px;
+    right: 16px;
+    width: 320px;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 110px);
+    background: var(--shell-bg);
+    border: 1px solid var(--shell-border);
+    border-radius: 14px;
+    backdrop-filter: blur(14px);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: sans-serif;
+    color: var(--shell-text);
+    animation: svr-tour-slide-in 0.2s ease-out;
+    z-index: 5;
+  }
+  @keyframes svr-tour-slide-in {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .svr-tour-gear-panel__head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--shell-border-soft);
+  }
+  .svr-tour-gear-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 32% 28%, #7dffb8, #17c76a 70%);
+    color: #04160a;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .svr-tour-gear-panel__titles {
+    min-width: 0;
+    flex: 1;
+  }
+  .svr-tour-gear-panel__title {
+    font-size: 14.5px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .svr-tour-gear-panel__kicker {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--shell-text-dimmer);
+    margin-top: 2px;
+  }
+  .svr-tour-gear-panel__close {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--shell-text-dim);
+    font-size: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  .svr-tour-gear-panel__close:hover {
+    background: var(--shell-panel-hover);
+    color: var(--shell-text);
+  }
+  .svr-tour-gear-panel__body {
+    padding: 14px 16px;
+    overflow-y: auto;
+  }
+  .svr-tour-gear-panel__desc {
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--shell-text-dim);
+  }
+  .svr-tour-section-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--shell-text-dimmer);
+    margin: 16px 0 8px;
+  }
+  .svr-tour-checklist {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .svr-tour-checklist li {
+    display: flex;
+    gap: 8px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--shell-text);
+  }
+  .svr-tour-checklist li::before {
+    content: "\\2713";
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(34, 255, 130, 0.15);
+    color: #22c76a;
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2px;
+  }
+  .svr-tour-gear-panel__footer {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px 14px;
+    border-top: 1px solid var(--shell-border-soft);
+  }
+  .svr-tour-btn {
+    flex: 1;
+    padding: 9px 0;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    transition: opacity 0.15s ease, background 0.15s ease;
+  }
+  .svr-tour-btn-primary {
+    background: #22ff55;
+    color: #0a0a0a;
+    border: none;
+  }
+  .svr-tour-btn-primary:hover {
+    opacity: 0.9;
+  }
+  .svr-tour-btn-secondary {
+    background: var(--shell-panel);
+    color: var(--shell-text);
+    border: 1px solid var(--shell-border);
+  }
+  .svr-tour-btn-secondary:hover {
+    background: var(--shell-panel-hover);
+  }
+
+  /* ---------- Loading / error state ---------- */
+  .svr-tour-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    font-family: sans-serif;
+    background: var(--shell-page-bg);
+  }
+  .svr-tour-spinner {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 3px solid var(--shell-border);
+    border-top-color: #22ff88;
+    animation: svr-tour-spin 0.9s linear infinite;
+  }
+  @keyframes svr-tour-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .svr-tour-loading-text {
+    font-size: 13px;
+    color: var(--shell-text-dim);
+  }
+  .svr-tour-error-text {
+    color: #f66;
+  }
 `;
-
-const muteButtonStyle = {
-  position: "absolute",
-  top: "16px",
-  right: "16px",
-  background: "rgba(20,20,20,0.75)",
-  color: "#fff",
-  border: "1px solid rgba(255,255,255,0.15)",
-  borderRadius: "999px",
-  padding: "6px 14px",
-  fontSize: "12px",
-  fontFamily: "sans-serif",
-  cursor: "pointer",
-};
-
-const panelBadgeStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "22px",
-  height: "22px",
-  borderRadius: "50%",
-  background: "radial-gradient(circle at 32% 28%, #7dffb8, #17c76a 70%)",
-  color: "#04160a",
-  fontSize: "12px",
-  fontWeight: 700,
-  flexShrink: 0,
-};
-
-const overlayCenterStyle = {
-  position: "absolute",
-  top: "50%",
-  left: "50%",
-  transform: "translate(-50%, -50%)",
-  color: "#fff",
-  fontFamily: "sans-serif",
-  fontSize: "16px",
-};
-
-const roomLabelStyle = {
-  position: "absolute",
-  top: "16px",
-  left: "50%",
-  transform: "translateX(-50%)",
-  background: "rgba(20,20,20,0.75)",
-  color: "#fff",
-  fontFamily: "sans-serif",
-  fontSize: "14px",
-  fontWeight: 600,
-  padding: "6px 14px",
-  borderRadius: "999px",
-  border: "1px solid rgba(255,255,255,0.15)",
-  letterSpacing: "0.02em",
-};
-
-const hintStyle = {
-  position: "absolute",
-  bottom: "12px",
-  left: "12px",
-  maxWidth: "360px",
-  color: "rgba(255,255,255,0.6)",
-  fontFamily: "sans-serif",
-  fontSize: "12px",
-  lineHeight: 1.4,
-};
-
-const gearPanelStyle = {
-  position: "absolute",
-  top: "70px",
-  right: "16px",
-  width: "320px",
-  maxHeight: "calc(100vh - 100px)",
-  overflowY: "auto",
-  background: "rgba(20,20,20,0.92)",
-  color: "#fff",
-  fontFamily: "sans-serif",
-  padding: "16px 18px",
-  borderRadius: "10px",
-  border: "1px solid rgba(255,255,255,0.15)",
-};
-
-const startCourseButtonStyle = {
-  marginTop: "16px",
-  width: "100%",
-  padding: "9px 0",
-  background: "#22ff55",
-  color: "#0a0a0a",
-  border: "none",
-  borderRadius: "6px",
-  fontWeight: 700,
-  fontSize: "13px",
-  cursor: "pointer",
-};
-
-const nextButtonStyle = {
-  marginTop: "8px",
-  width: "100%",
-  padding: "9px 0",
-  background: "rgba(255,255,255,0.1)",
-  color: "#fff",
-  border: "1px solid rgba(255,255,255,0.25)",
-  borderRadius: "6px",
-  fontWeight: 600,
-  fontSize: "13px",
-  cursor: "pointer",
-};
-
-const closeButtonStyle = {
-  position: "absolute",
-  top: "8px",
-  right: "10px",
-  background: "none",
-  border: "none",
-  color: "rgba(255,255,255,0.7)",
-  fontSize: "18px",
-  cursor: "pointer",
-  lineHeight: 1,
-};
 
 export default PanoramaTour;
