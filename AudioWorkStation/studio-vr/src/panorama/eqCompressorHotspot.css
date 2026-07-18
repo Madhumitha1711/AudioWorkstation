@@ -31,17 +31,9 @@
   animation: eqcomp-panel-in 0.2s ease-out;
   z-index: 5;
 }
-
 @keyframes eqcomp-panel-in {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .eqcomp-panel__head {
@@ -52,11 +44,11 @@
   border-bottom: 1px solid var(--shell-border-soft);
   flex-shrink: 0;
 }
-
-/* EQ badge: orange, matching the Compressor badge below — the hotspot
-   marker out in the panorama stays teal (see .hotspot-marker__ring--eq
-   further down, unchanged), this only recolors the floating panel that
-   opens once the EQ hotspot is clicked. */
+/* EQ badge: orange, matching the EQ hotspot marker's ring color (see
+   .hotspot-marker__ring--eq below) and the Compressor badge below —
+   deliberately NOT the same green as gear-info hotspots, so an
+   EQ/Compressor hotspot never reads as "just another gear description"
+   at a glance. */
 .eqcomp-panel__badge {
   width: 26px;
   height: 26px;
@@ -69,24 +61,17 @@
   background: radial-gradient(circle at 32% 28%, #ffd28a, #e8934a 70%);
   color: #2b1400;
 }
-
 .eqcomp-panel__badge--comp {
   background: radial-gradient(circle at 32% 28%, #ffd28a, #e8934a 70%);
   color: #2b1400;
 }
-
-.eqcomp-panel__titles {
-  flex: 1;
-  min-width: 0;
-}
-
+.eqcomp-panel__titles { flex: 1; min-width: 0; }
 .eqcomp-panel__title {
   font-family: var(--display);
   font-size: 14.5px;
   font-weight: 600;
   line-height: 1.2;
 }
-
 .eqcomp-panel__kicker {
   font-size: 10.5px;
   letter-spacing: 0.08em;
@@ -94,7 +79,6 @@
   color: var(--shell-text-dimmer);
   margin-top: 2px;
 }
-
 .eqcomp-panel__close {
   width: 26px;
   height: 26px;
@@ -107,7 +91,6 @@
   flex-shrink: 0;
   line-height: 1;
 }
-
 .eqcomp-panel__close:hover {
   background: var(--shell-panel-hover);
   color: var(--shell-text);
@@ -129,7 +112,6 @@
   border-top: 1px solid var(--shell-border-soft);
   flex-shrink: 0;
 }
-
 .eqcomp-hint {
   font-size: 11px;
   color: var(--shell-text-dimmer);
@@ -150,7 +132,6 @@
   user-select: none;
   flex-shrink: 0;
 }
-
 .eqcomp-pill-toggle__track {
   width: 30px;
   height: 16px;
@@ -161,7 +142,6 @@
   transition: background 0.15s ease;
   display: block;
 }
-
 .eqcomp-pill-toggle__thumb {
   position: absolute;
   top: 1px;
@@ -172,16 +152,8 @@
   background: var(--text-dim);
   transition: transform 0.15s ease, background 0.15s ease;
 }
-
-.eqcomp-pill-toggle.on .eqcomp-pill-toggle__track {
-  background: var(--red-dim);
-  border-color: var(--red);
-}
-
-.eqcomp-pill-toggle.on .eqcomp-pill-toggle__thumb {
-  transform: translateX(14px);
-  background: var(--red);
-}
+.eqcomp-pill-toggle.on .eqcomp-pill-toggle__track { background: var(--red-dim); border-color: var(--red); }
+.eqcomp-pill-toggle.on .eqcomp-pill-toggle__thumb { transform: translateX(14px); background: var(--red); }
 
 .eqcomp-btn-reset {
   font-family: var(--mono);
@@ -195,11 +167,7 @@
   cursor: pointer;
   flex-shrink: 0;
 }
-
-.eqcomp-btn-reset:hover {
-  background: var(--shell-panel-hover);
-  color: var(--shell-text);
-}
+.eqcomp-btn-reset:hover { background: var(--shell-panel-hover); color: var(--shell-text); }
 
 /* ── readout screens (curve / GR meter) ── */
 /* This "screen" now follows the app's light/dark theme toggle instead of
@@ -215,7 +183,6 @@
   border-radius: 8px;
   padding: 10px 10px 8px;
 }
-
 .eqcomp-screen-label {
   font-family: var(--mono);
   font-size: 9px;
@@ -225,38 +192,14 @@
   display: flex;
   justify-content: space-between;
 }
-
-.eqcomp-screen-label .val {
-  color: var(--text-dim);
-}
-
-.eqcomp-axis-line {
-  stroke: var(--border);
-  stroke-width: 1;
-}
-
-.eqcomp-axis-line.zero {
-  stroke: var(--border-bright);
-}
-
-.eqcomp-axis-tick {
-  font-family: var(--mono);
-  font-size: 7.5px;
-  fill: var(--text-faint);
-}
+.eqcomp-screen-label .val { color: var(--text-dim); }
+.eqcomp-axis-line { stroke: var(--border); stroke-width: 1; }
+.eqcomp-axis-line.zero { stroke: var(--border-bright); }
+.eqcomp-axis-tick { font-family: var(--mono); font-size: 7.5px; fill: var(--text-faint); }
 
 /* ── knob rack ── */
-.eqcomp-knob-rack {
-  display: flex;
-  gap: 18px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.eqcomp-knob-rack.filters {
-  gap: 26px;
-}
-
+.eqcomp-knob-rack { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; }
+.eqcomp-knob-rack.filters { gap: 26px; }
 .eqcomp-rack-divider {
   font-family: var(--mono);
   font-size: 9px;
@@ -266,9 +209,7 @@
   text-align: center;
   position: relative;
 }
-
-.eqcomp-rack-divider::before,
-.eqcomp-rack-divider::after {
+.eqcomp-rack-divider::before, .eqcomp-rack-divider::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -276,23 +217,10 @@
   height: 1px;
   background: var(--border);
 }
+.eqcomp-rack-divider::before { left: 0; }
+.eqcomp-rack-divider::after { right: 0; }
 
-.eqcomp-rack-divider::before {
-  left: 0;
-}
-
-.eqcomp-rack-divider::after {
-  right: 0;
-}
-
-.eqcomp-filter-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
+.eqcomp-filter-header { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 8px; }
 .eqcomp-filter-toggle {
   width: 26px;
   height: 15px;
@@ -303,7 +231,6 @@
   cursor: pointer;
   flex-shrink: 0;
 }
-
 .eqcomp-filter-toggle .thumb {
   position: absolute;
   top: 1px;
@@ -314,74 +241,19 @@
   background: var(--text-faint);
   transition: transform 0.15s ease, background 0.15s ease;
 }
-
-.eqcomp-filter-toggle.on {
-  background: var(--teal-dim);
-  border-color: var(--teal);
-}
-
-.eqcomp-filter-toggle.on .thumb {
-  transform: translateX(11px);
-  background: var(--teal);
-}
+.eqcomp-filter-toggle.on { background: var(--teal-dim); border-color: var(--teal); }
+.eqcomp-filter-toggle.on .thumb { transform: translateX(11px); background: var(--teal); }
 
 /* GR meter — its own column beside the transfer scope, also sitting on the
    now theme-aware .eqcomp-screen background, so it uses the same
    theme-flipping tokens as the rest of the panel. */
-.eqcomp-comp-scope-row {
-  display: flex;
-  align-items: stretch;
-  gap: 12px;
-}
-
-.eqcomp-gr-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  width: 38px;
-  flex-shrink: 0;
-}
-
-.eqcomp-gr-col-lbl {
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  color: var(--text-faint);
-}
-
-.eqcomp-gr-bar-track {
-  width: 16px;
-  height: 56px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  position: relative;
-  overflow: hidden;
-}
-
-.eqcomp-gr-bar-fill {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(180deg, var(--red), var(--amber) 55%, var(--green) 100%);
-  transition: height 0.06s linear;
-}
-
-.eqcomp-gr-col-num {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text);
-  letter-spacing: 0.01em;
-}
-
-.eqcomp-gr-col-status {
-  font-size: 7.5px;
-  color: var(--text-faint);
-  letter-spacing: 0.04em;
-  text-align: center;
-  line-height: 1.2;
-}
+.eqcomp-comp-scope-row { display: flex; align-items: stretch; gap: 12px; }
+.eqcomp-gr-col { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 38px; flex-shrink: 0; }
+.eqcomp-gr-col-lbl { font-size: 9px; letter-spacing: 0.1em; color: var(--text-faint); }
+.eqcomp-gr-bar-track { width: 16px; height: 56px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; position: relative; overflow: hidden; }
+.eqcomp-gr-bar-fill { position: absolute; left: 0; right: 0; bottom: 0; background: linear-gradient(180deg, var(--red), var(--amber) 55%, var(--green) 100%); transition: height 0.06s linear; }
+.eqcomp-gr-col-num { font-size: 11px; font-weight: 600; color: var(--text); letter-spacing: 0.01em; }
+.eqcomp-gr-col-status { font-size: 7.5px; color: var(--text-faint); letter-spacing: 0.04em; text-align: center; line-height: 1.2; }
 
 /* ── audio upload / transport bar ── */
 .eqcomp-audio-bar {
@@ -393,15 +265,7 @@
   border-radius: 8px;
   padding: 7px 8px;
 }
-
-.eqcomp-audio-file-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-}
-
+.eqcomp-audio-file-input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 /* Shared by the "Upload audio" <label> and the "Default audio" <button> so
    both controls in the audio bar look identical regardless of which element
    renders them — buttons don't inherit font-family from ancestors by
@@ -419,32 +283,10 @@
   flex-shrink: 0;
   transition: border-color 0.15s ease, color 0.15s ease;
 }
-
-.eqcomp-audio-upload-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.eqcomp-audio-upload-btn:hover {
-  border-color: var(--text-dim);
-  color: var(--text);
-}
-
-.eqcomp-audio-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 10px;
-  color: var(--text-faint);
-  font-family: var(--mono);
-}
-
-.eqcomp-audio-name.loaded {
-  color: var(--text-dim);
-}
-
+.eqcomp-audio-upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.eqcomp-audio-upload-btn:hover { border-color: var(--text-dim); color: var(--text); }
+.eqcomp-audio-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: var(--text-faint); font-family: var(--mono); }
+.eqcomp-audio-name.loaded { color: var(--text-dim); }
 .eqcomp-audio-play-btn {
   width: 26px;
   height: 26px;
@@ -460,17 +302,8 @@
   justify-content: center;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
-
-.eqcomp-audio-play-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.eqcomp-audio-play-btn.playing {
-  background: var(--green-dim);
-  border-color: var(--green);
-  color: var(--green);
-}
+.eqcomp-audio-play-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.eqcomp-audio-play-btn.playing { background: var(--green-dim); border-color: var(--green); color: var(--green); }
 
 .eqcomp-engine-status {
   font-family: var(--mono);
@@ -479,7 +312,6 @@
   text-align: center;
   padding: 4px 0;
 }
-
 .eqcomp-engine-error {
   font-size: 11px;
   color: var(--red);
@@ -489,27 +321,23 @@
 /* ── interactive hotspot markers (EQ / Compressor icons in the panorama) ──
    Same pulsing-badge shape as the app's real .hotspot-marker in
    PanoramaTour.jsx — an icon glyph sits where the gear markers put a number,
-   AND a color distinct from the gear hotspots' green (which the EQ marker
-   used to just reuse, making it look like "another gear info point" instead
-   of a functional module). EQ gets teal (ties to its own HPF/LPF knob accent
-   and .eqcomp-panel__badge above); Compressor keeps its amber "dynamics"
-   tone. Neither reuses gear-green or the door markers' blue, so all four
-   marker kinds (gear / door / EQ / compressor) read as distinct at a glance. */
-.hotspot-marker__ring--eq {
-  border-color: rgba(245, 166, 35, 0.85);
+   AND a color distinct from the gear hotspots' green. EQ and Compressor
+   both use the same amber "dynamics" orange; the icon glyph (not color)
+   is what tells them apart.
+   Selectors are deliberately compound (`.hotspot-marker__ring.hotspot-marker__ring--eq`
+   rather than just `.hotspot-marker__ring--eq`) so they win on specificity
+   over the plain `.hotspot-marker__ring`/`__dot` gear-green rule in
+   PanoramaTour.jsx's own <style> block regardless of which stylesheet loads
+   last — with equal-specificity single-class selectors, source/import order
+   decided the winner, which is why these used to silently render green. */
+.hotspot-marker__ring.hotspot-marker__ring--eq { border-color: rgba(245, 166, 35, 0.85); }
+.hotspot-marker__dot.hotspot-marker__dot--eq {
+  color: #2b1400;
+  background: radial-gradient(circle at 32% 28%, #ffd28a, #e8934a 70%);
+  box-shadow: 0 0 10px rgba(245, 166, 35, 0.75), inset 0 0 5px rgba(255, 255, 255, 0.5);
 }
-
-.hotspot-marker__dot--eq {
-  color: #04201d;
-  background: radial-gradient(circle at 32% 28%, #8ff5e8, #17a69a 70%);
-  box-shadow: 0 0 10px rgba(245, 166, 35, 0.85), inset 0 0 5px rgba(255, 255, 255, 0.5);
-}
-
-.hotspot-marker__ring--dyn {
-  border-color: rgba(245, 166, 35, 0.85);
-}
-
-.hotspot-marker__dot--dyn {
+.hotspot-marker__ring.hotspot-marker__ring--dyn { border-color: rgba(245, 166, 35, 0.85); }
+.hotspot-marker__dot.hotspot-marker__dot--dyn {
   color: #2b1400;
   background: radial-gradient(circle at 32% 28%, #ffd28a, #e8934a 70%);
   box-shadow: 0 0 10px rgba(245, 166, 35, 0.75), inset 0 0 5px rgba(255, 255, 255, 0.5);
