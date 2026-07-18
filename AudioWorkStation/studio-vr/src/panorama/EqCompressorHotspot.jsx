@@ -582,6 +582,20 @@ function EqCompressorHotspot({ open, onClose }) {
     }
   }, [buildGraph]);
 
+  // Auto-start the built-in demo loop as soon as an EQ or Compressor hotspot
+  // panel is opened (once the Faust engines have finished loading), so
+  // selecting either module is immediately audible instead of requiring an
+  // extra "Default audio" click first. Fires again on eq <-> compressor
+  // switches too, since the cleanup effect above already tears down the
+  // graph and clears fileName on every moduleType change — it does NOT
+  // re-run just because the student uploads their own file afterwards,
+  // since that doesn't touch moduleType or engineStatus.
+  useEffect(() => {
+    if (moduleType && engineStatus === "ready") {
+      handleUseDefaultAudio();
+    }
+  }, [moduleType, engineStatus, handleUseDefaultAudio]);
+
   const togglePlay = useCallback(() => {
     const g = graphRef.current;
     if (!g) return;

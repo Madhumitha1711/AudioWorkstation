@@ -630,15 +630,22 @@ const GAIN_GRID_DB = [18, 12, 6, 0, -6, -12, -18];
 // block below).
 const ACTIVITY_EPS_DB = 0.05;
 // The graph used to stay a fixed near-black "screen" in both themes, like
-// every other chapter's oscilloscope/meter. Moved to its own light palette
-// instead, on request — a light-mode "graph paper" look (light background,
-// deepened trace colors) rather than a black rectangle sitting in an
-// otherwise light panel. Every color below is picked to hold reasonable
-// contrast against its own background: axis text at ~0.75 alpha over a
-// near-white canvas reads clearly, and the curve/spectrum colors reuse the
-// same deepened hues as the rest of the light theme (see uiColor() and the
-// --amber/--blue/--teal/--purple/--red overrides in chapters.css) so the
-// graph and the panel around it read as one consistent palette.
+// every other chapter's oscilloscope/meter, then got its own independent
+// light-mode "graph paper" background (a near-white #fbfcf8) so it wouldn't
+// read as a black rectangle sitting in an otherwise light panel. That paper
+// tone never actually matched any other "screen" in the app, though —
+// eqCompressorHotspot.css's .eqcomp-screen (the EQ+Compressor rack panel
+// you reach from the home/panorama tour) uses var(--console) for the same
+// kind of readout background, which resolves to a khaki-tinted off-white
+// (#e7eae1) in light mode, not a clean white. bg below now uses that same
+// value so this graph's "screen" and the home panel's screen read as one
+// consistent surface instead of two different whites. Every other color is
+// picked to hold reasonable contrast against its own background: axis text
+// at ~0.75 alpha over that off-white canvas reads clearly, and the
+// curve/spectrum colors reuse the same deepened hues as the rest of the
+// light theme (see uiColor() and the --amber/--blue/--teal/--purple/--red
+// overrides in chapters.css) so the graph and the panel around it read as
+// one consistent palette.
 const EQ_GRAPH_PALETTE = {
     dark: {
         bg: '#0A0A0C',
@@ -658,7 +665,7 @@ const EQ_GRAPH_PALETTE = {
         targetHiddenText: 'rgba(245,166,35,0.3)',
     },
     light: {
-        bg: '#fbfcf8',
+        bg: '#e7eae1',
         gridMinor: 'rgba(18,20,15,0.07)',
         gridMinorH: 'rgba(18,20,15,0.09)',
         gridZero: '#98a08c',
@@ -2177,6 +2184,21 @@ export default function Equalizer() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          {/* Play/stop, mirrored here from each tab's own footer control (see
+              the spacebar handler above, which drives the exact same
+              play(tab === 'bench' ? 'bench' : 'target') / stopAudio() toggle)
+              so playback can be started without scrolling past the curve,
+              band panel, and presets to reach the footer. */}
+          <button className="btn-secondary" onClick={() => (playSource !== 'idle' ? stopAudio() : play(tab === 'bench' ? 'bench' : 'target'))} disabled={!engineReady} title={engineReady ? '' : 'Loading Faust ParamEQ engine…'} style={{
+                fontSize: '0.65rem',
+                padding: '0.4rem 0.9rem',
+                fontWeight: 600,
+                borderColor: playSource !== 'idle' ? 'var(--red)' : 'var(--blue)',
+                color: playSource !== 'idle' ? 'var(--red)' : 'var(--blue)',
+                background: playSource !== 'idle' ? 'var(--red-dim)' : 'var(--blue-dim)',
+            }}>
+            {playSource !== 'idle' ? '■ STOP' : '▶ PLAY'}
+          </button>
           {tab === 'bench' && (<>
               <input ref={benchFileInputRef} type="file" accept="audio/*" multiple onChange={handleBenchFileSelected} style={{ display: 'none' }}/>
               <button className="btn-secondary" onClick={handleBenchUploadClick} disabled={benchDecoding} title="Upload one or more audio files — pick multiple in the file dialog to load them all" style={{

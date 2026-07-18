@@ -167,6 +167,12 @@ function PanoramaTour() {
   // finishes, the first one's now-stale ".then()" can't overwrite the panel
   // with the wrong content.
   const latestRequestRef = useRef(null);
+  // Holds the .hotspot-marker DOM element (rendered by the markers plugin,
+  // outside of React) that currently has the "svr-hotspot-selected" class —
+  // i.e. whichever hotspot's panel is open. Tracked as a plain DOM ref
+  // rather than React state since the marker HTML lives outside React's
+  // render tree; toggling the class directly is how selection is reflected.
+  const selectedMarkerElRef = useRef(null);
   // Mirrors activeModule (below) for the marker click handler, which lives
   // inside the mount-only viewer effect and would otherwise only ever see
   // the null it captured on the first render (the same stale-closure reason
@@ -268,6 +274,7 @@ function PanoramaTour() {
       setActiveGear(null);
       setActiveModule(null);
       latestRequestRef.current = null;
+      clearSelectedMarkerEl();
       setStatus("ready");
 
       // Only on first arrival: reveal the room by zooming back out to the
@@ -305,6 +312,7 @@ function PanoramaTour() {
         if (latestRequestRef.current !== markerId) return;
         setActiveModule(null);
         setActiveGear(marker.data);
+        setSelectedMarkerEl(markerId);
         // Its recorded narration clip (if uploaded) plays through an HRTF
         // panner from the hotspot's direction — genuinely binaural, unlike
         // browser TTS.
@@ -323,6 +331,7 @@ function PanoramaTour() {
       if (!marker) return;
       if (activeModuleRef.current?.id === data.id) {
         setActiveModule(null);
+        clearSelectedMarkerEl();
         return;
       }
       latestRequestRef.current = markerId;
@@ -331,6 +340,7 @@ function PanoramaTour() {
         stopHotspotNarration();
         setActiveGear(null);
         setActiveModule(data);
+        setSelectedMarkerEl(markerId);
       });
     };
 
@@ -383,11 +393,37 @@ function PanoramaTour() {
     };
   }, []);
 
+  // Removes the "selected" highlight from whichever hotspot marker
+  // currently has it (if any). Called any time a panel closes or a
+  // different hotspot is selected, so exactly one marker (or none) ever
+  // carries the selected animation at a time.
+  const clearSelectedMarkerEl = () => {
+    if (selectedMarkerElRef.current) {
+      selectedMarkerElRef.current.classList.remove("svr-hotspot-selected");
+      selectedMarkerElRef.current = null;
+    }
+  };
+
+  // Adds the "selected" highlight to the given marker's rendered element.
+  // The markers plugin renders `html` outside of React, so this reaches
+  // into its DOM directly (via markers.getMarker().domElement) rather than
+  // going through React state/props.
+  const setSelectedMarkerEl = (markerId) => {
+    clearSelectedMarkerEl();
+    const marker = markersRef.current?.getMarker(markerId);
+    const el = marker?.domElement?.querySelector(".hotspot-marker");
+    if (el) {
+      el.classList.add("svr-hotspot-selected");
+      selectedMarkerElRef.current = el;
+    }
+  };
+
   // Closes the panel and eases the camera back out to the wide resting
   // view instead of leaving it parked at the hotspot's zoomed-in position.
   const closeGearPanel = () => {
     stopHotspotNarration();
     setActiveGear(null);
+    clearSelectedMarkerEl();
     viewerRef.current?.animate({ zoom: REST_ZOOM_LVL, speed: "10rpm" });
   };
 
@@ -398,6 +434,7 @@ function PanoramaTour() {
   // EqCompressorHotspot only tears its own audio graph down on unmount.
   const closeModulePanel = () => {
     setActiveModule(null);
+    clearSelectedMarkerEl();
     viewerRef.current?.animate({ zoom: REST_ZOOM_LVL, speed: "10rpm" });
   };
 
@@ -427,6 +464,7 @@ function PanoramaTour() {
     stopHotspotNarration();
     setActiveGear(null);
     setActiveModule(null);
+    clearSelectedMarkerEl();
     virtualTourRef.current?.setCurrentNode(nodeId);
   };
 
@@ -646,6 +684,13 @@ const tourStyles = `
     position: relative;
     width: 100%;
     height: 100%;
+    /* The markers plugin only auto-applies cursor:pointer to markers that
+       use its own tooltip/content options (see .psv-marker--has-tooltip
+       and --has-content in @photo-sphere-viewer/markers-plugin/index.css);
+       these hotspots render their own html instead, so none of the
+       gear/door/interactive markers picked that up for free — set it
+       explicitly here so every hotspot reads as clickable on hover. */
+    cursor: pointer;
   }
   .hotspot-marker__ring {
     position: absolute;
@@ -653,6 +698,7 @@ const tourStyles = `
     border-radius: 50%;
     border: 2px solid rgba(58, 255, 140, 0.85);
     animation: hotspot-pulse 2.2s ease-out infinite;
+    transition: animation-duration 0.15s ease;
   }
   .hotspot-marker__ring--delayed {
     animation-delay: 1.1s;
@@ -672,10 +718,33 @@ const tourStyles = `
       0 0 10px rgba(34, 255, 130, 0.75),
       inset 0 0 5px rgba(255, 255, 255, 0.5);
     animation: hotspot-breathe 2.2s ease-in-out infinite;
-    transition: transform 0.15s ease;
+    transition: transform 0.15s ease, filter 0.15s ease;
   }
+  /* Hover: scale + brighten the badge and speed up its pulse rings, on top
+     of the pointer cursor above, so a hotspot visibly "wakes up" under the
+     cursor before it's even clicked. */
   .hotspot-marker:hover .hotspot-marker__dot {
     transform: scale(1.15);
+    filter: brightness(1.12);
+  }
+  .hotspot-marker:hover .hotspot-marker__ring {
+    animation-duration: 1.3s;
+  }
+  /* Selected: applied via JS (see setSelectedMarkerEl/clearSelectedMarkerEl
+     in PanoramaTour's render body) to whichever hotspot's panel is
+     currently open — a one-shot "pop" plus a faster, brighter breathing
+     glow so the active hotspot stays visually distinct from the rest while
+     its panel is up, independent of the color-specific badge styling
+     (gear green / door blue / eq+dyn amber via eqCompressorHotspot.css). */
+  .svr-hotspot-selected {
+    animation: hotspot-select-pop 0.35s ease-out;
+  }
+  .svr-hotspot-selected .hotspot-marker__dot {
+    animation: hotspot-breathe-selected 1.1s ease-in-out infinite;
+    filter: brightness(1.2) saturate(1.15);
+  }
+  .svr-hotspot-selected .hotspot-marker__ring {
+    animation-duration: 1.3s;
   }
   @keyframes hotspot-pulse {
     0% {
@@ -693,6 +762,25 @@ const tourStyles = `
     }
     50% {
       transform: scale(1.08);
+    }
+  }
+  @keyframes hotspot-breathe-selected {
+    0%, 100% {
+      transform: scale(1.08);
+    }
+    50% {
+      transform: scale(1.22);
+    }
+  }
+  @keyframes hotspot-select-pop {
+    0% {
+      transform: scale(1);
+    }
+    45% {
+      transform: scale(1.3);
+    }
+    100% {
+      transform: scale(1);
     }
   }
   /* Door hotspots: same pulsing-badge shape as gear hotspots, in blue with

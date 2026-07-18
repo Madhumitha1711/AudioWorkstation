@@ -18,8 +18,16 @@ const ROOM = { x: 30, y: 20, w: 740, h: 420 };
 const SPK_Y = 90;
 const METERS_PER_PX = 0.012;
 const CENTER_X = ROOM.x + ROOM.w / 2;
-const AMBER = "#e8934a";
-const GREEN = "#5fd9a0";
+// Room graphic accents (speaker rings, dashed guides, sweet spot glow,
+// legend swatches, the image-position meter fill) used to be fixed pastel
+// hex values, unconditionally in both themes — tuned to glow against a
+// permanently-dark room. Once the room started following the theme toggle,
+// those same pastel tones read as washed-out/low-contrast against the
+// lighter room background. Reading var(--sslab-amber)/var(--sslab-green)
+// instead reuses the deepened light-theme values already defined for this
+// component's text/borders (see the light-theme block in SweetSpotLab.css)
+// while keeping dark mode pixel-identical (the dark values there match
+// these old constants exactly).
 
 const DEFAULT_STATE = { halfWidth: 150, toeDeg: 12, listenerX: CENTER_X, listenerY: 300 };
 
@@ -538,8 +546,24 @@ function SweetSpotLab({ onInteract }) {
   return (
     <div className="sslab">
       <div className="sslab-header">
-        <div className="sslab-eyebrow">LAB · STEREO IMAGING</div>
-        <h3 className="sslab-title">The Sweet Spot</h3>
+        <div className="sslab-header-top">
+          <div className="sslab-header-text">
+            <div className="sslab-eyebrow">LAB · STEREO IMAGING</div>
+            <h3 className="sslab-title">The Sweet Spot</h3>
+          </div>
+          <div className="sslab-header-actions">
+            <button
+              type="button"
+              className={`sslab-audio-btn${audioOn ? " playing" : ""}`}
+              onClick={() => (audioOn ? stopAudio() : startAudio())}
+            >
+              {audioOn ? "■ STOP" : audioSource === "uploaded" && uploadedBuffer ? "▶ PLAY MY AUDIO" : "▶ PLAY DEMO TONES"}
+            </button>
+            <button type="button" className="sslab-link-btn" onClick={testLeftRight}>
+              🎧 Test L/R
+            </button>
+          </div>
+        </div>
         <p className="sslab-desc">
           Drag the listener around the room and hear the stereo image shift. Move the speakers to feel how
           width, angle, and distance change what reaches each ear.
@@ -595,20 +619,20 @@ function SweetSpotLab({ onInteract }) {
             <svg viewBox="0 0 800 460" ref={svgRef}>
               <defs>
                 <pattern id="sslabGrid" width="40" height="40" patternUnits="userSpaceOnUse">
-                  <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1a1611" strokeWidth="1" />
+                  <path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--sslab-room-grid)" strokeWidth="1" />
                 </pattern>
                 <radialGradient id="sslabSweetGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor={GREEN} stopOpacity="0.22" />
-                  <stop offset="70%" stopColor={GREEN} stopOpacity="0.05" />
-                  <stop offset="100%" stopColor={GREEN} stopOpacity="0" />
+                  <stop offset="0%" stopColor="var(--sslab-green)" stopOpacity="0.22" />
+                  <stop offset="70%" stopColor="var(--sslab-green)" stopOpacity="0.05" />
+                  <stop offset="100%" stopColor="var(--sslab-green)" stopOpacity="0" />
                 </radialGradient>
                 <radialGradient id="sslabRingL" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor={AMBER} stopOpacity="0.5" />
-                  <stop offset="100%" stopColor={AMBER} stopOpacity="0" />
+                  <stop offset="0%" stopColor="var(--sslab-amber)" stopOpacity="0.5" />
+                  <stop offset="100%" stopColor="var(--sslab-amber)" stopOpacity="0" />
                 </radialGradient>
                 <radialGradient id="sslabRingR" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor={GREEN} stopOpacity="0.5" />
-                  <stop offset="100%" stopColor={GREEN} stopOpacity="0" />
+                  <stop offset="0%" stopColor="var(--sslab-green)" stopOpacity="0.5" />
+                  <stop offset="100%" stopColor="var(--sslab-green)" stopOpacity="0" />
                 </radialGradient>
               </defs>
 
@@ -620,16 +644,16 @@ function SweetSpotLab({ onInteract }) {
                 height={ROOM.h}
                 rx="10"
                 fill="none"
-                stroke="#241f18"
+                stroke="var(--sslab-room-border)"
                 strokeWidth="1.5"
               />
 
               {polarOn && (
                 <>
-                  <path d={buildConePath(lx, SPK_Y, 90 - toeDeg, 150, 260)} fill={AMBER} opacity="0.07" />
-                  <path d={buildConePath(lx, SPK_Y, 90 - toeDeg, 55, 220)} fill={GREEN} opacity="0.12" />
-                  <path d={buildConePath(rx, SPK_Y, 90 + toeDeg, 150, 260)} fill={AMBER} opacity="0.07" />
-                  <path d={buildConePath(rx, SPK_Y, 90 + toeDeg, 55, 220)} fill={GREEN} opacity="0.12" />
+                  <path d={buildConePath(lx, SPK_Y, 90 - toeDeg, 150, 260)} fill="var(--sslab-amber)" opacity="0.07" />
+                  <path d={buildConePath(lx, SPK_Y, 90 - toeDeg, 55, 220)} fill="var(--sslab-green)" opacity="0.12" />
+                  <path d={buildConePath(rx, SPK_Y, 90 + toeDeg, 150, 260)} fill="var(--sslab-amber)" opacity="0.07" />
+                  <path d={buildConePath(rx, SPK_Y, 90 + toeDeg, 55, 220)} fill="var(--sslab-green)" opacity="0.12" />
                 </>
               )}
 
@@ -652,7 +676,7 @@ function SweetSpotLab({ onInteract }) {
                 y1={SPK_Y}
                 x2={listenerX}
                 y2={listenerY}
-                stroke={AMBER}
+                stroke="var(--sslab-amber)"
                 strokeWidth="1"
                 strokeDasharray="3,4"
                 opacity="0.35"
@@ -662,12 +686,12 @@ function SweetSpotLab({ onInteract }) {
                 y1={SPK_Y}
                 x2={listenerX}
                 y2={listenerY}
-                stroke={GREEN}
+                stroke="var(--sslab-green)"
                 strokeWidth="1"
                 strokeDasharray="3,4"
                 opacity="0.35"
               />
-              <line x1={lx} y1={SPK_Y} x2={rx} y2={SPK_Y} stroke="#55504a" strokeWidth="1" />
+              <line x1={lx} y1={SPK_Y} x2={rx} y2={SPK_Y} stroke="var(--sslab-room-line)" strokeWidth="1" />
 
               <g
                 transform={`translate(${lx},${SPK_Y}) rotate(${toeDeg})`}
@@ -675,9 +699,9 @@ function SweetSpotLab({ onInteract }) {
                 onMouseDown={startDrag("speakerL")}
                 onTouchStart={startDrag("speakerL")}
               >
-                <rect x="-16" y="-22" width="32" height="44" rx="4" fill="#18140f" stroke="#2a241c" strokeWidth="1.5" />
-                <circle cx="0" cy="-8" r="7" fill="#0a0908" stroke={AMBER} strokeWidth="1" />
-                <circle cx="0" cy="10" r="10" fill="#0a0908" stroke={AMBER} strokeWidth="1" />
+                <rect x="-16" y="-22" width="32" height="44" rx="4" fill="var(--sslab-room-cabinet)" stroke="var(--sslab-room-border)" strokeWidth="1.5" />
+                <circle cx="0" cy="-8" r="7" fill="var(--sslab-room-cabinet-inner)" stroke="var(--sslab-amber)" strokeWidth="1" />
+                <circle cx="0" cy="10" r="10" fill="var(--sslab-room-cabinet-inner)" stroke="var(--sslab-amber)" strokeWidth="1" />
               </g>
               <g
                 transform={`translate(${rx},${SPK_Y}) rotate(${-toeDeg})`}
@@ -685,9 +709,9 @@ function SweetSpotLab({ onInteract }) {
                 onMouseDown={startDrag("speakerR")}
                 onTouchStart={startDrag("speakerR")}
               >
-                <rect x="-16" y="-22" width="32" height="44" rx="4" fill="#18140f" stroke="#2a241c" strokeWidth="1.5" />
-                <circle cx="0" cy="-8" r="7" fill="#0a0908" stroke={GREEN} strokeWidth="1" />
-                <circle cx="0" cy="10" r="10" fill="#0a0908" stroke={GREEN} strokeWidth="1" />
+                <rect x="-16" y="-22" width="32" height="44" rx="4" fill="var(--sslab-room-cabinet)" stroke="var(--sslab-room-border)" strokeWidth="1.5" />
+                <circle cx="0" cy="-8" r="7" fill="var(--sslab-room-cabinet-inner)" stroke="var(--sslab-green)" strokeWidth="1" />
+                <circle cx="0" cy="10" r="10" fill="var(--sslab-room-cabinet-inner)" stroke="var(--sslab-green)" strokeWidth="1" />
               </g>
 
               <g
@@ -696,9 +720,9 @@ function SweetSpotLab({ onInteract }) {
                 onMouseDown={startDrag("listener")}
                 onTouchStart={startDrag("listener")}
               >
-                <circle cx="0" cy="0" r="16" fill="#141210" stroke="#ece7de" strokeWidth="1.5" opacity="0.9" />
-                <circle cx="0" cy="0" r="4" fill="#ece7de" />
-                <path d="M 0 -22 L -6 -14 L 6 -14 Z" fill="#ece7de" opacity="0.8" />
+                <circle cx="0" cy="0" r="16" fill="var(--sslab-panel)" stroke="var(--sslab-text)" strokeWidth="1.5" opacity="0.9" />
+                <circle cx="0" cy="0" r="4" fill="var(--sslab-text)" />
+                <path d="M 0 -22 L -6 -14 L 6 -14 Z" fill="var(--sslab-text)" opacity="0.8" />
               </g>
             </svg>
           </div>
@@ -714,7 +738,9 @@ function SweetSpotLab({ onInteract }) {
                     left: `${Math.min(50, pct)}%`,
                     width: `${Math.abs(pct - 50)}%`,
                     background:
-                      pos < 0 ? `linear-gradient(90deg, ${AMBER}, transparent)` : `linear-gradient(90deg, transparent, ${GREEN})`,
+                      pos < 0
+                        ? "linear-gradient(90deg, var(--sslab-amber), transparent)"
+                        : "linear-gradient(90deg, transparent, var(--sslab-green))",
                   }}
                 />
               </div>
@@ -872,15 +898,15 @@ function SweetSpotLab({ onInteract }) {
             <div className="sslab-section-title">LEGEND</div>
             <div className="sslab-legend">
               <div className="sslab-legend-row">
-                <div className="sslab-swatch" style={{ background: GREEN }} />
+                <div className="sslab-swatch" style={{ background: "var(--sslab-green)" }} />
                 Sweet spot zone
               </div>
               <div className="sslab-legend-row">
-                <div className="sslab-swatch" style={{ background: AMBER, opacity: 0.4 }} />
+                <div className="sslab-swatch" style={{ background: "var(--sslab-amber)", opacity: 0.4 }} />
                 Bass radiation (wide)
               </div>
               <div className="sslab-legend-row">
-                <div className="sslab-swatch" style={{ background: GREEN, opacity: 0.7 }} />
+                <div className="sslab-swatch" style={{ background: "var(--sslab-green)", opacity: 0.7 }} />
                 Treble radiation (narrow)
               </div>
             </div>
@@ -900,21 +926,10 @@ function SweetSpotLab({ onInteract }) {
             <div className="sslab-try-it-sub">
               Drag the listener off-center and listen to the phantom image collapse toward one speaker. Then
               narrow the pair and add toe-in to hear the image lock back into focus. Real spatial-audio panner
-              nodes track everything above in real time — headphones required.
+              nodes track everything above in real time — headphones required. Use the play button at the top
+              of this lab to start and stop the audio.
             </div>
           </div>
-        </div>
-        <div className="sslab-try-it-actions">
-          <button
-            type="button"
-            className={`sslab-audio-btn${audioOn ? " playing" : ""}`}
-            onClick={() => (audioOn ? stopAudio() : startAudio())}
-          >
-            {audioOn ? "■ STOP" : audioSource === "uploaded" && uploadedBuffer ? "▶ PLAY MY AUDIO" : "▶ PLAY DEMO TONES"}
-          </button>
-          <button type="button" className="sslab-link-btn" onClick={testLeftRight}>
-            🎧 Test L/R
-          </button>
         </div>
       </div>
     </div>
