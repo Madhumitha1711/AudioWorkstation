@@ -57,10 +57,11 @@ const doorMarkerHtml = () => `
 // Icon badge (no number) for the two functional processing hotspots — EQ and
 // Compressor — instead of the numbered/lettered treatment gear markers get.
 // The icon itself is what signals "this opens a live, interactive module"
-// rather than "read more about this piece of gear"; `variant` picks the ring
-// color (default green for EQ, "dyn" for the Compressor's amber "dynamics"
-// tone — see the `.hotspot-marker__ring--dyn` / `__dot--dyn` rules in
-// eqCompressorHotspot.css, which EqCompressorHotspot.jsx imports globally).
+// rather than "read more about this piece of gear", and `variant` picks a
+// ring/dot color distinct from gear hotspots' green: both "eq" and "dyn"
+// share the same amber "dynamics" orange (the icon glyph tells them apart)
+// — see the `.hotspot-marker__ring--eq`/`--dyn` rules in
+// eqCompressorHotspot.css, which EqCompressorHotspot.jsx imports globally.
 const interactiveMarkerHtml = (icon, variant) => `
   <div class="hotspot-marker${variant ? ` hotspot-marker--${variant}` : ""}">
     <span class="hotspot-marker__ring${variant ? ` hotspot-marker__ring--${variant}` : ""}"></span>
@@ -134,7 +135,7 @@ function buildNodes() {
         position: { yaw: deg(marker.yaw), pitch: deg(marker.pitch) },
         html: interactiveMarkerHtml(
           marker.type === "compressor" ? "🎛" : "🎚",
-          marker.type === "compressor" ? "dyn" : undefined,
+          marker.type === "compressor" ? "dyn" : "eq",
         ),
         size: { width: 34, height: 34 },
         anchor: "center center",

@@ -111,7 +111,7 @@ function applyCompParams(node, s, bypassed) {
   setBool(node, COMP_ADDR.bypass, false);
   node.setParamValue(COMP_ADDR.threshold, s.threshold);
   node.setParamValue(COMP_ADDR.ratio, s.ratio);
-  node.setParamValue(COMP_ADDR.knee, 6);
+  node.setParamValue(COMP_ADDR.knee, s.knee);
   node.setParamValue(COMP_ADDR.attack, s.attack);
   node.setParamValue(COMP_ADDR.release, s.release);
   node.setParamValue(COMP_ADDR.makeup, s.makeup);
@@ -120,6 +120,93 @@ function applyCompParams(node, s, bypassed) {
   node.setParamValue(COMP_ADDR.scHpf, 20);
   node.setParamValue(COMP_ADDR.outputWetDry, bypassed ? 0 : 100);
   node.setParamValue(COMP_ADDR.outputGain, 0);
+}
+
+// ── Demo loop (used until the user picks "Default audio" or uploads their
+// own file) — a short synthesized pad + bass + hat pulse, ported directly
+// from chapters/Equalizer.jsx's createDemoLoopBuffer()/normAndFade(): enough
+// spectral content across the band for the EQ to visibly/audibly do
+// something, and enough percussive bass/hat transients for the compressor's
+// gain reduction to visibly kick in, without shipping a new audio asset.
+function normAndFade(buf, peakTarget = 0.3) {
+  const L = buf.getChannelData(0);
+  const R = buf.getChannelData(1);
+  let peak = 0;
+  for (let i = 0; i < L.length; i++) peak = Math.max(peak, Math.abs(L[i]), Math.abs(R[i]));
+  const scale = peakTarget / Math.max(peak, 0.001);
+  for (let i = 0; i < L.length; i++) {
+    L[i] *= scale;
+    R[i] *= scale;
+  }
+  const sr = buf.sampleRate;
+  const fadeN = Math.round(sr * 0.02);
+  for (let i = 0; i < fadeN; i++) {
+    const f = i / fadeN;
+    L[i] *= f;
+    R[i] *= f;
+    const idx = L.length - 1 - i;
+    L[idx] *= f;
+    R[idx] *= f;
+  }
+}
+function createDemoLoopBuffer(ctx) {
+  const sr = ctx.sampleRate;
+  const dur = 4;
+  const buf = ctx.createBuffer(2, sr * dur, sr);
+  const L = buf.getChannelData(0);
+  const R = buf.getChannelData(1);
+  // Sustained Am7 pad (harmonic series, slow attack)
+  const padNotes = [110.0, 130.81, 164.81, 196.0, 261.63];
+  const harmonics = [
+    [1, 1.0],
+    [2, 0.35],
+    [3, 0.18],
+    [4, 0.09],
+    [5, 0.05],
+  ];
+  for (const fund of padNotes) {
+    for (const [ratio, amp] of harmonics) {
+      const freq = fund * ratio;
+      if (freq > sr / 2) continue;
+      for (let n = 0; n < L.length; n++) {
+        const t = n / sr;
+        const env = Math.min(1, t / 0.4) * amp * 0.22;
+        const s = Math.sin(2 * Math.PI * freq * t) * env;
+        L[n] += s * 0.9;
+        R[n] += s * 1.1;
+      }
+    }
+  }
+  // Bass pulse every 0.5s (E1/A1 alternating) — gives the compressor
+  // something transient-heavy to visibly react to.
+  const bassFreqs = [41.2, 55.0];
+  for (let beat = 0; beat < 8; beat++) {
+    const start = Math.round(beat * 0.5 * sr);
+    const freq = bassFreqs[beat % 2];
+    for (let i = 0; i < Math.round(0.45 * sr) && start + i < L.length; i++) {
+      const t = i / sr;
+      const env = Math.exp(-t * 4) * 0.5;
+      const s = Math.sin(2 * Math.PI * freq * t) * env;
+      L[start + i] += s;
+      R[start + i] += s;
+    }
+  }
+  // Hat pulse every eighth note for high-frequency content
+  for (let e = 0; e < 32; e++) {
+    const start = Math.round(e * 0.25 * sr);
+    let prev = 0;
+    for (let i = 0; i < Math.round(sr * 0.05) && start + i < L.length; i++) {
+      const t = i / sr;
+      const env = Math.exp(-t * 45) * 0.18;
+      const n = Math.random() * 2 - 1;
+      const hp = n - prev * 0.94;
+      prev = n;
+      L[start + i] += hp * env;
+      R[start + i] += hp * env;
+    }
+  }
+  normAndFade(buf);
+  return buf;
 }
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -133,7 +220,7 @@ const fmtRatio = (v) => `${v.toFixed(1)}:1`;
 const fmtMs = (v) => (v < 10 ? `${v.toFixed(1)} ms` : `${Math.round(v)} ms`);
 
 const DEFAULT_EQ = { hpfOn: false, hpf: 80, lpfOn: false, lpf: 12000, freq: 1000, q: 0.7, gain: 0 };
-const DEFAULT_COMP = { threshold: -18, ratio: 4, attack: 10, release: 120, makeup: 4 };
+const DEFAULT_COMP = { threshold: -18, ratio: 4, knee: 6, attack: 10, release: 120, makeup: 4 };
 
 // Wraps the app's shared <Knob> (drag-vertical, linear) with a log-frequency
 // (or any exponential-curve) mapping, so dragging a Freq/Ratio/etc. knob
@@ -198,9 +285,33 @@ const CW = 258, CH = 104;
 const CPW = CW - CM.l - CM.r, CPH = CH - CM.t - CM.b;
 const compCx = (db) => CM.l + (CPW * (db - CDB_MIN)) / (CDB_MAX - CDB_MIN);
 const compCy = (db) => CM.t + CPH - (CPH * (clamp(db, COUT_MIN, COUT_MAX) - COUT_MIN)) / (COUT_MAX - COUT_MIN);
-function compOut(s, db) {
-  const shaped = db <= s.threshold ? db : s.threshold + (db - s.threshold) / s.ratio;
+// Soft-knee transfer curve — same math as chapters/Compressor.jsx's
+// applyCompression(): a smooth quadratic transition region of width `knee`
+// (dB) straddling the threshold, instead of a hard two-segment bend, so the
+// Knee knob actually changes the shape of the curve you can see.
+function compressorTransferDb(s, db) {
+  const { threshold, ratio, knee } = s;
+  const diff = db - threshold;
+  let shaped;
+  if (knee <= 0) {
+    shaped = diff <= 0 ? db : threshold + diff / ratio;
+  } else {
+    const halfKnee = knee / 2;
+    if (2 * diff < -knee) shaped = db;
+    else if (2 * diff > knee) shaped = threshold + diff / ratio;
+    else shaped = db + ((1 / ratio - 1) * (diff + halfKnee) ** 2) / (2 * knee);
+  }
   return shaped + s.makeup;
+}
+function buildCompPath(s) {
+  let d = "";
+  const STEPS = 60;
+  for (let i = 0; i <= STEPS; i++) {
+    const db = CDB_MIN + ((CDB_MAX - CDB_MIN) * i) / STEPS;
+    const out = compressorTransferDb(s, db);
+    d += `${i === 0 ? "M" : "L"} ${compCx(db).toFixed(1)} ${compCy(out).toFixed(1)} `;
+  }
+  return d.trim();
 }
 
 function EqCompressorHotspot({ open, onClose }) {
@@ -246,6 +357,9 @@ function EqCompressorHotspot({ open, onClose }) {
 
   // ── Shared audio graph: source -> EQ -> Compressor -> studio speakers ─────
   const graphRef = useRef(null);
+  // Lazily built once and cached — same buffer reused every time "Default
+  // audio" is clicked, rather than re-synthesizing it each time.
+  const demoBufferRef = useRef(null);
   const [fileName, setFileName] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -318,13 +432,17 @@ function EqCompressorHotspot({ open, onClose }) {
     setGrValue(0);
   }, []);
 
+  // Takes an already-decoded AudioBuffer — either a real uploaded file
+  // (decoded by handleFile below) or the synthesized demo loop (see
+  // handleUseDefaultAudio) — and (re)builds the Faust audio graph around it.
+  // Kept separate from decoding so both audio sources funnel through one
+  // graph-construction path instead of duplicating it.
   const buildGraph = useCallback(
-    async (arrayBuffer) => {
+    async (audioBuffer) => {
       if (engineStatus !== "ready" || !eqGeneratorRef.current || !compGeneratorRef.current) {
         setUploadError("The Faust engines are still loading — try again in a moment.");
         return;
       }
-      setUploadError("");
       initAudio();
       resumeAudio();
       const ctx = getAudioContext();
@@ -333,15 +451,6 @@ function EqCompressorHotspot({ open, onClose }) {
         return;
       }
       if (ctx.state === "suspended") await ctx.resume();
-
-      let audioBuffer;
-      try {
-        audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-      } catch (err) {
-        console.error("[EqCompressorHotspot] failed to decode uploaded audio", err);
-        setUploadError("Could not decode that audio file.");
-        return;
-      }
 
       teardownGraph();
 
@@ -428,17 +537,50 @@ function EqCompressorHotspot({ open, onClose }) {
       const file = e.target.files?.[0];
       e.target.value = "";
       if (!file) return;
-      setFileName(file.name);
+      setUploadError("");
       try {
+        initAudio();
+        resumeAudio();
+        const ctx = getAudioContext();
+        if (!ctx) {
+          setUploadError("Could not start the audio engine.");
+          return;
+        }
+        if (ctx.state === "suspended") await ctx.resume();
         const arrayBuffer = await file.arrayBuffer();
-        await buildGraph(arrayBuffer);
+        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+        setFileName(file.name);
+        await buildGraph(audioBuffer);
       } catch (err) {
         console.error("[EqCompressorHotspot] upload failed", err);
-        setUploadError("Could not load that file.");
+        setUploadError("Could not decode that audio file.");
       }
     },
     [buildGraph],
   );
+
+  // "Default audio" — a built-in synthesized loop (see createDemoLoopBuffer
+  // above) so both panels can be heard doing something immediately, without
+  // requiring the student to have an audio file on hand to upload.
+  const handleUseDefaultAudio = useCallback(async () => {
+    setUploadError("");
+    try {
+      initAudio();
+      resumeAudio();
+      const ctx = getAudioContext();
+      if (!ctx) {
+        setUploadError("Could not start the audio engine.");
+        return;
+      }
+      if (ctx.state === "suspended") await ctx.resume();
+      if (!demoBufferRef.current) demoBufferRef.current = createDemoLoopBuffer(ctx);
+      setFileName("Default demo loop");
+      await buildGraph(demoBufferRef.current);
+    } catch (err) {
+      console.error("[EqCompressorHotspot] default audio failed", err);
+      setUploadError("Could not start the default audio loop.");
+    }
+  }, [buildGraph]);
 
   const togglePlay = useCallback(() => {
     const g = graphRef.current;
@@ -462,6 +604,14 @@ function EqCompressorHotspot({ open, onClose }) {
       <label htmlFor={`eqcomp-file-${idPrefix}`} className="eqcomp-audio-upload-btn">
         Upload audio
       </label>
+      <button
+        type="button"
+        className="eqcomp-audio-upload-btn"
+        onClick={handleUseDefaultAudio}
+        disabled={engineStatus !== "ready"}
+      >
+        Default audio
+      </button>
       <div className={"eqcomp-audio-name" + (fileName ? " loaded" : "")}>
         {fileName || "No file loaded"}
       </div>
@@ -543,7 +693,7 @@ function EqCompressorHotspot({ open, onClose }) {
                     x2={eqFx(eqState.hpf)}
                     y1={EQ_M.t}
                     y2={EQ_M.t + EQ_PH}
-                    stroke="#2DD4BF"
+                    stroke="var(--teal)"
                     strokeWidth="1"
                     strokeDasharray="2 3"
                     opacity="0.5"
@@ -555,18 +705,18 @@ function EqCompressorHotspot({ open, onClose }) {
                     x2={eqFx(eqState.lpf)}
                     y1={EQ_M.t}
                     y2={EQ_M.t + EQ_PH}
-                    stroke="#2DD4BF"
+                    stroke="var(--teal)"
                     strokeWidth="1"
                     strokeDasharray="2 3"
                     opacity="0.5"
                   />
                 )}
-                <path d={buildEqPath(eqState)} fill="none" stroke="#4D9EFF" strokeWidth="2" strokeLinejoin="round" />
+                <path d={buildEqPath(eqState)} fill="none" stroke="var(--blue)" strokeWidth="2" strokeLinejoin="round" />
                 <circle
                   cx={eqFx(eqState.freq)}
                   cy={eqGy(bellDb(eqState, eqState.freq) + eqFilterDb(eqState, eqState.freq))}
                   r="3"
-                  fill="#4D9EFF"
+                  fill="var(--blue)"
                 />
               </svg>
             </div>
@@ -754,27 +904,23 @@ function EqCompressorHotspot({ open, onClose }) {
                     y1={compCy(CDB_MIN)}
                     x2={compCx(CDB_MAX)}
                     y2={compCy(CDB_MAX)}
-                    stroke="#2E2E3D"
+                    stroke="var(--border-bright)"
                     strokeWidth="1"
                     strokeDasharray="2 3"
                   />
                   <path
-                    d={`M ${compCx(CDB_MIN).toFixed(1)} ${compCy(compOut(compState, CDB_MIN)).toFixed(1)} L ${compCx(
-                      compState.threshold,
-                    ).toFixed(1)} ${compCy(compOut(compState, compState.threshold)).toFixed(1)} L ${compCx(
-                      CDB_MAX,
-                    ).toFixed(1)} ${compCy(compOut(compState, CDB_MAX)).toFixed(1)}`}
+                    d={buildCompPath(compState)}
                     fill="none"
-                    stroke="#F5A623"
+                    stroke="var(--amber)"
                     strokeWidth="2"
                     strokeLinejoin="round"
                     strokeLinecap="round"
                   />
                   <circle
                     cx={compCx(compState.threshold)}
-                    cy={compCy(compOut(compState, compState.threshold))}
+                    cy={compCy(compressorTransferDb(compState, compState.threshold))}
                     r="3"
-                    fill="#F5A623"
+                    fill="var(--amber)"
                   />
                 </svg>
               </div>
@@ -794,6 +940,11 @@ function EqCompressorHotspot({ open, onClose }) {
                 onChange={(v) => setCompState((s) => ({ ...s, ratio: v }))}
                 fmt={fmtRatio}
                 accent="var(--amber)"
+              />
+              <Knob
+                spec={{ label: "Knee", min: 0, max: 24, step: 0.5, fmt: fmtDbPlain, accent: "var(--amber)" }}
+                value={compState.knee}
+                onChange={(v) => setCompState((s) => ({ ...s, knee: v }))}
               />
               <LogKnob
                 label="Attack"
