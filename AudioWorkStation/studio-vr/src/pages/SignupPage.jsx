@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate, Link } from "react-router-dom";
 import { setStudentName } from "../store/sessionSlice";
+import { setEmail as setCheckoutEmail, setFullName } from "../store/checkoutSlice";
 import { initAudio, resumeAudio } from "../audio/spatialAudioEngine";
 import StudioDoor from "../components/StudioDoor";
 import "./AuthPage.css";
 
-// Sequence timings (ms) for the unlock → door-open → welcome → navigate
-// chain. Kept in one place so LoginPage and SignupPage stay in lockstep.
+// Same sequence timings as LoginPage, kept in lockstep so both doors feel
+// like one consistent mechanism.
 const VERIFY_MS = 900;
 const OPEN_MS = 550;
 const WELCOME_MS = 1050;
@@ -26,9 +27,11 @@ function BackIcon() {
   );
 }
 
-function LoginPage() {
+function SignupPage() {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [phase, setPhase] = useState("idle"); // idle | verifying | granted | opening
   const [showWelcome, setShowWelcome] = useState(false);
   const dispatch = useDispatch();
@@ -56,8 +59,13 @@ function LoginPage() {
     t += NAVIGATE_MS;
     timers.current.push(
       setTimeout(() => {
-        dispatch(setStudentName(email.split("@")[0] || "Student"));
-        navigate("/studio");
+        const trimmedName = name.trim();
+        dispatch(setStudentName(trimmedName || email.split("@")[0] || "Student"));
+        // Hand the new account details to checkout so PaymentPage opens
+        // pre-filled instead of asking the person to type them twice.
+        dispatch(setFullName(trimmedName));
+        dispatch(setCheckoutEmail(email));
+        navigate("/payment");
       }, t)
     );
   };
@@ -74,7 +82,7 @@ function LoginPage() {
       </Link>
 
       <div className="auth-stage">
-        <StudioDoor phase={phase} sublabel="Member entry" />
+        <StudioDoor phase={phase} sublabel="New account" />
 
         <div className="auth-panel">
           <div className="auth-panel-top">
@@ -83,59 +91,85 @@ function LoginPage() {
             </div>
             <div className={`status-dot${phase === "verifying" ? " pending" : ""}${phase === "granted" || phase === "opening" ? " granted" : ""}`} />
           </div>
-          <p className="auth-panel-sub">Sign in to step back into the studio.</p>
+          <p className="auth-panel-sub">Create a membership to get your own key to the studio.</p>
 
           <form onSubmit={handleSubmit} noValidate>
-            <label className="auth-field-label" htmlFor="login-email">
+            <label className="auth-field-label" htmlFor="signup-name">
+              Full name
+            </label>
+            <input
+              id="signup-name"
+              className="auth-field"
+              type="text"
+              placeholder="Your name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={busy}
+              autoFocus
+            />
+
+            <label className="auth-field-label" htmlFor="signup-email">
               Email
             </label>
             <input
-              id="login-email"
+              id="signup-email"
               className="auth-field"
               type="email"
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={busy}
-              autoFocus
             />
 
-            <label className="auth-field-label" htmlFor="login-password">
+            <label className="auth-field-label" htmlFor="signup-password">
               Passcode
             </label>
             <input
-              id="login-password"
+              id="signup-password"
               className="auth-field"
               type="password"
-              placeholder="••••••••"
+              placeholder="At least 6 characters"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={busy}
             />
 
+            <label className="auth-field-label" htmlFor="signup-confirm">
+              Confirm passcode
+            </label>
+            <input
+              id="signup-confirm"
+              className="auth-field"
+              type="password"
+              placeholder="••••••••"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              disabled={busy}
+            />
+
             <button className="auth-unlock-btn" type="submit" disabled={busy}>
-              {busy ? "Unlocking…" : "Unlock door →"}
+              {busy ? "Unlocking…" : "Request access →"}
             </button>
 
             <div className={`auth-readout${phase === "granted" || phase === "opening" ? " success" : ""}`}>
               {phase === "idle" && "Panel ready"}
-              {phase === "verifying" && "Verifying credentials…"}
+              {phase === "verifying" && "Creating your key…"}
               {(phase === "granted" || phase === "opening") && "Access granted"}
             </div>
           </form>
 
           <div className="auth-fineprint">
-            New to Studio VR? <Link to="/signup">Create an account</Link>
+            Already a member? <Link to="/login">Sign in</Link>
           </div>
         </div>
       </div>
 
       <div className={`auth-welcome${showWelcome ? " show" : ""}`}>
-        <h1>Door&rsquo;s unlocked.</h1>
-        <p>Entering the studio →</p>
+        <h1>Welcome to Studio VR.</h1>
+        <p>Continuing to checkout →</p>
       </div>
     </div>
   );
 }
 
-export default LoginPage;
+export default SignupPage;

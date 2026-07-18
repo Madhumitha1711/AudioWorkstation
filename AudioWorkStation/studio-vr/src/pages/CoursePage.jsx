@@ -4,7 +4,6 @@ import { TOPICS, buildStepList, firstStepIdForTopic } from "../course/courseData
 import AssessmentSection from "../course/AssessmentSection";
 import InteractiveSection from "../course/InteractiveSection";
 import GearModelViewer from "../panorama/GearModelViewer";
-import { ThemeToggle } from "../theme/ThemeToggle";
 import "./CoursePage.css";
 
 const STEPS = buildStepList(TOPICS);
@@ -115,7 +114,6 @@ function CoursePage() {
           </div>
         </div>
         <div className="course-topbar-right">
-          <ThemeToggle className="theme-toggle-btn" />
           <button className="btn-primary" onClick={goToStudio}>
             Launch VR studio →
           </button>

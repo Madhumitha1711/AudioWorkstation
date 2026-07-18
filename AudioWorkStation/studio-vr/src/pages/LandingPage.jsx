@@ -25,7 +25,9 @@ function LandingPage() {
   const [videoOpen, setVideoOpen] = useState(false);
   const rootRef = useRef(null);
 
-  const goToPayment = () => navigate("/payment");
+  // Sign up now opens the studio door (a short account-creation moment)
+  // before handing off to checkout, instead of jumping straight to payment.
+  const goToSignUp = () => navigate("/signup");
   const goToSignIn = () => navigate("/login");
 
   const scrollToCurriculum = () => {
@@ -66,7 +68,7 @@ function LandingPage() {
           <button className="btn-ghost" onClick={goToSignIn}>
             Sign in
           </button>
-          <button className="btn-primary" onClick={goToPayment}>
+          <button className="btn-primary" onClick={goToSignUp}>
             Sign up
           </button>
           <ThemeToggle className="theme-toggle-btn" />
@@ -90,7 +92,7 @@ function LandingPage() {
             in the room.
           </p>
           <div className="hero-ctas">
-            <button className="btn-primary" onClick={goToPayment}>
+            <button className="btn-primary" onClick={goToSignUp}>
               Sign up — get access →
             </button>
             <button className="btn-secondary" onClick={goToSignIn}>
@@ -171,7 +173,7 @@ function LandingPage() {
       <div className="cta-band reveal">
         <h2>Ready to step into the studio?</h2>
         <p>Full curriculum, narrated lessons, and the 360° tour — all in one sign up.</p>
-        <button className="btn-primary" onClick={goToPayment}>
+        <button className="btn-primary" onClick={goToSignUp}>
           Sign up — get access →
         </button>
       </div>

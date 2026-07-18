@@ -41,9 +41,18 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Smooths the light/dark flip triggered by ThemeToggle so the swap reads
+     as a cross-fade rather than a hard cut. Page-level surfaces
+     (.svr-landing/.svr-course/.svr-payment/.svr-discussion) carry their own
+     matching transition on background-color/color — see those stylesheets. */
+  transition: background-color 0.3s ease, color 0.3s ease;
 
   @media (max-width: 1024px) {
     font-size: 16px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
   }
 }
 

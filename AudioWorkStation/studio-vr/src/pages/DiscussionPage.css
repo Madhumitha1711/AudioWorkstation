@@ -1,0 +1,594 @@
+/* Ported from design/soundcraft-discussion.html — the "Main Bus / Talkback"
+   discussion board mockup. Tokens are scoped under .svr-discussion the same
+   way .svr-course/.svr-payment/.svr-landing scope their own palettes (see
+   the note at the top of src/index.css), so this page's amber/green
+   identity doesn't leak into the rest of the shell.
+
+   --amber-deep/--green-deep and --amber-glow/--green-glow are the second
+   gradient stop and box-shadow tint for the amber/green accents. Pulling
+   them out into tokens (rather than hardcoding a second hex per gradient)
+   means the light theme block below only has to override variables, not
+   hunt down every gradient/shadow that referenced the dark-mode hue. */
+.svr-discussion {
+  --bg: #0a0a0c;
+  --panel: #131317;
+  --panel-2: #18181d;
+  --line: rgba(255, 255, 255, 0.07);
+  --amber: #e8934a;
+  --amber-deep: #c9752f;
+  --amber-dim: #3a2a1c;
+  --amber-glow: rgba(232, 147, 74, 0.35);
+  --green: #5fd9a0;
+  --green-deep: #3fae7c;
+  --green-dim: #1c3a2e;
+  --green-glow: rgba(95, 217, 160, 0.35);
+  --text: #f0ece3;
+  --text-dim: #9a9aa0;
+  --text-faint: #55545c;
+
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+
+  button {
+    font-family: inherit;
+  }
+
+  .disc-wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 40px 20px 100px;
+  }
+
+  /* ===== header ===== */
+  .disc-crumb {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 6px;
+
+    span {
+      color: var(--amber);
+    }
+  }
+
+  h1 {
+    font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 600;
+    font-size: 26px;
+    letter-spacing: -0.01em;
+    margin: 0 0 4px;
+  }
+
+  .disc-subhead {
+    font-size: 13.5px;
+    color: var(--text-dim);
+    margin-bottom: 28px;
+  }
+
+  /* ===== channel tabs ===== */
+  .disc-channels {
+    display: flex;
+    gap: 6px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 22px;
+  }
+
+  .disc-channel-tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 4px 13px;
+    background: none;
+    border: none;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--text-faint);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.2s ease, border-color 0.2s ease;
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.5;
+      transition: background-color 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease;
+    }
+
+    .count {
+      color: var(--text-faint);
+      font-size: 11px;
+    }
+
+    &.active {
+      color: var(--text);
+      border-bottom-color: var(--amber);
+
+      .dot {
+        background: var(--green);
+        opacity: 1;
+        box-shadow: 0 0 6px var(--green);
+      }
+    }
+
+    &:not(.active):hover {
+      color: var(--text-dim);
+    }
+  }
+
+  .disc-channel-note {
+    font-size: 12.5px;
+    color: var(--text-faint);
+    margin-bottom: 22px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ===== feed ===== */
+  .disc-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+
+  .disc-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+  }
+
+  .disc-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .disc-who {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .disc-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3a3a42, #1c1c22);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 600;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  .disc-who-meta {
+    line-height: 1.3;
+  }
+
+  .disc-name {
+    font-size: 13px;
+    font-weight: 600;
+
+    .disc-badge {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 9px;
+      letter-spacing: 0.06em;
+      color: var(--amber);
+      background: var(--amber-dim);
+      padding: 1px 6px;
+      border-radius: 3px;
+      margin-left: 6px;
+      text-transform: uppercase;
+    }
+  }
+
+  .disc-meta-line {
+    font-size: 11px;
+    color: var(--text-faint);
+
+    .disc-tag {
+      color: var(--text-dim);
+    }
+  }
+
+  .disc-private-mark {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    flex-shrink: 0;
+
+    svg {
+      width: 11px;
+      height: 11px;
+      opacity: 0.7;
+    }
+  }
+
+  .disc-question {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+
+  .disc-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .disc-action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 11.5px;
+    color: var(--text-faint);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: var(--text-dim);
+    }
+
+    &.answered {
+      color: var(--green);
+    }
+  }
+
+  /* thread */
+  .disc-thread {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .disc-reply {
+    display: flex;
+    gap: 10px;
+    padding-left: 6px;
+    border-left: 2px solid var(--line);
+
+    .disc-avatar {
+      width: 24px;
+      height: 24px;
+      font-size: 9.5px;
+    }
+
+    .disc-name {
+      font-size: 12px;
+
+      &.instructor {
+        color: var(--amber);
+
+        .disc-role {
+          font-family: "JetBrains Mono", ui-monospace, monospace;
+          font-size: 8.5px;
+          letter-spacing: 0.08em;
+          color: var(--amber);
+          text-transform: uppercase;
+          margin-left: 6px;
+          opacity: 0.8;
+        }
+      }
+    }
+  }
+
+  .disc-reply-body {
+    flex: 1;
+  }
+
+  .disc-reply-text {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin-top: 2px;
+  }
+
+  /* empty state */
+  .disc-empty {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--text-faint);
+
+    .disc-empty-icon {
+      margin-bottom: 14px;
+      opacity: 0.5;
+    }
+
+    h3 {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 15px;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    p {
+      font-size: 13px;
+      max-width: 340px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+  }
+
+  /* ===== composer ===== */
+  .disc-composer {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 16px 14px;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+
+    textarea {
+      width: 100%;
+      min-height: 56px;
+      resize: vertical;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: "Inter", sans-serif;
+      font-size: 13.5px;
+      line-height: 1.5;
+      margin-bottom: 12px;
+
+      &::placeholder {
+        color: var(--text-faint);
+      }
+    }
+  }
+
+  .disc-composer-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+
+  .disc-route {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .disc-route-label {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  /* ---- routing switch — the "toggle" between Main Bus / Talkback ----
+     Beyond the thumb sliding across, the whole control now gives a bit of
+     tactile feedback: it lifts slightly on hover, settles with a touch of
+     spring overshoot when the thumb lands, and compresses on press — plus
+     a focus ring so it's usable from the keyboard (it's a real toggle, not
+     just a decorative pill). */
+  .disc-switch {
+    position: relative;
+    box-sizing: border-box;
+    width: 132px;
+    height: 30px;
+    background: #0a0a0d;
+    border: 1px solid var(--line);
+    border-radius: 15px;
+    padding: 3px;
+    display: flex;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.15s ease,
+      box-shadow 0.2s ease;
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+    }
+
+    &:active .disc-thumb {
+      width: 70px;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--amber);
+      outline-offset: 2px;
+    }
+
+    .disc-thumb {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 64px;
+      height: 24px;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #2c2c34, #1c1c22);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1), width 0.18s ease,
+        background 0.32s ease, box-shadow 0.32s ease;
+      z-index: 1;
+    }
+
+    .disc-switch-opt {
+      position: relative;
+      z-index: 2;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 9.5px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      transition: color 0.25s ease;
+    }
+
+    &.talkback .disc-thumb {
+      transform: translateX(62px);
+      background: linear-gradient(180deg, var(--green), var(--green-deep));
+      box-shadow: 0 2px 10px var(--green-glow), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    &.talkback:active .disc-thumb {
+      transform: translateX(56px);
+    }
+
+    &:not(.talkback) .disc-thumb {
+      background: linear-gradient(180deg, var(--amber), var(--amber-deep));
+      box-shadow: 0 2px 10px var(--amber-glow), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    &:not(.talkback) .disc-switch-opt.main {
+      color: #1a1108;
+      font-weight: 600;
+    }
+
+    &.talkback .disc-switch-opt.tb {
+      color: #0c231a;
+      font-weight: 600;
+    }
+  }
+
+  .disc-route-hint {
+    font-size: 11px;
+    color: var(--text-faint);
+    max-width: 170px;
+    line-height: 1.4;
+  }
+
+  .disc-send-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    background: linear-gradient(180deg, var(--amber), var(--amber-deep));
+    color: #1a1108;
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 600;
+    font-size: 12.5px;
+    cursor: pointer;
+    transition: filter 0.2s ease, transform 0.15s ease, background 0.3s ease;
+    flex-shrink: 0;
+
+    &:hover {
+      filter: brightness(1.08);
+    }
+
+    &:active {
+      transform: scale(0.97);
+    }
+  }
+
+  .disc-composer.talkback-mode .disc-send-btn {
+    background: linear-gradient(180deg, var(--green), var(--green-deep));
+    color: #0c231a;
+  }
+
+  @media (max-width: 600px) {
+    .disc-composer-bottom {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+    }
+
+    .disc-route {
+      justify-content: space-between;
+    }
+
+    .disc-send-btn {
+      width: 100%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &,
+    .disc-card,
+    .disc-composer,
+    .disc-switch,
+    .disc-thumb,
+    .disc-send-btn {
+      transition: none;
+    }
+  }
+}
+
+/* ── Light theme ──────────────────────────────────────────────────────────
+   Same pattern as .svr-course/.svr-payment/.svr-landing: override the
+   tokens .svr-discussion defines at the top of this file. The amber/green
+   accent hues themselves are deepened (rather than reused as-is) since the
+   original dark-mode values are far too low-contrast as text/icons on a
+   light background. */
+:root[data-theme='light'] .svr-discussion {
+  --bg: #f6f8f6;
+  --panel: rgba(4, 20, 12, 0.045);
+  --panel-2: rgba(4, 20, 12, 0.06);
+  --line: rgba(4, 20, 12, 0.13);
+  --amber: #b35f1c;
+  --amber-deep: #8f4a15;
+  --amber-dim: rgba(179, 95, 28, 0.14);
+  --amber-glow: rgba(179, 95, 28, 0.25);
+  --green: #0d8f5f;
+  --green-deep: #0a7350;
+  --green-dim: rgba(13, 143, 95, 0.14);
+  --green-glow: rgba(13, 143, 95, 0.25);
+  --text: #0c130f;
+  --text-dim: rgba(12, 19, 15, 0.7);
+  --text-faint: rgba(12, 19, 15, 0.5);
+
+  .disc-avatar {
+    background: linear-gradient(135deg, rgba(4, 20, 12, 0.14), rgba(4, 20, 12, 0.05));
+    color: var(--text-dim);
+  }
+
+  .disc-switch {
+    background: rgba(4, 20, 12, 0.07);
+  }
+
+  .disc-switch:hover {
+    box-shadow: 0 4px 14px rgba(4, 20, 12, 0.1);
+  }
+
+  /* The thumb's amber/green gradient + glow already repaint via the
+     --amber/--green/--amber-deep/--green-deep/--amber-glow/--green-glow
+     token overrides above (see &:not(.talkback)/&.talkback .disc-thumb in
+     the base ruleset) — only the glossy top highlight needs a lighter tint
+     here so it still reads against the paler thumb. */
+  .disc-switch:not(.talkback) .disc-thumb {
+    box-shadow: 0 2px 10px var(--amber-glow), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+
+  .disc-switch.talkback .disc-thumb {
+    box-shadow: 0 2px 10px var(--green-glow), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+}

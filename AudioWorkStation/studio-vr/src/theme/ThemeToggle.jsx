@@ -1,4 +1,5 @@
 import { useTheme } from "./ThemeContext";
+import "./ThemeToggle.css";
 
 // Small icon button that flips light/dark. Deliberately unstyled beyond
 // layout/sizing so it can drop into any header (landing, course, payment,
@@ -28,7 +29,7 @@ export function ThemeToggle({ className = "", style, showLabel = false }) {
     <button
       type="button"
       onClick={toggleTheme}
-      className={className}
+      className={`svr-theme-toggle ${className}`.trim()}
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -39,7 +40,12 @@ export function ThemeToggle({ className = "", style, showLabel = false }) {
       aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
       title={isDark ? "Switch to light theme" : "Switch to dark theme"}
     >
-      {isDark ? <SunIcon /> : <MoonIcon />}
+      {/* key={theme} forces a remount on every toggle so the CSS entrance
+          animation (svr-theme-icon-in) replays each time, instead of only
+          on first mount. */}
+      <span className="svr-theme-toggle-icon" key={theme}>
+        {isDark ? <SunIcon /> : <MoonIcon />}
+      </span>
       {showLabel && <span>{isDark ? "Light" : "Dark"}</span>}
     </button>
   );

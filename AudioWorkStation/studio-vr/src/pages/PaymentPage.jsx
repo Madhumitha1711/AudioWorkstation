@@ -27,7 +27,7 @@ function PaymentPage() {
     // then call markPaid() + navigate("/course") from its success callback
     // instead of doing it immediately below.
     dispatch(markPaid());
-    navigate("/course");
+    navigate("/studio");
   };
 
   return (
