@@ -20,6 +20,7 @@ import {
   setBinauralEnabled,
   isBinauralEnabled,
 } from "../audio/spatialAudioEngine";
+import EqCompressorHotspot from "./EqCompressorHotspot";
 
 const DEFAULT_AMBIENCE = { filterFreq: 500, gain: 0.03, gustDepth: 0.015 };
 // The wide, "standing in the middle of the room" resting view — used both
@@ -50,6 +51,21 @@ const doorMarkerHtml = () => `
     <span class="hotspot-marker__ring hotspot-marker__ring--door"></span>
     <span class="hotspot-marker__ring hotspot-marker__ring--door hotspot-marker__ring--delayed"></span>
     <span class="hotspot-marker__dot hotspot-marker__dot--door">🚪</span>
+  </div>
+`;
+
+// Icon badge (no number) for the two functional processing hotspots — EQ and
+// Compressor — instead of the numbered/lettered treatment gear markers get.
+// The icon itself is what signals "this opens a live, interactive module"
+// rather than "read more about this piece of gear"; `variant` picks the ring
+// color (default green for EQ, "dyn" for the Compressor's amber "dynamics"
+// tone — see the `.hotspot-marker__ring--dyn` / `__dot--dyn` rules in
+// eqCompressorHotspot.css, which EqCompressorHotspot.jsx imports globally).
+const interactiveMarkerHtml = (icon, variant) => `
+  <div class="hotspot-marker${variant ? ` hotspot-marker--${variant}` : ""}">
+    <span class="hotspot-marker__ring${variant ? ` hotspot-marker__ring--${variant}` : ""}"></span>
+    <span class="hotspot-marker__ring${variant ? ` hotspot-marker__ring--${variant}` : ""} hotspot-marker__ring--delayed"></span>
+    <span class="hotspot-marker__dot${variant ? ` hotspot-marker__dot--${variant}` : ""}">${icon}</span>
   </div>
 `;
 
@@ -113,6 +129,25 @@ function buildNodes() {
           data: { kind: "door", nodeId: link.nodeId },
         };
       }),
+      ...(room.interactiveMarkers || []).map((marker) => ({
+        id: marker.id,
+        position: { yaw: deg(marker.yaw), pitch: deg(marker.pitch) },
+        html: interactiveMarkerHtml(
+          marker.type === "compressor" ? "🎛" : "🎚",
+          marker.type === "compressor" ? "dyn" : undefined,
+        ),
+        size: { width: 34, height: 34 },
+        anchor: "center center",
+        zoomLvl: marker.zoomLvl ?? 60,
+        data: {
+          kind: "interactive",
+          id: marker.id,
+          type: marker.type,
+          title: marker.title,
+          yaw: marker.yaw,
+          pitch: marker.pitch,
+        },
+      })),
     ],
   }));
 }
@@ -131,10 +166,21 @@ function PanoramaTour() {
   // finishes, the first one's now-stale ".then()" can't overwrite the panel
   // with the wrong content.
   const latestRequestRef = useRef(null);
+  // Mirrors activeModule (below) for the marker click handler, which lives
+  // inside the mount-only viewer effect and would otherwise only ever see
+  // the null it captured on the first render (the same stale-closure reason
+  // latestRequestRef exists).
+  const activeModuleRef = useRef(null);
 
   const [currentRoomName, setCurrentRoomName] = useState("");
   const [currentRoomId, setCurrentRoomId] = useState(START_NODE_ID);
   const [activeGear, setActiveGear] = useState(null);
+  // Whichever EQ/Compressor interactive hotspot is currently open, or null.
+  // Kept separate from activeGear (rather than folded into one "active
+  // panel" union) since gear hotspots and interactive hotspots are opened by
+  // completely different code paths below and only one of the two panels is
+  // ever meant to be visible — each open path clears the other.
+  const [activeModule, setActiveModule] = useState(null);
   const [placementMode, setPlacementMode] = useState(false);
   const [lastPlacement, setLastPlacement] = useState(null);
   const [status, setStatus] = useState("loading");
@@ -142,6 +188,10 @@ function PanoramaTour() {
   const [audioMuted, setAudioMuted] = useState(isMuted());
   const [binauralOn, setBinauralOn] = useState(isBinauralEnabled());
   const [hintOpen, setHintOpen] = useState(false);
+
+  useEffect(() => {
+    activeModuleRef.current = activeModule;
+  }, [activeModule]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -215,6 +265,7 @@ function PanoramaTour() {
       setCurrentRoomName(e.node.name || e.node.id);
       setCurrentRoomId(e.node.id);
       setActiveGear(null);
+      setActiveModule(null);
       latestRequestRef.current = null;
       setStatus("ready");
 
@@ -251,6 +302,7 @@ function PanoramaTour() {
         // meantime — otherwise a slow/interrupted animation from an older
         // click can pop in and show the wrong hotspot's info.
         if (latestRequestRef.current !== markerId) return;
+        setActiveModule(null);
         setActiveGear(marker.data);
         // Its recorded narration clip (if uploaded) plays through an HRTF
         // panner from the hotspot's direction — genuinely binaural, unlike
@@ -260,9 +312,32 @@ function PanoramaTour() {
     };
     goToMarkerRef.current = goToMarker;
 
+    // Same "walk up to it" treatment as goToMarker, but for the EQ/Compressor
+    // interactive hotspots: no narration (they're a functional module, not a
+    // gear description), and clicking the SAME module's marker again closes
+    // it instead of re-opening — mirrors design/eq-compressor-hotspot-ui.html's
+    // openPanel()/closeAll() toggle behavior.
+    const goToInteractiveMarker = (markerId, data) => {
+      const marker = markers.getMarker(markerId);
+      if (!marker) return;
+      if (activeModuleRef.current?.id === data.id) {
+        setActiveModule(null);
+        return;
+      }
+      latestRequestRef.current = markerId;
+      markers.gotoMarker(markerId, "8rpm").then(() => {
+        if (latestRequestRef.current !== markerId) return;
+        stopHotspotNarration();
+        setActiveGear(null);
+        setActiveModule(data);
+      });
+    };
+
     const onSelectMarker = (e) => {
       if (e.marker.data?.kind === "door") {
         goToRoom(e.marker.data.nodeId);
+      } else if (e.marker.data?.kind === "interactive") {
+        goToInteractiveMarker(e.marker.id, e.marker.data);
       } else {
         goToMarker(e.marker.id);
       }
@@ -315,6 +390,16 @@ function PanoramaTour() {
     viewerRef.current?.animate({ zoom: REST_ZOOM_LVL, speed: "10rpm" });
   };
 
+  // Same camera-ease-out treatment for the EQ/Compressor panel. Deliberately
+  // does NOT stop whatever audio is currently playing through the Faust
+  // engine/studio speakers — like real studio monitors, the processed audio
+  // keeps playing in the background while you look elsewhere in the room;
+  // EqCompressorHotspot only tears its own audio graph down on unmount.
+  const closeModulePanel = () => {
+    setActiveModule(null);
+    viewerRef.current?.animate({ zoom: REST_ZOOM_LVL, speed: "10rpm" });
+  };
+
   // Master mute — silences everything (ambient bed + narration, spatial or
   // not) via the single output stage in spatialAudioEngine. Fully
   // independent of the binaural toggle below.
@@ -340,6 +425,7 @@ function PanoramaTour() {
   const goToRoom = (nodeId) => {
     stopHotspotNarration();
     setActiveGear(null);
+    setActiveModule(null);
     virtualTourRef.current?.setCurrentNode(nodeId);
   };
 
@@ -535,6 +621,8 @@ function PanoramaTour() {
           </div>
         </div>
       )}
+
+      <EqCompressorHotspot open={activeModule} onClose={closeModulePanel} />
     </div>
   );
 }

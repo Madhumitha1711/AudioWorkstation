@@ -191,6 +191,33 @@ export const ROOMS = [
         },
       },
     ],
+    // Functional processing hotspots — distinct from the descriptive `markers`
+    // above: instead of opening a read-only info panel, these open a live
+    // panel (see panorama/EqCompressorHotspot.jsx) wired to a real Faust WASM
+    // DSP (public/faust/ParamEQ, public/faust/compressor) that actually
+    // processes an uploaded audio file. Rendered in PanoramaTour.jsx with an
+    // icon marker instead of a numbered badge so they read as "interactive
+    // module" at a glance rather than "read more about this gear". Their
+    // processed output plays back through the two real studio monitor
+    // positions (see STUDIO_SPEAKERS in audio/spatialAudioEngine.js) for a
+    // genuine binaural "sitting between the speakers" feel that pans as you
+    // look around, instead of playing dead-center.
+    interactiveMarkers: [
+      {
+        id: "channel-eq",
+        type: "eq",
+        yaw: 329.9,
+        pitch: -19.5,
+        title: "Channel EQ",
+      },
+      {
+        id: "channel-compressor",
+        type: "compressor",
+        yaw: 341.8,
+        pitch: -13.3,
+        title: "Compressor",
+      },
+    ],
   },
   {
     id: "recording-room",

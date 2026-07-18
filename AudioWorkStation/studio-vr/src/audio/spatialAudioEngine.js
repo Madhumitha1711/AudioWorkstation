@@ -50,6 +50,13 @@ let currentNarrationSource = null;
 // actually change how a clip sounds mid-playback, not just decide the route
 // for whatever plays next.
 let currentNarrationRouting = null;
+// Generic registry of extra { spatialPathGain, plainPathGain } pairs whose
+// crossfade setBinauralEnabled() should also drive, beyond whatever hotspot
+// narration clip is currently playing above. createStudioSpeakerBus() (see
+// below) registers itself here so the EQ/Compressor hotspots' studio-monitor
+// output responds to the same global binaural toggle as narration does,
+// without this module needing to know anything about who else is using it.
+const extraBinauralRoutings = new Set();
 
 // Default ambient profile used until a room supplies its own (see
 // setRoomAmbience()). Values chosen to match the original "mild air" bed.
@@ -412,10 +419,13 @@ export function isMuted() {
  */
 export function setBinauralEnabled(value) {
   binauralEnabled = value;
-  if (audioCtx && currentNarrationRouting) {
-    const now = audioCtx.currentTime;
-    const RAMP = 0.06; // short crossfade so the switch isn't an audible click
-    const { plainPathGain, spatialPathGain } = currentNarrationRouting;
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const RAMP = 0.06; // short crossfade so the switch isn't an audible click
+  const routings = [];
+  if (currentNarrationRouting) routings.push(currentNarrationRouting);
+  extraBinauralRoutings.forEach((routing) => routings.push(routing));
+  for (const { plainPathGain, spatialPathGain } of routings) {
     spatialPathGain.gain.cancelScheduledValues(now);
     spatialPathGain.gain.linearRampToValueAtTime(value ? 1 : 0, now + RAMP);
     plainPathGain.gain.cancelScheduledValues(now);
@@ -425,4 +435,131 @@ export function setBinauralEnabled(value) {
 
 export function isBinauralEnabled() {
   return binauralEnabled;
+}
+
+/** Registers a { spatialPathGain, plainPathGain } pair so future
+ * setBinauralEnabled() calls crossfade it too, in addition to whatever
+ * hotspot narration is playing. Used by createStudioSpeakerBus(). */
+export function registerBinauralRouting(routing) {
+  extraBinauralRoutings.add(routing);
+}
+
+/** Undoes registerBinauralRouting() — call when the routing's nodes are
+ * torn down so a stale reference isn't crossfaded forever. */
+export function unregisterBinauralRouting(routing) {
+  extraBinauralRoutings.delete(routing);
+}
+
+/**
+ * Real-world positions (yaw/pitch, degrees — same convention as roomsData.js
+ * marker positions) of the control room's two nearfield monitors. The
+ * Faust-powered EQ and Compressor hotspots (see
+ * panorama/EqCompressorHotspot.jsx) route whatever they're processing out
+ * through createStudioSpeakerBus() below instead of straight to the
+ * destination, so the processed audio genuinely appears to come from the
+ * studio's own monitors — and, like every other spatialized source in this
+ * module, moves correctly as the student looks around, via the same
+ * updateListenerOrientation() calls PanoramaTour already makes.
+ */
+export const STUDIO_SPEAKERS = [
+  { yaw: 322.0, pitch: 7.8 },
+  { yaw: 36.8, pitch: 7.8 },
+];
+
+/**
+ * Exposes the shared AudioContext (created by initAudio()) so other modules
+ * — e.g. the EQ/Compressor hotspots — can build their own nodes on the exact
+ * same context the listener orientation and master mute above already apply
+ * to, instead of spinning up a second, unrelated AudioContext. Returns null
+ * if initAudio() hasn't run yet.
+ */
+export function getAudioContext() {
+  return audioCtx;
+}
+
+/**
+ * Builds a two-speaker HRTF output bus: anything connected to the returned
+ * `input` gain node plays back as if coming from both physical monitor
+ * positions in STUDIO_SPEAKERS at once — a real stereo-monitor illusion, not
+ * just a centered mono blob — panned/rotated live as the student looks
+ * around, via the same listener orientation used everywhere else in this
+ * module. A plain (non-HRTF) hard-panned left/right fallback path is always
+ * built alongside the spatial one and crossfaded by the master binaural
+ * toggle (see setBinauralEnabled()/registerBinauralRouting()), so switching
+ * binaural off still gives a left/right sense of the two monitors instead of
+ * collapsing to dead-center mono. Routes into masterGain, so setMuted()
+ * silences this exactly like everything else in the room.
+ *
+ * Returns null if initAudio() hasn't run yet. Call the returned dispose()
+ * when the source feeding this bus is torn down (e.g. the hotspot panel
+ * rebuilds its audio graph, or the panorama unmounts) — otherwise the extra
+ * nodes leak and keep responding to the binaural toggle forever.
+ */
+export function createStudioSpeakerBus() {
+  if (!audioCtx || !masterGain) return null;
+
+  const input = audioCtx.createGain();
+  input.gain.value = 1;
+
+  const spatialPathGain = audioCtx.createGain();
+  spatialPathGain.gain.value = binauralEnabled ? 1 : 0;
+  const plainPathGain = audioCtx.createGain();
+  plainPathGain.gain.value = binauralEnabled ? 0 : 1;
+
+  const spatialNodes = STUDIO_SPEAKERS.map(({ yaw, pitch }) => {
+    const panner = audioCtx.createPanner();
+    panner.panningModel = "HRTF";
+    panner.distanceModel = "inverse";
+    panner.refDistance = 1;
+    const pos = sphericalToCartesian(yaw, pitch, 2.5);
+    if (panner.positionX) {
+      panner.positionX.value = pos.x;
+      panner.positionY.value = pos.y;
+      panner.positionZ.value = pos.z;
+    } else if (panner.setPosition) {
+      panner.setPosition(pos.x, pos.y, pos.z);
+    }
+    const shelf = createElevationShelf(pitch);
+    input.connect(shelf).connect(panner).connect(spatialPathGain);
+    return { panner, shelf };
+  });
+
+  // Plain fallback: a hard equal-power pan per speaker (first speaker left,
+  // second right — matches how the two yaw values straddle straight-ahead)
+  // so turning binaural off still reads as "two speakers", not mono.
+  const plainNodes = STUDIO_SPEAKERS.map((_, i) => {
+    if (!audioCtx.createStereoPanner) {
+      // Extremely old browsers without StereoPannerNode: just sum to mono.
+      input.connect(plainPathGain);
+      return null;
+    }
+    const panNode = audioCtx.createStereoPanner();
+    panNode.pan.value = i === 0 ? -1 : 1;
+    input.connect(panNode).connect(plainPathGain);
+    return panNode;
+  });
+
+  spatialPathGain.connect(masterGain);
+  plainPathGain.connect(masterGain);
+
+  const routing = { spatialPathGain, plainPathGain };
+  registerBinauralRouting(routing);
+
+  return {
+    input,
+    dispose() {
+      unregisterBinauralRouting(routing);
+      for (const { panner, shelf } of spatialNodes) {
+        try { panner.disconnect(); } catch { /* already disconnected */ }
+        try { shelf.disconnect(); } catch { /* already disconnected */ }
+      }
+      for (const panNode of plainNodes) {
+        if (!panNode) continue;
+        try { panNode.disconnect(); } catch { /* already disconnected */ }
+      }
+      try { spatialPathGain.disconnect(); } catch { /* already disconnected */ }
+      try { plainPathGain.disconnect(); } catch { /* already disconnected */ }
+      try { input.disconnect(); } catch { /* already disconnected */ }
+    },
+  };
 }
