@@ -1,0 +1,58 @@
+{
+  "kind": "collectionType",
+  "collectionName": "studio_rooms",
+  "info": {
+    "singularName": "studio-room",
+    "pluralName": "studio-rooms",
+    "displayName": "Studio Room",
+    "description": "A panorama stop in the VR tour, matching ROOMS[] in studio-vr's src/panorama/roomsData.js."
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "slug": {
+      "type": "uid",
+      "targetField": "name",
+      "required": true,
+      "description": "Matches ROOMS[].id / nodeId references, e.g. \"studio-room\", \"recording-room\"."
+    },
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "panorama": {
+      "type": "media",
+      "multiple": false,
+      "required": true,
+      "allowedTypes": ["images"],
+      "description": "The 360° panorama photo for this room, matches ROOMS[].panorama. Stored via the S3 upload provider."
+    },
+    "order": {
+      "type": "integer",
+      "default": 0
+    },
+    "ambience": {
+      "type": "component",
+      "repeatable": false,
+      "component": "panorama.ambience"
+    },
+    "links": {
+      "type": "component",
+      "repeatable": true,
+      "component": "panorama.room-link"
+    },
+    "hotspots": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::studio-hotspot.studio-hotspot",
+      "mappedBy": "room"
+    },
+    "interactiveMarkers": {
+      "type": "component",
+      "repeatable": true,
+      "component": "panorama.interactive-marker"
+    }
+  }
+}

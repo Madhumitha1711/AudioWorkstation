@@ -1,0 +1,37 @@
+{
+  "collectionName": "components_shared_cloudflare_videos",
+  "info": {
+    "displayName": "Cloudflare Video",
+    "icon": "play-circle",
+    "description": "Reference to a video hosted on Cloudflare Stream. Strapi does not store the video file itself — upload it to Cloudflare Stream first (dashboard or API) and paste the resulting UID here."
+  },
+  "options": {},
+  "attributes": {
+    "videoUid": {
+      "type": "string",
+      "required": true,
+      "description": "Cloudflare Stream video UID, e.g. the id returned after upload / from the Stream dashboard."
+    },
+    "durationSeconds": {
+      "type": "integer",
+      "description": "Optional cached duration in seconds, useful for UI before the player loads."
+    },
+    "thumbnail": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images"],
+      "description": "Poster image for the video. Stored via the S3 upload provider."
+    },
+    "captionsUrl": {
+      "type": "string",
+      "description": "Optional URL to a VTT captions/subtitles track."
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["pending", "processing", "ready", "error"],
+      "default": "pending",
+      "description": "Encoding status, useful if you sync this from Cloudflare's webhook/API."
+    }
+  }
+}

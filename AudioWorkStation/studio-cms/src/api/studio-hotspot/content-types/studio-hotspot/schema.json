@@ -1,0 +1,67 @@
+{
+  "kind": "collectionType",
+  "collectionName": "studio_hotspots",
+  "info": {
+    "singularName": "studio-hotspot",
+    "pluralName": "studio-hotspots",
+    "displayName": "Studio Hotspot",
+    "description": "A clickable gear marker inside a Studio Room, matching ROOMS[].markers[] in studio-vr's roomsData.js."
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "slug": {
+      "type": "uid",
+      "targetField": "title",
+      "required": true,
+      "description": "Matches marker.id, which is also expected to match the linked Course Topic's slug, e.g. \"speaker\", \"mixing-console\"."
+    },
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "yaw": {
+      "type": "float",
+      "required": true,
+      "description": "Captured in studio-vr using the app's own \"P\" hotspot-placement mode."
+    },
+    "pitch": {
+      "type": "float",
+      "required": true
+    },
+    "description": {
+      "type": "text",
+      "required": true
+    },
+    "narrationAudio": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": ["audio"],
+      "description": "Spatialized narration clip played when the hotspot is selected, matches marker.audio. Stored via the S3 upload provider."
+    },
+    "objectives": {
+      "type": "component",
+      "repeatable": true,
+      "component": "panorama.objective",
+      "description": "Matches marker.course.objectives[]."
+    },
+    "order": {
+      "type": "integer",
+      "default": 0
+    },
+    "room": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::studio-room.studio-room",
+      "inversedBy": "hotspots"
+    },
+    "topic": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::course-topic.course-topic",
+      "description": "The Course Topic this hotspot opens into (matches marker.id to TOPICS[].id in the current frontend data)."
+    }
+  }
+}

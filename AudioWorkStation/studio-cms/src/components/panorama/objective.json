@@ -1,0 +1,14 @@
+{
+  "collectionName": "components_panorama_objectives",
+  "info": {
+    "displayName": "Learning Objective",
+    "icon": "bullseye"
+  },
+  "options": {},
+  "attributes": {
+    "text": {
+      "type": "string",
+      "required": true
+    }
+  }
+}
