@@ -113,12 +113,16 @@ function buildNodes() {
           // Zoom level applied by markers.gotoMarker() so selecting a hotspot
           // feels like walking up to it rather than just glancing over.
           zoomLvl: marker.zoomLvl ?? 60,
-          // Deliberately no hover tooltip here: the library auto-flips it
-          // above/below the icon depending on available screen space, which
-          // reads as "the info card randomly jumps around". The real
-          // information card is the fixed panel (.svr-tour-gear-panel) that opens
-          // on click, always pinned to the same spot regardless of where
-          // the marker lands on screen.
+          // Hover tooltip, same pattern as the door/volume hotspots below —
+          // the library auto-flips it above/below the icon depending on
+          // available screen space, which can read as "the info card jumps
+          // around" near screen edges, but it gives a quick name-on-hover
+          // before committing to a click. The full write-up still only shows
+          // in the fixed panel (.svr-tour-gear-panel) opened on click.
+          tooltip: {
+            content: marker.title,
+            trigger: "hover",
+          },
           data: {
             kind: "gear",
             id: marker.id,
@@ -154,6 +158,10 @@ function buildNodes() {
         size: { width: 34, height: 34 },
         anchor: "center center",
         zoomLvl: marker.zoomLvl ?? 60,
+        tooltip: {
+          content: marker.title,
+          trigger: "hover",
+        },
         data: {
           kind: "interactive",
           id: marker.id,

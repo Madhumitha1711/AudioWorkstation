@@ -45,10 +45,11 @@ export const ROOMS = [
     name: "Studio",
     panorama: "/paranoma.png",
     // Ambient bed profile for this room — see startAmbientBed() /
-    // setRoomAmbience() in spatialAudioEngine.js. This is the control
-    // room's live-ish, slightly airy tone (synthetic filtered noise, not a
-    // recording).
-    ambience: { filterFreq: 500, gain: 0.03, gustDepth: 0.015 },
+    // setRoomAmbience() in spatialAudioEngine.js. Filtered down to a duller,
+    // more muffled tone than before (synthetic filtered noise, not a
+    // recording) — the control room should read as more closed-in than the
+    // recording room now.
+    ambience: { filterFreq: 200, gain: 0.03, gustDepth: 0.015 },
     // Faint, continuous "something's happening next door" bed — a real
     // recording (unlike the synthetic ambience above), positioned roughly
     // toward the recording-room doorway (compare the door link's yaw/pitch
@@ -240,9 +241,16 @@ export const ROOMS = [
     id: "recording-room",
     name: "Recording Room",
     panorama: "/recording.png",
-    // Quieter, more damped tone than the control room — a treated
-    // recording space has far less ambient hiss/liveliness.
-    ambience: { filterFreq: 220, gain: 0.012, gustDepth: 0.006 },
+    // Pushed noticeably louder than the control room — still on the
+    // damped/dull side (a treated recording space still has less
+    // high-frequency liveliness than the control room), but the level
+    // itself should now read as clearly higher, not just slightly.
+    ambience: { filterFreq: 220, gain: 0.09, gustDepth: 0.045 },
+    roomBleed: {
+      audio: "/audio/AndresGuazzelli_FloresDeAbril_Full/02_Piano.wav",
+      yaw: 127.7,
+      pitch: 0.4,
+    },
     links: [
       {
         nodeId: "studio-room",
