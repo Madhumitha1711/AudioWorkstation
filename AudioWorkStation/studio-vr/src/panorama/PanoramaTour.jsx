@@ -18,6 +18,12 @@ import {
   isMuted,
   setBinauralEnabled,
   isBinauralEnabled,
+  startRoomBleed,
+  stopRoomBleed,
+  setRoomBleedVolume,
+  getRoomBleedVolume,
+  setRoomBleedMuted,
+  isRoomBleedMuted,
 } from "../audio/spatialAudioEngine";
 import DawWorkstationScreen from "./DawWorkstationScreen";
 
@@ -65,6 +71,19 @@ const interactiveMarkerHtml = (icon, variant) => `
     <span class="hotspot-marker__ring${variant ? ` hotspot-marker__ring--${variant}` : ""}"></span>
     <span class="hotspot-marker__ring${variant ? ` hotspot-marker__ring--${variant}` : ""} hotspot-marker__ring--delayed"></span>
     <span class="hotspot-marker__dot${variant ? ` hotspot-marker__dot--${variant}` : ""}">${icon}</span>
+  </div>
+`;
+
+// Amber speaker-icon badge for a room's `volumeControls` hotspots — opens a
+// small slider + mute panel for an adjustable background bed (e.g. the
+// recording-room bleed) instead of a gear/course info panel, so it reads as
+// "audio control" at a glance rather than another piece of gear to learn
+// about.
+const volumeMarkerHtml = () => `
+  <div class="hotspot-marker hotspot-marker--volume">
+    <span class="hotspot-marker__ring hotspot-marker__ring--volume"></span>
+    <span class="hotspot-marker__ring hotspot-marker__ring--volume hotspot-marker__ring--delayed"></span>
+    <span class="hotspot-marker__dot hotspot-marker__dot--volume">🔊</span>
   </div>
 `;
 
@@ -144,6 +163,25 @@ function buildNodes() {
           pitch: marker.pitch,
         },
       })),
+      ...(room.volumeControls || []).map((control) => ({
+        id: control.id,
+        position: { yaw: deg(control.yaw), pitch: deg(control.pitch) },
+        html: volumeMarkerHtml(),
+        size: { width: 34, height: 34 },
+        anchor: "center center",
+        tooltip: {
+          content: control.title || "Volume",
+          trigger: "hover",
+        },
+        data: {
+          kind: "volume",
+          id: control.id,
+          title: control.title,
+          target: control.target,
+          yaw: control.yaw,
+          pitch: control.pitch,
+        },
+      })),
     ],
   }));
 }
@@ -173,6 +211,9 @@ function PanoramaTour() {
   // the null it captured on the first render (the same stale-closure reason
   // latestRequestRef exists).
   const activeModuleRef = useRef(null);
+  // Same stale-closure fix as activeModuleRef, for the volume-control marker
+  // click handler.
+  const activeVolumeControlRef = useRef(null);
 
   const [currentRoomName, setCurrentRoomName] = useState("");
   const [currentRoomId, setCurrentRoomId] = useState(START_NODE_ID);
@@ -180,9 +221,14 @@ function PanoramaTour() {
   // Whichever EQ/Compressor interactive hotspot is currently open, or null.
   // Kept separate from activeGear (rather than folded into one "active
   // panel" union) since gear hotspots and interactive hotspots are opened by
-  // completely different code paths below and only one of the two panels is
-  // ever meant to be visible — each open path clears the other.
+  // completely different code paths below and only one panel is ever meant
+  // to be visible at a time — each open path clears the other two.
   const [activeModule, setActiveModule] = useState(null);
+  // Whichever "volume" hotspot (see roomsData.js volumeControls) currently
+  // has its slider + mute panel open, or null. Same "only one panel visible
+  // at a time" rule as activeModule/activeGear above — every path that opens
+  // one of the other two panels also clears this.
+  const [activeVolumeControl, setActiveVolumeControl] = useState(null);
   const [placementMode, setPlacementMode] = useState(false);
   const [lastPlacement, setLastPlacement] = useState(null);
   const [status, setStatus] = useState("loading");
@@ -190,10 +236,23 @@ function PanoramaTour() {
   const [audioMuted, setAudioMuted] = useState(isMuted());
   const [binauralOn, setBinauralOn] = useState(isBinauralEnabled());
   const [hintOpen, setHintOpen] = useState(false);
+  // The recording-room bleed's own volume/mute (see spatialAudioEngine.js
+  // setRoomBleedVolume()/setRoomBleedMuted()) — entirely separate from the
+  // master mute and binaural toggle above. Initialized from the engine's
+  // module-level state so the slider reflects the right position even if
+  // this component remounts while a value was previously set.
+  const [bleedVolume, setBleedVolumeState] = useState(() =>
+    Math.round(getRoomBleedVolume() * 100),
+  );
+  const [bleedMuted, setBleedMutedState] = useState(() => isRoomBleedMuted());
 
   useEffect(() => {
     activeModuleRef.current = activeModule;
   }, [activeModule]);
+
+  useEffect(() => {
+    activeVolumeControlRef.current = activeVolumeControl;
+  }, [activeVolumeControl]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -258,9 +317,19 @@ function PanoramaTour() {
     // every room change. The bed's audibility is governed solely by master
     // mute (setMuted()/isMuted()) further down the signal chain, so this
     // always re-tunes regardless of mute or binaural state.
+    //
+    // Also starts/stops this room's `roomBleed` loop, if it defines one — a
+    // bleed source belongs to whichever room defined it (see roomsData.js),
+    // so leaving that room stops it rather than letting it keep playing
+    // wherever the student walks to next.
     const activateRoomAudio = (room) => {
       if (!room) return;
       setRoomAmbience(room.ambience ?? DEFAULT_AMBIENCE);
+      if (room.roomBleed) {
+        startRoomBleed(room.roomBleed.audio, room.roomBleed.yaw, room.roomBleed.pitch);
+      } else {
+        stopRoomBleed();
+      }
     };
 
     const onNodeChanged = (e) => {
@@ -268,6 +337,7 @@ function PanoramaTour() {
       setCurrentRoomId(e.node.id);
       setActiveGear(null);
       setActiveModule(null);
+      setActiveVolumeControl(null);
       latestRequestRef.current = null;
       clearSelectedMarkerEl();
       setStatus("ready");
@@ -306,6 +376,7 @@ function PanoramaTour() {
         // click can pop in and show the wrong hotspot's info.
         if (latestRequestRef.current !== markerId) return;
         setActiveModule(null);
+        setActiveVolumeControl(null);
         setActiveGear(marker.data);
         setSelectedMarkerEl(markerId);
         // Narration audio is intentionally not played here — selecting a
@@ -332,9 +403,32 @@ function PanoramaTour() {
         if (latestRequestRef.current !== markerId) return;
         stopHotspotNarration();
         setActiveGear(null);
+        setActiveVolumeControl(null);
         setActiveModule(data);
         setSelectedMarkerEl(markerId);
       });
+    };
+
+    // Unlike goToMarker/goToInteractiveMarker above, a `kind: "volume"`
+    // hotspot (see roomsData.js `volumeControls`) does NOT walk the camera
+    // up to it — it's a UI control for an audio bed, not a piece of gear or
+    // a room feature to "arrive at", so the slider + mute panel opens
+    // immediately in place, with no camera movement. Clicking the SAME
+    // control's marker again still closes it, matching
+    // goToInteractiveMarker's toggle behavior above.
+    const goToVolumeMarker = (markerId, data) => {
+      const marker = markers.getMarker(markerId);
+      if (!marker) return;
+      if (activeVolumeControlRef.current?.id === data.id) {
+        setActiveVolumeControl(null);
+        clearSelectedMarkerEl();
+        return;
+      }
+      latestRequestRef.current = markerId;
+      setActiveGear(null);
+      setActiveModule(null);
+      setActiveVolumeControl(data);
+      setSelectedMarkerEl(markerId);
     };
 
     const onSelectMarker = (e) => {
@@ -342,6 +436,8 @@ function PanoramaTour() {
         goToRoom(e.marker.data.nodeId);
       } else if (e.marker.data?.kind === "interactive") {
         goToInteractiveMarker(e.marker.id, e.marker.data);
+      } else if (e.marker.data?.kind === "volume") {
+        goToVolumeMarker(e.marker.id, e.marker.data);
       } else {
         goToMarker(e.marker.id);
       }
@@ -377,11 +473,13 @@ function PanoramaTour() {
       window.removeEventListener("keydown", onKeyDown);
       clearInterval(orientationInterval);
       stopHotspotNarration();
-      // The ambient bed lives in a module-level singleton (spatialAudioEngine),
-      // not React state, so it otherwise keeps playing after this screen
-      // unmounts — e.g. following "Start course" into /course. Stop it here
-      // so leaving the VR tour actually silences the room tone.
+      // The ambient bed and room-bleed loop both live in a module-level
+      // singleton (spatialAudioEngine), not React state, so they otherwise
+      // keep playing after this screen unmounts — e.g. following "Start
+      // course" into /course. Stop them here so leaving the VR tour
+      // actually silences the room.
       stopAmbientBed();
+      stopRoomBleed();
       viewer.destroy();
     };
   }, []);
@@ -429,6 +527,16 @@ function PanoramaTour() {
     viewerRef.current?.animate({ zoom: REST_ZOOM_LVL, speed: "10rpm" });
   };
 
+  // Closes the volume-control panel. Unlike closeGearPanel/closeModulePanel
+  // there's no camera animation to undo here — opening this panel never
+  // moved the camera in the first place (see goToVolumeMarker above), so
+  // closing it doesn't either. The room-bleed source itself keeps playing
+  // (per its current volume/mute) — this only hides the slider.
+  const closeVolumePanel = () => {
+    setActiveVolumeControl(null);
+    clearSelectedMarkerEl();
+  };
+
   // Master mute — silences everything (ambient bed + narration, spatial or
   // not) via the single output stage in spatialAudioEngine. Fully
   // independent of the binaural toggle below.
@@ -448,6 +556,24 @@ function PanoramaTour() {
     setBinauralOn(next);
   };
 
+  // Drag handler for the recording-room bleed's volume slider (see the
+  // `activeVolumeControl` panel below). Entirely separate from the master
+  // mute/binaural toggle above — this only ever changes how loud this one
+  // background bed is.
+  const handleBleedVolumeChange = (e) => {
+    const nextPercent = Number(e.target.value);
+    setBleedVolumeState(nextPercent);
+    setRoomBleedVolume(nextPercent / 100);
+  };
+
+  // Mutes/unmutes just the recording-room bleed — independent of the master
+  // mute button in the toolbar, which still silences this too regardless.
+  const toggleBleedMute = () => {
+    const next = !bleedMuted;
+    setRoomBleedMuted(next);
+    setBleedMutedState(next);
+  };
+
   // Selecting a door hotspot: walk through to the linked room. The
   // virtual-tour plugin's own transitionOptions (rotation: true) handles
   // turning to face the doorway before the fade.
@@ -455,6 +581,7 @@ function PanoramaTour() {
     stopHotspotNarration();
     setActiveGear(null);
     setActiveModule(null);
+    setActiveVolumeControl(null);
     clearSelectedMarkerEl();
     virtualTourRef.current?.setCurrentNode(nodeId);
   };
@@ -652,6 +779,60 @@ function PanoramaTour() {
         </div>
       )}
 
+      {activeVolumeControl && (
+        <div className="svr-tour-volume-panel">
+          <div className="svr-tour-volume-panel__head">
+            <span className="svr-tour-volume-panel__icon" aria-hidden="true">
+              🔊
+            </span>
+            <div className="svr-tour-volume-panel__title">
+              {activeVolumeControl.title || "Volume"}
+            </div>
+            <button
+              onClick={closeVolumePanel}
+              className="svr-tour-gear-panel__close"
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="svr-tour-volume-panel__body">
+            <div className="svr-tour-volume-panel__desc">
+              Faint audio bleeding through from a session in the recording
+              room. This slider only adjusts how audible it is
+              here.
+            </div>
+
+            <div className="svr-tour-volume-row">
+              <button
+                onClick={toggleBleedMute}
+                className="svr-tour-icon-btn active"
+                aria-pressed={bleedMuted}
+                aria-label={bleedMuted ? "Unmute recording room bleed" : "Mute recording room bleed"}
+                title={bleedMuted ? "Unmute" : "Mute"}
+              >
+                {bleedMuted ? "🔇" : "🔊"}
+              </button>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={bleedVolume}
+                onChange={handleBleedVolumeChange}
+                disabled={bleedMuted}
+                className="svr-tour-volume-slider"
+                aria-label="Recording room bleed volume"
+              />
+              <div className="svr-tour-volume-val">
+                {bleedMuted ? "Muted" : `${bleedVolume}%`}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <DawWorkstationScreen open={activeModule} onClose={closeModulePanel} />
     </div>
   );
@@ -785,6 +966,19 @@ const tourStyles = `
     background: radial-gradient(circle at 32% 28%, #9fd3ff, #2e7fe0 70%);
     box-shadow:
       0 0 10px rgba(70, 150, 255, 0.75),
+      inset 0 0 5px rgba(255, 255, 255, 0.5);
+  }
+  /* Volume-control hotspots (roomsData.js volumeControls): same
+     pulsing-badge shape again, in amber with a speaker icon, so they read
+     as "adjust audio" rather than "gear info" or "go to another room". */
+  .hotspot-marker__ring--volume {
+    border-color: rgba(255, 176, 59, 0.85);
+  }
+  .hotspot-marker__dot--volume {
+    font-size: 14px;
+    background: radial-gradient(circle at 32% 28%, #ffd699, #e08a1e 70%);
+    box-shadow:
+      0 0 10px rgba(255, 176, 59, 0.75),
       inset 0 0 5px rgba(255, 255, 255, 0.5);
   }
 
@@ -1115,6 +1309,100 @@ const tourStyles = `
   }
   .svr-tour-btn-secondary:hover {
     background: var(--shell-panel-hover);
+  }
+
+  /* ---------- Volume-control panel (roomsData.js volumeControls) ------
+     Same floating-glass treatment as the gear panel, but compact — just a
+     description, a mute button, and a slider, no course footer. */
+  .svr-tour-volume-panel {
+    position: absolute;
+    top: 74px;
+    right: 16px;
+    width: 300px;
+    max-width: calc(100vw - 32px);
+    background: var(--shell-bg);
+    border: 1px solid var(--shell-border);
+    border-radius: 14px;
+    backdrop-filter: blur(14px);
+    box-shadow: var(--shadow);
+    font-family: sans-serif;
+    color: var(--shell-text);
+    animation: svr-tour-slide-in 0.2s ease-out;
+    z-index: 5;
+  }
+  .svr-tour-volume-panel__head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--shell-border-soft);
+  }
+  .svr-tour-volume-panel__icon {
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+  .svr-tour-volume-panel__title {
+    flex: 1;
+    min-width: 0;
+    font-size: 14.5px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .svr-tour-volume-panel__body {
+    padding: 14px 16px 16px;
+  }
+  .svr-tour-volume-panel__desc {
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--shell-text-dim);
+    margin-bottom: 14px;
+  }
+  .svr-tour-volume-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .svr-tour-volume-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--shell-border);
+    outline: none;
+    cursor: pointer;
+  }
+  .svr-tour-volume-slider:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .svr-tour-volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: #ffb03b;
+    box-shadow: 0 0 6px rgba(255, 176, 59, 0.65);
+    cursor: pointer;
+    border: 2px solid #0a0a0a;
+  }
+  .svr-tour-volume-slider::-moz-range-thumb {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: #ffb03b;
+    box-shadow: 0 0 6px rgba(255, 176, 59, 0.65);
+    cursor: pointer;
+    border: 2px solid #0a0a0a;
+  }
+  .svr-tour-volume-val {
+    min-width: 44px;
+    text-align: right;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--shell-text-dim);
+    flex-shrink: 0;
   }
 
   /* ---------- Loading / error state ---------- */

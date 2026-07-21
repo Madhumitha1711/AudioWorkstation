@@ -359,6 +359,30 @@
   color: var(--amber);
 }
 
+/* Demo-clip dropdown (track-btns "D") — a real <select> so the browser's
+   own native listbox handles positioning/keyboard/outside-click dismissal,
+   laid invisibly on top of a plain .tbtn "D" so it still looks like every
+   other icon button in this row; only the select actually receives clicks. */
+.tbtn-select-wrap {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.tbtn-select-wrap .tbtn {
+  pointer-events: none;
+}
+.tbtn-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
 .daw-file-input {
   position: absolute;
   width: 1px;
@@ -507,6 +531,16 @@
   background: color-mix(in srgb, var(--track-color) 22%, var(--panel));
   border: 1px solid color-mix(in srgb, var(--track-color) 55%, var(--border));
   overflow: hidden;
+  /* Draggable — see beginClipDrag/onClipPointerMove/endClipDrag in
+     DawWorkstationScreen.jsx. touch-action: none so a touch-drag moves the
+     clip instead of scrolling the arrangement pane. */
+  cursor: grab;
+  touch-action: none;
+  transition: border-color 0.15s ease;
+}
+.clip:active {
+  cursor: grabbing;
+  border-color: var(--track-color);
 }
 .wave-svg {
   position: absolute;
@@ -525,7 +559,23 @@
   width: 2px;
   background: var(--red);
   box-shadow: 0 0 8px var(--red-glow);
-  pointer-events: none;
+  /* Draggable — see beginPlayheadDrag/onPlayheadPointerMove/endPlayheadDrag
+     in DawWorkstationScreen.jsx. touch-action: none so a touch-drag scrubs
+     instead of scrolling the arrangement pane. */
+  pointer-events: auto;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.playhead::before {
+  /* The visible line is only 2px wide — too thin to reliably grab — so the
+     actual hit area is this wider transparent strip centered on it,
+     matching how the line looks with a much more forgiving drag target. */
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -6px;
+  right: -6px;
 }
 .mixer-empty-hint {
   position: absolute;

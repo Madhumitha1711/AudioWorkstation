@@ -6,6 +6,10 @@ import {
   resumeAudio,
   getAudioContext,
   createStudioSpeakerBus,
+  stopAmbientBed,
+  setRoomAmbience,
+  stopRoomBleed,
+  startRoomBleed,
 } from "../audio/spatialAudioEngine";
 import { GateEditorPanel } from "../chapters/NoiseGate";
 import {
@@ -59,6 +63,7 @@ import {
   applyBandsToNode as applyEqBandsToNode,
   applyOutputGain as applyEqOutputGain,
 } from "../chapters/equalizerEngine";
+import { downloadAudioBufferAsWav } from "../audio/wavRender";
 import "../chapters/chapters.css";
 import "./dawWorkstationScreen.css";
 
@@ -152,7 +157,42 @@ function fmtTime(s) {
 // ── Track colors — cycled across channel strips as they're added ──────────
 const TRACK_COLORS = ["teal", "amber", "blue", "purple", "green", "red", "cyan"];
 
-// ── Demo track (used until the student uploads their own file) ────────────
+// Fallback room-tone profile used to restore the ambient bed when this
+// screen closes (see the isOpen/ambient-bed effect below) — this screen
+// doesn't know which room's own custom ambience (see roomsData.js) was
+// playing before it opened, so it restores the same generic default
+// PanoramaTour.jsx itself falls back to, rather than silence forever.
+// Mirrors spatialAudioEngine's own (unexported) DEFAULT_AMBIENCE.
+const DEFAULT_AMBIENCE = { filterFreq: 500, gain: 0.03, gustDepth: 0.015 };
+
+// Same fallback reasoning as DEFAULT_AMBIENCE above, for the recording-room
+// bleed (see startRoomBleed()/stopRoomBleed() in spatialAudioEngine.js and
+// the `roomBleed` field in roomsData.js) — this screen doesn't know which
+// room's bleed was playing, but the DAW hotspot only ever exists in the
+// Studio room (see `interactiveMarkers` in roomsData.js), so this just
+// mirrors that room's own roomBleed profile.
+const ROOM_BLEED = {
+  audio: "/audio/BolzAndKnecht_HungarianDanceNo5_Full/03_Saxophone.wav",
+  yaw: 127.7,
+  pitch: 0.4,
+};
+
+// ── Demo audio: real multitrack stems from a recording of Dvořák's
+// "Hungarian Dance No. 5" (arr. Bolz & Knecht) — see
+// public/audio/BolzAndKnecht_HungarianDanceNo5_Full/Readme.txt (educational
+// use only, per that recording's own license). The mix seeds with all
+// three as its default tracks the first time the DAW opens (see the
+// seed-the-mix effect below); each track's own "D" demo button lets you
+// pick any one of the three to (re)load onto it instead, via the dropdown
+// next to it.
+const DEMO_CLIPS = [
+  { id: "acousticGtr", name: "Hungarian Dance No. 5 — Acoustic Gtr", url: "/audio/BolzAndKnecht_HungarianDanceNo5_Full/01_AcousticGtr.wav" },
+  { id: "acousticGtrDI", name: "Hungarian Dance No. 5 — Acoustic Gtr DI", url: "/audio/BolzAndKnecht_HungarianDanceNo5_Full/02_AcousticGtrDI.wav" },
+  { id: "saxophone", name: "Hungarian Dance No. 5 — Saxophone", url: "/audio/BolzAndKnecht_HungarianDanceNo5_Full/03_Saxophone.wav" },
+];
+
+// ── Synthetic fallback (used only if a real demo clip above fails to load
+// — e.g. offline — so the DAW isn't left completely broken) ───────────────
 function normAndFade(buf, peakTarget = 0.3) {
   const L = buf.getChannelData(0);
   const R = buf.getChannelData(1);
@@ -275,6 +315,138 @@ function wireSlotNode(ctx, inputNode, slot) {
   return slot.node;
 }
 
+// ── Offline (non-realtime) rendering for the Download buttons ─────────────
+// An AudioNode can't move between two different BaseAudioContexts, so a
+// slot's live Faust node (created once, against the live AudioContext, when
+// the plugin was added — see loadPluginEngine/addOrSelectPlugin) can't be
+// reused here. Each of these builds brand-new nodes from the SAME cached
+// factory (engineCacheRef — module + json, not tied to any context) against
+// an OfflineAudioContext instead — same trick every standalone chapter lab's
+// own renderXOffline already uses for its single-plugin "download the
+// processed result" button (e.g. NoiseGate.jsx's renderGateOffline),
+// generalized here across an arbitrary per-track chain. No analysers/meters
+// — nothing offline reads them.
+
+async function createOfflineSlotNode(offlineCtx, engineCache, slot) {
+  const cached = engineCache.get(slot.key);
+  if (!cached) return null; // shouldn't happen — a "ready" slot already loaded its engine live
+  const generator = new FaustMonoDspGenerator();
+  const node = await generator.createNode(offlineCtx, cached.meta.name, cached.factory, false, 512);
+  switch (slot.key) {
+    case "gate":
+      pushGateParams(node, slot.params, slot.sidechain);
+      break;
+    case "deess":
+      pushDeEsserParams(node, slot.params);
+      break;
+    case "comp":
+      pushCompParams(node, slot.bands, slot.crossover, slot.sidechain, slot.outputGainDb, false, slot.multiband);
+      break;
+    case "limiter":
+      pushLimiterParams(node, slot.params);
+      break;
+    case "delay":
+      pushDelayParams(node, slot.params);
+      break;
+    case "reverb":
+      pushReverbParams(node, slot.params);
+      break;
+    case "eq":
+      applyEqBandsToNode(node, slot.bands);
+      break;
+    default:
+      break;
+  }
+  return node;
+}
+
+// Wires one track's full insert chain (in order, respecting per-slot
+// Bypass) into `offlineCtx`, from `source` through to a returned tail node
+// the caller connects onward from — mirrors the per-track block inside
+// playFrom()'s track loop below, minus analysers/meters.
+async function buildOfflineTrackChain(offlineCtx, engineCache, track, source) {
+  const activeChain = track.chain.filter((s) => s.node && s.status === "ready");
+  let chainOut = source;
+  for (const slot of activeChain) {
+    const node = await createOfflineSlotNode(offlineCtx, engineCache, slot);
+    if (!node) continue;
+    const slotIn = offlineCtx.createGain();
+    const bypassGain = offlineCtx.createGain();
+    const slotWetGain = offlineCtx.createGain();
+    const slotOut = offlineCtx.createGain();
+    bypassGain.gain.value = slot.bypassed ? 1 : 0;
+    slotWetGain.gain.value = slot.bypassed ? 0 : 1;
+    chainOut.connect(slotIn);
+    slotIn.connect(bypassGain);
+    bypassGain.connect(slotOut);
+    let tail = wireSlotNode(offlineCtx, slotIn, { ...slot, node });
+    if (slot.key === "eq") {
+      const eqOutputGain = offlineCtx.createGain();
+      tail.connect(eqOutputGain);
+      tail = eqOutputGain;
+      applyEqOutputGain(eqOutputGain, slot.outputGainDb ?? 0, offlineCtx);
+    }
+    tail.connect(slotWetGain);
+    slotWetGain.connect(slotOut);
+    chainOut = slotOut;
+  }
+  return chainOut;
+}
+
+// "Download" (an individual track): renders one track's own chain + its own
+// volume fader, alone, at that track's native channel count/length/sample
+// rate — a solo stem export. Mute is deliberately ignored (soloing a muted
+// track's stem is presumably the point of downloading it); everything else
+// (chain, per-slot bypass, volume) matches exactly what that channel strip
+// contributes to the live mix.
+async function renderTrackOffline(engineCache, track) {
+  const buffer = track.buffer;
+  const offlineCtx = new OfflineAudioContext(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+  const source = offlineCtx.createBufferSource();
+  source.buffer = buffer;
+  const trackGain = offlineCtx.createGain();
+  trackGain.gain.value = track.volume ?? 1;
+  const chainOut = await buildOfflineTrackChain(offlineCtx, engineCache, track, source);
+  chainOut.connect(trackGain);
+  trackGain.connect(offlineCtx.destination);
+  source.start(0);
+  return offlineCtx.startRendering();
+}
+
+// "Download Mix": renders every track that has audio loaded through its own
+// chain + volume + mute, summed together — a single pass across the whole
+// arrangement's length (not looped, regardless of the transport's Loop
+// toggle — a download should be one finite file), at `sampleRate` (the live
+// AudioContext's own rate, so every track resamples to the same shared rate
+// exactly like it does during live playback). Deliberately bypasses the VR
+// room's spatial/HRTF speaker bus (createStudioSpeakerBus) — a download
+// should be a plain stereo mixdown, not one colored by wherever the
+// student's head happened to be facing.
+async function renderMixOffline(engineCache, tracks, sampleRate) {
+  const list = tracks.filter((t) => t.buffer);
+  if (list.length === 0) return null;
+  // Same "startAt, seconds" per-track clip position the live graph
+  // schedules around in playFrom() — the arrangement's length is the
+  // latest END point across all tracks, and each source starts at its own
+  // absolute offset in the render instead of at 0.
+  const arrDur = list.reduce((max, t) => Math.max(max, (t.startAt ?? 0) + t.buffer.duration), 0);
+  const length = Math.max(1, Math.ceil(arrDur * sampleRate));
+  const offlineCtx = new OfflineAudioContext(2, length, sampleRate);
+  const masterGain = offlineCtx.createGain();
+  masterGain.connect(offlineCtx.destination);
+  for (const track of list) {
+    const source = offlineCtx.createBufferSource();
+    source.buffer = track.buffer;
+    const trackGain = offlineCtx.createGain();
+    trackGain.gain.value = track.muted ? 0 : (track.volume ?? 1);
+    const chainOut = await buildOfflineTrackChain(offlineCtx, engineCache, track, source);
+    chainOut.connect(trackGain);
+    trackGain.connect(masterGain);
+    source.start(track.startAt ?? 0);
+  }
+  return offlineCtx.startRendering();
+}
+
 // Any hbargraph/vbargraph item is a read-only Faust METER output (gain
 // reduction, live gain, etc.). Pulled out separately here so any plugin's
 // own *EditorPanel (via getXLevels-style host callbacks) can read its live
@@ -334,19 +506,28 @@ function DawWorkstationScreen({ open, onClose }) {
 
   // ── Tracks (multi-track mix) ────────────────────────────────────────────
   // Each track: { id, name, color, buffer, peaks, duration, loadError,
-  //               chain: [slot...], volume }. Each chain slot carries its
-  // own typed params (see defaultSlotExtras) so two tracks can each run
-  // their own independent instance of the same plugin.
+  //               chain: [slot...], volume, muted, startAt }. startAt
+  //               (seconds) is where this track's clip begins in the
+  //               arrangement — dragged via its clip in the arrangement
+  //               pane (see beginClipDrag et al below). Each chain slot
+  // carries its own typed params (see defaultSlotExtras) so two tracks can
+  // each run their own independent instance of the same plugin.
   const [tracks, setTracks] = useState([]);
   const tracksRef = useRef([]);
   useEffect(() => {
     tracksRef.current = tracks;
   }, [tracks]);
   const trackIdRef = useRef(0);
-  const demoBufferRef = useRef(null);
+  const demoBufferRef = useRef(null); // synthetic fallback buffer (see createDemoLoopBuffer), lazily created only if a real DEMO_CLIPS fetch fails
+  const demoClipBuffersRef = useRef(new Map()); // DEMO_CLIPS id -> decoded AudioBuffer, so re-picking/re-seeding the same ~20-45MB stem doesn't re-fetch/re-decode it
 
+  // Each track's own clip can start anywhere in the arrangement (see
+  // track.startAt, seconds — dragged via the clip in the arrangement pane
+  // below), so the arrangement's total length is the latest of every
+  // track's own END point (startAt + its own duration), not just the
+  // longest buffer.
   const arrangementDuration = useMemo(
-    () => tracks.reduce((max, t) => Math.max(max, t.buffer?.duration ?? 0), 0),
+    () => tracks.reduce((max, t) => Math.max(max, (t.startAt ?? 0) + (t.buffer?.duration ?? 0)), 0),
     [tracks],
   );
 
@@ -431,6 +612,12 @@ function DawWorkstationScreen({ open, onClose }) {
   const endTimeoutRef = useRef(null); // fires when a non-looping mix reaches the end of the longest track
   const playCallTokenRef = useRef(0); // guards against two concurrent playFrom() calls racing (see playFrom)
   const [meterLevel, setMeterLevel] = useState(0);
+
+  // ── Download (individual track / full mix), offline-rendered — see
+  // renderTrackOffline/renderMixOffline above ─────────────────────────────
+  const [downloadingTrackId, setDownloadingTrackId] = useState(null); // id of the track currently being rendered, or null
+  const [downloadingMix, setDownloadingMix] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
 
   const ensureContext = useCallback(async () => {
     initAudio();
@@ -527,9 +714,17 @@ function DawWorkstationScreen({ open, onClose }) {
   // starts them all at the same instant. Each track's own insert chain (in
   // order, skipping bypassed slots) is applied to its ENTIRE buffer — there
   // is no partial-region crop anymore — then summed into a shared master
-  // bus. With Loop on, every track's source natively loops across its own
-  // full length; with Loop off, a single pass plays and a timer flips the
-  // transport back to stopped once the longest track finishes.
+  // bus. Each track's clip can start at its own point in the arrangement
+  // (track.startAt, seconds — see setTrackStartAt/the clip drag handlers
+  // below), so where in ITS OWN buffer a track needs to be at the shared
+  // transport position `offset` depends on that track's own startAt: not
+  // started yet (schedule it to begin later), partway through (start now,
+  // partway into the buffer), or — if not looping — already finished this
+  // pass (skip it entirely). With Loop on, every track's source natively
+  // loops across its own full length once it begins, so the only thing
+  // startAt changes there is when that loop first kicks in; with Loop off,
+  // a single pass plays and a timer flips the transport back to stopped
+  // once the last track (by startAt + duration) finishes.
   const playFrom = useCallback(
     async (offset) => {
       const token = ++playCallTokenRef.current;
@@ -547,7 +742,7 @@ function DawWorkstationScreen({ open, onClose }) {
       teardownPlaybackGraph();
       setEqSampleRate(ctx.sampleRate);
 
-      const arrDur = list.reduce((max, t) => Math.max(max, t.buffer.duration), 0);
+      const arrDur = list.reduce((max, t) => Math.max(max, (t.startAt ?? 0) + t.buffer.duration), 0);
       const useLoop = loopOnRef.current;
       const clampedOffset = clamp(offset, 0, arrDur);
 
@@ -563,6 +758,12 @@ function DawWorkstationScreen({ open, onClose }) {
 
       list.forEach((track) => {
         const buffer = track.buffer;
+        const startAt = track.startAt ?? 0;
+        // Not looping and this track's clip has already fully played out by
+        // the current transport position — nothing to schedule for it this
+        // pass (leaving it out of trackNodes is fine; every reader of that
+        // map already guards on the entry existing).
+        if (!useLoop && clampedOffset >= startAt + buffer.duration) return;
         const source = ctx.createBufferSource();
         source.buffer = buffer;
         if (useLoop) {
@@ -640,7 +841,20 @@ function DawWorkstationScreen({ open, onClose }) {
         chainOut.connect(trackGain);
         trackGain.connect(masterGain);
 
-        source.start(ctx.currentTime, clamp(offset, 0, buffer.duration));
+        if (clampedOffset < startAt) {
+          // Hasn't reached this clip yet — schedule it to start later,
+          // from the top of its own buffer, instead of right now.
+          source.start(ctx.currentTime + (startAt - clampedOffset), 0);
+        } else {
+          // Already at or past this clip's start — begin immediately, at
+          // however far into its own buffer that point falls. With Loop on
+          // this can be more than one buffer-length past startAt (the
+          // track has already wrapped around at least once), so wrap it
+          // into range the same way the source itself would natively.
+          const into = clampedOffset - startAt;
+          const bufferOffset = useLoop ? into % buffer.duration : clamp(into, 0, buffer.duration);
+          source.start(ctx.currentTime, bufferOffset);
+        }
         trackNodes.set(track.id, { source, extraNodes, trackGain });
       });
 
@@ -722,7 +936,12 @@ function DawWorkstationScreen({ open, onClose }) {
   useEffect(() => {
     if (!isPlaying) return;
     const id = setInterval(() => {
-      setPlayhead(clamp(currentOffset(), 0, arrangementDuration));
+      // Skip while a playhead scrub is in progress — the drag handlers own
+      // `playhead` exclusively during that window (see
+      // beginPlayheadDrag/onPlayheadPointerMove below); overwriting it here
+      // with the still-playing-at-the-old-position live clock would fight
+      // the drag and make the line jitter.
+      if (!dragPlayheadRef.current) setPlayhead(clamp(currentOffset(), 0, arrangementDuration));
       const g = graphRef.current;
       if (g?.meterAnalyser) {
         const data = new Uint8Array(g.meterAnalyser.fftSize);
@@ -745,7 +964,7 @@ function DawWorkstationScreen({ open, onClose }) {
       const id = `t${n}`;
       const color = TRACK_COLORS[(n - 1) % TRACK_COLORS.length];
       const peaks = computePeaks(buffer);
-      const track = { id, name, color, buffer, peaks, duration: buffer.duration, loadError: "", chain: [], volume: 1, muted: false };
+      const track = { id, name, color, buffer, peaks, duration: buffer.duration, loadError: "", chain: [], volume: 1, muted: false, startAt: 0 };
       const next = [...tracksRef.current, track];
       tracksRef.current = next;
       setTracks(next);
@@ -760,7 +979,7 @@ function DawWorkstationScreen({ open, onClose }) {
     const n = ++trackIdRef.current;
     const id = `t${n}`;
     const color = TRACK_COLORS[(n - 1) % TRACK_COLORS.length];
-    const track = { id, name: `Track ${n}`, color, buffer: null, peaks: null, duration: 0, loadError: "", chain: [], volume: 1, muted: false };
+    const track = { id, name: `Track ${n}`, color, buffer: null, peaks: null, duration: 0, loadError: "", chain: [], volume: 1, muted: false, startAt: 0 };
     const next = [...tracksRef.current, track];
     tracksRef.current = next;
     setTracks(next);
@@ -790,21 +1009,49 @@ function DawWorkstationScreen({ open, onClose }) {
     [playFrom, currentOffset, stop],
   );
 
+  // Fetches + decodes one of DEMO_CLIPS (cached by id — these are real
+  // 20-45MB WAV stems, not worth re-downloading/re-decoding every time the
+  // same one is picked again).
+  const loadDemoClip = useCallback(async (ctx, clip) => {
+    const cached = demoClipBuffersRef.current.get(clip.id);
+    if (cached) return cached;
+    const res = await fetch(clip.url);
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    const arrayBuffer = await res.arrayBuffer();
+    const decoded = await ctx.decodeAudioData(arrayBuffer);
+    demoClipBuffersRef.current.set(clip.id, decoded);
+    return decoded;
+  }, []);
+
+  // Loads one of DEMO_CLIPS onto a track — the per-track "D" demo dropdown.
+  // Falls back to the synthetic pad (with a loadError note) if the real
+  // clip can't be fetched/decoded, same spirit as handleTrackFile's own
+  // error handling below.
   const loadDemoForTrack = useCallback(
-    async (id) => {
+    async (id, clip) => {
       const ctx = await ensureContext();
       if (!ctx) return;
-      if (!demoBufferRef.current) demoBufferRef.current = createDemoLoopBuffer(ctx);
-      const buffer = demoBufferRef.current;
+      let buffer;
+      let name = clip.name;
+      let loadError = "";
+      try {
+        buffer = await loadDemoClip(ctx, clip);
+      } catch (err) {
+        console.error("[DawWorkstationScreen] failed to load demo clip", clip.id, err);
+        if (!demoBufferRef.current) demoBufferRef.current = createDemoLoopBuffer(ctx);
+        buffer = demoBufferRef.current;
+        name = "Demo Loop";
+        loadError = `Couldn't load "${clip.name}" — using a synthetic pad instead.`;
+      }
       const peaks = computePeaks(buffer);
       const next = tracksRef.current.map((t) =>
-        t.id === id ? { ...t, buffer, peaks, duration: buffer.duration, name: "Demo Loop", loadError: "" } : t,
+        t.id === id ? { ...t, buffer, peaks, duration: buffer.duration, name, loadError } : t,
       );
       tracksRef.current = next;
       setTracks(next);
       if (isPlayingRef.current) playFrom(currentOffset());
     },
-    [ensureContext, playFrom, currentOffset],
+    [ensureContext, loadDemoClip, playFrom, currentOffset],
   );
 
   const handleTrackFile = useCallback(
@@ -863,14 +1110,231 @@ function DawWorkstationScreen({ open, onClose }) {
     }
   }, []);
 
-  // Seed the mix with one demo track the first time the screen opens.
+  // ── Move a track's clip start position (drag it anywhere in the
+  // arrangement, like a real DAW) ─────────────────────────────────────────
+  // Plain state update — no live graph rebuild here. A position drag can
+  // fire many times a second; tearing down/rebuilding the whole playback
+  // graph (every track's chain, every Faust node reconnected) on each of
+  // those would be both wasteful and audibly glitchy. Whatever's already
+  // playing keeps playing at its old position until the drag actually ends
+  // (see endClipDrag below), then the graph rebuilds once from the current
+  // transport position with the new startAt baked in.
+  const setTrackStartAt = useCallback((id, startAt) => {
+    const clamped = Math.max(0, startAt);
+    const next = tracksRef.current.map((t) => (t.id === id ? { ...t, startAt: clamped } : t));
+    tracksRef.current = next;
+    setTracks(next);
+  }, []);
+
+  // { trackId, pointerId, startClientX, startAt, secondsPerPixel } while a
+  // clip drag is in progress, else null. secondsPerPixel is snapshotted
+  // once at drag start (from the arrangement pane's current width and the
+  // arrangement's current duration) rather than recomputed every move —
+  // the arrangement can get longer as you drag a clip further right, and
+  // recomputing against that growing length mid-drag would make the clip
+  // fight your own cursor instead of tracking it 1:1.
+  const dragClipRef = useRef(null);
+
+  const beginClipDrag = useCallback(
+    (e, track) => {
+      const container = arrangementRef.current;
+      if (!container) return;
+      e.stopPropagation();
+      const containerWidth = container.clientWidth || 1;
+      const secondsPerPixel = Math.max(arrangementDuration, 1) / containerWidth;
+      dragClipRef.current = {
+        trackId: track.id,
+        pointerId: e.pointerId,
+        startClientX: e.clientX,
+        startAt: track.startAt ?? 0,
+        secondsPerPixel,
+      };
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* ok — dragging still works without capture, just less robust if the pointer leaves the element */
+      }
+      setSelectedTrackId(track.id);
+    },
+    [arrangementDuration],
+  );
+
+  const onClipPointerMove = useCallback(
+    (e) => {
+      const drag = dragClipRef.current;
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      const deltaSec = (e.clientX - drag.startClientX) * drag.secondsPerPixel;
+      setTrackStartAt(drag.trackId, drag.startAt + deltaSec);
+    },
+    [setTrackStartAt],
+  );
+
+  const endClipDrag = useCallback(
+    (e) => {
+      const drag = dragClipRef.current;
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      dragClipRef.current = null;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ok */
+      }
+      if (isPlayingRef.current) playFrom(currentOffset());
+    },
+    [playFrom, currentOffset],
+  );
+
+  // ── Scrub: drag the red playhead line to seek to any position ──────────
+  // Same "update visually every move, only touch the live audio graph once
+  // the drag ends" split as the clip drag above — the mix keeps playing at
+  // wherever it already was while you drag (rebuilding the whole playback
+  // graph on every pointermove would glitch), and jumps to the new
+  // position the moment you let go. { pointerId, startClientX,
+  // startOffset, secondsPerPixel } while a scrub is in progress, else null
+  // — also checked by the playhead-poll effect below so it doesn't fight
+  // the drag by overwriting `playhead` with the (stale, pre-seek) live
+  // position every tick.
+  const dragPlayheadRef = useRef(null);
+
+  const beginPlayheadDrag = useCallback(
+    (e) => {
+      const container = arrangementRef.current;
+      if (!container || arrangementDuration <= 0) return;
+      e.stopPropagation();
+      const containerWidth = container.clientWidth || 1;
+      dragPlayheadRef.current = {
+        pointerId: e.pointerId,
+        startClientX: e.clientX,
+        startOffset: currentOffset(),
+        secondsPerPixel: arrangementDuration / containerWidth,
+      };
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* ok — dragging still works without capture, just less robust if the pointer leaves the element */
+      }
+    },
+    [arrangementDuration, currentOffset],
+  );
+
+  const onPlayheadPointerMove = useCallback(
+    (e) => {
+      const drag = dragPlayheadRef.current;
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      const deltaSec = (e.clientX - drag.startClientX) * drag.secondsPerPixel;
+      const next = clamp(drag.startOffset + deltaSec, 0, arrangementDuration);
+      pausedOffsetRef.current = next;
+      setPlayhead(next);
+    },
+    [arrangementDuration],
+  );
+
+  const endPlayheadDrag = useCallback(
+    (e) => {
+      const drag = dragPlayheadRef.current;
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      dragPlayheadRef.current = null;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ok */
+      }
+      if (isPlayingRef.current) playFrom(pausedOffsetRef.current);
+    },
+    [playFrom],
+  );
+
+  // Renders one track through its own chain + volume (offline, not the live
+  // playback graph) and downloads the result as a WAV — the per-track
+  // "Download" button in the tracklist.
+  const handleDownloadTrack = useCallback(async (id) => {
+    const track = tracksRef.current.find((t) => t.id === id);
+    if (!track || !track.buffer) return;
+    setDownloadError("");
+    setDownloadingTrackId(id);
+    try {
+      const rendered = await renderTrackOffline(engineCacheRef.current, track);
+      downloadAudioBufferAsWav(rendered, `${track.name || "track"}.wav`);
+    } catch (err) {
+      console.error("[DawWorkstationScreen] failed to render track for download", err);
+      setDownloadError("Could not render that track for download — see console for details.");
+    } finally {
+      setDownloadingTrackId(null);
+    }
+  }, []);
+
+  // Renders every track (its own chain + volume + mute) summed into one
+  // mixdown (offline) and downloads it as a WAV — the topbar's "Download
+  // Mix" button.
+  const handleDownloadMix = useCallback(async () => {
+    const list = tracksRef.current.filter((t) => t.buffer);
+    if (list.length === 0) return;
+    const ctx = await ensureContext();
+    if (!ctx) return;
+    setDownloadError("");
+    setDownloadingMix(true);
+    try {
+      const rendered = await renderMixOffline(engineCacheRef.current, list, ctx.sampleRate);
+      if (rendered) downloadAudioBufferAsWav(rendered, "studio-vr-mix.wav");
+    } catch (err) {
+      console.error("[DawWorkstationScreen] failed to render mix for download", err);
+      setDownloadError("Could not render the mix for download — see console for details.");
+    } finally {
+      setDownloadingMix(false);
+    }
+  }, [ensureContext]);
+
+  // The panorama's ambient "mild air" room tone AND the recording-room
+  // bleed (both spatialAudioEngine module-level singletons — see
+  // PanoramaTour.jsx) play continuously underneath the whole VR tour and
+  // keep running even while this overlay is open on top of them, since
+  // opening the DAW doesn't unmount PanoramaTour. Left alone, either would
+  // bleed into the mix the whole time you're working here (ironic, for the
+  // bleed one) — silence both for the duration the DAW is open, and restore
+  // them (to generic defaults; see DEFAULT_AMBIENCE/ROOM_BLEED above — this
+  // screen doesn't know the current room's own custom profiles) once you
+  // exit back to the studio.
+  useEffect(() => {
+    if (isOpen) {
+      stopAmbientBed();
+      stopRoomBleed();
+    } else {
+      setRoomAmbience(DEFAULT_AMBIENCE);
+      startRoomBleed(ROOM_BLEED.audio, ROOM_BLEED.yaw, ROOM_BLEED.pitch);
+    }
+  }, [isOpen]);
+
+  // Seed the mix with all three Hungarian Dance No. 5 stems as its default
+  // tracks the first time the screen opens — fetched in parallel (they're
+  // real ~20-45MB files), then added as tracks in a fixed order so the
+  // tracklist/colors come out the same every time regardless of which
+  // fetch happens to resolve first.
   useEffect(() => {
     if (!isOpen || tracksRef.current.length > 0) return;
     (async () => {
       const ctx = await ensureContext();
       if (!ctx) return;
-      if (!demoBufferRef.current) demoBufferRef.current = createDemoLoopBuffer(ctx);
-      addTrackWithBuffer(demoBufferRef.current, "Demo Loop");
+      const buffers = await Promise.all(
+        DEMO_CLIPS.map((clip) =>
+          loadDemoClip(ctx, clip).catch((err) => {
+            console.error("[DawWorkstationScreen] failed to load default demo track", clip.id, err);
+            return null;
+          }),
+        ),
+      );
+      let firstId = null;
+      DEMO_CLIPS.forEach((clip, i) => {
+        let buffer = buffers[i];
+        let name = clip.name;
+        if (!buffer) {
+          if (!demoBufferRef.current) demoBufferRef.current = createDemoLoopBuffer(ctx);
+          buffer = demoBufferRef.current;
+          name = "Demo Loop";
+        }
+        const id = addTrackWithBuffer(buffer, name);
+        if (firstId === null) firstId = id;
+      });
+      if (firstId !== null) setSelectedTrackId(firstId);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -1296,6 +1760,16 @@ function DawWorkstationScreen({ open, onClose }) {
                 <span className="bars">/ {fmtTime(arrangementDuration)}</span>
               </div>
               <div className="daw-topbar-right">
+                <button
+                  className="daw-btn small"
+                  onClick={() => {
+                    void handleDownloadMix();
+                  }}
+                  disabled={!tracks.some((t) => t.buffer) || downloadingMix}
+                  title="Render every track's own chain + volume + mute, summed together, and download the mix as one WAV"
+                >
+                  {downloadingMix ? "Rendering…" : "Download Mix"}
+                </button>
                 <div>
                   <div className="master-meter">
                     {[0.5, 0.8, 1.05, 0.7].map((mul, i) => (
@@ -1326,7 +1800,7 @@ function DawWorkstationScreen({ open, onClose }) {
                         {track.loadError ? (
                           <span className="track-sub-error">{track.loadError}</span>
                         ) : track.buffer ? (
-                          `${fmtTime(track.duration)} · ${track.chain.length} plugin${track.chain.length === 1 ? "" : "s"}${track.muted ? " · Muted" : ""}`
+                          `${track.startAt ? `@${fmtTime(track.startAt)} · ` : ""}${fmtTime(track.duration)} · ${track.chain.length} plugin${track.chain.length === 1 ? "" : "s"}${track.muted ? " · Muted" : ""}`
                         ) : (
                           "No audio"
                         )}
@@ -1358,16 +1832,31 @@ function DawWorkstationScreen({ open, onClose }) {
                           <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </label>
-                      <button
-                        className="tbtn"
-                        title="Use demo loop"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          loadDemoForTrack(track.id);
-                        }}
-                      >
-                        D
-                      </button>
+                      <div className="tbtn-select-wrap" onClick={(e) => e.stopPropagation()}>
+                        <span className="tbtn" aria-hidden="true">
+                          D
+                        </span>
+                        <select
+                          className="tbtn-select"
+                          value=""
+                          title="Load a Hungarian Dance No. 5 stem onto this track"
+                          aria-label="Load a demo clip onto this track"
+                          onChange={(e) => {
+                            const clip = DEMO_CLIPS.find((c) => c.id === e.target.value);
+                            if (clip) loadDemoForTrack(track.id, clip);
+                            e.target.value = "";
+                          }}
+                        >
+                          <option value="" disabled>
+                            Demo…
+                          </option>
+                          {DEMO_CLIPS.map((clip) => (
+                            <option key={clip.id} value={clip.id}>
+                              {clip.name.replace("Hungarian Dance No. 5 — ", "")}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                       <button
                         className={"tbtn m" + (track.muted ? " is-on" : "")}
                         title={track.muted ? "Unmute track" : "Mute track"}
@@ -1377,6 +1866,24 @@ function DawWorkstationScreen({ open, onClose }) {
                         }}
                       >
                         M
+                      </button>
+                      <button
+                        className="tbtn"
+                        title={track.buffer ? "Download this track (its own chain + volume) as a WAV" : "Add audio to this track first"}
+                        disabled={!track.buffer || downloadingTrackId === track.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleDownloadTrack(track.id);
+                        }}
+                      >
+                        {downloadingTrackId === track.id ? (
+                          "…"
+                        ) : (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 4v11M7.5 11.5 12 16l4.5-4.5" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M4 17v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
                       </button>
                       <button
                         className="tbtn danger"
@@ -1412,9 +1919,20 @@ function DawWorkstationScreen({ open, onClose }) {
                       {track.peaks ? (
                         <div
                           className="clip"
+                          title="Drag to move this track's start position — double-click to reset to 0:00"
                           style={{
                             "--track-color": `var(--${track.color})`,
+                            left: `${clamp(((track.startAt ?? 0) / Math.max(arrangementDuration, 0.001)) * 100, 0, 100)}%`,
                             width: `${clamp((track.duration / Math.max(arrangementDuration, 0.001)) * 100, 0, 100)}%`,
+                          }}
+                          onPointerDown={(e) => beginClipDrag(e, track)}
+                          onPointerMove={onClipPointerMove}
+                          onPointerUp={endClipDrag}
+                          onPointerCancel={endClipDrag}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setTrackStartAt(track.id, 0);
+                            if (isPlayingRef.current) playFrom(currentOffset());
                           }}
                         >
                           <svg viewBox={`0 0 ${track.peaks.length} 100`} preserveAspectRatio="none" className="wave-svg">
@@ -1433,7 +1951,15 @@ function DawWorkstationScreen({ open, onClose }) {
                   <div className="arr-row add-track-row-spacer" />
                 </div>
                 {arrangementDuration > 0 && (
-                  <div className="playhead" style={{ left: `${clamp((playhead / arrangementDuration) * 100, 0, 100)}%` }} />
+                  <div
+                    className="playhead"
+                    title="Drag to seek to any position"
+                    style={{ left: `${clamp((playhead / arrangementDuration) * 100, 0, 100)}%` }}
+                    onPointerDown={beginPlayheadDrag}
+                    onPointerMove={onPlayheadPointerMove}
+                    onPointerUp={endPlayheadDrag}
+                    onPointerCancel={endPlayheadDrag}
+                  />
                 )}
                 {tracks.length === 0 && <div className="mixer-empty-hint">No tracks yet — click + Add Track on the left to get started.</div>}
               </div>
@@ -1453,9 +1979,13 @@ function DawWorkstationScreen({ open, onClose }) {
                   )}
                 </div>
                 <div className="dock-hint">
-                  {selectedTrack
-                    ? "Click a plugin to add it — click a chip to open its editor — drag the grip (⠿) to reorder"
-                    : "Select a track on the left"}
+                  {downloadError ? (
+                    <span className="daw-error">{downloadError}</span>
+                  ) : selectedTrack ? (
+                    "Click a plugin to add it — click a chip to open its editor — drag the grip (⠿) to reorder"
+                  ) : (
+                    "Select a track on the left"
+                  )}
                 </div>
               </div>
 

@@ -24,6 +24,20 @@
 // must match a real file in public/audio/ exactly. Any common web audio
 // format works (mp3, m4a, ogg, wav). If a file is missing, that hotspot
 // just silently skips narration.
+//
+// A room's `roomBleed` field (optional) is a real audio file that loops
+// quietly in the background for as long as the student is standing in that
+// room, spatialized to a fixed (yaw, pitch) via HRTF — see
+// startRoomBleed()/stopRoomBleed() in spatialAudioEngine.js. Unlike
+// `markers[].audio` above it isn't triggered by clicking anything; it just
+// plays on arrival, deliberately quiet, meant to read as sound leaking in
+// from elsewhere (e.g. a session running in an adjacent room) rather than
+// something happening in this one. `volumeControls` is the matching
+// in-scene hotspot (its own yaw/pitch, separate from the bleed source's own
+// position) that opens a small slider + mute panel for adjusting it —
+// `target` names which `roomBleed`-shaped field it controls (only
+// "roomBleed" exists today, but the indirection leaves room for more than
+// one adjustable bed per room later).
 
 export const ROOMS = [
   {
@@ -35,11 +49,36 @@ export const ROOMS = [
     // room's live-ish, slightly airy tone (synthetic filtered noise, not a
     // recording).
     ambience: { filterFreq: 500, gain: 0.03, gustDepth: 0.015 },
+    // Faint, continuous "something's happening next door" bed — a real
+    // recording (unlike the synthetic ambience above), positioned roughly
+    // toward the recording-room doorway (compare the door link's yaw/pitch
+    // just below) so it reads as bleeding through the wall from an active
+    // session in there rather than playing in this room. Kept quiet by
+    // design — see BLEED_CEILING_GAIN in spatialAudioEngine.js, which the
+    // volumeControls slider below can only ever turn up to, never past.
+    roomBleed: {
+      audio: "/audio/BolzAndKnecht_HungarianDanceNo5_Full/03_Saxophone.wav",
+      yaw: 127.7,
+      pitch: 0.4,
+    },
     links: [
       {
         nodeId: "recording-room",
         yaw: 120.5,
         pitch: -3.4,
+      },
+    ],
+    // In-scene control for the roomBleed bed above: its own hotspot
+    // (separate position from the bleed source itself) that opens a small
+    // volume slider + mute panel. See the `kind: "volume"` marker handling
+    // in PanoramaTour.jsx.
+    volumeControls: [
+      {
+        id: "recording-room-bleed-volume",
+        target: "roomBleed",
+        yaw: 58.3,
+        pitch: -20.1,
+        title: "Recording Room Bleed",
       },
     ],
     markers: [

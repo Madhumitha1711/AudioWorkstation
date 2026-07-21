@@ -2,12 +2,17 @@
 // binaural/HRTF-panned audio, tied to wherever the student is currently
 // looking in the panorama.
 //
-// Only two things actually play: the ambient bed — a synthetic "mild air"
+// Three things actually play: the ambient bed — a synthetic "mild air"
 // tone (filtered white noise, see startAmbientBed() below; no audio file
-// involved) — and hotspot narration — real uploaded audio files (see
+// involved) — hotspot narration — real uploaded audio files (see
 // playHotspotNarration) played on demand through an HRTF PannerNode when a
 // hotspot is selected — genuinely spatial, unlike browser text-to-speech,
-// which can't be routed through Web Audio nodes at all.
+// which can't be routed through Web Audio nodes at all — and room bleed — a
+// real audio file that loops quietly from a fixed point in a room's
+// panorama for as long as the student is standing in that room (see
+// startRoomBleed()), meant to read as sound leaking in from elsewhere
+// (e.g. a session running in an adjacent room) rather than something
+// playing in this one.
 //
 // Every spatialized source also passes through createElevationShelf(), a
 // brightness cue layered on top of the HRTF panner to make up/down position
@@ -61,6 +66,55 @@ const extraBinauralRoutings = new Set();
 // Default ambient profile used until a room supplies its own (see
 // setRoomAmbience()). Values chosen to match the original "mild air" bed.
 const DEFAULT_AMBIENCE = { filterFreq: 500, gain: 0.03, gustDepth: 0.015 };
+
+// ---- Room bleed (see startRoomBleed() further down) ------------------------
+// Starting position (0..1) of the in-scene volume-slider hotspot. At this
+// default the bed sits roughly in line with the ambient bed's own gain
+// (~0.03) — perceptible as "something's happening next door" without ever
+// competing with it.
+const DEFAULT_BLEED_VOLUME = 0.4;
+// Gain at slider = 1 (100%), applied AFTER the compressor/makeup gain built
+// in startRoomBleed() below — i.e. after the source recording's own (often
+// much quieter/raw) mix level has already been normalized out, so this is a
+// predictable multiplier on top of a consistently-loud signal rather than
+// on top of whatever the recording happened to be mixed at.
+//
+// Deliberately capped so that even at 100% this never stops sounding like
+// bleed-through from another room — the compressor/makeup stage alone would
+// otherwise be loud enough (it's built for consistent audibility, not
+// subtlety) to read as something playing in THIS room. Combined with
+// BLEED_THROUGH_WALL_CUTOFF below (the muffling is what actually sells
+// "another room" — this gain cap just keeps it from being loud regardless
+// of how muffled it sounds).
+const BLEED_CEILING_GAIN = 1.0;
+// Lowpass cutoff (Hz) simulating sound transmission through a wall/door —
+// real walls attenuate high frequencies far more than low ones, which is a
+// big part of why bleed-through reads as "somewhere else" rather than just
+// "quieter". Applied on top of the volume cap above, not instead of it —
+// muffled-but-loud would still read as being in this room.
+const BLEED_THROUGH_WALL_CUTOFF = 900;
+
+// Guards a slow-loading clip against a stop/restart that happened while it
+// was still fetching/decoding (e.g. the student walked to another room
+// before the file finished decoding) — the stale response is dropped rather
+// than starting a second, overlapping loop.
+let bleedRequestToken = 0;
+let bleedSource = null;
+let bleedCompressor = null;
+let bleedMakeupGain = null;
+let bleedThroughWallFilter = null;
+let bleedLevelGain = null; // the ONLY node setRoomBleedVolume()/setRoomBleedMuted() touch
+let bleedSpatialPathGain = null;
+let bleedPlainPathGain = null;
+let bleedPanner = null;
+let bleedElevationShelf = null;
+let bleedRouting = null; // registered with extraBinauralRoutings while playing
+let bleedVolume = DEFAULT_BLEED_VOLUME;
+let bleedMuted = false;
+
+function computeBleedGain() {
+  return bleedMuted ? 0 : BLEED_CEILING_GAIN * bleedVolume;
+}
 
 /**
  * Converts yaw/pitch in degrees (same convention used throughout
@@ -389,6 +443,207 @@ export function stopHotspotNarration() {
     currentNarrationSource = null;
   }
   currentNarrationRouting = null;
+}
+
+/**
+ * Starts a real audio file looping quietly from a fixed point in the
+ * current room's panorama — see the `roomBleed` field on a room in
+ * roomsData.js. Unlike playHotspotNarration() above (one-shot, triggered by
+ * clicking a marker) this loops indefinitely once started, and unlike the
+ * synthetic ambient bed (startAmbientBed()) it's a real decoded audio file.
+ *
+ * Spatialized through the same HRTF panner + elevation shelf as narration,
+ * fixed at (yawDeg, pitchDeg) — that position never moves, so what changes
+ * as the student looks around is the *listener* orientation (see
+ * updateListenerOrientation()), which is exactly what makes this correctly
+ * pan/rotate with binaural HRTF as they turn toward or away from it. A
+ * plain, non-HRTF fallback path is always built alongside the spatial one
+ * and crossfaded by the shared binaural toggle (setBinauralEnabled()), same
+ * as createStudioSpeakerBus() below, so switching binaural off still gives a
+ * faint left/right sense of "off that way" instead of nothing.
+ *
+ * Raw multitrack stems (like the recording-room take used by default) are
+ * mixed at very different, often much quieter levels than a finished
+ * narration clip — e.g. the built-in default measures around -30dB average
+ * with -8dB peaks, versus a normally-mixed clip sitting much hotter. A
+ * safety-net compressor + makeup gain (same pattern as
+ * playHotspotNarration()'s, just tuned harder for quieter, swingier raw
+ * material) normalizes that out first, so BLEED_CEILING_GAIN below is a
+ * predictable "how audible is the bleed" dial regardless of how the source
+ * file itself happens to be mixed, and so pushing the volume slider to 100%
+ * doesn't clip on the recording's own loud transients.
+ *
+ * Volume is entirely separate from the ambient bed and from hotspot
+ * narration — see setRoomBleedVolume()/setRoomBleedMuted(), meant to be
+ * driven by an in-scene volume-slider hotspot (roomsData.js
+ * `volumeControls`) — and is deliberately capped (BLEED_CEILING_GAIN) below
+ * a normal foreground level so it always reads as bleed-through from
+ * another room. Safe to call again before a previous call's fetch/decode
+ * has resolved, or while nothing is playing (e.g. from stopRoomBleed()) —
+ * a stale response is dropped rather than starting two overlapping loops.
+ */
+export async function startRoomBleed(url, yawDeg, pitchDeg) {
+  stopRoomBleed();
+  if (!audioCtx || !masterGain || !url) return;
+
+  const requestToken = ++bleedRequestToken;
+  let buffer;
+  try {
+    buffer = await loadAudioBuffer(url);
+  } catch (err) {
+    console.warn("[spatial-audio]", err.message);
+    return;
+  }
+  // A newer start/stop happened while this was loading — drop it rather
+  // than starting a loop nobody asked for anymore.
+  if (requestToken !== bleedRequestToken || !audioCtx) return;
+
+  const source = audioCtx.createBufferSource();
+  source.buffer = buffer;
+  source.loop = true;
+
+  // Safety-net compressor + makeup gain — see the doc comment above. Harder
+  // knee/ratio and slower release than narration's own compressor since
+  // this is meant to tame an unmixed instrument take's peaks (not close-mic
+  // speech) while still lifting its quiet average level.
+  bleedCompressor = audioCtx.createDynamicsCompressor();
+  bleedCompressor.threshold.value = -34;
+  bleedCompressor.knee.value = 8;
+  bleedCompressor.ratio.value = 8;
+  bleedCompressor.attack.value = 0.008;
+  bleedCompressor.release.value = 0.3;
+
+  bleedMakeupGain = audioCtx.createGain();
+  bleedMakeupGain.gain.value = 4.5;
+
+  // "Through the wall" muffling — see BLEED_THROUGH_WALL_CUTOFF above. This
+  // is what actually makes it read as another room rather than just a quiet
+  // clip in this one.
+  bleedThroughWallFilter = audioCtx.createBiquadFilter();
+  bleedThroughWallFilter.type = "lowpass";
+  bleedThroughWallFilter.frequency.value = BLEED_THROUGH_WALL_CUTOFF;
+  bleedThroughWallFilter.Q.value = 0.6;
+
+  bleedLevelGain = audioCtx.createGain();
+  bleedLevelGain.gain.value = computeBleedGain();
+  source
+    .connect(bleedCompressor)
+    .connect(bleedMakeupGain)
+    .connect(bleedThroughWallFilter)
+    .connect(bleedLevelGain);
+
+  // Plain (non-spatial) path — always built, gated by bleedPlainPathGain.
+  bleedPlainPathGain = audioCtx.createGain();
+  bleedPlainPathGain.gain.value = binauralEnabled ? 0 : 1;
+  bleedLevelGain.connect(bleedPlainPathGain).connect(masterGain);
+
+  // Spatial (HRTF) path — always built, gated by bleedSpatialPathGain, so
+  // toggling binaural is a crossfade rather than tearing down the graph.
+  bleedPanner = audioCtx.createPanner();
+  bleedPanner.panningModel = "HRTF";
+  bleedPanner.distanceModel = "inverse";
+  bleedPanner.refDistance = 1;
+  const pos = sphericalToCartesian(yawDeg, pitchDeg, 2.5);
+  if (bleedPanner.positionX) {
+    bleedPanner.positionX.value = pos.x;
+    bleedPanner.positionY.value = pos.y;
+    bleedPanner.positionZ.value = pos.z;
+  } else if (bleedPanner.setPosition) {
+    bleedPanner.setPosition(pos.x, pos.y, pos.z);
+  }
+  bleedElevationShelf = createElevationShelf(pitchDeg);
+
+  bleedSpatialPathGain = audioCtx.createGain();
+  bleedSpatialPathGain.gain.value = binauralEnabled ? 1 : 0;
+  bleedLevelGain
+    .connect(bleedElevationShelf)
+    .connect(bleedPanner)
+    .connect(bleedSpatialPathGain)
+    .connect(masterGain);
+
+  source.start();
+  bleedSource = source;
+  bleedRouting = { spatialPathGain: bleedSpatialPathGain, plainPathGain: bleedPlainPathGain };
+  registerBinauralRouting(bleedRouting);
+}
+
+/**
+ * Stops and tears down the room-bleed loop (see startRoomBleed()), if one is
+ * playing. Safe to call even if nothing is currently playing. Called on
+ * every room change (a bleed source belongs to whichever room defined it)
+ * and on unmounting the tour, for the same "otherwise it just keeps
+ * playing forever" reason stopAmbientBed() exists.
+ */
+export function stopRoomBleed() {
+  bleedRequestToken++; // invalidate any in-flight startRoomBleed() load
+  if (bleedRouting) {
+    unregisterBinauralRouting(bleedRouting);
+    bleedRouting = null;
+  }
+  if (bleedSource) {
+    try {
+      bleedSource.stop();
+    } catch {
+      // already stopped
+    }
+    bleedSource.disconnect();
+    bleedSource = null;
+  }
+  for (const node of [bleedCompressor, bleedMakeupGain, bleedThroughWallFilter, bleedLevelGain, bleedPlainPathGain, bleedSpatialPathGain, bleedPanner, bleedElevationShelf]) {
+    if (node) {
+      try {
+        node.disconnect();
+      } catch {
+        // already disconnected
+      }
+    }
+  }
+  bleedCompressor = null;
+  bleedMakeupGain = null;
+  bleedThroughWallFilter = null;
+  bleedLevelGain = null;
+  bleedPlainPathGain = null;
+  bleedSpatialPathGain = null;
+  bleedPanner = null;
+  bleedElevationShelf = null;
+}
+
+/**
+ * Sets the room-bleed's own volume (0..1) — entirely separate from the
+ * master mute (setMuted()), the ambient bed, and narration. Meant to be
+ * driven by an in-scene volume-slider hotspot on a 0-100 scale (divide by
+ * 100 before passing in here). Ramped rather than snapped so dragging the
+ * slider doesn't click.
+ */
+export function setRoomBleedVolume(value) {
+  bleedVolume = Math.min(1, Math.max(0, value));
+  if (!audioCtx || !bleedLevelGain) return;
+  const now = audioCtx.currentTime;
+  bleedLevelGain.gain.cancelScheduledValues(now);
+  bleedLevelGain.gain.linearRampToValueAtTime(computeBleedGain(), now + 0.05);
+}
+
+/** Current room-bleed volume (0..1), persisted even while nothing is
+ * playing so the slider reflects the right position after switching rooms. */
+export function getRoomBleedVolume() {
+  return bleedVolume;
+}
+
+/**
+ * Mutes/unmutes just the room-bleed, independent of the master mute
+ * (setMuted()) — muting this never touches the ambient bed or narration,
+ * and the master mute still silences this too regardless of this flag.
+ */
+export function setRoomBleedMuted(value) {
+  bleedMuted = value;
+  if (!audioCtx || !bleedLevelGain) return;
+  const now = audioCtx.currentTime;
+  bleedLevelGain.gain.cancelScheduledValues(now);
+  bleedLevelGain.gain.linearRampToValueAtTime(computeBleedGain(), now + 0.05);
+}
+
+export function isRoomBleedMuted() {
+  return bleedMuted;
 }
 
 /**
