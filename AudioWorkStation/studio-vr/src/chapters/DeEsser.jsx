@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { FaustMonoDspGenerator } from '@grame/faustwasm';
 import { compileFaustWasm } from '../faust/faustTypes';
 import { downloadAudioBufferAsWav } from '../audio/wavRender';
+import { DEFAULTS, ADDR, pushFaustParams, METER_FLOOR_DB, analyserPeakDb } from './deEsserEngine';
 // ── Chapter 12 — De-Esser Studio ────────────────────────────────────────────
 // "Tame Sibilance with a Split-Band De-Esser". Real DSP lives at
 // public/faust/deesser/ (source: deesser.dsp, compiled to dsp-module.wasm +
@@ -34,20 +35,18 @@ const KNOBS = [
     { key: 'thresh', label: 'THRESH', min: -60, max: 0, step: 0.1, fmt: v => `${v.toFixed(1)} dB` },
     { key: 'range', label: 'RANGE', min: -30, max: 0, step: 0.1, fmt: v => `${v.toFixed(1)} dB` },
 ];
-// Defaults — mirror the `init` values in public/faust/deesser/dsp-meta.json.
-const DEFAULTS = {
-    freq: 3385,
-    type: 0,
-    thresh: -29.6,
-    range: -12.6,
-};
+// DEFAULTS / ADDR / pushFaustParams / METER_FLOOR_DB / analyserPeakDb now
+// live in ./deEsserEngine (imported above) — split out so this file only
+// exports components (DeEsser, DeEsserEditorPanel below), which is what a
+// host that already owns its own Faust node — e.g. the DAW workstation's
+// insert chain — imports to drive the SAME de-esser UI/logic this file uses
+// for the standalone chapter lab, instead of reimplementing it generically.
 const TYPE_OPTIONS = [
     { value: 0, label: 'High-Pass/Shelf' },
     { value: 1, label: 'Band-Pass' },
 ];
 // ── Faust de-esser engine wiring ──────────────────────────────────────────────
 const FAUST_BASE_PATH = '/faust/deesser';
-// Faust addresses, from public/faust/deesser/dsp-meta.json's `ui` tree.
 // public/faust/deesser/deesser.dsp (v1.4) fixed two bugs that used to live
 // here as frontend workarounds, both now fixed at the DSP source instead:
 //   1) Band-Pass's bandpass corners are clamped to stay below Nyquist
@@ -55,29 +54,12 @@ const FAUST_BASE_PATH = '/faust/deesser';
 //      up to NaN at high Freq — the full 1000-20000 Hz range is safe again
 //      for both Types, no frontend clamp needed.
 //   2) The patch now exposes a real Gain_Reduction bargraph (see
-//      `gainReduction` below), so the live Attenuation readout can read
-//      the DSP's actual gain reduction directly instead of inferring it
-//      from broadband input/output level — which used to make Band-Pass
-//      look like it was "always passing" even when it was working, since
-//      its ~1-octave sibilant band is a small fraction of total signal
-//      energy and barely moves a broadband level reading.
-const ADDR = {
-    freq: '/deesser/Freq',
-    type: '/deesser/Type',
-    thresh: '/deesser/Thresh',
-    range: '/deesser/Range',
-    gainReduction: '/deesser/Gain_Reduction', // read-only hbargraph output
-};
-// The de-esser patch has no internal Wet_Dry, so bypass and wet/dry mixing
-// are done at the WebAudio graph level instead — a dry/wet crossfade around
-// the Faust node — same pattern the limiter (Chapter11) and gate
-// (Chapter10) use.
-function pushFaustParams(node, params) {
-    node.setParamValue(ADDR.freq, params.freq);
-    node.setParamValue(ADDR.type, params.type);
-    node.setParamValue(ADDR.thresh, params.thresh);
-    node.setParamValue(ADDR.range, params.range);
-}
+//      ADDR.gainReduction, in ./deEsserEngine), so the live Attenuation
+//      readout can read the DSP's actual gain reduction directly instead of
+//      inferring it from broadband input/output level — which used to make
+//      Band-Pass look like it was "always passing" even when it was
+//      working, since its ~1-octave sibilant band is a small fraction of
+//      total signal energy and barely moves a broadband level reading.
 // Renders an uploaded track through the same Faust de-esser + dry/wet
 // crossfade used live (an OfflineAudioContext instead of a live one), so it
 // can be exported as a WAV.
@@ -394,8 +376,8 @@ function describeArc(r, start, end) {
     return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
 }
 // ── Level ballistics — real, smoothed input/output dB, feeding the live
-// scope (the "how much is happening right now, in motion" trace). ─────────
-const METER_FLOOR_DB = -60;
+// scope (the "how much is happening right now, in motion" trace). Uses
+// METER_FLOOR_DB from ./deEsserEngine (imported above). ────────────────────
 const LEVEL_ATTACK_S = 0.01;
 const LEVEL_RELEASE_S = 0.15;
 function levelBallistic(prev, target, dt) {
@@ -511,6 +493,219 @@ function normalizeUploadedBuffer(buf, peakTarget = 0.85) {
         }
     }
 }
+// ── Reusable de-esser editor panel ───────────────────────────────────────────
+// The knobs, Type dropdown, split-band curve and live scope below used to be
+// inlined straight into the standalone DeEsser() page. Pulled out here so ANY
+// host that already owns a live Faust de-esser node — the standalone chapter
+// lab below, or the DAW workstation's insert-chain popup — can render the
+// exact same controls/visualizer instead of building a new, generic one. The
+// host is responsible for the actual audio graph (creating the Faust node,
+// wiring dry/wet, pushing params via pushFaustParams) and for supplying:
+//   - params / setParams, bypass — plain state
+//   - isPlaying — whether the host currently has live audio flowing, so the
+//     scope/curve animation loop below only runs while there's something to
+//     read
+//   - getInputDb() — called once per animation frame; returns the live
+//     broadband input level in dB off the host's own pre-effect analyser, or
+//     null if none is live yet (same idea as the gate's getLevels().inputDb)
+//   - getGainReductionDb() — called once per animation frame; returns the
+//     DSP's own live Gain_Reduction bargraph value (read via the host's
+//     setOutputParamHandler subscription for ADDR.gainReduction), or
+//     undefined/0 if none is live yet
+//   - getNow() — returns the audio clock (ctx.currentTime) driving the
+//     scope's scroll, so it stays in sync with the actual audio rather than
+//     performance.now() drifting from it
+//   - onAttenuationChange(db) — optional, lets the host mirror the live
+//     (smoothed) attenuation reading in its own UI (e.g. a topbar badge) —
+//     same idea as the gate's onOpenChange
+export function DeEsserEditorPanel({ params, setParams, bypass, isPlaying, getInputDb, getGainReductionDb, getNow, onAttenuationChange, }) {
+    const curveRef = useRef(null);
+    const scopeRef = useRef(null);
+    const scopeHistoryRef = useRef([]);
+    const smoothedInputDbRef = useRef(METER_FLOOR_DB);
+    const smoothedAttenDbRef = useRef(0);
+    const meterClockRef = useRef(null);
+    const animRef = useRef(0);
+    const paramsRef = useRef(params);
+    const bypassRef = useRef(bypass);
+    const mainDragRef = useRef(null);
+    useEffect(() => { paramsRef.current = params; }, [params]);
+    useEffect(() => { bypassRef.current = bypass; }, [bypass]);
+    // Static split-band curve while stopped — once playing, the animation loop
+    // below redraws every frame so the live Attenuation line can move.
+    useEffect(() => {
+        if (!isPlaying && curveRef.current) {
+            drawDeesserCurve(curveRef.current, params, 0, false);
+        }
+    }, [params, isPlaying]);
+    // Live scope + curve animation — same math the chapter lab always used,
+    // just reading levels through the host-supplied getInputDb/getGainReductionDb
+    // instead of owning its own analysers/output-param subscription.
+    useEffect(() => {
+        if (!isPlaying) {
+            cancelAnimationFrame(animRef.current);
+            scopeHistoryRef.current = [];
+            smoothedAttenDbRef.current = 0;
+            onAttenuationChange?.(0);
+            if (scopeRef.current) {
+                const c = scopeRef.current.getContext('2d');
+                c.fillStyle = '#0D0D0F';
+                c.fillRect(0, 0, scopeRef.current.width, scopeRef.current.height);
+            }
+            return;
+        }
+        const tick = () => {
+            const now = getNow?.() ?? performance.now() / 1000;
+            const dt = meterClockRef.current !== null ? Math.max(0, Math.min(0.2, now - meterClockRef.current)) : 0;
+            meterClockRef.current = now;
+            const inputDb = getInputDb?.();
+            if (inputDb !== null && inputDb !== undefined) {
+                smoothedInputDbRef.current = levelBallistic(smoothedInputDbRef.current, inputDb, dt);
+            }
+            if (!bypassRef.current) {
+                smoothedAttenDbRef.current = grReadoutSmooth(smoothedAttenDbRef.current, getGainReductionDb?.() ?? 0, dt);
+            }
+            else {
+                smoothedAttenDbRef.current = 0;
+            }
+            onAttenuationChange?.(smoothedAttenDbRef.current);
+            const outputDb = smoothedInputDbRef.current + smoothedAttenDbRef.current;
+            const history = scopeHistoryRef.current;
+            history.push({ t: now, inputDb: smoothedInputDbRef.current, outputDb });
+            const cutoff = now - SCOPE_WINDOW_S - 0.5;
+            while (history.length > 0 && history[0].t < cutoff)
+                history.shift();
+            if (scopeRef.current) {
+                drawDeesserScope(scopeRef.current, history, now, paramsRef.current.thresh, !bypassRef.current);
+            }
+            if (curveRef.current) {
+                drawDeesserCurve(curveRef.current, paramsRef.current, smoothedAttenDbRef.current, !bypassRef.current);
+            }
+            animRef.current = requestAnimationFrame(tick);
+        };
+        animRef.current = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(animRef.current);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isPlaying, getInputDb, getGainReductionDb, getNow]);
+    const onMainKnobDown = useCallback((e, spec, val) => {
+        e.preventDefault();
+        mainDragRef.current = { spec, startY: e.clientY, startFrac: specToFrac(spec, val) };
+    }, []);
+    useEffect(() => {
+        const onMove = (e) => {
+            const d = mainDragRef.current;
+            if (!d)
+                return;
+            const frac = Math.min(1, Math.max(0, d.startFrac + (d.startY - e.clientY) / 220));
+            const raw = specFromFrac(d.spec, frac);
+            const clamped = Math.min(d.spec.max, Math.max(d.spec.min, Math.round(raw / d.spec.step) * d.spec.step));
+            setParams(p => ({ ...p, [d.spec.key]: clamped }));
+        };
+        const onUp = () => { mainDragRef.current = null; };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    }, [setParams]);
+    return (<div className="comp-body">
+      {/* Left: knobs + type dropdown */}
+      <div className="comp-controls">
+        <div className="canvas-label" style={{ marginBottom: '1rem' }}>
+          DE-ESSER PARAMETERS · DRAG KNOBS VERTICALLY
+        </div>
+
+        <div className="knob-grid">
+          {KNOBS.map(spec => {
+            const val = params[spec.key];
+            const rot = knobRotationForSpec(spec, val);
+            return (<div className="knob-wrap" key={spec.key}>
+                  <div style={{ position: 'relative', width: 64, height: 64 }}>
+                    <svg style={{ position: 'absolute', top: 0, left: 0 }} width={64} height={64} viewBox="-32 -32 64 64">
+                      <path d={describeArc(28, -140, 140)} fill="none" stroke="var(--border)" strokeWidth={3} strokeLinecap="round"/>
+                      <path d={describeArc(28, -140, rot)} fill="none" stroke="var(--blue)" strokeWidth={3} strokeLinecap="round" opacity={0.85}/>
+                    </svg>
+                    <div className="big-knob" style={{ position: 'absolute', top: 6, left: 6, width: 52, height: 52, cursor: 'ns-resize', userSelect: 'none' }} onMouseDown={e => onMainKnobDown(e, spec, val)}>
+                      <div style={{
+                    position: 'absolute', top: '50%', left: '50%',
+                    width: 3, height: 16, background: 'var(--text)', borderRadius: 2,
+                    transformOrigin: 'bottom center',
+                    transform: `translate(-50%, -100%) rotate(${rot}deg)`,
+                    marginTop: -2,
+                }}/>
+                    </div>
+                  </div>
+                  <div className="knob-name">{spec.label}</div>
+                  <div className="knob-val">{spec.fmt(val)}</div>
+                  <KnobNumberInput value={val} min={spec.min} max={spec.max} step={spec.step} onChange={v => setParams(p => ({ ...p, [spec.key]: v }))}/>
+                </div>);
+        })}
+        </div>
+
+        {/* Type dropdown — the only other control the Faust patch exposes.
+            No Mode selector: dsp-meta.json's ui tree has just these four
+            controls, so there's nothing else to show. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginTop: '0.5rem' }}>
+          <label htmlFor="deesser-type" style={{
+            fontFamily: 'var(--mono)', fontSize: '0.6rem', color: 'var(--text-dim)',
+            letterSpacing: '0.08em', textTransform: 'uppercase',
+        }}>
+            Type
+          </label>
+          <select id="deesser-type" value={params.type} onChange={e => setParams(p => ({ ...p, type: Number(e.target.value) }))} style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: '3px',
+            color: 'var(--text)',
+            fontFamily: 'var(--mono)',
+            fontSize: '0.65rem',
+            padding: '0.3rem 0.5rem',
+            outline: 'none',
+            cursor: 'pointer',
+        }}>
+            {TYPE_OPTIONS.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+          </select>
+        </div>
+
+        <div style={{ marginTop: '1rem' }}>
+          <div className="concept-callout" style={{ background: 'var(--blue-dim)', borderColor: 'rgba(77,158,255,0.2)' }}>
+            <strong style={{ color: 'var(--blue)' }}>Concept: </strong>
+            Freq sets where the signal splits into a low band and a sibilant high band; Thresh decides
+            when the high band starts getting compressed; Range caps the hardest cut it can ever take.
+            Type decides how sharply the split happens — <strong style={{ color: 'var(--blue)' }}>High-Pass/Shelf</strong> is
+            gentle, <strong style={{ color: 'var(--blue)' }}>Band-Pass</strong> carves a steeper, more surgical band out
+            around Freq.
+          </div>
+        </div>
+      </div>
+
+      {/* Right: split-band curve + live scope */}
+      <div className="comp-visual">
+        <div className="canvas-label" style={{ marginBottom: '0.75rem' }}>
+          SPLIT-BAND RESPONSE — FREQUENCY vs ATTENUATION
+          <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
+            · green = sibilant band, red = low band, shaped by FREQ &amp; TYPE — live scope below shows THRESH/RANGE in motion
+          </span>
+        </div>
+        <div className="transfer-graph">
+          <canvas ref={curveRef} width={400} height={200} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
+        </div>
+
+        <div className="canvas-label" style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>
+          LIVE DE-ESSER SCOPE {!isPlaying && '· HIT PLAY TO SEE LIVE SIGNAL'}
+          <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
+            · real input/output level over time — watch the output dip on every "s" burst
+          </span>
+        </div>
+        <div className="scope-graph">
+          <canvas ref={scopeRef} width={400} height={150} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
+        </div>
+        <div className="legend-row" style={{ marginTop: '0.5rem', marginBottom: 0 }}>
+          <div className="legend-item"><span className="legend-line" style={{ background: '#00FF87' }}/>INPUT</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: '#4D9EFF' }}/>OUTPUT</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: '#F5A623' }}/>ATTENUATION</div>
+        </div>
+      </div>
+    </div>);
+}
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function DeEsser() {
     const [params, setParams] = useState(DEFAULTS);
@@ -534,10 +729,6 @@ export default function DeEsser() {
     useEffect(() => { activeSourceIdRef.current = activeSourceId; }, [activeSourceId]);
     useEffect(() => { uploadedTracksRef.current = uploadedTracks; }, [uploadedTracks]);
     const activeTrack = activeSourceId !== 'synth' ? uploadedTracks.find(t => t.id === activeSourceId) : undefined;
-    // Canvas refs
-    const curveRef = useRef(null);
-    const scopeRef = useRef(null);
-    const scopeHistoryRef = useRef([]);
     // Faust de-esser engine (module + meta loaded once on mount, one node
     // instantiated per AudioContext in startAudio — same pattern as Chapter4's
     // compressor / Chapter10's gate / Chapter11's limiter).
@@ -579,24 +770,18 @@ export default function DeEsser() {
     const dryGainRef = useRef(null);
     const wetGainRef = useRef(null);
     const finalAnalRef = useRef(null); // taps the actual blended output (reflects bypass)
-    const animRef = useRef(0);
     const startTokenRef = useRef(0);
     const paramsRef = useRef(params);
     const bypassRef = useRef(bypass);
     useEffect(() => { paramsRef.current = params; }, [params]);
     useEffect(() => { bypassRef.current = bypass; }, [bypass]);
-    // Meter ballistics state
-    const smoothedInputDbRef = useRef(METER_FLOOR_DB);
-    const smoothedAttenDbRef = useRef(0);
-    const meterClockRef = useRef(null);
     // Latest raw Gain_Reduction value pushed from the audio thread — this is a
     // read-only DSP *output*, never registered as an AudioParam, so it can't
     // be read with faustNode.getParamValue() every frame; it arrives via
-    // setOutputParamHandler (see startAudio) instead. Same pattern as the
-    // limiter's (Chapter11) grRawRef.
+    // setOutputParamHandler (see startAudio) instead. Read by
+    // DeEsserEditorPanel's getGainReductionDb prop (see render below). Same
+    // pattern as the limiter's (Chapter11) grRawRef.
     const grRawRef = useRef(0);
-    // Knob drag ref
-    const mainDragRef = useRef(null);
     // ── Sync Faust de-esser params (always live — bypass is handled by the
     // dry/wet crossfade below, not by touching the DSP itself) ───────────────
     useEffect(() => {
@@ -614,13 +799,6 @@ export default function DeEsser() {
         wet.gain.setTargetAtTime(w, ac.currentTime, 0.01);
         dry.gain.setTargetAtTime(1 - w, ac.currentTime, 0.01);
     }, [bypass]);
-    // ── Static curve redraw while stopped (once playing, animate() redraws
-    // every frame so the live Attenuation line can move) ─────────────────────
-    useEffect(() => {
-        if (!isPlaying && curveRef.current) {
-            drawDeesserCurve(curveRef.current, params, 0, false);
-        }
-    }, [params, isPlaying]);
     // ── Task tracking ─────────────────────────────────────────────────────────
     useEffect(() => {
         setTasks([
@@ -630,61 +808,12 @@ export default function DeEsser() {
             params.type !== DEFAULTS.type,
         ]);
     }, [params]);
-    // ── Animation loop ────────────────────────────────────────────────────────
-    const animate = useCallback(() => {
-        const dryAnal = dryAnalRef.current;
-        const now = ctxRef.current?.currentTime ?? performance.now() / 1000;
-        const dt = meterClockRef.current !== null ? Math.max(0, Math.min(0.2, now - meterClockRef.current)) : 0;
-        meterClockRef.current = now;
-        if (dryAnal) {
-            const buf = new Float32Array(dryAnal.fftSize);
-            dryAnal.getFloatTimeDomainData(buf);
-            let peak = 0;
-            for (let i = 0; i < buf.length; i++)
-                peak = Math.max(peak, Math.abs(buf[i]));
-            const rawInputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
-            smoothedInputDbRef.current = levelBallistic(smoothedInputDbRef.current, rawInputDb, dt);
-        }
-        // Live Attenuation: the DSP's own real Gain_Reduction bargraph (see
-        // ADDR.gainReduction / grRawRef, pushed via setOutputParamHandler in
-        // startAudio), not an estimate from broadband input/output level. That
-        // broadband-diff estimate used to badly under-report Band-Pass, whose
-        // sibilant band is only ~1 octave wide and so is a small fraction of
-        // total signal energy — a real cut there barely moves a broadband
-        // level reading even though the DSP is genuinely applying it.
-        if (!bypassRef.current) {
-            smoothedAttenDbRef.current = grReadoutSmooth(smoothedAttenDbRef.current, grRawRef.current, dt);
-            setAttenuation(smoothedAttenDbRef.current);
-        }
-        else {
-            smoothedAttenDbRef.current = 0;
-            setAttenuation(0);
-        }
-        if (dryAnal && finalAnalRef.current) {
-            const history = scopeHistoryRef.current;
-            // outputDb is synthesized from the real input level minus the DSP's
-            // real Gain_Reduction (smoothedAttenDbRef), not read from finalAnal's
-            // broadband peak. A broadband reading of the final mix barely dips
-            // for Band-Pass — its sibilant band is only ~1 octave wide, a small
-            // slice of total signal energy, so a real several-dB cut there is
-            // nearly invisible against the untouched rest of the signal. Driving
-            // the trace (and the shaded "cut" area between the two lines) from
-            // the actual gain reduction instead makes the scope agree with the
-            // Attenuation readout above it for both Types.
-            const outputDb = smoothedInputDbRef.current + smoothedAttenDbRef.current;
-            history.push({ t: now, inputDb: smoothedInputDbRef.current, outputDb });
-            const cutoff = now - SCOPE_WINDOW_S - 0.5;
-            while (history.length > 0 && history[0].t < cutoff)
-                history.shift();
-            if (scopeRef.current) {
-                drawDeesserScope(scopeRef.current, history, now, paramsRef.current.thresh, !bypassRef.current);
-            }
-        }
-        if (curveRef.current) {
-            drawDeesserCurve(curveRef.current, paramsRef.current, smoothedAttenDbRef.current, !bypassRef.current);
-        }
-        animRef.current = requestAnimationFrame(animate);
-    }, []);
+    // Live-level reading for DeEsserEditorPanel (see render below) — the panel
+    // now owns the animation loop that used to live here (drawing the curve,
+    // scoping input/output, and smoothing Attenuation); this component just
+    // hands it the raw broadband input level and the DSP's raw Gain_Reduction.
+    const getInputDb = useCallback(() => analyserPeakDb(dryAnalRef.current), []);
+    const getGainReductionDb = useCallback(() => grRawRef.current, []);
     // ── Start / Stop audio ────────────────────────────────────────────────────
     const startAudio = useCallback(async () => {
         if (engineStatus !== 'ready' || !generatorRef.current || !dspMetaRef.current || !dspModuleRef.current)
@@ -761,13 +890,10 @@ export default function DeEsser() {
         bufSrc.connect(mix);
         bufSrc.start();
         bufSourceRef.current = bufSrc;
-        scopeHistoryRef.current = [];
-        animRef.current = requestAnimationFrame(animate);
         setIsPlaying(true);
-    }, [engineStatus, params, bypass, animate]);
+    }, [engineStatus, params, bypass]);
     const stopAudio = useCallback(() => {
         startTokenRef.current++;
-        cancelAnimationFrame(animRef.current);
         if (bufSourceRef.current) {
             try {
                 bufSourceRef.current.stop();
@@ -790,24 +916,12 @@ export default function DeEsser() {
         dryGainRef.current = null;
         wetGainRef.current = null;
         finalAnalRef.current = null;
-        smoothedInputDbRef.current = METER_FLOOR_DB;
-        smoothedAttenDbRef.current = 0;
         grRawRef.current = 0;
-        meterClockRef.current = null;
         setAttenuation(0);
         setIsPlaying(false);
-        scopeHistoryRef.current = [];
-        if (scopeRef.current) {
-            const c = scopeRef.current.getContext('2d');
-            c.fillStyle = '#0D0D0F';
-            c.fillRect(0, 0, scopeRef.current.width, scopeRef.current.height);
-        }
-        if (curveRef.current)
-            drawDeesserCurve(curveRef.current, paramsRef.current, 0, false);
     }, []);
     useEffect(() => () => {
         startTokenRef.current++;
-        cancelAnimationFrame(animRef.current);
         if (bufSourceRef.current) {
             try {
                 bufSourceRef.current.stop();
@@ -901,26 +1015,6 @@ export default function DeEsser() {
             setDownloading(false);
         }
     }, [activeTrack, params, bypass]);
-    // ── Main lab knob drag ────────────────────────────────────────────────────
-    const onMainKnobDown = useCallback((e, spec, val) => {
-        e.preventDefault();
-        mainDragRef.current = { spec, startY: e.clientY, startFrac: specToFrac(spec, val) };
-    }, []);
-    useEffect(() => {
-        const onMove = (e) => {
-            const d = mainDragRef.current;
-            if (!d)
-                return;
-            const frac = Math.min(1, Math.max(0, d.startFrac + (d.startY - e.clientY) / 220));
-            const raw = specFromFrac(d.spec, frac);
-            const clamped = Math.min(d.spec.max, Math.max(d.spec.min, Math.round(raw / d.spec.step) * d.spec.step));
-            setParams(p => ({ ...p, [d.spec.key]: clamped }));
-        };
-        const onUp = () => { mainDragRef.current = null; };
-        window.addEventListener('mousemove', onMove);
-        window.addEventListener('mouseup', onUp);
-        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-    }, []);
     const reset = useCallback(() => setParams(DEFAULTS), []);
     // Derived
     const TASK_LABELS = ['Move the split Freq', 'Lower the Thresh', 'Open up the Range', 'Try Band-Pass Type'];
@@ -1037,106 +1131,10 @@ export default function DeEsser() {
         {renderSourceRow()}
       </div>
 
-      {/* Body */}
-      <div className="comp-body">
-        {/* Left: knobs + type dropdown */}
-        <div className="comp-controls">
-          <div className="canvas-label" style={{ marginBottom: '1rem' }}>
-            DE-ESSER PARAMETERS · DRAG KNOBS VERTICALLY
-          </div>
-
-          <div className="knob-grid">
-            {KNOBS.map(spec => {
-            const val = params[spec.key];
-            const rot = knobRotationForSpec(spec, val);
-            return (<div className="knob-wrap" key={spec.key}>
-                  <div style={{ position: 'relative', width: 64, height: 64 }}>
-                    <svg style={{ position: 'absolute', top: 0, left: 0 }} width={64} height={64} viewBox="-32 -32 64 64">
-                      <path d={describeArc(28, -140, 140)} fill="none" stroke="var(--border)" strokeWidth={3} strokeLinecap="round"/>
-                      <path d={describeArc(28, -140, rot)} fill="none" stroke="var(--blue)" strokeWidth={3} strokeLinecap="round" opacity={0.85}/>
-                    </svg>
-                    <div className="big-knob" style={{ position: 'absolute', top: 6, left: 6, width: 52, height: 52, cursor: 'ns-resize', userSelect: 'none' }} onMouseDown={e => onMainKnobDown(e, spec, val)}>
-                      <div style={{
-                    position: 'absolute', top: '50%', left: '50%',
-                    width: 3, height: 16, background: 'var(--text)', borderRadius: 2,
-                    transformOrigin: 'bottom center',
-                    transform: `translate(-50%, -100%) rotate(${rot}deg)`,
-                    marginTop: -2,
-                }}/>
-                    </div>
-                  </div>
-                  <div className="knob-name">{spec.label}</div>
-                  <div className="knob-val">{spec.fmt(val)}</div>
-                  <KnobNumberInput value={val} min={spec.min} max={spec.max} step={spec.step} onChange={v => setParams(p => ({ ...p, [spec.key]: v }))}/>
-                </div>);
-        })}
-          </div>
-
-          {/* Type dropdown — the only other control the Faust patch exposes.
-            No Mode selector: dsp-meta.json's ui tree has just these four
-            controls, so there's nothing else to show. */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginTop: '0.5rem' }}>
-            <label htmlFor="deesser-type" style={{
-            fontFamily: 'var(--mono)', fontSize: '0.6rem', color: 'var(--text-dim)',
-            letterSpacing: '0.08em', textTransform: 'uppercase',
-        }}>
-              Type
-            </label>
-            <select id="deesser-type" value={params.type} onChange={e => setParams(p => ({ ...p, type: Number(e.target.value) }))} style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: '3px',
-            color: 'var(--text)',
-            fontFamily: 'var(--mono)',
-            fontSize: '0.65rem',
-            padding: '0.3rem 0.5rem',
-            outline: 'none',
-            cursor: 'pointer',
-        }}>
-              {TYPE_OPTIONS.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
-            </select>
-          </div>
-
-          <div style={{ marginTop: '1rem' }}>
-            <div className="concept-callout" style={{ background: 'var(--blue-dim)', borderColor: 'rgba(77,158,255,0.2)' }}>
-              <strong style={{ color: 'var(--blue)' }}>Concept: </strong>
-              Freq sets where the signal splits into a low band and a sibilant high band; Thresh decides
-              when the high band starts getting compressed; Range caps the hardest cut it can ever take.
-              Type decides how sharply the split happens — <strong style={{ color: 'var(--blue)' }}>High-Pass/Shelf</strong> is
-              gentle, <strong style={{ color: 'var(--blue)' }}>Band-Pass</strong> carves a steeper, more surgical band out
-              around Freq.
-            </div>
-          </div>
-        </div>
-
-        {/* Right: split-band curve + live scope */}
-        <div className="comp-visual">
-          <div className="canvas-label" style={{ marginBottom: '0.75rem' }}>
-            SPLIT-BAND RESPONSE — FREQUENCY vs ATTENUATION
-            <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
-              · green = sibilant band, red = low band, shaped by FREQ &amp; TYPE — live scope below shows THRESH/RANGE in motion
-            </span>
-          </div>
-          <div className="transfer-graph">
-            <canvas ref={curveRef} width={400} height={200} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
-          </div>
-
-          <div className="canvas-label" style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>
-            LIVE DE-ESSER SCOPE {!isPlaying && '· HIT PLAY TO SEE LIVE SIGNAL'}
-            <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
-              · real input/output level over time — watch the output dip on every "s" burst
-            </span>
-          </div>
-          <div className="scope-graph">
-            <canvas ref={scopeRef} width={400} height={150} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
-          </div>
-          <div className="legend-row" style={{ marginTop: '0.5rem', marginBottom: 0 }}>
-            <div className="legend-item"><span className="legend-line" style={{ background: '#00FF87' }}/>INPUT</div>
-            <div className="legend-item"><span className="legend-line" style={{ background: '#4D9EFF' }}/>OUTPUT</div>
-            <div className="legend-item"><span className="legend-line" style={{ background: '#F5A623' }}/>ATTENUATION</div>
-          </div>
-        </div>
-      </div>
+      {/* Body — knobs, Type dropdown, split-band curve + live scope, all
+          owned by the shared DeEsserEditorPanel (see above), same component
+          the DAW workstation's insert-chain popup renders for this plugin. */}
+      <DeEsserEditorPanel params={params} setParams={setParams} bypass={bypass} isPlaying={isPlaying} getInputDb={getInputDb} getGainReductionDb={getGainReductionDb} getNow={() => ctxRef.current?.currentTime} onAttenuationChange={setAttenuation}/>
 
       {/* Footer */}
       <div className="lab-footer">

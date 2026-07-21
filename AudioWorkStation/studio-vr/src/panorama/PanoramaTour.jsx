@@ -11,7 +11,6 @@ import {
   initAudio,
   resumeAudio,
   updateListenerOrientation,
-  playHotspotNarration,
   stopHotspotNarration,
   setRoomAmbience,
   stopAmbientBed,
@@ -20,7 +19,7 @@ import {
   setBinauralEnabled,
   isBinauralEnabled,
 } from "../audio/spatialAudioEngine";
-import EqCompressorHotspot from "./EqCompressorHotspot";
+import DawWorkstationScreen from "./DawWorkstationScreen";
 
 const DEFAULT_AMBIENCE = { filterFreq: 500, gain: 0.03, gustDepth: 0.015 };
 // The wide, "standing in the middle of the room" resting view — used both
@@ -54,14 +53,13 @@ const doorMarkerHtml = () => `
   </div>
 `;
 
-// Icon badge (no number) for the two functional processing hotspots — EQ and
-// Compressor — instead of the numbered/lettered treatment gear markers get.
-// The icon itself is what signals "this opens a live, interactive module"
-// rather than "read more about this piece of gear", and `variant` picks a
-// ring/dot color distinct from gear hotspots' green: both "eq" and "dyn"
-// share the same amber "dynamics" orange (the icon glyph tells them apart)
-// — see the `.hotspot-marker__ring--eq`/`--dyn` rules in
-// eqCompressorHotspot.css, which EqCompressorHotspot.jsx imports globally.
+// Icon badge (no number) for functional processing hotspots — instead of
+// the numbered/lettered treatment gear markers get. The icon itself is what
+// signals "this opens a live, interactive module" rather than "read more
+// about this piece of gear"; unlike gear/door markers there's currently
+// only one of these (the DAW workstation) so it just uses the same green
+// ring/dot as the plain gear hotspots below — pass `variant` if a future
+// interactive marker needs a distinct color.
 const interactiveMarkerHtml = (icon, variant) => `
   <div class="hotspot-marker${variant ? ` hotspot-marker--${variant}` : ""}">
     <span class="hotspot-marker__ring${variant ? ` hotspot-marker__ring--${variant}` : ""}"></span>
@@ -133,10 +131,7 @@ function buildNodes() {
       ...(room.interactiveMarkers || []).map((marker) => ({
         id: marker.id,
         position: { yaw: deg(marker.yaw), pitch: deg(marker.pitch) },
-        html: interactiveMarkerHtml(
-          marker.type === "compressor" ? "🎛" : "🎚",
-          marker.type === "compressor" ? "dyn" : "eq",
-        ),
+        html: interactiveMarkerHtml(marker.type === "daw" ? "🖥" : "⚡"),
         size: { width: 34, height: 34 },
         anchor: "center center",
         zoomLvl: marker.zoomLvl ?? 60,
@@ -228,7 +223,7 @@ function PanoramaTour() {
       // larger. Past ~120 the wide-angle distortion gets noticeable, so
       // this stays comfortably under that. Zoom-out/FOV is otherwise
       // unchanged — only the zoom-in ceiling above was tightened.
-      maxFov: 110,
+      maxFov: 118,
       navbar: ["zoom", "caption", "fullscreen"],
       plugins: [
         [
@@ -313,19 +308,17 @@ function PanoramaTour() {
         setActiveModule(null);
         setActiveGear(marker.data);
         setSelectedMarkerEl(markerId);
-        // Its recorded narration clip (if uploaded) plays through an HRTF
-        // panner from the hotspot's direction — genuinely binaural, unlike
-        // browser TTS.
-        playHotspotNarration(marker.data.audio, marker.data.yaw, marker.data.pitch);
+        // Narration audio is intentionally not played here — selecting a
+        // hotspot only reveals its text panel (title/description below).
       });
     };
     goToMarkerRef.current = goToMarker;
 
-    // Same "walk up to it" treatment as goToMarker, but for the EQ/Compressor
-    // interactive hotspots: no narration (they're a functional module, not a
-    // gear description), and clicking the SAME module's marker again closes
-    // it instead of re-opening — mirrors design/eq-compressor-hotspot-ui.html's
-    // openPanel()/closeAll() toggle behavior.
+    // Same "walk up to it" treatment as goToMarker, but for interactive
+    // hotspots (currently just the DAW workstation): no narration (it's a
+    // functional module, not a gear description), and clicking the SAME
+    // module's marker again closes it instead of re-opening — mirrors
+    // design/daw-workstation-screen-ui.html's marker toggle behavior.
     const goToInteractiveMarker = (markerId, data) => {
       const marker = markers.getMarker(markerId);
       if (!marker) return;
@@ -427,11 +420,9 @@ function PanoramaTour() {
     viewerRef.current?.animate({ zoom: REST_ZOOM_LVL, speed: "10rpm" });
   };
 
-  // Same camera-ease-out treatment for the EQ/Compressor panel. Deliberately
-  // does NOT stop whatever audio is currently playing through the Faust
-  // engine/studio speakers — like real studio monitors, the processed audio
-  // keeps playing in the background while you look elsewhere in the room;
-  // EqCompressorHotspot only tears its own audio graph down on unmount.
+  // Same camera-ease-out treatment for the DAW workstation panel.
+  // DawWorkstationScreen tears its own audio graph down when it closes (see
+  // its `isOpen` effect), so nothing further needs to happen to audio here.
   const closeModulePanel = () => {
     setActiveModule(null);
     clearSelectedMarkerEl();
@@ -661,7 +652,7 @@ function PanoramaTour() {
         </div>
       )}
 
-      <EqCompressorHotspot open={activeModule} onClose={closeModulePanel} />
+      <DawWorkstationScreen open={activeModule} onClose={closeModulePanel} />
     </div>
   );
 }
@@ -735,7 +726,7 @@ const tourStyles = `
      currently open — a one-shot "pop" plus a faster, brighter breathing
      glow so the active hotspot stays visually distinct from the rest while
      its panel is up, independent of the color-specific badge styling
-     (gear green / door blue / eq+dyn amber via eqCompressorHotspot.css). */
+     (gear/interactive green, door blue). */
   .svr-hotspot-selected {
     animation: hotspot-select-pop 0.35s ease-out;
   }

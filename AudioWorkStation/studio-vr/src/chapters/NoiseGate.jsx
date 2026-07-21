@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { FaustMonoDspGenerator } from '@grame/faustwasm';
 import { compileFaustWasm } from '../faust/faustTypes';
 import { downloadAudioBufferAsWav } from '../audio/wavRender';
+import { DEFAULTS, DEFAULT_SIDECHAIN, pushFaustParams, METER_FLOOR_DB, analyserPeakDb } from './gateEngine';
 // ── Chapter 10 — Gate Studio ─────────────────────────────────────────────────
 // "Dynamics Processing — Noise Gate". Real DSP lives at public/faust/Gate/
 // (dsp-module.wasm + dsp-meta.json) — a Faust hysteresis noise gate (separate
@@ -44,53 +45,18 @@ const KNOBS = [
     { key: 'release', label: 'RELEASE', min: 1, max: 1000, step: 1, fmt: v => `${Math.round(v)} ms` },
     { key: 'floor', label: 'FLOOR', min: -96, max: 0, step: 1, fmt: v => `${Math.round(v)} dB` },
 ];
-// Defaults — mirror the `init` values in public/faust/Gate/dsp-meta.json.
-const DEFAULTS = {
-    floor: -60,
-    gateOpen: -32,
-    gateClose: -38,
-    attack: 2,
-    release: 30,
-    hold: 10,
-};
-const DEFAULT_SIDECHAIN = { external: false, listen: false, hpf: 20 };
+// DEFAULTS / DEFAULT_SIDECHAIN / ADDR / pushFaustParams now live in
+// ./gateEngine (imported above) — split out so this file only exports
+// components (NoiseGate, GateEditorPanel below), which is what a host that
+// already owns its own Faust node — e.g. the DAW workstation's insert chain —
+// imports to drive the SAME gate UI/logic this file uses for the standalone
+// chapter lab, instead of reimplementing it generically.
 // ── Faust gate engine wiring ─────────────────────────────────────────────────
 // Real DSP: public/faust/Gate/ (dsp-module.wasm + dsp-meta.json), a hysteresis
 // noise gate exported straight from the Faust IDE (analyzers.lib + basics.lib
 // envelope following, driven the same way as the ParamEQ / compressor /
 // reverb / delay patches elsewhere in this app).
 const FAUST_BASE_PATH = '/faust/Gate';
-// Faust addresses, from public/faust/Gate/dsp-meta.json's `ui` tree — the
-// sidechain controls (External_Sidechain / SC_Listen / SC_HPF) were added
-// alongside the gate's 3rd audio input (scIn) in noiseGate.dsp.
-const ADDR = {
-    floor: '/NOISE_GATE_STUDIO/Floor',
-    gateOpen: '/NOISE_GATE_STUDIO/Gate_Open',
-    gateClose: '/NOISE_GATE_STUDIO/Gate_Close',
-    attack: '/NOISE_GATE_STUDIO/Attack',
-    release: '/NOISE_GATE_STUDIO/Release',
-    hold: '/NOISE_GATE_STUDIO/Hold',
-    sidechain: {
-        external: '/NOISE_GATE_STUDIO/External_Sidechain',
-        listen: '/NOISE_GATE_STUDIO/SC_Listen',
-        hpf: '/NOISE_GATE_STUDIO/SC_HPF',
-    },
-};
-// The gate patch has no internal Wet_Dry (unlike the compressor's), so bypass
-// and wet/dry mixing are done at the WebAudio graph level instead — a
-// dry/wet crossfade around the Faust node — same pattern as Chapter7's
-// saturation dry/wet bypass path.
-function pushFaustParams(node, params, sidechain) {
-    node.setParamValue(ADDR.floor, params.floor);
-    node.setParamValue(ADDR.gateOpen, params.gateOpen);
-    node.setParamValue(ADDR.gateClose, Math.min(params.gateClose, params.gateOpen));
-    node.setParamValue(ADDR.attack, params.attack);
-    node.setParamValue(ADDR.release, params.release);
-    node.setParamValue(ADDR.hold, params.hold);
-    node.setParamValue(ADDR.sidechain.external, sidechain.external ? 1 : 0);
-    node.setParamValue(ADDR.sidechain.listen, sidechain.listen ? 1 : 0);
-    node.setParamValue(ADDR.sidechain.hpf, sidechain.hpf);
-}
 // Builds a 3-channel (inL, inR, scIn) stream out of two *independent* audio
 // sources — the Faust node declares 3 audio inputs (see noiseGate.dsp's
 // process(inL, inR, scIn)), which @grame/faustwasm exposes as ONE AudioNode
@@ -447,8 +413,8 @@ function describeArc(r, start, end) {
 // three static bars, so keeping both was redundant (same change made to the
 // compressor's Chapter4). The smoothed dB values are still computed here
 // (fast-attack/slow-release, so they're readable frame to frame) — the scope
-// is what displays them now.
-const METER_FLOOR_DB = -60;
+// is what displays them now. (METER_FLOOR_DB and analyserPeakDb now live in
+// ./gateEngine, imported above.)
 const LEVEL_ATTACK_S = 0.015;
 const LEVEL_RELEASE_S = 0.35;
 function levelBallistic(prev, target, dt) {
@@ -610,6 +576,214 @@ function normalizeUploadedBuffer(buf, peakTarget = 0.6) {
         }
     }
 }
+// ── Reusable gate editor panel ───────────────────────────────────────────────
+// The knobs, sidechain toggles, transfer-function graph and live scope below
+// used to be inlined straight into the standalone NoiseGate() page. Pulled
+// out here so ANY host that already owns a live Faust gate node — the
+// standalone chapter lab below, or the DAW workstation's insert-chain popup —
+// can render the exact same controls/visualizer instead of building a new,
+// generic one. The host is responsible for the actual audio graph (creating
+// the Faust node, wiring dry/wet, pushing params via pushFaustParams) and for
+// supplying:
+//   - params / setParams, sidechain / setSidechain, bypass — plain state
+//   - isPlaying — whether the host currently has live audio flowing, so the
+//     scope/gate-open detection loop below only runs while there's something
+//     to read
+//   - getLevels() — called once per animation frame; returns
+//     { inputDb, outputDb, detectDb? } read off the host's own analysers, or
+//     null if none are live yet. detectDb defaults to inputDb (self-sidechain).
+//   - getNow() — returns the audio clock (ctx.currentTime) driving the scope's
+//     scroll, so it stays in sync with the actual audio rather than
+//     performance.now() drifting from it
+//   - onOpenChange(isOpen) — optional, lets the host mirror the gate's live
+//     OPEN/CLOSED state in its own UI (e.g. a topbar badge)
+//   - sidechainSourceRow — optional extra UI (e.g. the standalone lab's
+//     "pick a different track for the sidechain" row) rendered above the
+//     External SC / SC Listen / SC HPF toggles; hosts with only one audio
+//     source (like the DAW, which always self-sidechains) simply omit it.
+export function GateEditorPanel({ params, setParams, sidechain, setSidechain, bypass, isPlaying, getLevels, getNow, onOpenChange, sidechainSourceRow = null, }) {
+    const transferRef = useRef(null);
+    const scopeRef = useRef(null);
+    const scopeHistoryRef = useRef([]);
+    const smoothedInputDbRef = useRef(METER_FLOOR_DB);
+    const smoothedOutputDbRef = useRef(METER_FLOOR_DB);
+    const meterClockRef = useRef(null);
+    const isOpenRef = useRef(true);
+    const holdUntilRef = useRef(0);
+    const animRef = useRef(0);
+    const paramsRef = useRef(params);
+    const bypassRef = useRef(bypass);
+    const mainDragRef = useRef(null);
+    useEffect(() => { paramsRef.current = params; }, [params]);
+    useEffect(() => { bypassRef.current = bypass; }, [bypass]);
+    // Static transfer curve — only depends on the knobs themselves.
+    useEffect(() => {
+        if (transferRef.current) {
+            const displayParams = bypass ? { ...params, gateOpen: -96, gateClose: -96 } : params;
+            drawTransfer(transferRef.current, displayParams);
+        }
+    }, [params, bypass]);
+    // Live scope + OPEN/CLOSED hysteresis estimate — same math the chapter lab
+    // always used, just reading levels through the host-supplied getLevels()
+    // instead of owning its own analysers.
+    useEffect(() => {
+        if (!isPlaying) {
+            cancelAnimationFrame(animRef.current);
+            scopeHistoryRef.current = [];
+            isOpenRef.current = true;
+            onOpenChange?.(true);
+            if (scopeRef.current) {
+                const c = scopeRef.current.getContext('2d');
+                c.fillStyle = '#0D0D0F';
+                c.fillRect(0, 0, scopeRef.current.width, scopeRef.current.height);
+            }
+            return;
+        }
+        const tick = () => {
+            const now = getNow?.() ?? performance.now() / 1000;
+            const dt = meterClockRef.current !== null ? Math.max(0, Math.min(0.2, now - meterClockRef.current)) : 0;
+            meterClockRef.current = now;
+            const levels = getLevels?.();
+            if (levels) {
+                smoothedInputDbRef.current = levelBallistic(smoothedInputDbRef.current, levels.inputDb, dt);
+                smoothedOutputDbRef.current = levelBallistic(smoothedOutputDbRef.current, levels.outputDb, dt);
+                const detectDb = levels.detectDb ?? levels.inputDb;
+                if (!bypassRef.current) {
+                    const p = paramsRef.current;
+                    if (detectDb >= p.gateOpen) {
+                        isOpenRef.current = true;
+                        holdUntilRef.current = now + p.hold / 1000;
+                    }
+                    else if (now >= holdUntilRef.current && detectDb <= Math.min(p.gateClose, p.gateOpen)) {
+                        isOpenRef.current = false;
+                    }
+                    onOpenChange?.(isOpenRef.current);
+                }
+                else {
+                    isOpenRef.current = true;
+                    onOpenChange?.(true);
+                }
+                const history = scopeHistoryRef.current;
+                history.push({ t: now, inputDb: smoothedInputDbRef.current, outputDb: smoothedOutputDbRef.current });
+                const cutoff = now - SCOPE_WINDOW_S - 0.5;
+                while (history.length > 0 && history[0].t < cutoff)
+                    history.shift();
+                if (scopeRef.current) {
+                    const p = paramsRef.current;
+                    drawGateScope(scopeRef.current, history, now, p.gateOpen, p.gateClose, !bypassRef.current);
+                }
+            }
+            animRef.current = requestAnimationFrame(tick);
+        };
+        animRef.current = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(animRef.current);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isPlaying, getLevels, getNow]);
+    const onMainKnobDown = useCallback((e, spec, val) => {
+        e.preventDefault();
+        mainDragRef.current = { spec, startY: e.clientY, startFrac: specToFrac(spec, val) };
+    }, []);
+    useEffect(() => {
+        const onMove = (e) => {
+            const d = mainDragRef.current;
+            if (!d)
+                return;
+            const frac = Math.min(1, Math.max(0, d.startFrac + (d.startY - e.clientY) / 220));
+            const raw = specFromFrac(d.spec, frac);
+            const clamped = Math.min(d.spec.max, Math.max(d.spec.min, Math.round(raw / d.spec.step) * d.spec.step));
+            setParams(p => ({ ...p, [d.spec.key]: clamped }));
+        };
+        const onUp = () => { mainDragRef.current = null; };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    }, [setParams]);
+    return (<div className="comp-body">
+      {/* Left: knobs + sidechain */}
+      <div className="comp-controls">
+        <div className="canvas-label" style={{ marginBottom: '1rem' }}>
+          GATE PARAMETERS · DRAG KNOBS VERTICALLY
+        </div>
+        <div className="knob-grid">
+          {KNOBS.map(spec => {
+            const val = params[spec.key];
+            const rot = knobRotationForSpec(spec, val);
+            return (<div className="knob-wrap" key={spec.key}>
+                  <div style={{ position: 'relative', width: 64, height: 64 }}>
+                    <svg style={{ position: 'absolute', top: 0, left: 0 }} width={64} height={64} viewBox="-32 -32 64 64">
+                      <path d={describeArc(28, -140, 140)} fill="none" stroke="var(--border)" strokeWidth={3} strokeLinecap="round"/>
+                      <path d={describeArc(28, -140, rot)} fill="none" stroke="var(--green)" strokeWidth={3} strokeLinecap="round" opacity={0.85}/>
+                    </svg>
+                    <div className="big-knob" style={{ position: 'absolute', top: 6, left: 6, width: 52, height: 52, cursor: 'ns-resize', userSelect: 'none' }} onMouseDown={e => onMainKnobDown(e, spec, val)}>
+                      <div style={{
+                    position: 'absolute', top: '50%', left: '50%',
+                    width: 3, height: 16, background: 'var(--text)', borderRadius: 2,
+                    transformOrigin: 'bottom center',
+                    transform: `translate(-50%, -100%) rotate(${rot}deg)`,
+                    marginTop: -2,
+                }}/>
+                    </div>
+                  </div>
+                  <div className="knob-name">{spec.label}</div>
+                  <div className="knob-val">{spec.fmt(val)}</div>
+                  <KnobNumberInput value={val} min={spec.min} max={spec.max} step={spec.step} onChange={v => setParams(p => ({ ...p, [spec.key]: v }))}/>
+                </div>);
+        })}
+        </div>
+
+        <div className="canvas-label" style={{ marginTop: '0.75rem', marginBottom: '0.5rem' }}>
+          SIDECHAIN
+        </div>
+        {sidechainSourceRow}
+        <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.5rem' }}>
+          <button className={`toggle-btn${sidechain.external ? ' on' : ''}`} onClick={() => setSidechain(s => ({ ...s, external: !s.external }))} title="Detect off the sidechain input instead of the gate's own linked L/R audio">
+            EXTERNAL SC
+          </button>
+          <button className={`toggle-btn${sidechain.listen ? ' on' : ''}`} onClick={() => setSidechain(s => ({ ...s, listen: !s.listen }))} title="Audition the detector signal itself, in place of the gated output">
+            SC LISTEN
+          </button>
+        </div>
+        <MiniSlider label="SC HPF" value={sidechain.hpf} min={20} max={2000} step={1} fmt={v => `${v.toFixed(0)} Hz`} onChange={v => setSidechain(s => ({ ...s, hpf: v }))}/>
+
+        <div style={{ marginTop: '1rem' }}>
+          <div className="concept-callout" style={{ background: 'var(--green-dim)', borderColor: 'rgba(0,255,135,0.2)' }}>
+            <strong style={{ color: 'var(--green)' }}>Concept: </strong>
+            Gate Close sits {(params.gateOpen - params.gateClose).toFixed(1)} dB below Gate Open — that gap is the
+            hysteresis band, and it's what stops the gate from chattering open/closed right at the threshold.
+            {' '}Toggle <strong style={{ color: 'var(--green)' }}>BYPASS</strong> while playing to A/B.
+          </div>
+        </div>
+      </div>
+
+      {/* Right: transfer + live scope */}
+      <div className="comp-visual">
+        <div className="canvas-label" style={{ marginBottom: '0.75rem' }}>
+          TRANSFER FUNCTION — INPUT vs OUTPUT
+          <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
+            · shaped by GATE OPEN / GATE CLOSE / FLOOR only — attack, hold &amp; release are time-domain, see scope below
+          </span>
+        </div>
+        <div className="transfer-graph">
+          <canvas ref={transferRef} width={400} height={200} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
+        </div>
+
+        <div className="canvas-label" style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>
+          LIVE GATE SCOPE {!isPlaying && '· HIT PLAY TO SEE LIVE SIGNAL'}
+          <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
+            · real input/output level over time — watch ATTACK snap the gate open &amp; HOLD/RELEASE let it close
+          </span>
+        </div>
+        <div className="scope-graph">
+          <canvas ref={scopeRef} width={400} height={150} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
+        </div>
+        <div className="legend-row" style={{ marginTop: '0.5rem', marginBottom: 0 }}>
+          <div className="legend-item"><span className="legend-line" style={{ background: '#00FF87' }}/>INPUT</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: '#4D9EFF' }}/>OUTPUT</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: '#FF4D6A' }}/>GATE REDUCTION</div>
+        </div>
+      </div>
+    </div>);
+}
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function NoiseGate() {
     const [params, setParams] = useState(DEFAULTS);
@@ -644,10 +818,6 @@ export default function NoiseGate() {
     useEffect(() => { uploadedTracksRef.current = uploadedTracks; }, [uploadedTracks]);
     const activeTrack = activeSourceId !== 'synth' ? uploadedTracks.find(t => t.id === activeSourceId) : undefined;
     const sidechainTrack = typeof sidechainSourceId === 'number' ? uploadedTracks.find(t => t.id === sidechainSourceId) : undefined;
-    // Canvas refs
-    const transferRef = useRef(null);
-    const scopeRef = useRef(null);
-    const scopeHistoryRef = useRef([]);
     // Faust gate engine (module + meta loaded once on mount, one node
     // instantiated per AudioContext in startAudio — same pattern as Chapter4's
     // compressor).
@@ -694,7 +864,6 @@ export default function NoiseGate() {
     const wetGainRef = useRef(null);
     const outputRef = useRef(null); // post-crossfade sum → destination
     const finalAnalRef = useRef(null); // taps the actual blended output (reflects bypass/mix)
-    const animRef = useRef(0);
     const schedulerRef = useRef(null);
     const nextNoteRef = useRef(0);
     const currentStepRef = useRef(0);
@@ -705,24 +874,6 @@ export default function NoiseGate() {
     useEffect(() => { paramsRef.current = params; }, [params]);
     useEffect(() => { sidechainRef.current = sidechain; }, [sidechain]);
     useEffect(() => { bypassRef.current = bypass; }, [bypass]);
-    // Smoothed input/output dB, chased frame-to-frame in animate() and fed
-    // straight into the gate scope's canvas draw — plain refs, not React
-    // state, since they update every animation frame and the scope redraws
-    // itself directly rather than through a re-render.
-    const smoothedInputDbRef = useRef(METER_FLOOR_DB);
-    const smoothedOutputDbRef = useRef(METER_FLOOR_DB);
-    const meterClockRef = useRef(null);
-    const isOpenRef = useRef(true);
-    const holdUntilRef = useRef(0);
-    // Knob drag ref
-    const mainDragRef = useRef(null);
-    // ── Main transfer canvas ──────────────────────────────────────────────────
-    useEffect(() => {
-        if (transferRef.current) {
-            const displayParams = bypass ? { ...params, gateOpen: -96, gateClose: -96 } : params;
-            drawTransfer(transferRef.current, displayParams);
-        }
-    }, [params, bypass]);
     // ── Sync Faust gate params (always live — bypass is handled by the
     // dry/wet crossfade below, not by touching the DSP itself) ───────────────
     useEffect(() => {
@@ -771,82 +922,22 @@ export default function NoiseGate() {
         }
         schedulerRef.current = setTimeout(runScheduler, 25);
     }, []);
-    // ── Animation loop ────────────────────────────────────────────────────────
-    const animate = useCallback(() => {
-        const dryAnal = dryAnalRef.current;
-        const scAnal = scAnalRef.current;
-        const now = ctxRef.current?.currentTime ?? performance.now() / 1000;
-        const dt = meterClockRef.current !== null ? Math.max(0, Math.min(0.2, now - meterClockRef.current)) : 0;
-        meterClockRef.current = now;
-        let rawInputDb = METER_FLOOR_DB;
-        if (dryAnal) {
-            const buf = new Float32Array(dryAnal.fftSize);
-            dryAnal.getFloatTimeDomainData(buf);
-            let peak = 0;
-            for (let i = 0; i < buf.length; i++)
-                peak = Math.max(peak, Math.abs(buf[i]));
-            rawInputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
-            smoothedInputDbRef.current = levelBallistic(smoothedInputDbRef.current, rawInputDb, dt);
+    // ── Levels for the shared GateEditorPanel (see GateEditorPanel above) ──────
+    // Replaces the old animate() RAF loop that used to live here: the panel now
+    // owns its own RAF and just calls this each frame to read the live
+    // dry/detector/output analysers this component's own startAudio() wires up.
+    const getLevels = useCallback(() => {
+        const inputDb = analyserPeakDb(dryAnalRef.current);
+        if (inputDb === null)
+            return null;
+        let detectDb = inputDb;
+        if (sidechainRef.current.external && scAnalRef.current) {
+            const d = analyserPeakDb(scAnalRef.current);
+            if (d !== null)
+                detectDb = d;
         }
-        // The Faust gate patch has no live open/closed output, so the state is
-        // estimated: run a hysteresis + hold state machine (Gate Open / Gate
-        // Close / Hold) — drives the OPEN/CLOSED badge up top. When External
-        // Sidechain is on, the estimate reads off scAnal (the actual detector
-        // signal) instead of the main input, so the badge tracks whatever's
-        // really driving the gate rather than always the main signal. The
-        // actual gate *reduction* is no longer separately modeled here — the
-        // scope below reads real measured input/output levels straight off the
-        // analysers instead.
-        if (dryAnal || scAnal) {
-            let detectDb = rawInputDb;
-            if (sidechainRef.current.external && scAnal) {
-                const scBuf = new Float32Array(scAnal.fftSize);
-                scAnal.getFloatTimeDomainData(scBuf);
-                let scPeak = 0;
-                for (let i = 0; i < scBuf.length; i++)
-                    scPeak = Math.max(scPeak, Math.abs(scBuf[i]));
-                detectDb = scPeak > 1e-6 ? 20 * Math.log10(scPeak) : METER_FLOOR_DB;
-            }
-            if (!bypassRef.current) {
-                const p = paramsRef.current;
-                if (detectDb >= p.gateOpen) {
-                    isOpenRef.current = true;
-                    holdUntilRef.current = now + p.hold / 1000;
-                }
-                else if (now >= holdUntilRef.current && detectDb <= Math.min(p.gateClose, p.gateOpen)) {
-                    isOpenRef.current = false;
-                }
-                setGateIsOpen(isOpenRef.current);
-            }
-            else {
-                isOpenRef.current = true;
-                setGateIsOpen(true);
-            }
-        }
-        if (finalAnalRef.current) {
-            const buf = new Float32Array(finalAnalRef.current.fftSize);
-            finalAnalRef.current.getFloatTimeDomainData(buf);
-            let peak = 0;
-            for (let i = 0; i < buf.length; i++)
-                peak = Math.max(peak, Math.abs(buf[i]));
-            const rawOutputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
-            smoothedOutputDbRef.current = levelBallistic(smoothedOutputDbRef.current, rawOutputDb, dt);
-        }
-        // Live gate scope — records the smoothed input/output dB into a
-        // scrolling history, so Attack/Hold/Release are visible as actual motion
-        // on the real signal instead of only as numbers on a knob.
-        if (dryAnal && finalAnalRef.current) {
-            const history = scopeHistoryRef.current;
-            history.push({ t: now, inputDb: smoothedInputDbRef.current, outputDb: smoothedOutputDbRef.current });
-            const cutoff = now - SCOPE_WINDOW_S - 0.5;
-            while (history.length > 0 && history[0].t < cutoff)
-                history.shift();
-            if (scopeRef.current) {
-                const p = paramsRef.current;
-                drawGateScope(scopeRef.current, history, now, p.gateOpen, p.gateClose, !bypassRef.current);
-            }
-        }
-        animRef.current = requestAnimationFrame(animate);
+        const outputDb = analyserPeakDb(finalAnalRef.current) ?? inputDb;
+        return { inputDb, outputDb, detectDb };
     }, []);
     // ── Start / Stop audio ────────────────────────────────────────────────────
     const startAudio = useCallback(async () => {
@@ -989,15 +1080,12 @@ export default function NoiseGate() {
             currentStepRef.current = 0;
             runScheduler();
         }
-        scopeHistoryRef.current = [];
-        animRef.current = requestAnimationFrame(animate);
         setIsPlaying(true);
-    }, [engineStatus, params, sidechain, bypass, runScheduler, animate]);
+    }, [engineStatus, params, sidechain, bypass, runScheduler]);
     const stopAudio = useCallback(() => {
         startTokenRef.current++;
         if (schedulerRef.current)
             clearTimeout(schedulerRef.current);
-        cancelAnimationFrame(animRef.current);
         if (bufSourceRef.current) {
             try {
                 bufSourceRef.current.stop();
@@ -1037,25 +1125,13 @@ export default function NoiseGate() {
         wetGainRef.current = null;
         outputRef.current = null;
         finalAnalRef.current = null;
-        smoothedInputDbRef.current = METER_FLOOR_DB;
-        smoothedOutputDbRef.current = METER_FLOOR_DB;
-        meterClockRef.current = null;
-        isOpenRef.current = true;
-        holdUntilRef.current = 0;
         setGateIsOpen(true);
         setIsPlaying(false);
-        scopeHistoryRef.current = [];
-        if (scopeRef.current) {
-            const c = scopeRef.current.getContext('2d');
-            c.fillStyle = '#0D0D0F';
-            c.fillRect(0, 0, scopeRef.current.width, scopeRef.current.height);
-        }
     }, []);
     useEffect(() => () => {
         startTokenRef.current++;
         if (schedulerRef.current)
             clearTimeout(schedulerRef.current);
-        cancelAnimationFrame(animRef.current);
         if (bufSourceRef.current) {
             try {
                 bufSourceRef.current.stop();
@@ -1211,26 +1287,6 @@ export default function NoiseGate() {
             setDownloading(false);
         }
     }, [activeTrack, sidechainTrack, params, sidechain, bypass]);
-    // ── Main lab knob drag ────────────────────────────────────────────────────
-    const onMainKnobDown = useCallback((e, spec, val) => {
-        e.preventDefault();
-        mainDragRef.current = { spec, startY: e.clientY, startFrac: specToFrac(spec, val) };
-    }, []);
-    useEffect(() => {
-        const onMove = (e) => {
-            const d = mainDragRef.current;
-            if (!d)
-                return;
-            const frac = Math.min(1, Math.max(0, d.startFrac + (d.startY - e.clientY) / 220));
-            const raw = specFromFrac(d.spec, frac);
-            const clamped = Math.min(d.spec.max, Math.max(d.spec.min, Math.round(raw / d.spec.step) * d.spec.step));
-            setParams(p => ({ ...p, [d.spec.key]: clamped }));
-        };
-        const onUp = () => { mainDragRef.current = null; };
-        window.addEventListener('mousemove', onMove);
-        window.addEventListener('mouseup', onUp);
-        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-    }, []);
     const reset = useCallback(() => { setParams(DEFAULTS); setSidechain(DEFAULT_SIDECHAIN); }, []);
     // Derived
     const TASK_LABELS = ['Set gate open threshold', 'Widen the hysteresis gap', 'Tune attack / hold / release', 'Set a floor (not full silence)'];
@@ -1346,84 +1402,38 @@ export default function NoiseGate() {
         {renderSourceRow()}
       </div>
 
-      {/* Body */}
-      <div className="comp-body">
-        {/* Left: meters + knobs */}
-        <div className="comp-controls">
-          <div className="canvas-label" style={{ marginBottom: '1rem' }}>
-            GATE PARAMETERS · DRAG KNOBS VERTICALLY
-          </div>
-
-          {/* Knobs, evenly spread across the full control column now that the
-            old meter column beside them is gone — the live scope on the
-            right already covers input/output/gate-reduction, so this
-            panel is just the controls themselves (same change made to the
-            compressor's Chapter4). */}
-          <div className="knob-grid">
-            {KNOBS.map(spec => {
-            const val = params[spec.key];
-            const rot = knobRotationForSpec(spec, val);
-            return (<div className="knob-wrap" key={spec.key}>
-                  <div style={{ position: 'relative', width: 64, height: 64 }}>
-                    <svg style={{ position: 'absolute', top: 0, left: 0 }} width={64} height={64} viewBox="-32 -32 64 64">
-                      <path d={describeArc(28, -140, 140)} fill="none" stroke="var(--border)" strokeWidth={3} strokeLinecap="round"/>
-                      <path d={describeArc(28, -140, rot)} fill="none" stroke="var(--green)" strokeWidth={3} strokeLinecap="round" opacity={0.85}/>
-                    </svg>
-                    <div className="big-knob" style={{ position: 'absolute', top: 6, left: 6, width: 52, height: 52, cursor: 'ns-resize', userSelect: 'none' }} onMouseDown={e => onMainKnobDown(e, spec, val)}>
-                      <div style={{
-                    position: 'absolute', top: '50%', left: '50%',
-                    width: 3, height: 16, background: 'var(--text)', borderRadius: 2,
-                    transformOrigin: 'bottom center',
-                    transform: `translate(-50%, -100%) rotate(${rot}deg)`,
-                    marginTop: -2,
-                }}/>
-                    </div>
-                  </div>
-                  <div className="knob-name">{spec.label}</div>
-                  <div className="knob-val">{spec.fmt(val)}</div>
-                  <KnobNumberInput value={val} min={spec.min} max={spec.max} step={spec.step} onChange={v => setParams(p => ({ ...p, [spec.key]: v }))}/>
-                </div>);
-        })}
-          </div>
-
-          {/* Sidechain — internal (the gate's own linked L/R audio) vs
-            external (a filtered detector signal fed into a 3rd input,
-            which can be a genuinely different track via the source row
-            below). "Kick Only" is deliberately NOT the same signal as the
-            "Drums + Hiss/Hum" main source — it's an isolated copy of just
-            the kick hits (see scheduleStep/kickBus in startAudio), so
-            selecting it alongside that main source is a real, audible
-            trigger rather than the exact same audio duplicated — mirrors
-            the compressor's Sidechain section (Chapter4). */}
-          <div className="canvas-label" style={{ marginTop: '0.75rem', marginBottom: '0.5rem' }}>
-            SIDECHAIN
-          </div>
-          <div style={{
-            display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.5rem',
-        }}>
-            {[['none', 'SAME AS MAIN'], ['synth', 'KICK ONLY']]
+      {/* Sidechain source picker — standalone-lab-only (picking a genuinely
+          different track/synth to feed the detector); the DAW workstation has
+          only one audio source so it omits this and just renders
+          GateEditorPanel directly. */}
+      <div style={{ padding: '0.5rem 1.25rem 0', borderBottom: '1px solid var(--border)' }}>
+        <div className="canvas-label" style={{ marginBottom: '0.4rem' }}>
+          SIDECHAIN SOURCE
+        </div>
+        <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.6rem' }}>
+          {[['none', 'SAME AS MAIN'], ['synth', 'KICK ONLY']]
             .concat(uploadedTracks.map(t => [t.id, t.name]))
             .map(([id, label]) => {
-            const active = id === sidechainSourceId;
-            const title = id === 'none'
+              const active = id === sidechainSourceId;
+              const title = id === 'none'
                 ? 'Detector hears the same signal as the main input'
                 : id === 'synth'
-                    ? "Detector hears only the kick drum hits, isolated from the full pattern — a classic sidechain trigger"
-                    : `Detector hears ${label} instead of the main input`;
-            return (<button key={String(id)} onClick={() => handleSelectSidechainSource(id)} title={title} style={{
-                    padding: '0.25rem 0.5rem',
-                    background: active ? 'rgba(245,166,35,0.13)' : 'var(--surface)',
-                    border: `1px solid ${active ? 'rgba(245,166,35,0.5)' : 'var(--border)'}`,
-                    borderRadius: '3px',
-                    color: active ? 'var(--amber)' : 'var(--text-dim)',
-                    fontFamily: 'var(--mono)', fontSize: '0.55rem', letterSpacing: '0.04em',
-                    cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
-                }}>
-                    {label}
-                  </button>);
-        })}
-            <input ref={sidechainFileInputRef} type="file" accept="audio/*" onChange={handleSidechainFileSelected} style={{ display: 'none' }}/>
-            <button onClick={handleUploadSidechainClick} disabled={decoding} title="Upload a separate track to use as the sidechain source — e.g. a kick loop to trigger the gate" style={{
+                  ? "Detector hears only the kick drum hits, isolated from the full pattern — a classic sidechain trigger"
+                  : `Detector hears ${label} instead of the main input`;
+              return (<button key={String(id)} onClick={() => handleSelectSidechainSource(id)} title={title} style={{
+                padding: '0.25rem 0.5rem',
+                background: active ? 'rgba(245,166,35,0.13)' : 'var(--surface)',
+                border: `1px solid ${active ? 'rgba(245,166,35,0.5)' : 'var(--border)'}`,
+                borderRadius: '3px',
+                color: active ? 'var(--amber)' : 'var(--text-dim)',
+                fontFamily: 'var(--mono)', fontSize: '0.55rem', letterSpacing: '0.04em',
+                cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+              }}>
+                {label}
+              </button>);
+            })}
+          <input ref={sidechainFileInputRef} type="file" accept="audio/*" onChange={handleSidechainFileSelected} style={{ display: 'none' }}/>
+          <button onClick={handleUploadSidechainClick} disabled={decoding} title="Upload a separate track to use as the sidechain source — e.g. a kick loop to trigger the gate" style={{
             display: 'flex', alignItems: 'center', gap: '0.3rem',
             padding: '0.25rem 0.5rem',
             background: 'var(--surface)',
@@ -1432,65 +1442,20 @@ export default function NoiseGate() {
             color: 'var(--text-dim)',
             fontFamily: 'var(--mono)', fontSize: '0.55rem', letterSpacing: '0.04em',
             cursor: decoding ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
-        }}>
-              <span>{decoding ? '⏳' : '+'}</span>
-              <span>{decoding ? 'DECODING…' : 'UPLOAD'}</span>
-            </button>
-          </div>
-          <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.5rem' }}>
-            <button className={`toggle-btn${sidechain.external ? ' on' : ''}`} onClick={() => setSidechain(s => ({ ...s, external: !s.external }))} title="Detect off the Sidechain Source above (filtered) instead of the gate's own linked L/R audio">
-              EXTERNAL SC
-            </button>
-            <button className={`toggle-btn${sidechain.listen ? ' on' : ''}`} onClick={() => setSidechain(s => ({ ...s, listen: !s.listen }))} title="Audition the detector signal itself, in place of the gated output">
-              SC LISTEN
-            </button>
-          </div>
-          {sidechainSourceId !== 'none' && !sidechain.external && (<div style={{ fontFamily: 'var(--mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginBottom: '0.5rem', lineHeight: 1.5 }}>
-              A Sidechain Source is selected but EXTERNAL SC is off, so it isn't driving detection yet — turn EXTERNAL SC on to use it.
-            </div>)}
-          <MiniSlider label="SC HPF" value={sidechain.hpf} min={20} max={2000} step={1} fmt={v => `${v.toFixed(0)} Hz`} onChange={v => setSidechain(s => ({ ...s, hpf: v }))}/>
-
-          <div style={{ marginTop: '1rem' }}>
-            <div className="concept-callout" style={{ background: 'var(--green-dim)', borderColor: 'rgba(0,255,135,0.2)' }}>
-              <strong style={{ color: 'var(--green)' }}>Concept: </strong>
-              Gate Close sits {(params.gateOpen - params.gateClose).toFixed(1)} dB below Gate Open — that gap is the
-              hysteresis band, and it's what stops the gate from chattering open/closed right at the threshold.
-              {' '}Turn on <strong style={{ color: 'var(--green)' }}>EXTERNAL SC</strong> and pick{' '}
-              <strong style={{ color: 'var(--amber)' }}>KICK ONLY</strong> to trigger the gate from just the kick
-              instead of the full signal — a classic gating trick for bleed-heavy mics.
-              Toggle <strong style={{ color: 'var(--green)' }}>BYPASS</strong> while playing to A/B.
-            </div>
-          </div>
+          }}>
+            <span>{decoding ? '⏳' : '+'}</span>
+            <span>{decoding ? 'DECODING…' : 'UPLOAD'}</span>
+          </button>
         </div>
-
-        {/* Right: transfer + live scope */}
-        <div className="comp-visual">
-          <div className="canvas-label" style={{ marginBottom: '0.75rem' }}>
-            TRANSFER FUNCTION — INPUT vs OUTPUT
-            <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
-              · shaped by GATE OPEN / GATE CLOSE / FLOOR only — attack, hold &amp; release are time-domain, see scope below
-            </span>
-          </div>
-          <div className="transfer-graph">
-            <canvas ref={transferRef} width={400} height={200} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
-          </div>
-
-          <div className="canvas-label" style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>
-            LIVE GATE SCOPE {!isPlaying && '· HIT PLAY TO SEE LIVE SIGNAL'}
-            <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
-              · real input/output level over time — watch ATTACK snap the gate open &amp; HOLD/RELEASE let it close
-            </span>
-          </div>
-          <div className="scope-graph">
-            <canvas ref={scopeRef} width={400} height={150} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
-          </div>
-          <div className="legend-row" style={{ marginTop: '0.5rem', marginBottom: 0 }}>
-            <div className="legend-item"><span className="legend-line" style={{ background: '#00FF87' }}/>INPUT</div>
-            <div className="legend-item"><span className="legend-line" style={{ background: '#4D9EFF' }}/>OUTPUT</div>
-            <div className="legend-item"><span className="legend-line" style={{ background: '#FF4D6A' }}/>GATE REDUCTION</div>
-          </div>
-        </div>
+        {sidechainSourceId !== 'none' && !sidechain.external && (<div style={{ fontFamily: 'var(--mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginBottom: '0.5rem', lineHeight: 1.5 }}>
+          A Sidechain Source is selected but EXTERNAL SC is off, so it isn't driving detection yet — turn EXTERNAL SC on to use it.
+        </div>)}
       </div>
+
+      {/* Body — the actual knobs/sidechain-toggles/transfer-curve/live-scope,
+          shared verbatim with the DAW workstation's Gate insert popup via
+          GateEditorPanel (see above). */}
+      <GateEditorPanel params={params} setParams={setParams} sidechain={sidechain} setSidechain={setSidechain} bypass={bypass} isPlaying={isPlaying} getLevels={getLevels} getNow={() => ctxRef.current?.currentTime} onOpenChange={setGateIsOpen}/>
 
       {/* Footer */}
       <div className="lab-footer">

@@ -2,6 +2,11 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { FaustMonoDspGenerator } from '@grame/faustwasm';
 import { compileFaustWasm } from '../faust/faustTypes';
 import { downloadAudioBufferAsWav } from '../audio/wavRender';
+import {
+    KNOBS, DEFAULTS, ADDR, pushFaustParams, applyLimiter,
+    METER_FLOOR_DB, LEVEL_ATTACK_S, LEVEL_RELEASE_S, levelBallistic,
+    GR_READOUT_TAU_S, grReadoutSmooth, analyserPeakDb,
+} from './limiterEngine';
 // ── Chapter 11 — Limiter Studio ──────────────────────────────────────────────
 // "Set a Brickwall Ceiling with a Limiter". Real DSP lives at
 // public/faust/limiter/ (dsp-module.wasm + dsp-meta.json) — a Faust
@@ -22,52 +27,15 @@ import { downloadAudioBufferAsWav } from '../audio/wavRender';
 // input/output level over time, replacing the old static vertical meters)
 // mirrors Chapter4's compressor and Chapter10's gate.
 // ── Types ────────────────────────────────────────────────────────────────────
-// Ranges mirror the live bounds in public/faust/limiter/dsp-meta.json (the
-// Faust limiter patch clamps its own params internally, so dialing a knob
-// past these won't change the audio any further even though the knob keeps
-// turning). Release has no "unit" meta on the patch — it's a 0–2 character
-// knob (lower = tighter/faster recovery, higher = looser/slower), not ms.
-const KNOBS = [
-    { key: 'threshold', label: 'THRESHOLD', min: -30, max: 0, step: 0.1, fmt: v => `${v.toFixed(1)} dB` },
-    { key: 'ceiling', label: 'CEILING', min: -30, max: 0, step: 0.1, fmt: v => `${v.toFixed(1)} dB` },
-    // release: 0-2, release character; ignored while Auto Release is on.
-    { key: 'release', label: 'RELEASE', min: 0, max: 2, step: 0.01, fmt: v => v.toFixed(2) },
-];
-// Defaults — mirror the `init` values in public/faust/limiter/dsp-meta.json
-// (checkboxes have no init in the patch, so they start off — same "explore
-// away from the default" pattern the task checklist below uses).
-const DEFAULTS = {
-    threshold: -6.6,
-    ceiling: -0.3,
-    release: 1,
-    linkLR: false,
-    autoRelease: false,
-};
+// KNOBS/DEFAULTS/ADDR/pushFaustParams/applyLimiter and the level/meter
+// smoothing helpers all now live in ./limiterEngine (see LimiterEditorPanel
+// further down for the shared editor UI built on them).
 // ── Faust limiter engine wiring ──────────────────────────────────────────────
 // Real DSP: public/faust/limiter/ (dsp-module.wasm + dsp-meta.json), a
 // lookahead brickwall limiter exported straight from the Faust IDE, driven
 // the same way as the compressor / gate / reverb patches elsewhere in this
 // app.
 const FAUST_BASE_PATH = '/faust/limiter';
-// Faust addresses, from public/faust/limiter/dsp-meta.json's `ui` tree.
-const ADDR = {
-    threshold: '/BRICKWALL_LIMITER/Threshold',
-    ceiling: '/BRICKWALL_LIMITER/Out_Ceiling',
-    release: '/BRICKWALL_LIMITER/Release',
-    linkLR: '/BRICKWALL_LIMITER/Link_L_R',
-    autoRelease: '/BRICKWALL_LIMITER/Auto_Release',
-    gainReduction: '/BRICKWALL_LIMITER/Gain_Reduction', // read-only hbargraph output
-};
-// The limiter patch has no internal Wet_Dry (unlike the compressor's), so
-// bypass and wet/dry mixing are done at the WebAudio graph level instead — a
-// dry/wet crossfade around the Faust node — same pattern Chapter10's gate uses.
-function pushFaustParams(node, params) {
-    node.setParamValue(ADDR.threshold, params.threshold);
-    node.setParamValue(ADDR.ceiling, params.ceiling);
-    node.setParamValue(ADDR.release, params.release);
-    node.setParamValue(ADDR.linkLR, params.linkLR ? 1 : 0);
-    node.setParamValue(ADDR.autoRelease, params.autoRelease ? 1 : 0);
-}
 // Renders an uploaded track through the same Faust limiter + dry/wet
 // crossfade used live (an OfflineAudioContext instead of a live one), so it
 // can be exported as a WAV — mirrors the graph built in startAudio() but
@@ -92,20 +60,6 @@ async function renderLimiterOffline(generator, meta, dspModule, source, params, 
     wetGain.connect(offlineCtx.destination);
     src.start();
     return offlineCtx.startRendering();
-}
-// ── Transfer function math (static curve — a visual approximation of the
-// brickwall behaviour; the real gain reduction meter reads the live Faust
-// bargraph instead, see animate() below) ────────────────────────────────────
-function applyLimiter(inputDb, p) {
-    const { threshold, ceiling } = p;
-    if (inputDb <= threshold)
-        return Math.min(inputDb, ceiling);
-    const headroom = ceiling - threshold;
-    if (headroom <= 0.05)
-        return ceiling; // no room between threshold & ceiling — instant clamp
-    const over = inputDb - threshold;
-    const knee = Math.max(0.4, headroom * 0.5);
-    return ceiling - headroom * Math.exp(-over / knee); // asymptotically approaches, never exceeds, the ceiling
 }
 // ── HiDPI canvas helper ───────────────────────────────────────────────────────
 function hiDpi(canvas) {
@@ -384,34 +338,11 @@ function describeArc(r, start, end) {
 // The old vertical INPUT/G·R/OUTPUT bar meters were removed — the live
 // limiter scope below shows the same input/output levels (and the gain
 // reduction between them) as motion over time, which is strictly more
-// information than three static bars, so keeping both was redundant (same
-// change made to the compressor's Chapter4 and the gate's Chapter10). The
-// smoothed input/output dB values are still computed here (fast-attack/
-// slow-release, so they're readable frame to frame) — the scope is what
-// displays them now.
-const METER_FLOOR_DB = -60;
-const LEVEL_ATTACK_S = 0.015;
-const LEVEL_RELEASE_S = 0.35;
-function levelBallistic(prev, target, dt) {
-    if (dt <= 0)
-        return prev;
-    const tau = target > prev ? LEVEL_ATTACK_S : LEVEL_RELEASE_S;
-    return prev + (target - prev) * (1 - Math.exp(-dt / tau));
-}
-// gainReduction (real DSP telemetry, not a scope estimate) still drives the
-// LIMITING/UNITY badge in the top bar, so this smoothing stays even with the
-// bar meter gone. The gain-reduction meter reads the Faust patch's own live
-// Gain_Reduction bargraph (unlike the compressor/gate charts, which have to
-// estimate GR from a static curve) — this just takes the *edge* off
-// frame-to-frame flicker so the readout doesn't blur, without altering the
-// real ballistics the DSP itself already applies (attack/release/lookahead
-// all happen inside the patch).
-const GR_READOUT_TAU_S = 0.03;
-function grReadoutSmooth(prev, target, dt) {
-    if (dt <= 0)
-        return prev;
-    return prev + (target - prev) * (1 - Math.exp(-dt / GR_READOUT_TAU_S));
-}
+// information than three static bars, so keeping both was redundant. The
+// smoothed dB values (levelBallistic/grReadoutSmooth, both from
+// ./limiterEngine) are computed inside LimiterEditorPanel now — the scope
+// is what displays them, and the top-bar LIMITING/UNITY badge reads its
+// smoothed gain-reduction number.
 // ── Test signal: a hot "mastered" loop that pokes above 0 dBFS ──────────────
 // A limiter's whole job is catching peaks a mix would otherwise clip on — so
 // unlike the compressor/gate demo loops, this one is deliberately mixed hot
@@ -574,6 +505,206 @@ function normalizeUploadedBuffer(buf, peakTarget = 0.95) {
         }
     }
 }
+// ── Shared editor panel ───────────────────────────────────────────────────────
+// The knob grid / Link L-R + Auto Release toggles / concept-callout on the
+// left, transfer graph + live scope on the right — the exact same body the
+// standalone Limiter Studio lab below renders, reused verbatim by the DAW
+// workstation's insert-chain popup (../panorama/DawWorkstationScreen) instead
+// of the generic FaustPanel/PluginVisualizer curve approximation. Same split
+// as GateEditorPanel in ./NoiseGate.
+//
+// Host contract:
+//   - params/setParams — host-owned typed param state, pushed onto the live
+//     Faust node by the host via pushFaustParams (see ./limiterEngine)
+//     whenever it changes.
+//   - bypass — host-owned; read-only here (a global bypass toggle lives in
+//     the host's own topbar/chain-chip UI).
+//   - isPlaying — whether the host's transport is currently running; the
+//     scope/meter animation loop only runs while there's something to read.
+//   - getLevels() — called once per animation frame; returns
+//     { inputDb, outputDb, gainReductionDb } read off the host's own
+//     analysers and the Faust patch's own live Gain_Reduction bargraph
+//     output, or null if none are live yet. gainReductionDb is raw
+//     (unsmoothed) — this panel does its own display-only smoothing
+//     (grReadoutSmooth), same as the standalone lab always did.
+//   - getNow() — returns the audio clock (ctx.currentTime) driving the
+//     scope's scroll, so it stays in sync with the actual audio rather than
+//     performance.now() drifting from it.
+//   - onGainReductionChange(db) — optional, lets the host mirror the
+//     limiter's live (smoothed) gain-reduction number in its own UI (e.g. the
+//     standalone lab's LIMITING/UNITY topbar badge).
+export function LimiterEditorPanel({ params, setParams, bypass, isPlaying, getLevels, getNow, onGainReductionChange, }) {
+    const transferRef = useRef(null);
+    const scopeRef = useRef(null);
+    const scopeHistoryRef = useRef([]);
+    const smoothedInputDbRef = useRef(METER_FLOOR_DB);
+    const smoothedOutputDbRef = useRef(METER_FLOOR_DB);
+    const smoothedGrDbRef = useRef(0);
+    const meterClockRef = useRef(null);
+    const bypassRef = useRef(bypass);
+    const paramsRef = useRef(params);
+    const mainDragRef = useRef(null);
+    useEffect(() => { bypassRef.current = bypass; }, [bypass]);
+    useEffect(() => { paramsRef.current = params; }, [params]);
+    // ── Main transfer canvas — static, only depends on the knobs + bypass ────
+    useEffect(() => {
+        if (transferRef.current) {
+            const displayParams = bypass ? { ...params, threshold: 6, ceiling: 6 } : params;
+            drawTransfer(transferRef.current, displayParams);
+        }
+    }, [params, bypass]);
+    // ── Live scope + gain-reduction readout ───────────────────────────────────
+    useEffect(() => {
+        if (!isPlaying) {
+            scopeHistoryRef.current = [];
+            smoothedInputDbRef.current = METER_FLOOR_DB;
+            smoothedOutputDbRef.current = METER_FLOOR_DB;
+            smoothedGrDbRef.current = 0;
+            meterClockRef.current = null;
+            onGainReductionChange?.(0);
+            if (scopeRef.current) {
+                const c = scopeRef.current.getContext('2d');
+                c.fillStyle = '#0D0D0F';
+                c.fillRect(0, 0, scopeRef.current.width, scopeRef.current.height);
+            }
+            return;
+        }
+        let raf = 0;
+        const animate = () => {
+            const now = getNow?.() ?? performance.now() / 1000;
+            const dt = meterClockRef.current !== null ? Math.max(0, Math.min(0.2, now - meterClockRef.current)) : 0;
+            meterClockRef.current = now;
+            const levels = getLevels?.();
+            if (levels) {
+                smoothedInputDbRef.current = levelBallistic(smoothedInputDbRef.current, levels.inputDb, dt);
+                smoothedOutputDbRef.current = levelBallistic(smoothedOutputDbRef.current, levels.outputDb, dt);
+                if (!bypassRef.current) {
+                    smoothedGrDbRef.current = grReadoutSmooth(smoothedGrDbRef.current, levels.gainReductionDb ?? 0, dt);
+                }
+                else {
+                    smoothedGrDbRef.current = 0;
+                }
+                onGainReductionChange?.(smoothedGrDbRef.current);
+                const history = scopeHistoryRef.current;
+                history.push({ t: now, inputDb: smoothedInputDbRef.current, outputDb: smoothedOutputDbRef.current });
+                const cutoff = now - SCOPE_WINDOW_S - 0.5;
+                while (history.length > 0 && history[0].t < cutoff)
+                    history.shift();
+                if (scopeRef.current) {
+                    const p = paramsRef.current;
+                    drawLimiterScope(scopeRef.current, history, now, p.threshold, p.ceiling, !bypassRef.current);
+                }
+            }
+            raf = requestAnimationFrame(animate);
+        };
+        raf = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(raf);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isPlaying, getLevels, getNow]);
+    // ── Knob drag ──────────────────────────────────────────────────────────────
+    const onMainKnobDown = useCallback((e, spec, val) => {
+        e.preventDefault();
+        mainDragRef.current = { spec, startY: e.clientY, startFrac: specToFrac(spec, val) };
+    }, []);
+    useEffect(() => {
+        const onMove = (e) => {
+            const d = mainDragRef.current;
+            if (!d)
+                return;
+            const frac = Math.min(1, Math.max(0, d.startFrac + (d.startY - e.clientY) / 220));
+            const raw = specFromFrac(d.spec, frac);
+            const clamped = Math.min(d.spec.max, Math.max(d.spec.min, Math.round(raw / d.spec.step) * d.spec.step));
+            setParams(p => ({ ...p, [d.spec.key]: clamped }));
+        };
+        const onUp = () => { mainDragRef.current = null; };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    }, [setParams]);
+    return (<div className="comp-body">
+      {/* Left: knobs + toggles */}
+      <div className="comp-controls">
+        <div className="canvas-label" style={{ marginBottom: '1rem' }}>
+          LIMITER PARAMETERS · DRAG KNOBS VERTICALLY
+        </div>
+
+        <div className="knob-grid">
+          {KNOBS.map(spec => {
+            const val = params[spec.key];
+            const rot = knobRotationForSpec(spec, val);
+            return (<div className="knob-wrap" key={spec.key}>
+                  <div style={{ position: 'relative', width: 64, height: 64 }}>
+                    <svg style={{ position: 'absolute', top: 0, left: 0 }} width={64} height={64} viewBox="-32 -32 64 64">
+                      <path d={describeArc(28, -140, 140)} fill="none" stroke="var(--border)" strokeWidth={3} strokeLinecap="round"/>
+                      <path d={describeArc(28, -140, rot)} fill="none" stroke="var(--amber)" strokeWidth={3} strokeLinecap="round" opacity={0.85}/>
+                    </svg>
+                    <div className="big-knob" style={{ position: 'absolute', top: 6, left: 6, width: 52, height: 52, cursor: 'ns-resize', userSelect: 'none' }} onMouseDown={e => onMainKnobDown(e, spec, val)}>
+                      <div style={{
+                    position: 'absolute', top: '50%', left: '50%',
+                    width: 3, height: 16, background: 'var(--text)', borderRadius: 2,
+                    transformOrigin: 'bottom center',
+                    transform: `translate(-50%, -100%) rotate(${rot}deg)`,
+                    marginTop: -2,
+                }}/>
+                    </div>
+                  </div>
+                  <div className="knob-name">{spec.label}</div>
+                  <div className="knob-val">{spec.fmt(val)}</div>
+                  <KnobNumberInput value={val} min={spec.min} max={spec.max} step={spec.step} onChange={v => setParams(p => ({ ...p, [spec.key]: v }))}/>
+                </div>);
+        })}
+        </div>
+
+        {/* Link L/R + Auto Release toggles */}
+        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+          <button className={`toggle-btn${params.linkLR ? ' on' : ''}`} style={params.linkLR ? { borderColor: 'var(--amber)', color: 'var(--amber)', background: 'var(--amber-dim)' } : {}} onClick={() => setParams(p => ({ ...p, linkLR: !p.linkLR }))} title="Tie stereo gain reduction together so a loud transient in one channel doesn't shift the image">
+            {params.linkLR ? '⛓ LINK L/R: ON' : 'LINK L/R: OFF'}
+          </button>
+          <button className={`toggle-btn${params.autoRelease ? ' on' : ''}`} style={params.autoRelease ? { borderColor: 'var(--amber)', color: 'var(--amber)', background: 'var(--amber-dim)' } : {}} onClick={() => setParams(p => ({ ...p, autoRelease: !p.autoRelease }))} title="Let the limiter pick its own program-dependent release instead of the fixed Release knob">
+            {params.autoRelease ? '⚙ AUTO RELEASE: ON' : 'AUTO RELEASE: OFF'}
+          </button>
+        </div>
+
+        <div style={{ marginTop: '1rem' }}>
+          <div className="concept-callout" style={{ background: 'var(--amber-dim)', borderColor: 'rgba(245,166,35,0.2)' }}>
+            <strong style={{ color: 'var(--amber)' }}>Concept: </strong>
+            Threshold decides where limiting <em>starts</em>; Ceiling decides the hardest limit the output can ever
+            <em> reach</em> — no sample leaves this patch louder than {params.ceiling.toFixed(1)} dB, no matter how
+            hot the input gets. Toggle <strong style={{ color: 'var(--amber)' }}>BYPASS</strong> while playing to
+            hear the accent hit poke past 0 dBFS.
+          </div>
+        </div>
+      </div>
+
+      {/* Right: transfer + live scope */}
+      <div className="comp-visual">
+        <div className="canvas-label" style={{ marginBottom: '0.75rem' }}>
+          TRANSFER FUNCTION — INPUT vs OUTPUT
+          <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
+            · shaped by THRESHOLD / CEILING only — release &amp; auto release are time-domain, see scope below
+          </span>
+        </div>
+        <div className="transfer-graph">
+          <canvas ref={transferRef} width={400} height={200} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
+        </div>
+
+        <div className="canvas-label" style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>
+          LIVE LIMITER SCOPE {!isPlaying && '· HIT PLAY TO SEE LIVE SIGNAL'}
+          <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
+            · real input/output level over time — watch the output snap flat at CEILING &amp; RELEASE let go after
+          </span>
+        </div>
+        <div className="scope-graph">
+          <canvas ref={scopeRef} width={400} height={150} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
+        </div>
+        <div className="legend-row" style={{ marginTop: '0.5rem', marginBottom: 0 }}>
+          <div className="legend-item"><span className="legend-line" style={{ background: '#00FF87' }}/>INPUT</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: '#4D9EFF' }}/>OUTPUT</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: '#F5A623' }}/>GAIN REDUCTION</div>
+        </div>
+      </div>
+    </div>);
+}
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function Limiter() {
     const [params, setParams] = useState(DEFAULTS);
@@ -596,10 +727,6 @@ export default function Limiter() {
     useEffect(() => { activeSourceIdRef.current = activeSourceId; }, [activeSourceId]);
     useEffect(() => { uploadedTracksRef.current = uploadedTracks; }, [uploadedTracks]);
     const activeTrack = activeSourceId !== 'synth' ? uploadedTracks.find(t => t.id === activeSourceId) : undefined;
-    // Canvas refs
-    const transferRef = useRef(null);
-    const scopeRef = useRef(null);
-    const scopeHistoryRef = useRef([]);
     // Faust limiter engine (module + meta loaded once on mount, one node
     // instantiated per AudioContext in startAudio — same pattern as Chapter4's
     // compressor / Chapter10's gate).
@@ -643,7 +770,6 @@ export default function Limiter() {
     const wetGainRef = useRef(null);
     const outputRef = useRef(null); // post-crossfade sum → destination
     const finalAnalRef = useRef(null); // taps the actual blended output (reflects bypass/mix)
-    const animRef = useRef(0);
     const schedulerRef = useRef(null);
     const nextNoteRef = useRef(0);
     const currentStepRef = useRef(0);
@@ -652,25 +778,12 @@ export default function Limiter() {
     const bypassRef = useRef(bypass);
     useEffect(() => { paramsRef.current = params; }, [params]);
     useEffect(() => { bypassRef.current = bypass; }, [bypass]);
-    // Meter ballistics state
-    const smoothedInputDbRef = useRef(METER_FLOOR_DB);
-    const smoothedOutputDbRef = useRef(METER_FLOOR_DB);
-    const smoothedGrDbRef = useRef(0);
-    const meterClockRef = useRef(null);
     // Latest raw Gain_Reduction value pushed from the audio thread — see the
     // setOutputParamHandler wiring in startAudio() and the comment on
     // FaustNodeLike.setOutputParamHandler in faustTypes.ts for why this can't
-    // just be read with faustNode.getParamValue() every frame.
+    // just be read with faustNode.getParamValue() every frame. Read by
+    // getLevels() below and smoothed for display inside LimiterEditorPanel.
     const grRawRef = useRef(0);
-    // Knob drag ref
-    const mainDragRef = useRef(null);
-    // ── Main transfer canvas ──────────────────────────────────────────────────
-    useEffect(() => {
-        if (transferRef.current) {
-            const displayParams = bypass ? { ...params, threshold: 6, ceiling: 6 } : params;
-            drawTransfer(transferRef.current, displayParams);
-        }
-    }, [params, bypass]);
     // ── Sync Faust limiter params (always live — bypass is handled by the
     // dry/wet crossfade below, not by touching the DSP itself) ───────────────
     useEffect(() => {
@@ -713,60 +826,25 @@ export default function Limiter() {
         }
         schedulerRef.current = setTimeout(runScheduler, 25);
     }, []);
-    // ── Animation loop ────────────────────────────────────────────────────────
-    const animate = useCallback(() => {
+    // ── Levels for LimiterEditorPanel's live scope ────────────────────────────
+    // Mirrors getGateLevels in ../panorama/DawWorkstationScreen: reads the dry
+    // (pre-limiter) and final (post-crossfade) analyser taps plus the raw
+    // Gain_Reduction ref populated by startAudio()'s setOutputParamHandler
+    // subscription. The panel itself owns all display-only smoothing
+    // (levelBallistic/grReadoutSmooth) and the scope-history/canvas drawing —
+    // this just supplies the raw numbers.
+    const getLevels = useCallback(() => {
         const dryAnal = dryAnalRef.current;
-        const now = ctxRef.current?.currentTime ?? performance.now() / 1000;
-        const dt = meterClockRef.current !== null ? Math.max(0, Math.min(0.2, now - meterClockRef.current)) : 0;
-        meterClockRef.current = now;
-        if (dryAnal) {
-            const buf = new Float32Array(dryAnal.fftSize);
-            dryAnal.getFloatTimeDomainData(buf);
-            let peak = 0;
-            for (let i = 0; i < buf.length; i++)
-                peak = Math.max(peak, Math.abs(buf[i]));
-            const rawInputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
-            smoothedInputDbRef.current = levelBallistic(smoothedInputDbRef.current, rawInputDb, dt);
-        }
-        // Gain reduction: read the *real* Faust patch's own live Gain_Reduction
-        // bargraph — no estimation needed, unlike the compressor/gate charts
-        // elsewhere in this app. The value itself arrives asynchronously via
-        // setOutputParamHandler (see startAudio) into grRawRef; this just smooths
-        // it for display. Still drives the LIMITING/UNITY badge up top even
-        // though the bar meter that used to show it is gone.
-        if (!bypassRef.current) {
-            smoothedGrDbRef.current = grReadoutSmooth(smoothedGrDbRef.current, grRawRef.current, dt);
-            setGR(smoothedGrDbRef.current);
-        }
-        else {
-            smoothedGrDbRef.current = 0;
-            setGR(0);
-        }
-        if (finalAnalRef.current) {
-            const buf = new Float32Array(finalAnalRef.current.fftSize);
-            finalAnalRef.current.getFloatTimeDomainData(buf);
-            let peak = 0;
-            for (let i = 0; i < buf.length; i++)
-                peak = Math.max(peak, Math.abs(buf[i]));
-            const rawOutputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
-            smoothedOutputDbRef.current = levelBallistic(smoothedOutputDbRef.current, rawOutputDb, dt);
-        }
-        // Live limiter scope — records the smoothed input/output dB into a
-        // scrolling history, so Release/Auto Release are visible as actual
-        // motion on the real signal instead of only as numbers on a knob.
-        if (dryAnal && finalAnalRef.current) {
-            const history = scopeHistoryRef.current;
-            history.push({ t: now, inputDb: smoothedInputDbRef.current, outputDb: smoothedOutputDbRef.current });
-            const cutoff = now - SCOPE_WINDOW_S - 0.5;
-            while (history.length > 0 && history[0].t < cutoff)
-                history.shift();
-            if (scopeRef.current) {
-                const p = paramsRef.current;
-                drawLimiterScope(scopeRef.current, history, now, p.threshold, p.ceiling, !bypassRef.current);
-            }
-        }
-        animRef.current = requestAnimationFrame(animate);
+        const finalAnal = finalAnalRef.current;
+        if (!dryAnal || !finalAnal)
+            return null;
+        const inputDb = analyserPeakDb(dryAnal);
+        const outputDb = analyserPeakDb(finalAnal);
+        if (inputDb === null || outputDb === null)
+            return null;
+        return { inputDb, outputDb, gainReductionDb: grRawRef.current };
     }, []);
+    const getNow = useCallback(() => ctxRef.current?.currentTime ?? 0, []);
     // ── Start / Stop audio ────────────────────────────────────────────────────
     const startAudio = useCallback(async () => {
         if (engineStatus !== 'ready' || !generatorRef.current || !dspMetaRef.current || !dspModuleRef.current)
@@ -855,15 +933,12 @@ export default function Limiter() {
             currentStepRef.current = 0;
             runScheduler();
         }
-        scopeHistoryRef.current = [];
-        animRef.current = requestAnimationFrame(animate);
         setIsPlaying(true);
-    }, [engineStatus, params, bypass, runScheduler, animate]);
+    }, [engineStatus, params, bypass, runScheduler]);
     const stopAudio = useCallback(() => {
         startTokenRef.current++;
         if (schedulerRef.current)
             clearTimeout(schedulerRef.current);
-        cancelAnimationFrame(animRef.current);
         if (bufSourceRef.current) {
             try {
                 bufSourceRef.current.stop();
@@ -888,25 +963,14 @@ export default function Limiter() {
         wetGainRef.current = null;
         outputRef.current = null;
         finalAnalRef.current = null;
-        smoothedInputDbRef.current = METER_FLOOR_DB;
-        smoothedOutputDbRef.current = METER_FLOOR_DB;
-        smoothedGrDbRef.current = 0;
         grRawRef.current = 0;
-        meterClockRef.current = null;
         setGR(0);
         setIsPlaying(false);
-        scopeHistoryRef.current = [];
-        if (scopeRef.current) {
-            const c = scopeRef.current.getContext('2d');
-            c.fillStyle = '#0D0D0F';
-            c.fillRect(0, 0, scopeRef.current.width, scopeRef.current.height);
-        }
     }, []);
     useEffect(() => () => {
         startTokenRef.current++;
         if (schedulerRef.current)
             clearTimeout(schedulerRef.current);
-        cancelAnimationFrame(animRef.current);
         if (bufSourceRef.current) {
             try {
                 bufSourceRef.current.stop();
@@ -1001,26 +1065,6 @@ export default function Limiter() {
             setDownloading(false);
         }
     }, [activeTrack, params, bypass]);
-    // ── Main lab knob drag ────────────────────────────────────────────────────
-    const onMainKnobDown = useCallback((e, spec, val) => {
-        e.preventDefault();
-        mainDragRef.current = { spec, startY: e.clientY, startFrac: specToFrac(spec, val) };
-    }, []);
-    useEffect(() => {
-        const onMove = (e) => {
-            const d = mainDragRef.current;
-            if (!d)
-                return;
-            const frac = Math.min(1, Math.max(0, d.startFrac + (d.startY - e.clientY) / 220));
-            const raw = specFromFrac(d.spec, frac);
-            const clamped = Math.min(d.spec.max, Math.max(d.spec.min, Math.round(raw / d.spec.step) * d.spec.step));
-            setParams(p => ({ ...p, [d.spec.key]: clamped }));
-        };
-        const onUp = () => { mainDragRef.current = null; };
-        window.addEventListener('mousemove', onMove);
-        window.addEventListener('mouseup', onUp);
-        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-    }, []);
     const reset = useCallback(() => setParams(DEFAULTS), []);
     // Derived
     const TASK_LABELS = ['Lower the threshold', 'Set an output ceiling', 'Adjust release character', 'Try Auto Release / Link L-R'];
@@ -1137,94 +1181,7 @@ export default function Limiter() {
       </div>
 
       {/* Body */}
-      <div className="comp-body">
-        {/* Left: meters + knobs */}
-        <div className="comp-controls">
-          <div className="canvas-label" style={{ marginBottom: '1rem' }}>
-            LIMITER PARAMETERS · DRAG KNOBS VERTICALLY
-          </div>
-
-          {/* Knobs, evenly spread across the full control column now that the
-            old meter column beside them is gone — the live scope on the
-            right already covers input/output/gain-reduction, so this
-            panel is just the controls themselves (same change made to the
-            compressor's Chapter4 and the gate's Chapter10). */}
-          <div className="knob-grid">
-            {KNOBS.map(spec => {
-            const val = params[spec.key];
-            const rot = knobRotationForSpec(spec, val);
-            return (<div className="knob-wrap" key={spec.key}>
-                  <div style={{ position: 'relative', width: 64, height: 64 }}>
-                    <svg style={{ position: 'absolute', top: 0, left: 0 }} width={64} height={64} viewBox="-32 -32 64 64">
-                      <path d={describeArc(28, -140, 140)} fill="none" stroke="var(--border)" strokeWidth={3} strokeLinecap="round"/>
-                      <path d={describeArc(28, -140, rot)} fill="none" stroke="var(--amber)" strokeWidth={3} strokeLinecap="round" opacity={0.85}/>
-                    </svg>
-                    <div className="big-knob" style={{ position: 'absolute', top: 6, left: 6, width: 52, height: 52, cursor: 'ns-resize', userSelect: 'none' }} onMouseDown={e => onMainKnobDown(e, spec, val)}>
-                      <div style={{
-                    position: 'absolute', top: '50%', left: '50%',
-                    width: 3, height: 16, background: 'var(--text)', borderRadius: 2,
-                    transformOrigin: 'bottom center',
-                    transform: `translate(-50%, -100%) rotate(${rot}deg)`,
-                    marginTop: -2,
-                }}/>
-                    </div>
-                  </div>
-                  <div className="knob-name">{spec.label}</div>
-                  <div className="knob-val">{spec.fmt(val)}</div>
-                  <KnobNumberInput value={val} min={spec.min} max={spec.max} step={spec.step} onChange={v => setParams(p => ({ ...p, [spec.key]: v }))}/>
-                </div>);
-        })}
-          </div>
-
-          {/* Link L/R + Auto Release toggles */}
-          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-            <button className={`toggle-btn${params.linkLR ? ' on' : ''}`} style={params.linkLR ? { borderColor: 'var(--amber)', color: 'var(--amber)', background: 'var(--amber-dim)' } : {}} onClick={() => setParams(p => ({ ...p, linkLR: !p.linkLR }))} title="Tie stereo gain reduction together so a loud transient in one channel doesn't shift the image">
-              {params.linkLR ? '⛓ LINK L/R: ON' : 'LINK L/R: OFF'}
-            </button>
-            <button className={`toggle-btn${params.autoRelease ? ' on' : ''}`} style={params.autoRelease ? { borderColor: 'var(--amber)', color: 'var(--amber)', background: 'var(--amber-dim)' } : {}} onClick={() => setParams(p => ({ ...p, autoRelease: !p.autoRelease }))} title="Let the limiter pick its own program-dependent release instead of the fixed Release knob">
-              {params.autoRelease ? '⚙ AUTO RELEASE: ON' : 'AUTO RELEASE: OFF'}
-            </button>
-          </div>
-
-          <div style={{ marginTop: '1rem' }}>
-            <div className="concept-callout" style={{ background: 'var(--amber-dim)', borderColor: 'rgba(245,166,35,0.2)' }}>
-              <strong style={{ color: 'var(--amber)' }}>Concept: </strong>
-              Threshold decides where limiting <em>starts</em>; Ceiling decides the hardest limit the output can ever
-              <em> reach</em> — no sample leaves this patch louder than {params.ceiling.toFixed(1)} dB, no matter how
-              hot the input gets. Toggle <strong style={{ color: 'var(--amber)' }}>BYPASS</strong> while playing to
-              hear the accent hit poke past 0 dBFS.
-            </div>
-          </div>
-        </div>
-
-        {/* Right: transfer + live scope */}
-        <div className="comp-visual">
-          <div className="canvas-label" style={{ marginBottom: '0.75rem' }}>
-            TRANSFER FUNCTION — INPUT vs OUTPUT
-            <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
-              · shaped by THRESHOLD / CEILING only — release &amp; auto release are time-domain, see scope below
-            </span>
-          </div>
-          <div className="transfer-graph">
-            <canvas ref={transferRef} width={400} height={200} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
-          </div>
-
-          <div className="canvas-label" style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>
-            LIVE LIMITER SCOPE {!isPlaying && '· HIT PLAY TO SEE LIVE SIGNAL'}
-            <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
-              · real input/output level over time — watch the output snap flat at CEILING &amp; RELEASE let go after
-            </span>
-          </div>
-          <div className="scope-graph">
-            <canvas ref={scopeRef} width={400} height={150} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
-          </div>
-          <div className="legend-row" style={{ marginTop: '0.5rem', marginBottom: 0 }}>
-            <div className="legend-item"><span className="legend-line" style={{ background: '#00FF87' }}/>INPUT</div>
-            <div className="legend-item"><span className="legend-line" style={{ background: '#4D9EFF' }}/>OUTPUT</div>
-            <div className="legend-item"><span className="legend-line" style={{ background: '#F5A623' }}/>GAIN REDUCTION</div>
-          </div>
-        </div>
-      </div>
+      <LimiterEditorPanel params={params} setParams={setParams} bypass={bypass} isPlaying={isPlaying} getLevels={getLevels} getNow={getNow} onGainReductionChange={setGR}/>
 
       {/* Footer */}
       <div className="lab-footer">

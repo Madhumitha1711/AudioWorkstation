@@ -3,6 +3,7 @@ import { FaustMonoDspGenerator } from '@grame/faustwasm';
 import { Knob } from '../components/Knob';
 import { compileFaustWasm } from '../faust/faustTypes';
 import { downloadAudioBufferAsWav } from '../audio/wavRender';
+import { BPM, DEFAULT_SYNC, syncDivisionMs, DEFAULTS, ADDR, pushFaustParams, METER_FLOOR_DB, analyserPeakLinear } from './delayEngine';
 // ── Chapter 9 — Delay Design Studio ─────────────────────────────────────────
 // "Shape Character with Modulated, Filtered Delay". Real DSP lives at
 // public/faust/delay/ (dsp-module.wasm + dsp-meta.json) — a Faust patch built
@@ -127,7 +128,13 @@ function drawDelayScope(canvas, history, nowT, active) {
 }
 // ── Level ballistics — feeds the live scope's smoothed input/output dB,
 // same fast-attack/slow-release approach as the reverb scope in Chapter6.
-const METER_FLOOR_DB = -70;
+// METER_FLOOR_DB / BPM / DEFAULT_SYNC / syncDivisionMs / DEFAULTS / ADDR /
+// pushFaustParams / analyserPeakLinear now live in ./delayEngine (imported
+// above) — split out so this file only exports components (Delay,
+// DelayEditorPanel below), which is what a host that already owns its own
+// Faust node — e.g. the DAW workstation's insert chain — imports to drive
+// the SAME delay UI/logic this file uses for the standalone chapter lab,
+// instead of reimplementing it generically.
 const LEVEL_ATTACK_S = 0.015;
 const LEVEL_RELEASE_S = 0.35;
 function levelBallistic(prev, target, dt) {
@@ -137,66 +144,8 @@ function levelBallistic(prev, target, dt) {
     return prev + (target - prev) * (1 - Math.exp(-dt / tau));
 }
 const SYNC_DIVISIONS = ['1/4', '1/8', '1/8.', '1/16T', 'FREE'];
-const BPM = 120;
-// Tempo-synced note value → ms, at BPM. FREE has no fixed value (the knob
-// drives delayTimeMs directly instead).
-function syncDivisionMs(div, bpm) {
-    const quarter = 60000 / bpm;
-    switch (div) {
-        case '1/4': return quarter;
-        case '1/8': return quarter / 2;
-        case '1/8.': return (quarter / 2) * 1.5;
-        case '1/16T': return (quarter / 4) * (2 / 3);
-        case 'FREE': return null;
-    }
-}
-// ── Defaults — mirror the `init` values in public/faust/delay/dsp-meta.json
-// (Delay Time 250ms == the 1/8 note at 120 BPM, Feedback 42%, Analog 2,
-// Mod Depth 28%, Mod Rate 0.6Hz, Hipass 220Hz, Lopass 6.5kHz, Dry/Wet 28%,
-// Output +1dB). Ping Pong has no `init` in the patch (Faust checkboxes
-// default to 0) but the lab defaults it on to showcase the stereo bounce.
-const DEFAULT_SYNC = '1/8';
-const DEFAULTS = {
-    delayTimeMs: syncDivisionMs(DEFAULT_SYNC, BPM),
-    feedback: 42,
-    analog: 2,
-    pingPong: true,
-    modDepth: 28,
-    modRate: 0.6,
-    hipass: 220,
-    lopass: 6500,
-    dryWet: 28,
-    output: 1,
-};
 // ── Faust engine wiring ───────────────────────────────────────────────────
 const FAUST_BASE_PATH = '/faust/delay';
-// Faust addresses, from public/faust/delay/dsp-meta.json's `ui` tree.
-const ADDR = {
-    delayTime: '/DELAY_DESIGN_STUDIO/Delay_Time',
-    feedback: '/DELAY_DESIGN_STUDIO/Feedback',
-    analog: '/DELAY_DESIGN_STUDIO/Analog_Saturation',
-    pingPong: '/DELAY_DESIGN_STUDIO/Ping_Pong',
-    modDepth: '/DELAY_DESIGN_STUDIO/Mod_Depth',
-    modRate: '/DELAY_DESIGN_STUDIO/Mod_Rate',
-    hipass: '/DELAY_DESIGN_STUDIO/Hipass',
-    lopass: '/DELAY_DESIGN_STUDIO/Lopass',
-    dryWet: '/DELAY_DESIGN_STUDIO/Dry_Wet',
-    output: '/DELAY_DESIGN_STUDIO/Output',
-};
-// Every unit here already matches the Faust patch's own range (ms, %, Hz,
-// dB, 0-10) — no external rescaling needed, only the checkbox → 0/1.
-function pushFaustParams(node, p) {
-    node.setParamValue(ADDR.delayTime, p.delayTimeMs);
-    node.setParamValue(ADDR.feedback, p.feedback);
-    node.setParamValue(ADDR.analog, p.analog);
-    node.setParamValue(ADDR.pingPong, p.pingPong ? 1 : 0);
-    node.setParamValue(ADDR.modDepth, p.modDepth);
-    node.setParamValue(ADDR.modRate, p.modRate);
-    node.setParamValue(ADDR.hipass, p.hipass);
-    node.setParamValue(ADDR.lopass, p.lopass);
-    node.setParamValue(ADDR.dryWet, p.dryWet);
-    node.setParamValue(ADDR.output, p.output);
-}
 // Estimated time (seconds) for the feedback repeats to decay below audibility
 // (-60dB), used to pad the offline render below so echoes aren't cut off
 // mid-repeat — the same feedback^n falloff computeTaps uses for the tap
@@ -402,6 +351,209 @@ function vuSegmentClass(i) {
         return 'amber';
     return 'red';
 }
+// ── Reusable delay editor panel ──────────────────────────────────────────────
+// The tap visualiser, live echo scope, sync/character controls and knobs
+// below used to be inlined straight into the standalone Delay() page. Pulled
+// out here so ANY host that already owns a live Faust delay node — the
+// standalone chapter lab below, or the DAW workstation's insert-chain popup —
+// can render the exact same controls/visualizer instead of building a new,
+// generic one. The delay patch mixes its own dry/wet internally (no host-level
+// bypass crossfade needed), so unlike the gate/de-esser panels this one takes
+// no `bypass` prop. The host is responsible for the actual audio graph
+// (creating the Faust node, pushing params via pushFaustParams) and for
+// supplying:
+//   - params / setParams, sync / setSync, link / setLink — plain state (sync
+//     is the tempo-sync note division driving delayTimeMs; link keeps
+//     HIPASS/LOPASS moving together proportionally)
+//   - isPlaying — whether the host currently has live audio flowing, so the
+//     scope/VU animation loop below only runs while there's something to read
+//   - getInputPeak() / getOutputPeak() — called once per animation frame;
+//     return the live LINEAR peak (0..1) off the host's own pre-delay and
+//     post-delay analysers, or null if none is live yet
+//   - getNow() — returns the audio clock (ctx.currentTime) driving the
+//     scope's scroll, so it stays in sync with the actual audio rather than
+//     performance.now() drifting from it
+//   - onTestEcho() — optional; when supplied, renders the "PING ECHO" button
+//     that fires one isolated hit through the host's own signal so the
+//     repeats ring out cleanly. Hosts with no synth test signal (like the
+//     DAW, which always plays the student's own track) simply omit it.
+//   - engineBadge — optional extra node (e.g. the standalone lab's Faust
+//     engine-status strip) rendered under the OUTPUT section.
+export function DelayEditorPanel({ params, setParams, sync, setSync, link, setLink, isPlaying, getInputPeak, getOutputPeak, getNow, onTestEcho = null, engineBadge = null, }) {
+    const [vuFills, setVuFills] = useState(() => vuSegmentFills(0));
+    const scopeRef = useRef(null);
+    const scopeHistoryRef = useRef([]);
+    const meterClockRef = useRef(null);
+    const smoothedInputDbRef = useRef(METER_FLOOR_DB);
+    const smoothedOutputDbRef = useRef(METER_FLOOR_DB);
+    const animRef = useRef(0);
+    // ── Idle state for the live scope ───────────────────────────────────────
+    useEffect(() => {
+        if (isPlaying)
+            return;
+        if (scopeRef.current)
+            drawDelayScope(scopeRef.current, [], 0, false);
+    }, [isPlaying]);
+    // ── Sync division → delay time ──────────────────────────────────────────
+    const applySync = useCallback((div) => {
+        setSync(div);
+        const ms = syncDivisionMs(div, BPM);
+        if (ms !== null)
+            setParams(p => ({ ...p, delayTimeMs: Math.min(2000, Math.max(1, ms)) }));
+    }, [setParams]);
+    // ── Filter LINK — moving one of HIPASS/LOPASS scales the other by the same
+    // multiplicative delta, so their ratio (and therefore the width of the
+    // passband carved out of the repeats) stays put while you sweep either. ──
+    const setHipass = useCallback((v) => {
+        setParams(p => {
+            if (!link || p.hipass <= 0)
+                return { ...p, hipass: v };
+            const ratio = v / p.hipass;
+            return { ...p, hipass: v, lopass: Math.min(18000, Math.max(200, p.lopass * ratio)) };
+        });
+    }, [link, setParams]);
+    const setLopass = useCallback((v) => {
+        setParams(p => {
+            if (!link || p.lopass <= 0)
+                return { ...p, lopass: v };
+            const ratio = v / p.lopass;
+            return { ...p, lopass: v, hipass: Math.min(5000, Math.max(20, p.hipass * ratio)) };
+        });
+    }, [link, setParams]);
+    // ── Meter + scope animation — same math the chapter lab always used, just
+    // reading levels through the host-supplied getInputPeak/getOutputPeak
+    // instead of owning its own analysers. ──────────────────────────────────
+    useEffect(() => {
+        if (!isPlaying) {
+            cancelAnimationFrame(animRef.current);
+            scopeHistoryRef.current = [];
+            meterClockRef.current = null;
+            setVuFills(vuSegmentFills(0));
+            return;
+        }
+        const tick = () => {
+            const now = getNow?.() ?? performance.now() / 1000;
+            const dt = meterClockRef.current !== null ? Math.max(0, Math.min(0.2, now - meterClockRef.current)) : 0;
+            meterClockRef.current = now;
+            const inPeak = getInputPeak?.();
+            if (inPeak !== null && inPeak !== undefined) {
+                const rawInputDb = inPeak > 1e-6 ? 20 * Math.log10(inPeak) : METER_FLOOR_DB;
+                smoothedInputDbRef.current = levelBallistic(smoothedInputDbRef.current, rawInputDb, dt);
+            }
+            const outPeak = getOutputPeak?.();
+            if (outPeak !== null && outPeak !== undefined) {
+                setVuFills(vuSegmentFills(outPeak));
+                const rawOutputDb = outPeak > 1e-6 ? 20 * Math.log10(outPeak) : METER_FLOOR_DB;
+                smoothedOutputDbRef.current = levelBallistic(smoothedOutputDbRef.current, rawOutputDb, dt);
+            }
+            const history = scopeHistoryRef.current;
+            history.push({ t: now, inputDb: smoothedInputDbRef.current, outputDb: smoothedOutputDbRef.current });
+            const cutoff = now - SCOPE_WINDOW_S - 0.5;
+            while (history.length > 0 && history[0].t < cutoff)
+                history.shift();
+            if (scopeRef.current)
+                drawDelayScope(scopeRef.current, history, now, true);
+            animRef.current = requestAnimationFrame(tick);
+        };
+        animRef.current = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(animRef.current);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isPlaying, getInputPeak, getOutputPeak, getNow]);
+    const taps = computeTaps(params.delayTimeMs, params.feedback, params.pingPong, params.analog);
+    return (<div className="hdelay-body">
+      {/* ── Left panel ── */}
+      <div className="hdelay-left">
+        <div className="canvas-label">DELAY TAPS — TIME DOMAIN</div>
+        <div className="tap-display">
+          <div className="tap-grid"/>
+          <div className="tap-baseline"/>
+          {taps.map((tap, i) => (<div key={i} className="tap-bar" style={{ left: `${tap.leftPct}%`, height: tap.heightPx, background: tap.color, opacity: tap.opacity, boxShadow: `0 0 6px ${tap.color}` }}/>))}
+          {taps.map((tap, i) => (<div key={`l${i}`} className="tap-bar-label" style={{ left: `${tap.leftPct}%` }}>{tap.label}</div>))}
+        </div>
+
+        <div className="canvas-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+          <span>
+            LIVE DELAY ECHO SCOPE {!isPlaying && '· HIT PLAY TO SEE LIVE SIGNAL'}
+            <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
+              · real dry input vs wet output over time — the tap chart above is illustrative, this is the actual audio
+            </span>
+          </span>
+          {onTestEcho && (<button className="toggle-btn" style={{ fontSize: '0.6rem', padding: '0.25rem 0.6rem', whiteSpace: 'nowrap' }} onClick={onTestEcho} disabled={!isPlaying} title="Fire one isolated hit and mute the loop so the repeats ring out cleanly">
+              ⚡ PING ECHO
+            </button>)}
+        </div>
+        <div className="hdelay-scope-display">
+          <canvas ref={scopeRef} width={760} height={150} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
+        </div>
+        <div className="legend-row" style={{ marginBottom: '1rem' }}>
+          <div className="legend-item"><span className="legend-line" style={{ background: '#F5A623' }}/>DRY INPUT</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: '#2DD4BF' }}/>WET OUTPUT (ECHOES)</div>
+        </div>
+
+        <div className="canvas-label">SYNC DIVISION</div>
+        <div className="delay-sync-row">
+          {SYNC_DIVISIONS.map(div => (<div key={div} className={`sync-btn${sync === div ? ' active' : ''}`} onClick={() => applySync(div)}>
+              {div}
+            </div>))}
+        </div>
+
+        <div className="canvas-label">CHARACTER</div>
+        <div className="comp-toggles" style={{ marginBottom: '1rem' }}>
+          <button className={`toggle-btn${params.pingPong ? ' on' : ''}`} style={params.pingPong ? { background: 'var(--teal-dim)', borderColor: 'var(--teal)', color: 'var(--teal)' } : {}} onClick={() => setParams(p => ({ ...p, pingPong: !p.pingPong }))}>
+            PING PONG
+          </button>
+        </div>
+
+        <div className="hdelay-knob-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+          <Knob spec={KNOB_SPECS.delayTimeMs} value={params.delayTimeMs} disabled={sync !== 'FREE'} onChange={v => setParams(p => ({ ...p, delayTimeMs: v }))}/>
+          <Knob spec={KNOB_SPECS.feedback} value={params.feedback} onChange={v => setParams(p => ({ ...p, feedback: v }))}/>
+          <Knob spec={KNOB_SPECS.analog} value={params.analog} onChange={v => setParams(p => ({ ...p, analog: v }))}/>
+        </div>
+      </div>
+
+      {/* ── Right panel ── */}
+      <div className="hdelay-right">
+        <div className="subsection-label">MODULATION</div>
+        <div className="hdelay-knob-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', marginBottom: '1.25rem' }}>
+          <Knob spec={KNOB_SPECS.modDepth} value={params.modDepth} onChange={v => setParams(p => ({ ...p, modDepth: v }))}/>
+          <Knob spec={KNOB_SPECS.modRate} value={params.modRate} onChange={v => setParams(p => ({ ...p, modRate: v }))}/>
+        </div>
+
+        <div className="subsection-label">FILTERS — SHAPING THE REPEATS</div>
+        <div className="hdelay-knob-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: '1.25rem' }}>
+          <Knob spec={KNOB_SPECS.hipass} value={params.hipass} onChange={setHipass}/>
+          <Knob spec={KNOB_SPECS.lopass} value={params.lopass} onChange={setLopass}/>
+          <div className="knob-wrap" style={{ justifyContent: 'center' }}>
+            <button className={`toggle-btn${link ? ' on' : ''}`} style={{ marginTop: '0.6rem', ...(link ? { background: 'var(--teal-dim)', borderColor: 'var(--teal)', color: 'var(--teal)' } : {}) }} onClick={() => setLink(l => !l)} title="When on, HIPASS and LOPASS sweep together, keeping the same ratio between them">
+              LINK
+            </button>
+          </div>
+        </div>
+
+        <div className="subsection-label">OUTPUT</div>
+        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+          <div className="hdelay-knob-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', flex: 1 }}>
+            <Knob spec={KNOB_SPECS.dryWet} value={params.dryWet} onChange={v => setParams(p => ({ ...p, dryWet: v }))}/>
+            <Knob spec={KNOB_SPECS.output} value={params.output} onChange={v => setParams(p => ({ ...p, output: v }))}/>
+          </div>
+          <div className="meter-block" style={{ width: 70 }}>
+            <div className="meter-label">LEVEL</div>
+            <div className="vu-meter">
+              {vuFills.map((h, i) => (<div key={i} className={`vu-bar ${vuSegmentClass(i)}`} style={{ height: `${h}%` }}/>))}
+            </div>
+          </div>
+        </div>
+
+        {engineBadge}
+
+        <div className="concept-callout" style={{ background: 'var(--teal-dim)', borderColor: 'rgba(45,212,191,0.2)', marginTop: '1rem' }}>
+          <strong style={{ color: 'var(--teal)' }}>Concept check:</strong> Slow LFO modulation on the delay line adds
+          subtle pitch drift to repeats — the classic "tape wobble" that keeps echoes from sounding sterile. Filtering
+          repeats darker with each pass mimics natural high-frequency air absorption.
+        </div>
+      </div>
+    </div>);
+}
 // ── Component ────────────────────────────────────────────────────────────────
 export default function Delay() {
     const [params, setParams] = useState({ ...DEFAULTS });
@@ -411,7 +563,6 @@ export default function Delay() {
     const [hasPlayed, setHasPlayed] = useState(false);
     const [engineStatus, setEngineStatus] = useState('idle');
     const [engineError, setEngineError] = useState(null);
-    const [vuFills, setVuFills] = useState(() => vuSegmentFills(0));
     // Signal source — a short plucked stab / drum loop, or an uploaded track.
     const [uploadedTracks, setUploadedTracks] = useState([]);
     const [activeSourceId, setActiveSourceId] = useState('synth');
@@ -463,53 +614,19 @@ export default function Delay() {
     const mixRef = useRef(null);
     const outAnalRef = useRef(null); // post-delay tap — feeds VU meter + scope wet trace
     const dryAnalRef = useRef(null); // pre-delay tap — feeds scope dry trace
-    const animRef = useRef(0);
     const schedulerRef = useRef(null);
     const nextNoteRef = useRef(0);
     const stepRef = useRef(0);
     const startTokenRef = useRef(0);
     const pingMuteUntilRef = useRef(0); // while ctx.currentTime < this, the loop is silenced for a clean test-echo ping
-    // Live delay echo scope state
-    const scopeRef = useRef(null);
-    const scopeHistoryRef = useRef([]);
-    const meterClockRef = useRef(null);
-    const smoothedInputDbRef = useRef(METER_FLOOR_DB);
-    const smoothedOutputDbRef = useRef(METER_FLOOR_DB);
     const paramsRef = useRef(params);
     useEffect(() => { paramsRef.current = params; }, [params]);
-    // ── Idle state for the live scope ───────────────────────────────────────
-    useEffect(() => {
-        if (isPlaying)
-            return;
-        if (scopeRef.current)
-            drawDelayScope(scopeRef.current, [], 0, false);
-    }, [isPlaying]);
-    // ── Sync division → delay time ──────────────────────────────────────────
-    const applySync = useCallback((div) => {
-        setSync(div);
-        const ms = syncDivisionMs(div, BPM);
-        if (ms !== null)
-            setParams(p => ({ ...p, delayTimeMs: Math.min(2000, Math.max(1, ms)) }));
-    }, []);
-    // ── Filter LINK — moving one of HIPASS/LOPASS scales the other by the same
-    // multiplicative delta, so their ratio (and therefore the width of the
-    // passband carved out of the repeats) stays put while you sweep either. ──
-    const setHipass = useCallback((v) => {
-        setParams(p => {
-            if (!link || p.hipass <= 0)
-                return { ...p, hipass: v };
-            const ratio = v / p.hipass;
-            return { ...p, hipass: v, lopass: Math.min(18000, Math.max(200, p.lopass * ratio)) };
-        });
-    }, [link]);
-    const setLopass = useCallback((v) => {
-        setParams(p => {
-            if (!link || p.lopass <= 0)
-                return { ...p, lopass: v };
-            const ratio = v / p.lopass;
-            return { ...p, lopass: v, hipass: Math.min(5000, Math.max(20, p.hipass * ratio)) };
-        });
-    }, [link]);
+    // Live-level reading for DelayEditorPanel (see render below) — the panel
+    // now owns the animation loop that used to live here (drawing the tap
+    // scope and VU meter); this component just hands it the raw linear peaks
+    // off its own pre/post-delay analysers.
+    const getInputPeak = useCallback(() => analyserPeakLinear(dryAnalRef.current), []);
+    const getOutputPeak = useCallback(() => analyserPeakLinear(outAnalRef.current), []);
     // ── Sync live params to the Faust delay node ────────────────────────────
     useEffect(() => {
         const node = faustNodeRef.current;
@@ -556,48 +673,7 @@ export default function Delay() {
             return;
         const t = ctx.currentTime + 0.03;
         pingMuteUntilRef.current = t + SCOPE_WINDOW_S + 0.5;
-        scopeHistoryRef.current = [];
-        meterClockRef.current = null;
         synthStab(ctx, mix, t);
-    }, []);
-    // ── Meter + scope animation ──────────────────────────────────────────────
-    // Drives the VU meter (post-delay peak) and the live echo scope (smoothed
-    // dry/wet dB history) from the real dry/wet analyser taps.
-    const animate = useCallback(() => {
-        const dryAnal = dryAnalRef.current;
-        const wetAnal = outAnalRef.current;
-        const now = ctxRef.current?.currentTime ?? performance.now() / 1000;
-        const dt = meterClockRef.current !== null ? Math.max(0, Math.min(0.2, now - meterClockRef.current)) : 0;
-        meterClockRef.current = now;
-        if (dryAnal) {
-            const buf = new Float32Array(dryAnal.fftSize);
-            dryAnal.getFloatTimeDomainData(buf);
-            let peak = 0;
-            for (let i = 0; i < buf.length; i++)
-                peak = Math.max(peak, Math.abs(buf[i]));
-            const rawInputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
-            smoothedInputDbRef.current = levelBallistic(smoothedInputDbRef.current, rawInputDb, dt);
-        }
-        if (wetAnal) {
-            const buf = new Float32Array(wetAnal.fftSize);
-            wetAnal.getFloatTimeDomainData(buf);
-            let peak = 0;
-            for (let i = 0; i < buf.length; i++)
-                peak = Math.max(peak, Math.abs(buf[i]));
-            setVuFills(vuSegmentFills(peak));
-            const rawOutputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
-            smoothedOutputDbRef.current = levelBallistic(smoothedOutputDbRef.current, rawOutputDb, dt);
-        }
-        if (dryAnal && wetAnal) {
-            const history = scopeHistoryRef.current;
-            history.push({ t: now, inputDb: smoothedInputDbRef.current, outputDb: smoothedOutputDbRef.current });
-            const cutoff = now - SCOPE_WINDOW_S - 0.5;
-            while (history.length > 0 && history[0].t < cutoff)
-                history.shift();
-            if (scopeRef.current)
-                drawDelayScope(scopeRef.current, history, now, true);
-        }
-        animRef.current = requestAnimationFrame(animate);
     }, []);
     // ── Start audio ──────────────────────────────────────────────────────────
     const startAudio = useCallback(async () => {
@@ -662,17 +738,13 @@ export default function Delay() {
             pingMuteUntilRef.current = 0;
             runScheduler();
         }
-        scopeHistoryRef.current = [];
-        meterClockRef.current = null;
-        animRef.current = requestAnimationFrame(animate);
         setIsPlaying(true);
         setHasPlayed(true);
-    }, [engineStatus, runScheduler, animate]);
+    }, [engineStatus, runScheduler]);
     const stopAudio = useCallback(() => {
         startTokenRef.current++;
         if (schedulerRef.current)
             clearTimeout(schedulerRef.current);
-        cancelAnimationFrame(animRef.current);
         if (bufSourceRef.current) {
             try {
                 bufSourceRef.current.stop();
@@ -693,21 +765,13 @@ export default function Delay() {
         dryAnalRef.current = null;
         ctxRef.current?.close();
         ctxRef.current = null;
-        smoothedInputDbRef.current = METER_FLOOR_DB;
-        smoothedOutputDbRef.current = METER_FLOOR_DB;
-        meterClockRef.current = null;
-        scopeHistoryRef.current = [];
         pingMuteUntilRef.current = 0;
-        setVuFills(vuSegmentFills(0));
         setIsPlaying(false);
-        if (scopeRef.current)
-            drawDelayScope(scopeRef.current, [], 0, false);
     }, []);
     useEffect(() => () => {
         startTokenRef.current++;
         if (schedulerRef.current)
             clearTimeout(schedulerRef.current);
-        cancelAnimationFrame(animRef.current);
         if (bufSourceRef.current) {
             try {
                 bufSourceRef.current.stop();
@@ -807,7 +871,6 @@ export default function Delay() {
         setSync(DEFAULT_SYNC);
         setLink(false);
     }, []);
-    const taps = computeTaps(params.delayTimeMs, params.feedback, params.pingPong, params.analog);
     const faustActive = engineStatus === 'ready' || engineStatus === 'loading';
     const renderSourceRow = () => (<div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', padding: '0.5rem 0 0.1rem' }}>
       <button onClick={() => handleSelectSource('synth')} style={{
@@ -909,97 +972,24 @@ export default function Delay() {
         {renderSourceRow()}
       </div>
 
-      <div className="hdelay-body">
-        {/* ── Left panel ── */}
-        <div className="hdelay-left">
-          <div className="canvas-label">DELAY TAPS — TIME DOMAIN</div>
-          <div className="tap-display">
-            <div className="tap-grid"/>
-            <div className="tap-baseline"/>
-            {taps.map((tap, i) => (<div key={i} className="tap-bar" style={{ left: `${tap.leftPct}%`, height: tap.heightPx, background: tap.color, opacity: tap.opacity, boxShadow: `0 0 6px ${tap.color}` }}/>))}
-            {taps.map((tap, i) => (<div key={`l${i}`} className="tap-bar-label" style={{ left: `${tap.leftPct}%` }}>{tap.label}</div>))}
-          </div>
-
-          <div className="canvas-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-            <span>
-              LIVE DELAY ECHO SCOPE {!isPlaying && '· HIT PLAY TO SEE LIVE SIGNAL'}
-              <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
-                · real dry input vs wet output over time — the tap chart above is illustrative, this is the actual audio
-              </span>
-            </span>
-            <button className="toggle-btn" style={{ fontSize: '0.6rem', padding: '0.25rem 0.6rem', whiteSpace: 'nowrap' }} onClick={triggerTestEcho} disabled={!isPlaying || activeSourceId !== 'synth'} title={activeSourceId !== 'synth' ? 'Switch to pluck + drums to use the test-echo ping' : 'Fire one isolated hit and mute the loop so the repeats ring out cleanly'}>
-              ⚡ PING ECHO
-            </button>
-          </div>
-          <div className="hdelay-scope-display">
-            <canvas ref={scopeRef} width={760} height={150} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
-          </div>
-          <div className="legend-row" style={{ marginBottom: '1rem' }}>
-            <div className="legend-item"><span className="legend-line" style={{ background: '#F5A623' }}/>DRY INPUT</div>
-            <div className="legend-item"><span className="legend-line" style={{ background: '#2DD4BF' }}/>WET OUTPUT (ECHOES)</div>
-          </div>
-          <div className="concept-callout" style={{ marginTop: '-0.5rem', marginBottom: '1rem', background: 'rgba(45,212,191,0.05)', borderColor: 'rgba(45,212,191,0.15)' }}>
-            The pluck + drums loop keeps re-triggering the delay, so MOD/FILTER/ANALOG changes can be hard to
-            see in a busy loop. Click <strong style={{ color: 'var(--teal)' }}>PING ECHO</strong>{' '}
-            to hear (and see) one hit's repeats ring out with nothing else in the way.
-          </div>
-
-          <div className="canvas-label">SYNC DIVISION</div>
-          <div className="delay-sync-row">
-            {SYNC_DIVISIONS.map(div => (<div key={div} className={`sync-btn${sync === div ? ' active' : ''}`} onClick={() => applySync(div)}>
-                {div}
-              </div>))}
-          </div>
-
-          <div className="canvas-label">CHARACTER</div>
-          <div className="comp-toggles" style={{ marginBottom: '1rem' }}>
-            <button className={`toggle-btn${params.pingPong ? ' on' : ''}`} style={params.pingPong ? { background: 'var(--teal-dim)', borderColor: 'var(--teal)', color: 'var(--teal)' } : {}} onClick={() => setParams(p => ({ ...p, pingPong: !p.pingPong }))}>
-              PING PONG
-            </button>
-          </div>
-
-          <div className="hdelay-knob-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-            <Knob spec={KNOB_SPECS.delayTimeMs} value={params.delayTimeMs} disabled={sync !== 'FREE'} onChange={v => setParams(p => ({ ...p, delayTimeMs: v }))}/>
-            <Knob spec={KNOB_SPECS.feedback} value={params.feedback} onChange={v => setParams(p => ({ ...p, feedback: v }))}/>
-            <Knob spec={KNOB_SPECS.analog} value={params.analog} onChange={v => setParams(p => ({ ...p, analog: v }))}/>
-          </div>
-        </div>
-
-        {/* ── Right panel ── */}
-        <div className="hdelay-right">
-          <div className="subsection-label">MODULATION</div>
-          <div className="hdelay-knob-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', marginBottom: '1.25rem' }}>
-            <Knob spec={KNOB_SPECS.modDepth} value={params.modDepth} onChange={v => setParams(p => ({ ...p, modDepth: v }))}/>
-            <Knob spec={KNOB_SPECS.modRate} value={params.modRate} onChange={v => setParams(p => ({ ...p, modRate: v }))}/>
-          </div>
-
-          <div className="subsection-label">FILTERS — SHAPING THE REPEATS</div>
-          <div className="hdelay-knob-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: '1.25rem' }}>
-            <Knob spec={KNOB_SPECS.hipass} value={params.hipass} onChange={setHipass}/>
-            <Knob spec={KNOB_SPECS.lopass} value={params.lopass} onChange={setLopass}/>
-            <div className="knob-wrap" style={{ justifyContent: 'center' }}>
-              <button className={`toggle-btn${link ? ' on' : ''}`} style={{ marginTop: '0.6rem', ...(link ? { background: 'var(--teal-dim)', borderColor: 'var(--teal)', color: 'var(--teal)' } : {}) }} onClick={() => setLink(l => !l)} title="When on, HIPASS and LOPASS sweep together, keeping the same ratio between them">
-                LINK
-              </button>
-            </div>
-          </div>
-
-          <div className="subsection-label">OUTPUT</div>
-          <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
-            <div className="hdelay-knob-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', flex: 1 }}>
-              <Knob spec={KNOB_SPECS.dryWet} value={params.dryWet} onChange={v => setParams(p => ({ ...p, dryWet: v }))}/>
-              <Knob spec={KNOB_SPECS.output} value={params.output} onChange={v => setParams(p => ({ ...p, output: v }))}/>
-            </div>
-            <div className="meter-block" style={{ width: 70 }}>
-              <div className="meter-label">LEVEL</div>
-              <div className="vu-meter">
-                {vuFills.map((h, i) => (<div key={i} className={`vu-bar ${vuSegmentClass(i)}`} style={{ height: `${h}%` }}/>))}
-              </div>
-            </div>
-          </div>
-
-          {/* Faust engine section header */}
-          <div style={{
+      {/* Body — tap visualiser, live echo scope, sync/character controls and
+          knobs, all owned by the shared DelayEditorPanel (see above), same
+          component the DAW workstation's insert-chain popup renders for this
+          plugin. The lab-only "test echo ping" and Faust engine-status strip
+          are passed in as onTestEcho / engineBadge — the DAW host omits both. */}
+      <DelayEditorPanel
+        params={params}
+        setParams={setParams}
+        sync={sync}
+        setSync={setSync}
+        link={link}
+        setLink={setLink}
+        isPlaying={isPlaying}
+        getInputPeak={getInputPeak}
+        getOutputPeak={getOutputPeak}
+        getNow={() => ctxRef.current?.currentTime}
+        onTestEcho={activeSourceId === 'synth' ? triggerTestEcho : null}
+        engineBadge={(<div style={{
             display: 'flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'var(--mono)', fontSize: '0.55rem',
             marginTop: '1rem', background: faustActive ? 'rgba(45,212,191,0.08)' : 'var(--surface)',
             border: `1px solid ${faustActive ? 'rgba(45,212,191,0.3)' : 'var(--border)'}`, borderRadius: 4, padding: '0.3rem 0.6rem',
@@ -1011,15 +1001,8 @@ export default function Delay() {
             <span style={{ color: 'var(--text-faint)', marginLeft: 2 }}>
               — powered by <span style={{ color: faustActive ? 'var(--teal)' : 'var(--text-faint)' }}>Faust delays.lib</span>
             </span>
-          </div>
-
-          <div className="concept-callout" style={{ background: 'var(--teal-dim)', borderColor: 'rgba(45,212,191,0.2)', marginTop: '1rem' }}>
-            <strong style={{ color: 'var(--teal)' }}>Concept check:</strong> Slow LFO modulation on the delay line adds
-            subtle pitch drift to repeats — the classic "tape wobble" that keeps echoes from sounding sterile. Filtering
-            repeats darker with each pass mimics natural high-frequency air absorption.
-          </div>
-        </div>
-      </div>
+          </div>)}
+      />
 
       {/* ── Footer ── */}
       <div className="lab-footer">

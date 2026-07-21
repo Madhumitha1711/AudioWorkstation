@@ -83,24 +83,6 @@ export const ROOMS = [
         },
       },
       {
-        id: "daw-screens",
-        yaw: 0,
-        pitch: 8,
-        title: "DAW Workstation",
-        audio: "/audio/daw.mp3",
-        description:
-          "The dual displays run the Digital Audio Workstation (DAW) — the software where recorded tracks are edited, arranged, processed with plugins, and mixed. Modern studios pair analog hardware like the console and outboard rack with a DAW for editing flexibility and recall.",
-        course: {
-          id: "daw-101",
-          objectives: [
-            "What a DAW does, and popular options (Pro Tools, Logic, Ableton, etc.)",
-            "Recall: why analog consoles struggle to \"save\" a mix state and DAWs solve this",
-            "Track editing, comping, and non-destructive editing",
-            "Plugin processing vs outboard hardware processing",
-          ],
-        },
-      },
-      {
         id: "patch-bay",
         yaw: 208.0,
         pitch: -13.8,
@@ -193,29 +175,25 @@ export const ROOMS = [
     ],
     // Functional processing hotspots — distinct from the descriptive `markers`
     // above: instead of opening a read-only info panel, these open a live
-    // panel (see panorama/EqCompressorHotspot.jsx) wired to a real Faust WASM
-    // DSP (public/faust/ParamEQ, public/faust/compressor) that actually
-    // processes an uploaded audio file. Rendered in PanoramaTour.jsx with an
-    // icon marker instead of a numbered badge so they read as "interactive
-    // module" at a glance rather than "read more about this gear". Their
-    // processed output plays back through the two real studio monitor
+    // full-screen module wired to real Faust WASM DSPs that actually process
+    // an uploaded (or built-in demo) audio file. Rendered in PanoramaTour.jsx
+    // with an icon marker instead of a numbered badge so they read as
+    // "interactive module" at a glance rather than "read more about this
+    // gear". The DAW hotspot (see panorama/DawWorkstationScreen.jsx) opens a
+    // full-screen "walked up to the desk" DAW UI with a single track, a
+    // draggable selection, and a chainable insert rack built from
+    // public/faust/{ParamEQ,compressor,limiter,Gate,deesser,delay,reverb} —
+    // its processed output plays back through the two real studio monitor
     // positions (see STUDIO_SPEAKERS in audio/spatialAudioEngine.js) for a
     // genuine binaural "sitting between the speakers" feel that pans as you
     // look around, instead of playing dead-center.
     interactiveMarkers: [
       {
-        id: "channel-eq",
-        type: "eq",
-        yaw: 329.9,
-        pitch: -19.5,
-        title: "Channel EQ",
-      },
-      {
-        id: "channel-compressor",
-        type: "compressor",
-        yaw: 341.8,
-        pitch: -13.3,
-        title: "Compressor",
+        id: "daw-screens",
+        type: "daw",
+        yaw: 0,
+        pitch: 8,
+        title: "DAW Workstation",
       },
     ],
   },

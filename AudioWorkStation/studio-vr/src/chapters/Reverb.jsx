@@ -3,28 +3,18 @@ import { FaustMonoDspGenerator } from '@grame/faustwasm';
 import { Knob } from '../components/Knob';
 import { compileFaustWasm } from '../faust/faustTypes';
 import { downloadAudioBufferAsWav } from '../audio/wavRender';
+import { ROOM_PRESETS, PRESET_FREEVERB, PRESET_ORDER, DEFAULT_PRESET, calcEffectiveRt60, DEFAULTS, ADDR, pushFaustParams, METER_FLOOR_DB, analyserPeakLinear } from './reverbEngine';
 // ── Types ──────────────────────────────────────────────────────────────────────
 // An uploaded audio track that can be used as the signal source instead of
 // the built-in drum groove, so reverb can be auditioned on real material.
-// ── Room Presets ───────────────────────────────────────────────────────────────
-// rt60 is in seconds (visual only — IR generated from this)
-const ROOM_PRESETS = {
-    ROOM: { name: 'ROOM', icon: '🚿', rt60: 0.4, earlyCount: 3, label: 'Small Room' },
-    CHAMBER: { name: 'CHAMBER', icon: '🎙️', rt60: 0.9, earlyCount: 4, label: 'Vocal Chamber' },
-    HALL: { name: 'HALL', icon: '⛪', rt60: 1.8, earlyCount: 5, label: 'Concert Hall' },
-    CATHEDRAL: { name: 'CATHEDRAL', icon: '🏛️', rt60: 4.0, earlyCount: 7, label: 'Cathedral' },
-    PLATE: { name: 'PLATE', icon: '🛠️', rt60: 2.5, earlyCount: 2, label: 'Plate Reverb' },
-};
-// Preset → sensible Freeverb defaults
-// ── Freeverb parameters (powered by the Faust reverbs.lib stereo_freeverb) ──
-const PRESET_FREEVERB = {
-    ROOM: { size: 30, decay: 35, damping: 65, diffusion: 50 },
-    CHAMBER: { size: 50, decay: 55, damping: 55, diffusion: 60 },
-    HALL: { size: 68, decay: 70, damping: 45, diffusion: 80 },
-    CATHEDRAL: { size: 88, decay: 90, damping: 30, diffusion: 85 },
-    PLATE: { size: 55, decay: 60, damping: 70, diffusion: 40 },
-};
-const PRESET_ORDER = ['ROOM', 'CHAMBER', 'HALL', 'CATHEDRAL', 'PLATE'];
+// ROOM_PRESETS / PRESET_FREEVERB / PRESET_ORDER / DEFAULT_PRESET /
+// calcEffectiveRt60 / DEFAULTS / ADDR / pushFaustParams / METER_FLOOR_DB /
+// analyserPeakLinear now live in ./reverbEngine (imported above) — split out
+// so this file only exports components (Reverb, ReverbEditorPanel below),
+// which is what a host that already owns its own Faust node — e.g. the DAW
+// workstation's insert chain — imports to drive the SAME reverb UI/logic
+// this file uses for the standalone chapter lab, instead of reimplementing
+// it generically.
 // ── HiDPI canvas helper ───────────────────────────────────────────────────────
 function hiDpi(canvas) {
     const dpr = window.devicePixelRatio || 1;
@@ -39,13 +29,6 @@ function hiDpi(canvas) {
         return null;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     return { ctx, W, H };
-}
-// ── Effective RT60 from Freeverb knobs ────────────────────────────────────────
-// Mirrors the room_size formula in lib.rs: size × (0.05 + decay × 0.95)
-// then scales to a visual RT60 range of 0.1 s – 5 s.
-function calcEffectiveRt60(size, decay) {
-    const roomSize = (size / 100) * (0.05 + (decay / 100) * 0.95);
-    return Math.max(0.1, roomSize * 5.0);
 }
 // ── IR Canvas drawing ──────────────────────────────────────────────────────────
 function drawIR(canvas, preset, fv) {
@@ -288,8 +271,8 @@ function drawReverbScope(canvas, history, nowT, active) {
 }
 // ── Level ballistics — feeds the live scope's smoothed input/output dB,
 // same fast-attack/slow-release approach as the compressor/gate/limiter
-// scopes elsewhere in this app.
-const METER_FLOOR_DB = -70;
+// scopes elsewhere in this app. Uses METER_FLOOR_DB from ./reverbEngine
+// (imported above). ─────────────────────────────────────────────────────
 const LEVEL_ATTACK_S = 0.015;
 const LEVEL_RELEASE_S = 0.35;
 function levelBallistic(prev, target, dt) {
@@ -461,18 +444,6 @@ const KNOB_SPECS = {
     damping: { label: 'DAMPING', min: 0, max: 100, step: 1, fmt: v => `${Math.round(v)}%`, accent: 'var(--purple)' },
     diffusion: { label: 'DIFFUSION', min: 0, max: 100, step: 1, fmt: v => `${Math.round(v)}%`, accent: 'var(--purple)' },
 };
-// ── Defaults — mirror the `init` values in public/faust/reverb/dsp-meta.json ──
-const DEFAULTS = {
-    preDelay: 24,
-    // ── Shelving filters (replace the old HPF/LPF hi-cut/lo-cut) ──
-    hiShelfFreq: 8000,
-    hiShelfGain: -6,
-    loShelfFreq: 120,
-    loShelfGain: -6,
-    wetDry: 35,
-    ...PRESET_FREEVERB['HALL'],
-};
-const DEFAULT_PRESET = 'HALL';
 // ── Faust reverb engine wiring ────────────────────────────────────────────────
 // Real DSP: public/faust/reverb/ (dsp-module.wasm + dsp-meta.json), a Faust
 // patch built on reverbs.lib's stereo_freeverb, exported straight from the
@@ -483,34 +454,6 @@ const DEFAULT_PRESET = 'HALL';
 // mix internally, so no external DelayNode/BiquadFilterNode/GainNode chain
 // is needed around it anymore.
 const FAUST_BASE_PATH = '/faust/reverb';
-// Faust addresses, from public/faust/reverb/dsp-meta.json's `ui` tree.
-const ADDR = {
-    damping: '/Reverb_Parameters/DAMPING',
-    decay: '/Reverb_Parameters/DECAY',
-    diffusion: '/Reverb_Parameters/DIFFUSION',
-    hiShelfFreq: '/Reverb_Parameters/HI-CUT_Freq',
-    hiShelfGain: '/Reverb_Parameters/HI-SHELF_Gain',
-    loShelfFreq: '/Reverb_Parameters/LO-CUT_Freq',
-    loShelfGain: '/Reverb_Parameters/LO-SHELF_Gain',
-    preDelay: '/Reverb_Parameters/PRE-DELAY',
-    size: '/Reverb_Parameters/SIZE',
-    wetDry: '/Reverb_Parameters/WET-DRY',
-};
-// Pushes every UI param onto a live Faust node. SIZE/DECAY/DAMPING/DIFFUSION/
-// WET-DRY are 0..1 in the patch but 0..100 (%) on the knobs; the shelving
-// filter freqs/gains and pre-delay already match the patch's own units.
-function pushFaustParams(node, p) {
-    node.setParamValue(ADDR.damping, p.damping / 100);
-    node.setParamValue(ADDR.decay, p.decay / 100);
-    node.setParamValue(ADDR.diffusion, p.diffusion / 100);
-    node.setParamValue(ADDR.hiShelfFreq, p.hiShelfFreq);
-    node.setParamValue(ADDR.hiShelfGain, p.hiShelfGain);
-    node.setParamValue(ADDR.loShelfFreq, p.loShelfFreq);
-    node.setParamValue(ADDR.loShelfGain, p.loShelfGain);
-    node.setParamValue(ADDR.preDelay, p.preDelay);
-    node.setParamValue(ADDR.size, p.size / 100);
-    node.setParamValue(ADDR.wetDry, p.wetDry / 100);
-}
 // Renders an uploaded track through the same Faust reverb patch offline, so
 // it can be exported as a WAV — mirrors the live graph in startAudio() but
 // with no scheduler/meters.
@@ -533,6 +476,222 @@ async function renderReverbOffline(generator, meta, dspModule, source, params) {
     return offlineCtx.startRendering();
 }
 // ── Faust engine status type ───────────────────────────────────────────────────
+// ── Reusable reverb editor panel ─────────────────────────────────────────────
+// The IR diagram, live tail scope, room presets, decay bars and knobs below
+// used to be inlined straight into the standalone Reverb() page. Pulled out
+// here so ANY host that already owns a live Faust reverb node — the
+// standalone chapter lab below, or the DAW workstation's insert-chain popup —
+// can render the exact same controls/visualizer instead of building a new,
+// generic one. The reverb patch mixes its own dry/wet internally (no
+// host-level bypass crossfade needed), so — like the delay panel — this one
+// takes no `bypass` prop. The host is responsible for the actual audio graph
+// (creating the Faust node, pushing params via pushFaustParams) and for
+// supplying:
+//   - params / setParams, preset / setPreset — plain state
+//   - isPlaying — whether the host currently has live audio flowing, so the
+//     scope animation loop below only runs while there's something to read
+//   - getInputPeak() / getOutputPeak() — called once per animation frame;
+//     return the live LINEAR peak (0..1) off the host's own pre-reverb and
+//     post-reverb analysers, or null if none is live yet
+//   - getNow() — returns the audio clock (ctx.currentTime) driving the
+//     scope's scroll, so it stays in sync with the actual audio rather than
+//     performance.now() drifting from it
+//   - onTestTail() — optional; when supplied, renders the "PING TAIL" button
+//     that fires one isolated hit through the host's own signal so the tail
+//     rings out cleanly. Hosts with no synth test signal (like the DAW,
+//     which always plays the student's own track) simply omit it.
+//   - engineBadge — optional extra node (e.g. the standalone lab's Faust
+//     engine-status strip) rendered above the knob grid.
+export function ReverbEditorPanel({ params, setParams, preset, setPreset, isPlaying, getInputPeak, getOutputPeak, getNow, onTestTail = null, engineBadge = null, }) {
+    const irRef = useRef(null);
+    const scopeRef = useRef(null);
+    const scopeHistoryRef = useRef([]);
+    const meterClockRef = useRef(null);
+    const smoothedInputDbRef = useRef(METER_FLOOR_DB);
+    const smoothedOutputDbRef = useRef(METER_FLOOR_DB);
+    const animRef = useRef(0);
+    const currentPreset = ROOM_PRESETS[preset];
+    // ── Redraw IR whenever preset OR any Freeverb knob changes ──────────────────
+    useEffect(() => {
+        if (irRef.current)
+            drawIR(irRef.current, currentPreset, {
+                size: params.size,
+                decay: params.decay,
+                damping: params.damping,
+                diffusion: params.diffusion,
+            });
+    }, [currentPreset, params.size, params.decay, params.damping, params.diffusion]);
+    // ── Idle state for the live scope ───────────────────────────────────────────
+    useEffect(() => {
+        if (isPlaying)
+            return;
+        if (scopeRef.current)
+            drawReverbScope(scopeRef.current, [], 0, false);
+    }, [isPlaying]);
+    // ── Apply preset Freeverb defaults ───────────────────────────────────────────
+    const applyPreset = useCallback((key) => {
+        setPreset(key);
+        setParams(p => ({ ...p, ...PRESET_FREEVERB[key] }));
+    }, [setPreset, setParams]);
+    // ── Animation loop — same math the chapter lab always used, just reading
+    // levels through the host-supplied getInputPeak/getOutputPeak instead of
+    // owning its own analysers. ─────────────────────────────────────────────
+    useEffect(() => {
+        if (!isPlaying) {
+            cancelAnimationFrame(animRef.current);
+            scopeHistoryRef.current = [];
+            meterClockRef.current = null;
+            return;
+        }
+        const tick = () => {
+            const now = getNow?.() ?? performance.now() / 1000;
+            const dt = meterClockRef.current !== null ? Math.max(0, Math.min(0.2, now - meterClockRef.current)) : 0;
+            meterClockRef.current = now;
+            const inPeak = getInputPeak?.();
+            if (inPeak !== null && inPeak !== undefined) {
+                const rawInputDb = inPeak > 1e-6 ? 20 * Math.log10(inPeak) : METER_FLOOR_DB;
+                smoothedInputDbRef.current = levelBallistic(smoothedInputDbRef.current, rawInputDb, dt);
+            }
+            const outPeak = getOutputPeak?.();
+            if (outPeak !== null && outPeak !== undefined) {
+                const rawOutputDb = outPeak > 1e-6 ? 20 * Math.log10(outPeak) : METER_FLOOR_DB;
+                smoothedOutputDbRef.current = levelBallistic(smoothedOutputDbRef.current, rawOutputDb, dt);
+            }
+            const history = scopeHistoryRef.current;
+            history.push({ t: now, inputDb: smoothedInputDbRef.current, outputDb: smoothedOutputDbRef.current });
+            const cutoff = now - SCOPE_WINDOW_S - 0.5;
+            while (history.length > 0 && history[0].t < cutoff)
+                history.shift();
+            if (scopeRef.current)
+                drawReverbScope(scopeRef.current, history, now, true);
+            animRef.current = requestAnimationFrame(tick);
+        };
+        animRef.current = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(animRef.current);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isPlaying, getInputPeak, getOutputPeak, getNow]);
+    return (<div className="reverb-body">
+      {/* ── Left panel ── */}
+      <div className="reverb-left">
+        <div className="canvas-label">IMPULSE RESPONSE — DECAY OVER TIME</div>
+        <div className="ir-display">
+          <canvas ref={irRef} width={760} height={160} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
+        </div>
+
+        <div className="canvas-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+          <span>
+            LIVE REVERB TAIL SCOPE {!isPlaying && '· HIT PLAY TO SEE LIVE SIGNAL'}
+            <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
+              · real dry input vs wet output over time — the diagram above is illustrative, this is the actual audio
+            </span>
+          </span>
+          {onTestTail && (<button className="toggle-btn" style={{ fontSize: '0.6rem', padding: '0.25rem 0.6rem', whiteSpace: 'nowrap' }} onClick={onTestTail} disabled={!isPlaying} title="Fire one isolated hit and mute the loop so the tail rings out cleanly">
+              ⚡ PING TAIL
+            </button>)}
+        </div>
+        <div className="reverb-scope-display">
+          <canvas ref={scopeRef} width={760} height={150} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
+        </div>
+        <div className="legend-row" style={{ marginBottom: '1rem' }}>
+          <div className="legend-item"><span className="legend-line" style={{ background: '#F5A623' }}/>DRY INPUT</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: '#2DD4BF' }}/>WET OUTPUT (TAIL)</div>
+        </div>
+        <div className="concept-callout" style={{ marginTop: '-0.5rem', marginBottom: '1rem', background: 'rgba(45,212,191,0.05)', borderColor: 'rgba(45,212,191,0.15)' }}>
+          The drum groove's near-continuous hi-hat keeps re-triggering the reverb, so SIZE/DECAY/DAMPING
+          changes can be hard to see in a busy loop. Click <strong style={{ color: 'var(--teal)' }}>PING TAIL</strong>{' '}
+          to hear (and see) one hit ring out with nothing else in the way.
+        </div>
+
+        <div className="canvas-label">ROOM PRESET</div>
+        <div className="room-preset-row">
+          {PRESET_ORDER.map(key => {
+            const p = ROOM_PRESETS[key];
+            return (<div key={key} className={`room-preset${preset === key ? ' active' : ''}`} onClick={() => applyPreset(key)}>
+                <div className="room-preset-icon">{p.icon}</div>
+                <div className="room-preset-name">{p.name}</div>
+              </div>);
+        })}
+        </div>
+
+        <div className="concept-callout" style={{ background: 'var(--teal-dim)', borderColor: 'rgba(45,212,191,0.2)' }}>
+          <strong style={{ color: 'var(--teal)' }}>Concept check:</strong> Early reflections tell your
+          brain the room's size and shape. The late, dense tail tells it the surface material — hard
+          walls decay slower than soft ones. Current RT60:{' '}
+          <strong style={{ color: 'var(--teal)' }}>{currentPreset.rt60}s</strong> ({currentPreset.label}).
+        </div>
+      </div>
+
+      {/* ── Right panel ── */}
+      <div className="reverb-right">
+        <div className="canvas-label" style={{ marginBottom: '0.75rem' }}>RT60 DECAY ENVELOPE</div>
+        <div className="reverb-decay-viz">
+          <DecayBars rt60={calcEffectiveRt60(params.size, params.decay)} damping={params.damping}/>
+          <div className="decay-readout">
+            <span>RT60: <strong style={{ color: 'var(--teal)' }}>{calcEffectiveRt60(params.size, params.decay).toFixed(1)}s</strong></span>
+            <span>−60dB POINT</span>
+          </div>
+        </div>
+
+        {/* ── Knob grid ── */}
+        <div className="canvas-label" style={{ marginBottom: '0.75rem' }}>REVERB PARAMETERS</div>
+
+        {engineBadge}
+
+        <div className="reverb-knob-grid">
+          {/* Row 1: SIZE, DECAY, PRE-DELAY, DAMPING, DIFFUSION (Faust freeverb core) */}
+          <Knob spec={KNOB_SPECS.size} value={params.size} onChange={v => setParams(p => ({ ...p, size: v }))}/>
+          <Knob spec={KNOB_SPECS.decay} value={params.decay} onChange={v => setParams(p => ({ ...p, decay: v }))}/>
+          <Knob spec={KNOB_SPECS.preDelay} value={params.preDelay} onChange={v => setParams(p => ({ ...p, preDelay: v }))}/>
+          <Knob spec={KNOB_SPECS.damping} value={params.damping} onChange={v => setParams(p => ({ ...p, damping: v }))}/>
+          <Knob spec={KNOB_SPECS.diffusion} value={params.diffusion} onChange={v => setParams(p => ({ ...p, diffusion: v }))}/>
+
+          {/* Row 2: HI-SHELF freq/gain, LO-SHELF freq/gain (replace the old HPF/LPF), WET/DRY */}
+          <Knob spec={KNOB_SPECS.hiShelfFreq} value={params.hiShelfFreq} onChange={v => setParams(p => ({ ...p, hiShelfFreq: v }))}/>
+          <Knob spec={KNOB_SPECS.hiShelfGain} value={params.hiShelfGain} onChange={v => setParams(p => ({ ...p, hiShelfGain: v }))}/>
+          <Knob spec={KNOB_SPECS.loShelfFreq} value={params.loShelfFreq} onChange={v => setParams(p => ({ ...p, loShelfFreq: v }))}/>
+          <Knob spec={KNOB_SPECS.loShelfGain} value={params.loShelfGain} onChange={v => setParams(p => ({ ...p, loShelfGain: v }))}/>
+          <Knob spec={KNOB_SPECS.wetDry} value={params.wetDry} onChange={v => setParams(p => ({ ...p, wetDry: v }))}/>
+        </div>
+
+        {/* Live param readout */}
+        <div style={{
+            marginTop: '0.75rem',
+            background: 'var(--black)',
+            border: '1px solid var(--border)',
+            borderRadius: 4,
+            padding: '0.6rem 0.75rem',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: '0.5rem',
+        }}>
+          {['size', 'decay', 'damping', 'diffusion'].map(key => (<div key={key} style={{ textAlign: 'center' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: '0.75rem', color: '#A855F7', fontWeight: 500 }}>
+                {KNOB_SPECS[key].fmt(params[key])}
+              </div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: '0.5rem', color: 'var(--text-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 2 }}>
+                {KNOB_SPECS[key].label}
+              </div>
+            </div>))}
+        </div>
+
+        <div className="tip-box" style={{ marginTop: '0.75rem', background: 'rgba(45,212,191,0.07)', borderColor: 'rgba(45,212,191,0.2)' }}>
+          <strong style={{ color: 'var(--teal)' }}>SIZE</strong> sets the perceived room volume —
+          bigger rooms mean longer gaps between reflections.{' '}
+          <strong style={{ color: 'var(--teal)' }}>DECAY</strong> controls how long the tail takes
+          to fade out.{' '}
+          <strong style={{ color: 'var(--teal)' }}>DAMPING</strong> rolls off high frequencies as
+          the tail decays, mimicking absorption from air and soft surfaces.{' '}
+          <strong style={{ color: 'var(--teal)' }}>DIFFUSION</strong> thickens echo density into a
+          smooth wash rather than distinct slaps.{' '}
+          <strong style={{ color: 'var(--teal)' }}>HI-SHELF</strong> and{' '}
+          <strong style={{ color: 'var(--teal)' }}>LO-SHELF</strong> tame the tail's brightness and
+          boom — a gentle gain shift above/below their corner frequency, rather than a hard
+          HPF/LPF cutoff — so the tail can darken or thin out without losing everything past a
+          brick-wall point. Drag knobs vertically to adjust.
+        </div>
+      </div>
+    </div>);
+}
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function Reverb() {
     const [preset, setPreset] = useState(DEFAULT_PRESET);
@@ -557,10 +716,6 @@ export default function Reverb() {
     useEffect(() => { activeSourceIdRef.current = activeSourceId; }, [activeSourceId]);
     useEffect(() => { uploadedTracksRef.current = uploadedTracks; }, [uploadedTracks]);
     const activeTrack = activeSourceId !== 'synth' ? uploadedTracks.find(t => t.id === activeSourceId) : undefined;
-    // Canvas
-    const irRef = useRef(null);
-    const scopeRef = useRef(null);
-    const scopeHistoryRef = useRef([]);
     // ── Faust engine (module + meta loaded once on mount; one node instantiated
     // per AudioContext in startAudio) — same pattern as Chapter4's compressor
     // and Chapter2b's ParamEQ.
@@ -599,10 +754,6 @@ export default function Reverb() {
     const mixRef = useRef(null);
     const dryAnalRef = useRef(null); // pre-reverb tap, for the live scope
     const wetAnalRef = useRef(null); // post-reverb tap, for the live scope
-    const animRef = useRef(0);
-    const meterClockRef = useRef(null);
-    const smoothedInputDbRef = useRef(METER_FLOOR_DB);
-    const smoothedOutputDbRef = useRef(METER_FLOOR_DB);
     const schedulerRef = useRef(null);
     const nextNoteRef = useRef(0);
     const stepRef = useRef(0);
@@ -611,25 +762,13 @@ export default function Reverb() {
     // Mirror params into a ref so audio callbacks always see fresh values
     const paramsRef = useRef(params);
     useEffect(() => { paramsRef.current = params; }, [params]);
-    // ── Redraw IR whenever preset OR any Freeverb knob changes ──────────────────
-    useEffect(() => {
-        if (irRef.current)
-            drawIR(irRef.current, ROOM_PRESETS[preset], {
-                size: params.size,
-                decay: params.decay,
-                damping: params.damping,
-                diffusion: params.diffusion,
-            });
-    }, [preset, params.size, params.decay, params.damping, params.diffusion]);
-    // ── Idle state for the live scope ───────────────────────────────────────────
-    // While stopped, animate() isn't running, so this shows the "hit play"
-    // placeholder on the scope canvas.
-    useEffect(() => {
-        if (isPlaying)
-            return;
-        if (scopeRef.current)
-            drawReverbScope(scopeRef.current, [], 0, false);
-    }, [isPlaying]);
+    // Live-level reading for ReverbEditorPanel (see render below) — the panel
+    // now owns the animation loop that used to live here (drawing the IR
+    // redraw is still done by the panel too, reactively off preset/params);
+    // this component just hands it the raw linear peaks off its own
+    // pre/post-reverb analysers.
+    const getInputPeak = useCallback(() => analyserPeakLinear(dryAnalRef.current), []);
+    const getOutputPeak = useCallback(() => analyserPeakLinear(wetAnalRef.current), []);
     // ── Task tracking ────────────────────────────────────────────────────────────
     useEffect(() => {
         setTasks([preset === 'HALL', hasPlayed, params.preDelay >= 15]);
@@ -645,11 +784,6 @@ export default function Reverb() {
             return;
         pushFaustParams(node, params);
     }, [params]);
-    // ── Apply preset Freeverb defaults ───────────────────────────────────────────
-    const applyPreset = useCallback((key) => {
-        setPreset(key);
-        setParams(p => ({ ...p, ...PRESET_FREEVERB[key] }));
-    }, []);
     // ── Scheduler ────────────────────────────────────────────────────────────────
     // While pingMuteUntilRef is in the future, steps still advance on the beat
     // (so the groove doesn't drift) but aren't actually triggered — this is
@@ -683,48 +817,7 @@ export default function Reverb() {
             return;
         const t = ctx.currentTime + 0.03;
         pingMuteUntilRef.current = t + SCOPE_WINDOW_S + 0.5;
-        scopeHistoryRef.current = [];
-        meterClockRef.current = null;
         synthKick(ctx, mix, t);
-    }, []);
-    // ── Animation loop ───────────────────────────────────────────────────────────
-    // Drives the live scope from the real dry/wet analyser taps — new to this
-    // chapter (the illustrative IR diagram and decay bars never needed a live
-    // loop, since they only redraw when a knob changes).
-    const animate = useCallback(() => {
-        const dryAnal = dryAnalRef.current;
-        const wetAnal = wetAnalRef.current;
-        const now = ctxRef.current?.currentTime ?? performance.now() / 1000;
-        const dt = meterClockRef.current !== null ? Math.max(0, Math.min(0.2, now - meterClockRef.current)) : 0;
-        meterClockRef.current = now;
-        if (dryAnal) {
-            const buf = new Float32Array(dryAnal.fftSize);
-            dryAnal.getFloatTimeDomainData(buf);
-            let peak = 0;
-            for (let i = 0; i < buf.length; i++)
-                peak = Math.max(peak, Math.abs(buf[i]));
-            const rawInputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
-            smoothedInputDbRef.current = levelBallistic(smoothedInputDbRef.current, rawInputDb, dt);
-        }
-        if (wetAnal) {
-            const buf = new Float32Array(wetAnal.fftSize);
-            wetAnal.getFloatTimeDomainData(buf);
-            let peak = 0;
-            for (let i = 0; i < buf.length; i++)
-                peak = Math.max(peak, Math.abs(buf[i]));
-            const rawOutputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
-            smoothedOutputDbRef.current = levelBallistic(smoothedOutputDbRef.current, rawOutputDb, dt);
-        }
-        if (dryAnal && wetAnal) {
-            const history = scopeHistoryRef.current;
-            history.push({ t: now, inputDb: smoothedInputDbRef.current, outputDb: smoothedOutputDbRef.current });
-            const cutoff = now - SCOPE_WINDOW_S - 0.5;
-            while (history.length > 0 && history[0].t < cutoff)
-                history.shift();
-            if (scopeRef.current)
-                drawReverbScope(scopeRef.current, history, now, true);
-        }
-        animRef.current = requestAnimationFrame(animate);
     }, []);
     // ── Start audio ──────────────────────────────────────────────────────────────
     const startAudio = useCallback(async () => {
@@ -799,17 +892,13 @@ export default function Reverb() {
             pingMuteUntilRef.current = 0;
             runScheduler();
         }
-        scopeHistoryRef.current = [];
-        meterClockRef.current = null;
-        animRef.current = requestAnimationFrame(animate);
         setIsPlaying(true);
         setHasPlayed(true);
-    }, [engineStatus, runScheduler, animate]);
+    }, [engineStatus, runScheduler]);
     // ── Stop audio ───────────────────────────────────────────────────────────────
     const stopAudio = useCallback(() => {
         if (schedulerRef.current)
             clearTimeout(schedulerRef.current);
-        cancelAnimationFrame(animRef.current);
         if (bufSourceRef.current) {
             try {
                 bufSourceRef.current.stop();
@@ -831,20 +920,13 @@ export default function Reverb() {
         wetAnalRef.current = null;
         ctxRef.current?.close();
         ctxRef.current = null;
-        smoothedInputDbRef.current = METER_FLOOR_DB;
-        smoothedOutputDbRef.current = METER_FLOOR_DB;
-        meterClockRef.current = null;
-        scopeHistoryRef.current = [];
         pingMuteUntilRef.current = 0;
         setIsPlaying(false);
-        if (scopeRef.current)
-            drawReverbScope(scopeRef.current, [], 0, false);
     }, []);
     useEffect(() => () => {
         startTokenRef.current++;
         if (schedulerRef.current)
             clearTimeout(schedulerRef.current);
-        cancelAnimationFrame(animRef.current);
         if (bufSourceRef.current) {
             try {
                 bufSourceRef.current.stop();
@@ -1069,75 +1151,22 @@ export default function Reverb() {
         {renderSourceRow()}
       </div>
 
-      {/* ── Body ── */}
-      <div className="reverb-body">
-
-        {/* ── Left panel ── */}
-        <div className="reverb-left">
-          <div className="canvas-label">IMPULSE RESPONSE — DECAY OVER TIME</div>
-          <div className="ir-display">
-            <canvas ref={irRef} width={760} height={160} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
-          </div>
-
-          <div className="canvas-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-            <span>
-              LIVE REVERB TAIL SCOPE {!isPlaying && '· HIT PLAY TO SEE LIVE SIGNAL'}
-              <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
-                · real dry input vs wet output over time — the diagram above is illustrative, this is the actual audio
-              </span>
-            </span>
-            <button className="toggle-btn" style={{ fontSize: '0.6rem', padding: '0.25rem 0.6rem', whiteSpace: 'nowrap' }} onClick={triggerTestTail} disabled={!isPlaying || activeSourceId !== 'synth'} title={activeSourceId !== 'synth' ? 'Switch to the drum groove to use the test-tail ping' : 'Fire one isolated hit and mute the loop so the tail rings out cleanly'}>
-              ⚡ PING TAIL
-            </button>
-          </div>
-          <div className="reverb-scope-display">
-            <canvas ref={scopeRef} width={760} height={150} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
-          </div>
-          <div className="legend-row" style={{ marginBottom: '1rem' }}>
-            <div className="legend-item"><span className="legend-line" style={{ background: '#F5A623' }}/>DRY INPUT</div>
-            <div className="legend-item"><span className="legend-line" style={{ background: '#2DD4BF' }}/>WET OUTPUT (TAIL)</div>
-          </div>
-          <div className="concept-callout" style={{ marginTop: '-0.5rem', marginBottom: '1rem', background: 'rgba(45,212,191,0.05)', borderColor: 'rgba(45,212,191,0.15)' }}>
-            The drum groove's near-continuous hi-hat keeps re-triggering the reverb, so SIZE/DECAY/DAMPING
-            changes can be hard to see in a busy loop. Click <strong style={{ color: 'var(--teal)' }}>PING TAIL</strong>{' '}
-            to hear (and see) one hit ring out with nothing else in the way.
-          </div>
-
-          <div className="canvas-label">ROOM PRESET</div>
-          <div className="room-preset-row">
-            {PRESET_ORDER.map(key => {
-            const p = ROOM_PRESETS[key];
-            return (<div key={key} className={`room-preset${preset === key ? ' active' : ''}`} onClick={() => applyPreset(key)}>
-                  <div className="room-preset-icon">{p.icon}</div>
-                  <div className="room-preset-name">{p.name}</div>
-                </div>);
-        })}
-          </div>
-
-          <div className="concept-callout" style={{ background: 'var(--teal-dim)', borderColor: 'rgba(45,212,191,0.2)' }}>
-            <strong style={{ color: 'var(--teal)' }}>Concept check:</strong> Early reflections tell your
-            brain the room's size and shape. The late, dense tail tells it the surface material — hard
-            walls decay slower than soft ones. Current RT60:{' '}
-            <strong style={{ color: 'var(--teal)' }}>{currentPreset.rt60}s</strong> ({currentPreset.label}).
-          </div>
-        </div>
-
-        {/* ── Right panel ── */}
-        <div className="reverb-right">
-          <div className="canvas-label" style={{ marginBottom: '0.75rem' }}>RT60 DECAY ENVELOPE</div>
-          <div className="reverb-decay-viz">
-            <DecayBars rt60={calcEffectiveRt60(params.size, params.decay)} damping={params.damping}/>
-            <div className="decay-readout">
-              <span>RT60: <strong style={{ color: 'var(--teal)' }}>{calcEffectiveRt60(params.size, params.decay).toFixed(1)}s</strong></span>
-              <span>−60dB POINT</span>
-            </div>
-          </div>
-
-          {/* ── Knob grid ── */}
-          <div className="canvas-label" style={{ marginBottom: '0.75rem' }}>REVERB PARAMETERS</div>
-
-          {/* Faust reverb section header */}
-          <div style={{
+      {/* ── Body — IR diagram, live tail scope, room presets, decay bars and
+          knobs, all owned by the shared ReverbEditorPanel (see above), same
+          component the DAW workstation's insert-chain popup renders for this
+          plugin. The lab-only "test tail ping" and Faust engine-status strip
+          are passed in as onTestTail / engineBadge — the DAW host omits both. ── */}
+      <ReverbEditorPanel
+        params={params}
+        setParams={setParams}
+        preset={preset}
+        setPreset={setPreset}
+        isPlaying={isPlaying}
+        getInputPeak={getInputPeak}
+        getOutputPeak={getOutputPeak}
+        getNow={() => ctxRef.current?.currentTime}
+        onTestTail={activeSourceId === 'synth' ? triggerTestTail : null}
+        engineBadge={(<div style={{
             display: 'flex', alignItems: 'center', gap: '0.4rem',
             fontFamily: 'var(--mono)', fontSize: '0.55rem',
             marginBottom: '0.6rem',
@@ -1157,62 +1186,8 @@ export default function Reverb() {
                 Faust reverbs.lib (stereo_freeverb)
               </span>
             </span>
-          </div>
-
-          <div className="reverb-knob-grid">
-            {/* Row 1: SIZE, DECAY, PRE-DELAY, DAMPING, DIFFUSION (Faust freeverb core) */}
-            <Knob spec={KNOB_SPECS.size} value={params.size} onChange={v => setParams(p => ({ ...p, size: v }))}/>
-            <Knob spec={KNOB_SPECS.decay} value={params.decay} onChange={v => setParams(p => ({ ...p, decay: v }))}/>
-            <Knob spec={KNOB_SPECS.preDelay} value={params.preDelay} onChange={v => setParams(p => ({ ...p, preDelay: v }))}/>
-            <Knob spec={KNOB_SPECS.damping} value={params.damping} onChange={v => setParams(p => ({ ...p, damping: v }))}/>
-            <Knob spec={KNOB_SPECS.diffusion} value={params.diffusion} onChange={v => setParams(p => ({ ...p, diffusion: v }))}/>
-
-            {/* Row 2: HI-SHELF freq/gain, LO-SHELF freq/gain (replace the old HPF/LPF), WET/DRY */}
-            <Knob spec={KNOB_SPECS.hiShelfFreq} value={params.hiShelfFreq} onChange={v => setParams(p => ({ ...p, hiShelfFreq: v }))}/>
-            <Knob spec={KNOB_SPECS.hiShelfGain} value={params.hiShelfGain} onChange={v => setParams(p => ({ ...p, hiShelfGain: v }))}/>
-            <Knob spec={KNOB_SPECS.loShelfFreq} value={params.loShelfFreq} onChange={v => setParams(p => ({ ...p, loShelfFreq: v }))}/>
-            <Knob spec={KNOB_SPECS.loShelfGain} value={params.loShelfGain} onChange={v => setParams(p => ({ ...p, loShelfGain: v }))}/>
-            <Knob spec={KNOB_SPECS.wetDry} value={params.wetDry} onChange={v => setParams(p => ({ ...p, wetDry: v }))}/>
-          </div>
-
-          {/* Live param readout */}
-          <div style={{
-            marginTop: '0.75rem',
-            background: 'var(--black)',
-            border: '1px solid var(--border)',
-            borderRadius: 4,
-            padding: '0.6rem 0.75rem',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: '0.5rem',
-        }}>
-            {['size', 'decay', 'damping', 'diffusion'].map(key => (<div key={key} style={{ textAlign: 'center' }}>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: '0.75rem', color: '#A855F7', fontWeight: 500 }}>
-                  {KNOB_SPECS[key].fmt(params[key])}
-                </div>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: '0.5rem', color: 'var(--text-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 2 }}>
-                  {KNOB_SPECS[key].label}
-                </div>
-              </div>))}
-          </div>
-
-          <div className="tip-box" style={{ marginTop: '0.75rem', background: 'rgba(45,212,191,0.07)', borderColor: 'rgba(45,212,191,0.2)' }}>
-            <strong style={{ color: 'var(--teal)' }}>SIZE</strong> sets the perceived room volume —
-            bigger rooms mean longer gaps between reflections.{' '}
-            <strong style={{ color: 'var(--teal)' }}>DECAY</strong> controls how long the tail takes
-            to fade out.{' '}
-            <strong style={{ color: 'var(--teal)' }}>DAMPING</strong> rolls off high frequencies as
-            the tail decays, mimicking absorption from air and soft surfaces.{' '}
-            <strong style={{ color: 'var(--teal)' }}>DIFFUSION</strong> thickens echo density into a
-            smooth wash rather than distinct slaps.{' '}
-            <strong style={{ color: 'var(--teal)' }}>HI-SHELF</strong> and{' '}
-            <strong style={{ color: 'var(--teal)' }}>LO-SHELF</strong> tame the tail's brightness and
-            boom — a gentle gain shift above/below their corner frequency, rather than a hard
-            HPF/LPF cutoff — so the tail can darken or thin out without losing everything past a
-            brick-wall point. Drag knobs vertically to adjust.
-          </div>
-        </div>
-      </div>
+          </div>)}
+      />
 
       {/* ── Footer ── */}
       <div className="lab-footer">
@@ -1226,7 +1201,7 @@ export default function Reverb() {
           <button className={`toggle-btn${isPlaying ? ' on' : ''}`} style={isPlaying ? { borderColor: 'var(--green)', color: 'var(--green)', background: 'var(--green-dim)' } : {}} onClick={isPlaying ? stopAudio : startAudio}>
             {isPlaying ? '⏹ STOP' : '▶ Audition'}
           </button>
-          <button className="btn-secondary" onClick={() => { applyPreset(DEFAULT_PRESET); setParams({ ...DEFAULTS }); }}>
+          <button className="btn-secondary" onClick={() => { setPreset(DEFAULT_PRESET); setParams({ ...DEFAULTS }); }}>
             Reset
           </button>
           <button className="btn-primary">Submit &amp; Continue →</button>

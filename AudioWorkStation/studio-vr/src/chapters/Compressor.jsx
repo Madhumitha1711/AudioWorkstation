@@ -2,15 +2,18 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { FaustMonoDspGenerator } from '@grame/faustwasm';
 import { compileFaustWasm } from '../faust/faustTypes';
 import { downloadAudioBufferAsWav } from '../audio/wavRender';
+import {
+    BAND_IDS, BAND_LABELS, KNOBS,
+    DEFAULT_BAND, makeDefaultBands, DEFAULT_CROSSOVER, DEFAULT_SIDECHAIN, DEFAULT_OUTPUT_GAIN, DEFAULT_MULTIBAND,
+    ADDR, pushFaustParams, connectMainAndSidechain, applyCompression,
+    METER_FLOOR_DB, LEVEL_ATTACK_S, LEVEL_RELEASE_S, levelBallistic,
+    GR_READOUT_TAU_S, grReadoutSmooth, GR_METER_MAX_DB, analyserPeakDb,
+} from './compressorEngine';
 // ── Types ─────────────────────────────────────────────────────────────────────
 // v2: the Faust patch is now a 4-band multiband compressor with internal/
 // external sidechain detection (public/faust/compressor/compressor.dsp).
 // Each band gets its own full compressor; three crossover points split the
 // signal into Low / Low-Mid / High-Mid / High.
-const BAND_IDS = ['low', 'lowMid', 'highMid', 'high'];
-const BAND_LABELS = {
-    low: 'LOW', lowMid: 'LOW-MID', highMid: 'HIGH-MID', high: 'HIGH',
-};
 // An uploaded audio track that can be used as the signal source in the
 // Compressor Studio (free play / learning).
 // The main signal source is always the drum loop or one uploaded track (see
@@ -19,72 +22,11 @@ const BAND_LABELS = {
 // the built-in drum loop even when it isn't the main source, or a specific
 // uploaded track id, so External Sidechain can genuinely duck one track off
 // a different one (e.g. a kick loop ducking an uploaded bass/pad track).
-// Attack/Release: a "segmented" knob — the bottom 60% of the knob's travel
-// covers 1–200 ms (where most musical settings live), the remaining 40%
-// covers 200–2000 ms (long releases / slow attacks), instead of one linear
-// sweep that would make the common 1–200 ms zone impossible to dial in
-// precisely.
-const TIME_KNOB_MIN_MS = 1;
-const TIME_KNOB_BREAK_MS = 200;
-const TIME_KNOB_MAX_MS = 2000;
-const TIME_KNOB_BREAK_FRAC = 0.6;
-function timeKnobToFrac(ms) {
-    const v = Math.min(TIME_KNOB_MAX_MS, Math.max(TIME_KNOB_MIN_MS, ms));
-    if (v <= TIME_KNOB_BREAK_MS) {
-        return ((v - TIME_KNOB_MIN_MS) / (TIME_KNOB_BREAK_MS - TIME_KNOB_MIN_MS)) * TIME_KNOB_BREAK_FRAC;
-    }
-    return TIME_KNOB_BREAK_FRAC + ((v - TIME_KNOB_BREAK_MS) / (TIME_KNOB_MAX_MS - TIME_KNOB_BREAK_MS)) * (1 - TIME_KNOB_BREAK_FRAC);
-}
-function timeKnobFromFrac(frac) {
-    const f = Math.min(1, Math.max(0, frac));
-    if (f <= TIME_KNOB_BREAK_FRAC) {
-        return TIME_KNOB_MIN_MS + (f / TIME_KNOB_BREAK_FRAC) * (TIME_KNOB_BREAK_MS - TIME_KNOB_MIN_MS);
-    }
-    return TIME_KNOB_BREAK_MS + ((f - TIME_KNOB_BREAK_FRAC) / (1 - TIME_KNOB_BREAK_FRAC)) * (TIME_KNOB_MAX_MS - TIME_KNOB_BREAK_MS);
-}
-// Whole-number formatting — Ratio, Attack and Release are all integer-only
-// knobs (step: 1 below), so no decimals are ever shown or enterable.
-function fmtMs(v) {
-    return `${Math.round(v)} ms`;
-}
-// Per-band knob ranges mirror the live bounds in
-// public/faust/compressor/dsp-meta.json (the Faust patch clamps its own
-// params internally — Attack 0.1–100 ms, Release 10–1000 ms, Makeup_Gain
-// 0–24 dB — so dialing a knob past those on Attack/Release/Makeup won't
-// change the audio any further even though the knob keeps turning). This
-// same knob set now drives whichever band is selected in the tab row above
-// it, instead of one fixed global compressor.
-const KNOBS = [
-    { key: 'threshold', label: 'THRESHOLD', min: -60, max: 0, step: 0.5, fmt: v => `${v.toFixed(0)} dB` },
-    { key: 'ratio', label: 'RATIO', min: 1, max: 20, step: 1, fmt: v => `${v.toFixed(0)} : 1` },
-    {
-        key: 'attack', label: 'ATTACK', min: TIME_KNOB_MIN_MS, max: TIME_KNOB_MAX_MS, step: 1,
-        fmt: fmtMs, toFrac: timeKnobToFrac, fromFrac: timeKnobFromFrac,
-    },
-    {
-        key: 'release', label: 'RELEASE', min: TIME_KNOB_MIN_MS, max: TIME_KNOB_MAX_MS, step: 1,
-        fmt: fmtMs, toFrac: timeKnobToFrac, fromFrac: timeKnobFromFrac,
-    },
-    { key: 'knee', label: 'KNEE', min: 0, max: 20, step: 0.1, fmt: v => v < 2 ? 'HARD' : v < 10 ? 'MEDIUM' : 'SOFT' },
-    { key: 'makeup', label: 'MAKEUP GAIN', min: 0, max: 24, step: 0.1, fmt: v => `+${v.toFixed(1)} dB` },
-];
-// Defaults mirror the Faust patch's own declared `init` values, so the knobs
-// read exactly what the DSP is already doing the instant it loads — no
-// silent mismatch between "what the UI shows" and "what's actually playing".
-const DEFAULT_BAND = {
-    bypass: false, threshold: -20, ratio: 4, attack: 10, release: 100, knee: 3, makeup: 0,
-};
-function makeDefaultBands() {
-    return { low: { ...DEFAULT_BAND }, lowMid: { ...DEFAULT_BAND }, highMid: { ...DEFAULT_BAND }, high: { ...DEFAULT_BAND } };
-}
-const DEFAULT_CROSSOVER = { loLowMid: 150, lowMidHiMid: 1000, hiMidHigh: 5000 };
-const DEFAULT_SIDECHAIN = { external: false, listen: false, hpf: 20 };
-const DEFAULT_OUTPUT_GAIN = 0;
-// Matches the Faust patch's own "Multiband/Enable" checkbox default (off) —
-// see public/faust/compressor/compressor.dsp v3.1. Off = single-band: the
-// Low Band controls act on the whole, unsplit signal and the other 3 bands
-// are silent. On = the full 4-band crossover split.
-const DEFAULT_MULTIBAND = false;
+// BAND_IDS/BAND_LABELS/KNOBS (incl. the segmented Attack/Release mapping),
+// the per-band defaults, crossover/sidechain/output-gain/multiband defaults,
+// the Faust ADDR map, pushFaustParams, and connectMainAndSidechain all now
+// live in ./compressorEngine (see CompressorEditorPanel below for the shared
+// editor UI built on top of them).
 // ── Faust compressor engine wiring ───────────────────────────────────────────
 // Real DSP: public/faust/compressor/ (dsp-module.wasm + dsp-meta.json), a
 // 4-band multiband compressor with sidechain detection (compressors.lib
@@ -92,86 +34,6 @@ const DEFAULT_MULTIBAND = false;
 // audio inputs: channel 0 is the main signal, channel 1 is the sidechain
 // detector input — see the ChannelMergerNode wiring in startAudio() below.
 const FAUST_BASE_PATH = '/faust/compressor';
-// Faust addresses, from public/faust/compressor/dsp-meta.json's `ui` tree —
-// band group labels became "Low_Band" / "Low-Mid_Band" / "High-Mid_Band" /
-// "High_Band" prefixes (Faust turns label spaces into underscores).
-const BAND_PREFIX = {
-    low: 'Low_Band', lowMid: 'Low-Mid_Band', highMid: 'High-Mid_Band', high: 'High_Band',
-};
-function bandAddr(band, suffix) {
-    return `/compressor/${BAND_PREFIX[band]}_${suffix}`;
-}
-const ADDR = {
-    multiband: {
-        enable: '/compressor/Multiband_Enable',
-    },
-    band: (b) => ({
-        bypass: bandAddr(b, 'Bypass'),
-        threshold: bandAddr(b, 'Threshold'),
-        ratio: bandAddr(b, 'Ratio'),
-        knee: bandAddr(b, 'Knee'),
-        attack: bandAddr(b, 'Attack'),
-        release: bandAddr(b, 'Release'),
-        makeup: bandAddr(b, 'Makeup_Gain'),
-        gr: bandAddr(b, 'Gain_Reduction'), // read-only hbargraph output
-    }),
-    crossover: {
-        loLowMid: '/compressor/Crossover_Low-LowMid',
-        lowMidHiMid: '/compressor/Crossover_LowMid-HighMid',
-        hiMidHigh: '/compressor/Crossover_HighMid-High',
-    },
-    sidechain: {
-        external: '/compressor/Sidechain_External_Sidechain',
-        listen: '/compressor/Sidechain_SC_Listen',
-        hpf: '/compressor/Sidechain_SC_HPF',
-    },
-    output: {
-        wetDry: '/compressor/Output_Wet-Dry',
-        gain: '/compressor/Output_Gain',
-    },
-};
-// Pushes every UI param onto a live Faust node. Bypass drives the patch's own
-// Output/Wet-Dry to 0 (fully dry passthrough) — a true bypass, same intent
-// as the single-band version, done the way the DSP itself exposes it. There
-// is still no user-facing wet/dry mix knob (a partial blend doesn't help
-// anyone learn what the compressor is doing), so outside of bypass this
-// always pushes 100% wet; Output Gain is the one new global trim exposed.
-function pushFaustParams(node, bands, crossover, sidechain, outputGainDb, bypass, multibandEnabled) {
-    node.setParamValue(ADDR.multiband.enable, multibandEnabled ? 1 : 0);
-    for (const b of BAND_IDS) {
-        const a = ADDR.band(b);
-        const p = bands[b];
-        node.setParamValue(a.bypass, p.bypass ? 1 : 0);
-        node.setParamValue(a.threshold, p.threshold);
-        node.setParamValue(a.ratio, p.ratio);
-        node.setParamValue(a.knee, p.knee);
-        node.setParamValue(a.attack, p.attack); // ms — matches the patch's own unit
-        node.setParamValue(a.release, p.release); // ms
-        node.setParamValue(a.makeup, p.makeup);
-    }
-    node.setParamValue(ADDR.crossover.loLowMid, crossover.loLowMid);
-    node.setParamValue(ADDR.crossover.lowMidHiMid, crossover.lowMidHiMid);
-    node.setParamValue(ADDR.crossover.hiMidHigh, crossover.hiMidHigh);
-    node.setParamValue(ADDR.sidechain.external, sidechain.external ? 1 : 0);
-    node.setParamValue(ADDR.sidechain.listen, sidechain.listen ? 1 : 0);
-    node.setParamValue(ADDR.sidechain.hpf, sidechain.hpf);
-    node.setParamValue(ADDR.output.wetDry, bypass ? 0 : 100); // patch takes 0..100
-    node.setParamValue(ADDR.output.gain, outputGainDb);
-}
-// Builds a 2-channel (main, sidechain) stream out of two *independent*
-// sources — the Faust node declares 2 audio inputs (see compressor.dsp's
-// process(mainIn, scIn)), which @grame/faustwasm exposes as ONE AudioNode
-// input with channelCount 2 rather than two separate AudioNode inputs, so
-// feeding it two distinct signals means merging them onto one 2-channel
-// stream with a ChannelMergerNode first. Pass the same node twice to mirror
-// one signal onto both channels (self-sidechain).
-function connectMainAndSidechain(ctx, mainSource, sidechainSource, destination) {
-    const merger = ctx.createChannelMerger(2);
-    mainSource.connect(merger, 0, 0);
-    sidechainSource.connect(merger, 0, 1);
-    merger.connect(destination);
-    return merger;
-}
 // Renders an uploaded track through the same Faust compressor patch offline
 // (an OfflineAudioContext instead of a live one), so it can be exported as a
 // WAV — mirrors the live graph in startAudio() but with no meters/scheduler.
@@ -194,20 +56,6 @@ async function renderCompressorOffline(generator, meta, dspModule, source, sidec
     mainSrc.start();
     scSrc.start();
     return offlineCtx.startRendering();
-}
-// ── Transfer function math ────────────────────────────────────────────────────
-function applyCompression(inputDb, p) {
-    const { threshold, ratio, knee } = p;
-    const diff = inputDb - threshold;
-    // Hard knee (knee=0): no transition region, avoid division by zero
-    if (knee === 0)
-        return inputDb <= threshold ? inputDb : threshold + diff / ratio;
-    const halfKnee = knee / 2;
-    if (2 * diff < -knee)
-        return inputDb;
-    if (2 * diff > knee)
-        return threshold + diff / ratio;
-    return inputDb + ((1 / ratio - 1) * (diff + halfKnee) ** 2) / (2 * knee);
 }
 // ── HiDPI canvas helper ───────────────────────────────────────────────────────
 function hiDpi(canvas) {
@@ -528,28 +376,9 @@ function describeArc(r, start, end) {
 // compression scope below shows the same input/output levels (and the gain
 // change between them) as motion over time, which is strictly more
 // information than three static bars, so keeping both was redundant. The
-// smoothed dB values are still computed here (fast-attack/slow-release, so
-// they're readable frame to frame) — the scope is what displays them now.
-const METER_FLOOR_DB = -60;
-const LEVEL_ATTACK_S = 0.015;
-const LEVEL_RELEASE_S = 0.35;
-function levelBallistic(prev, target, dt) {
-    if (dt <= 0)
-        return prev;
-    const tau = target > prev ? LEVEL_ATTACK_S : LEVEL_RELEASE_S;
-    return prev + (target - prev) * (1 - Math.exp(-dt / tau));
-}
-// Light smoothing (30ms) applied to the real Gain_Reduction values read off
-// the Faust patch, purely so the on-screen number/bar doesn't jitter frame
-// to frame — the compression ballistics themselves are already the patch's
-// own Attack/Release, this is a display-only pass.
-const GR_READOUT_TAU_S = 0.03;
-function grReadoutSmooth(prev, target, dt) {
-    if (dt <= 0)
-        return prev;
-    return prev + (target - prev) * (1 - Math.exp(-dt / GR_READOUT_TAU_S));
-}
-const GR_METER_MAX_DB = 24; // matches the Faust patch's Gain_Reduction hbargraph range (-24..0)
+// smoothed dB values (levelBallistic/grReadoutSmooth, both from
+// ./compressorEngine) are computed inside CompressorEditorPanel now — the
+// scope is what displays them.
 // ── Drum synthesiser ──────────────────────────────────────────────────────────
 const BPM = 120;
 const STEP_SEC = 60 / BPM / 2;
@@ -689,6 +518,399 @@ function scheduleStep(ctx, fullDest, kickDest, step, time) {
     if (PAT_BASS[step])
         synthBass(ctx, fullDest, time, PAT_BASS[step]);
 }
+// ── Shared editor panel ───────────────────────────────────────────────────────
+// The mode switch / band tabs / knobs / crossover / sidechain / output-gain
+// controls plus the transfer-function+GR-meter and live-scope visuals — the
+// exact same body the standalone Compressor Studio lab below renders, reused
+// verbatim by the DAW workstation's insert-chain popup
+// (../panorama/DawWorkstationScreen) instead of a generic FaustPanel/curve
+// approximation. Same split as GateEditorPanel in ./NoiseGate.
+//
+// Host contract:
+//   - bands/setBands, crossover/setCrossover, sidechain/setSidechain,
+//     outputGainDb/setOutputGainDb, selectedBand/setSelectedBand,
+//     multibandEnabled/setMultibandEnabled — host-owned typed state, pushed
+//     onto the live Faust node by the host via pushFaustParams (see
+//     ./compressorEngine) whenever it changes.
+//   - bypass — host-owned; read-only here (a global bypass toggle lives in
+//     the host's own topbar/chain-chip UI).
+//   - isPlaying — whether the host's transport is currently running; the
+//     scope/meter animation loop only runs while there's something to read.
+//   - getLevels() — called once per animation frame; returns
+//     { inputDb, outputDb, bandGr: { low, lowMid, highMid, high } } read off
+//     the host's own analysers/Gain_Reduction outputs, or null if none are
+//     live yet. bandGr values are raw (unsmoothed) dB reduction amounts
+//     (0 = no reduction) — this panel does its own display-only smoothing
+//     (grReadoutSmooth), same as the standalone lab always did.
+//   - getNow() — returns the audio clock (ctx.currentTime) driving the
+//     scope's scroll, so it stays in sync with the actual audio rather than
+//     performance.now() drifting from it.
+//   - sidechainSourceRow — optional extra UI (e.g. the standalone lab's
+//     "pick a different track/upload for the sidechain" row) rendered above
+//     the External SC / SC Listen / SC HPF controls; hosts with only one
+//     audio source (like the DAW, which always self-sidechains) simply omit
+//     it.
+export function CompressorEditorPanel({
+    bands, setBands,
+    crossover, setCrossover,
+    sidechain, setSidechain,
+    outputGainDb, setOutputGainDb,
+    selectedBand, setSelectedBand,
+    multibandEnabled, setMultibandEnabled,
+    bypass,
+    isPlaying,
+    getLevels,
+    getNow,
+    sidechainSourceRow = null,
+}) {
+    const transferRef = useRef(null);
+    const scopeRef = useRef(null);
+    const scopeHistoryRef = useRef([]);
+    const smoothedInputDbRef = useRef(METER_FLOOR_DB);
+    const smoothedOutputDbRef = useRef(METER_FLOOR_DB);
+    const meterClockRef = useRef(null);
+    const smoothedGrRef = useRef({ low: 0, lowMid: 0, highMid: 0, high: 0 });
+    const grFillRef = useRef(null);
+    const grValueRef = useRef(null);
+    const bandGrFillRefs = useRef({});
+    const mainDragRef = useRef(null);
+    // Refs mirroring the latest props, read inside the animation loop so the
+    // loop's own effect doesn't need to restart every time a knob moves.
+    const bandsRef = useRef(bands);
+    const selectedBandRef = useRef(selectedBand);
+    const bypassRef = useRef(bypass);
+    useEffect(() => { bandsRef.current = bands; }, [bands]);
+    useEffect(() => { selectedBandRef.current = selectedBand; }, [selectedBand]);
+    useEffect(() => { bypassRef.current = bypass; }, [bypass]);
+    // ── Main transfer canvas — static, only depends on the selected band's knobs ──
+    useEffect(() => {
+        if (transferRef.current) {
+            const band = bands[selectedBand];
+            // When bypassed (globally, or this band alone), draw unity line
+            // (ratio=1 collapses to straight diagonal).
+            const displayParams = (bypass || band.bypass) ? { ...band, threshold: 0, ratio: 1, makeup: 0 } : band;
+            drawTransfer(transferRef.current, displayParams);
+        }
+    }, [bands, selectedBand, bypass]);
+    // ── Live GR meters + compression scope ────────────────────────────────────
+    useEffect(() => {
+        if (!isPlaying) {
+            scopeHistoryRef.current = [];
+            smoothedInputDbRef.current = METER_FLOOR_DB;
+            smoothedOutputDbRef.current = METER_FLOOR_DB;
+            meterClockRef.current = null;
+            smoothedGrRef.current = { low: 0, lowMid: 0, highMid: 0, high: 0 };
+            if (grFillRef.current)
+                grFillRef.current.style.height = '0%';
+            if (grValueRef.current)
+                grValueRef.current.textContent = '0.0';
+            for (const b of BAND_IDS) {
+                const el = bandGrFillRefs.current[b];
+                if (el)
+                    el.style.width = '0%';
+            }
+            if (scopeRef.current) {
+                const c = scopeRef.current.getContext('2d');
+                c.fillStyle = '#0D0D0F';
+                c.fillRect(0, 0, scopeRef.current.width, scopeRef.current.height);
+            }
+            return;
+        }
+        let raf = 0;
+        const animate = () => {
+            const now = getNow?.() ?? performance.now() / 1000;
+            const dt = meterClockRef.current !== null ? Math.max(0, Math.min(0.2, now - meterClockRef.current)) : 0;
+            meterClockRef.current = now;
+            const levels = getLevels?.();
+            if (levels) {
+                smoothedInputDbRef.current = levelBallistic(smoothedInputDbRef.current, levels.inputDb, dt);
+                smoothedOutputDbRef.current = levelBallistic(smoothedOutputDbRef.current, levels.outputDb, dt);
+                for (const b of BAND_IDS) {
+                    const target = bypassRef.current ? 0 : (levels.bandGr?.[b] ?? 0);
+                    smoothedGrRef.current[b] = grReadoutSmooth(smoothedGrRef.current[b], target, dt);
+                    const fillEl = bandGrFillRefs.current[b];
+                    if (fillEl)
+                        fillEl.style.width = `${Math.min(100, (smoothedGrRef.current[b] / GR_METER_MAX_DB) * 100)}%`;
+                }
+                const selectedGrDb = smoothedGrRef.current[selectedBandRef.current];
+                if (grFillRef.current)
+                    grFillRef.current.style.height = `${Math.min(100, (selectedGrDb / GR_METER_MAX_DB) * 100)}%`;
+                if (grValueRef.current)
+                    grValueRef.current.textContent = selectedGrDb > 0.05 ? `-${selectedGrDb.toFixed(1)}` : '0.0';
+                const history = scopeHistoryRef.current;
+                history.push({
+                    t: now,
+                    inputDb: smoothedInputDbRef.current,
+                    outputDb: smoothedOutputDbRef.current,
+                    grDb: selectedGrDb,
+                });
+                const cutoff = now - SCOPE_WINDOW_S - 0.5;
+                while (history.length > 0 && history[0].t < cutoff)
+                    history.shift();
+                if (scopeRef.current) {
+                    const selBand = bandsRef.current[selectedBandRef.current];
+                    drawCompressorScope(scopeRef.current, history, now, selBand.threshold, !bypassRef.current && !selBand.bypass);
+                }
+            }
+            raf = requestAnimationFrame(animate);
+        };
+        raf = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(raf);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isPlaying, getLevels, getNow]);
+    // ── Knob drag ──────────────────────────────────────────────────────────────
+    const onMainKnobDown = useCallback((e, spec, val) => {
+        e.preventDefault();
+        mainDragRef.current = { spec, band: selectedBand, startY: e.clientY, startFrac: specToFrac(spec, val) };
+    }, [selectedBand]);
+    useEffect(() => {
+        const onMove = (e) => {
+            const d = mainDragRef.current;
+            if (!d)
+                return;
+            const frac = Math.min(1, Math.max(0, d.startFrac + (d.startY - e.clientY) / 220));
+            const raw = specFromFrac(d.spec, frac);
+            const clamped = Math.min(d.spec.max, Math.max(d.spec.min, Math.round(raw / d.spec.step) * d.spec.step));
+            setBands(prev => ({ ...prev, [d.band]: { ...prev[d.band], [d.spec.key]: clamped } }));
+        };
+        const onUp = () => { mainDragRef.current = null; };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    }, [setBands]);
+    const setSelectedBandParam = useCallback((key, v) => {
+        setBands(prev => ({ ...prev, [selectedBand]: { ...prev[selectedBand], [key]: v } }));
+    }, [selectedBand, setBands]);
+    // Bypasses a specific band's compression (its audio still passes through,
+    // unprocessed) independently of which band is currently selected for
+    // editing — each band tracks its own bypass flag, so any combination of
+    // bands can be bypassed at once, not just one at a time.
+    const toggleBandBypass = useCallback((band) => {
+        setBands(prev => ({ ...prev, [band]: { ...prev[band], bypass: !prev[band].bypass } }));
+    }, [setBands]);
+    const selBand = bands[selectedBand];
+    // In single-band mode (Multiband off) only "low" is actually live — its
+    // controls act on the whole signal (see compressor.dsp v3.1), so it reads
+    // as "COMPRESSOR" rather than "LOW" everywhere in the UI.
+    const bandLabel = (b) => (!multibandEnabled && b === 'low') ? 'COMPRESSOR' : BAND_LABELS[b];
+    // Mode switch — Single Band vs Multiband, mutually exclusive.
+    const renderModeSwitch = () => (<div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem' }}>
+      <button onClick={() => setMultibandEnabled(false)} title="One compressor acting on the whole signal" style={{
+            flex: 1,
+            padding: '0.35rem 0.5rem',
+            background: !multibandEnabled ? 'rgba(0,255,135,0.13)' : 'var(--surface)',
+            border: `1px solid ${!multibandEnabled ? 'rgba(0,255,135,0.5)' : 'var(--border)'}`,
+            borderRadius: '3px',
+            color: !multibandEnabled ? 'var(--green)' : 'var(--text-dim)',
+            fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.04em',
+            cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+        }}>
+        SINGLE BAND
+      </button>
+      <button onClick={() => setMultibandEnabled(true)} title="Split the signal into 4 independent bands (Low / Low-Mid / High-Mid / High), each with its own compressor" style={{
+            flex: 1,
+            padding: '0.35rem 0.5rem',
+            background: multibandEnabled ? 'rgba(0,255,135,0.13)' : 'var(--surface)',
+            border: `1px solid ${multibandEnabled ? 'rgba(0,255,135,0.5)' : 'var(--border)'}`,
+            borderRadius: '3px',
+            color: multibandEnabled ? 'var(--green)' : 'var(--text-dim)',
+            fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.04em',
+            cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+        }}>
+        MULTIBAND
+      </button>
+    </div>);
+    // Band tab row — each tab is two independent controls fused into one
+    // pill: the label half selects which band's knobs/transfer curve/scope/GR
+    // meter are shown, the ⦸ half bypasses *that* band's compression on its
+    // own.
+    const renderBandTabs = () => (<div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.75rem' }}>
+      {(multibandEnabled ? BAND_IDS : ['low']).map(b => {
+            const active = b === selectedBand;
+            const byp = bands[b].bypass;
+            const borderColor = active ? 'rgba(167,139,250,0.5)' : 'var(--border)';
+            return (<div key={b} style={{
+                    display: 'flex', alignItems: 'stretch', borderRadius: '3px', overflow: 'hidden',
+                    border: `1px solid ${borderColor}`, opacity: byp ? 0.7 : 1, transition: 'opacity 0.15s',
+                }}>
+            <button onClick={() => setSelectedBand(b)} title={`Edit the ${bandLabel(b)} band`} style={{
+                    padding: '0.3rem 0.6rem', border: 'none',
+                    background: active ? 'rgba(167,139,250,0.13)' : 'var(--surface)',
+                    color: active ? 'var(--purple)' : 'var(--text-dim)',
+                    fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+                    cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+                    textDecoration: byp ? 'line-through' : 'none',
+                }}>
+              {bandLabel(b)}
+            </button>
+            <button onClick={() => toggleBandBypass(b)} title={byp ? `${bandLabel(b)} is bypassed — click to re-enable` : `Bypass the ${bandLabel(b)} band (its audio still passes through, unprocessed)`} style={{
+                    padding: '0.3rem 0.45rem', border: 'none', borderLeft: `1px solid ${borderColor}`,
+                    background: byp ? 'rgba(255,77,106,0.16)' : 'var(--surface)',
+                    color: byp ? '#FF4D6A' : 'var(--text-faint)',
+                    fontFamily: 'var(--mono)', fontSize: '0.65rem',
+                    cursor: 'pointer', transition: 'all 0.15s',
+                }}>
+              ⦸
+            </button>
+          </div>);
+        })}
+    </div>);
+    return (<div className="comp-body">
+      {/* Left: mode / band tabs / knobs / crossover / sidechain / output */}
+      <div className="comp-controls">
+        <div className="canvas-label" style={{ marginBottom: '0.5rem' }}>
+          MODE
+        </div>
+        {renderModeSwitch()}
+
+        <div className="canvas-label" style={{ marginBottom: '0.5rem' }}>
+          BAND · DRAG KNOBS VERTICALLY
+        </div>
+        {renderBandTabs()}
+
+        {/* Knobs for whichever band is selected above. */}
+        <div className="knob-grid">
+          {KNOBS.map(spec => {
+            const val = selBand[spec.key];
+            const rot = knobRotationForSpec(spec, val);
+            return (<div className="knob-wrap" key={spec.key}>
+                  <div style={{ position: 'relative', width: 64, height: 64 }}>
+                    <svg style={{ position: 'absolute', top: 0, left: 0 }} width={64} height={64} viewBox="-32 -32 64 64">
+                      <path d={describeArc(28, -140, 140)} fill="none" stroke="var(--border)" strokeWidth={3} strokeLinecap="round"/>
+                      <path d={describeArc(28, -140, rot)} fill="none" stroke="var(--purple)" strokeWidth={3} strokeLinecap="round" opacity={0.85}/>
+                    </svg>
+                    <div className="big-knob" style={{ position: 'absolute', top: 6, left: 6, width: 52, height: 52, cursor: 'ns-resize', userSelect: 'none' }} onMouseDown={e => onMainKnobDown(e, spec, val)}>
+                      <div style={{
+                    position: 'absolute', top: '50%', left: '50%',
+                    width: 3, height: 16, background: 'var(--text)', borderRadius: 2,
+                    transformOrigin: 'bottom center',
+                    transform: `translate(-50%, -100%) rotate(${rot}deg)`,
+                    marginTop: -2,
+                }}/>
+                    </div>
+                  </div>
+                  <div className="knob-name">{spec.label}</div>
+                  <div className="knob-val">{spec.fmt(val)}</div>
+                  <KnobNumberInput value={val} min={spec.min} max={spec.max} step={spec.step} onChange={v => setSelectedBandParam(spec.key, v)}/>
+                </div>);
+        })}
+        </div>
+
+        {/* Crossover — 3 points splitting the signal into 4 bands. Only
+            meaningful (and only sent anywhere audible) once Multiband is
+            on — see compressor.dsp v3.1, where the crossover filters are
+            bypassed entirely in single-band mode. */}
+        <div className="canvas-label" style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
+          CROSSOVER
+        </div>
+        {multibandEnabled ? (<>
+            <MiniSlider label="Low – Low-Mid" value={crossover.loLowMid} min={20} max={1000} step={1} fmt={v => `${v.toFixed(0)} Hz`} onChange={v => setCrossover(c => ({ ...c, loLowMid: v }))}/>
+            <MiniSlider label="Low-Mid – High-Mid" value={crossover.lowMidHiMid} min={200} max={5000} step={1} fmt={v => `${v.toFixed(0)} Hz`} onChange={v => setCrossover(c => ({ ...c, lowMidHiMid: v }))}/>
+            <MiniSlider label="High-Mid – High" value={crossover.hiMidHigh} min={500} max={20000} step={1} fmt={v => `${v.toFixed(0)} Hz`} onChange={v => setCrossover(c => ({ ...c, hiMidHigh: v }))}/>
+          </>) : (<div style={{ fontFamily: 'var(--mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginBottom: '0.5rem', lineHeight: 1.5 }}>
+            One compressor, whole signal. Turn on <strong style={{ color: 'var(--green)' }}>MULTIBAND</strong> above to split into 4 bands with independent crossover points.
+          </div>)}
+
+        {/* Sidechain — internal (each band's own audio) vs external (a
+            filtered detector signal fed into a second input). The picker
+            for WHICH signal feeds that second input (sidechainSourceRow)
+            is lab-only and supplied by the host; hosts with one audio
+            source (the DAW) always self-sidechain and omit it. */}
+        <div className="canvas-label" style={{ marginTop: '0.75rem', marginBottom: '0.5rem' }}>
+          SIDECHAIN
+        </div>
+        {sidechainSourceRow}
+        <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.5rem' }}>
+          <button className={`toggle-btn${sidechain.external ? ' on' : ''}`} onClick={() => setSidechain(s => ({ ...s, external: !s.external }))} title="Detect off the sidechain input (filtered) instead of each band's own raw audio">
+            EXTERNAL SC
+          </button>
+          <button className={`toggle-btn${sidechain.listen ? ' on' : ''}`} onClick={() => setSidechain(s => ({ ...s, listen: !s.listen }))} title="Audition the detector signal itself, in place of the compressed output">
+            SC LISTEN
+          </button>
+        </div>
+        <MiniSlider label="SC HPF" value={sidechain.hpf} min={20} max={2000} step={1} fmt={v => `${v.toFixed(0)} Hz`} onChange={v => setSidechain(s => ({ ...s, hpf: v }))}/>
+
+        {/* Output trim */}
+        <div className="canvas-label" style={{ marginTop: '0.75rem', marginBottom: '0.5rem' }}>
+          OUTPUT
+        </div>
+        <MiniSlider label="Gain" value={outputGainDb} min={-24} max={24} step={0.1} fmt={v => `${v > 0 ? '+' : ''}${v.toFixed(1)} dB`} onChange={setOutputGainDb}/>
+
+        <div style={{ marginTop: '1rem' }}>
+          <div className="concept-callout" style={{ background: 'var(--purple-dim)', borderColor: 'rgba(167,139,250,0.2)' }}>
+            <strong style={{ color: 'var(--purple)' }}>Concept: </strong>
+            {bandLabel(selectedBand)}{multibandEnabled ? ' band' : ''} at {selBand.ratio.toFixed(0)}:1 —{' '}
+            {selBand.ratio > 10 ? 'Limiting territory. Very aggressive.' : selBand.ratio > 6 ? 'Heavy compression. Peak control.' : selBand.ratio > 3 ? 'Classic glue. Musical.' : 'Gentle, transparent.'}
+            {' '}
+            {multibandEnabled
+            ? 'Each band compresses independently — try a fast, tight ratio on one band while leaving another gentle.'
+            : 'Acting on the whole signal right now — turn on MULTIBAND above to split it into 4 independently-compressed bands.'}
+            {' '}Toggle <strong style={{ color: 'var(--purple)' }}>BYPASS</strong> while playing to A/B.
+          </div>
+        </div>
+      </div>
+
+      {/* Right: transfer (+ GR meter alongside) + live scope */}
+      <div className="comp-visual">
+        <div className="canvas-label" style={{ marginBottom: '0.75rem' }}>
+          TRANSFER FUNCTION — {bandLabel(selectedBand)}{multibandEnabled ? ' BAND' : ''}
+          <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
+            · shape set by THRESHOLD / RATIO / KNEE, <span style={{ color: 'var(--amber)' }}>MAKEUP GAIN</span> shifts it up (amber) — attack &amp; release are time-domain, see scope below
+          </span>
+        </div>
+        <div className="transfer-row">
+          <div className="transfer-graph" style={{ flex: 1 }}>
+            <canvas ref={transferRef} width={400} height={200} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
+          </div>
+          <div className="gr-meter-col">
+            <span className="gr-meter-lbl">0dB</span>
+            <div className="gr-meter-track-v">
+              <div ref={grFillRef} className="gr-meter-fill-v" style={{ height: '0%' }}/>
+            </div>
+            <span className="gr-meter-val" ref={grValueRef}>0.0</span>
+            <span className="gr-meter-unit">GR</span>
+          </div>
+        </div>
+
+        {/* All live bands' real gain reduction at a glance — click a label
+            to jump the knob column / transfer graph / scope to that band. */}
+        <div className="canvas-label" style={{ marginTop: '0.75rem', marginBottom: '0.4rem' }}>
+          {multibandEnabled ? 'ALL BANDS — GAIN REDUCTION' : 'GAIN REDUCTION'}
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.25rem' }}>
+          {(multibandEnabled ? BAND_IDS : ['low']).map(b => (<div key={b} onClick={() => setSelectedBand(b)} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', cursor: 'pointer' }}>
+              <div style={{
+                fontFamily: 'var(--mono)', fontSize: '0.5rem', textAlign: 'center', letterSpacing: '0.04em',
+                color: b === selectedBand ? 'var(--purple)' : 'var(--text-faint)',
+            }}>
+                {bandLabel(b)}
+              </div>
+              <div style={{ height: 6, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 3, overflow: 'hidden' }}>
+                <div ref={el => { bandGrFillRefs.current[b] = el; }} style={{ height: '100%', width: '0%', background: 'linear-gradient(90deg, #00FF87 0%, #F5A623 65%, #FF4D6A 100%)', transition: 'width 0.1s ease' }}/>
+              </div>
+            </div>))}
+        </div>
+
+        <div className="canvas-label" style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>
+          LIVE COMPRESSION SCOPE {!isPlaying && '· HIT PLAY TO SEE LIVE SIGNAL'}
+          <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
+            · real broadband input/output level over time — red shows the {bandLabel(selectedBand)}{multibandEnabled ? ' band' : ''}'s real gain reduction
+          </span>
+        </div>
+        <div className="scope-graph">
+          <canvas ref={scopeRef} width={400} height={150} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
+        </div>
+        <div className="legend-row" style={{ marginTop: '0.5rem', marginBottom: 0, flexWrap: 'wrap' }}>
+          <div className="legend-item"><span className="legend-line" style={{ background: '#00FF87' }}/>INPUT</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: '#A78BFA' }}/>OUTPUT</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: '#FF4D6A' }}/>{bandLabel(selectedBand)} GAIN REDUCTION</div>
+        </div>
+        <div style={{ fontFamily: 'var(--mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginTop: '0.35rem', lineHeight: 1.5 }}>
+          Red is the real Gain_Reduction the Faust patch reports for this band — it shrinks toward nothing as Threshold rises or Bypass is on.
+        </div>
+      </div>
+    </div>);
+}
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function Compressor() {
     // Main lab state — per-band params, the 3 crossover points, sidechain
@@ -730,10 +952,6 @@ export default function Compressor() {
     useEffect(() => { uploadedTracksRef.current = uploadedTracks; }, [uploadedTracks]);
     const activeTrack = activeSourceId !== 'synth' ? uploadedTracks.find(t => t.id === activeSourceId) : undefined;
     const sidechainTrack = typeof sidechainSourceId === 'number' ? uploadedTracks.find(t => t.id === sidechainSourceId) : undefined;
-    // Canvas refs
-    const transferRef = useRef(null);
-    const scopeRef = useRef(null);
-    const scopeHistoryRef = useRef([]);
     // Faust compressor engine (module + meta loaded once on mount, one node
     // instantiated per AudioContext in startAudio — same pattern as
     // Chapter2b's ParamEQ).
@@ -777,61 +995,18 @@ export default function Compressor() {
     const drumBusRef = useRef(null); // full drum kit, feeds mix when main source is 'synth'
     const kickBusRef = useRef(null); // kick-only, feeds scMix when sidechain source is 'synth'
     const outputRef = useRef(null); // final sum before destination
-    const animRef = useRef(0);
     const schedulerRef = useRef(null);
     const nextNoteRef = useRef(0);
     const currentStepRef = useRef(0);
     const startTokenRef = useRef(0); // invalidates in-flight startAudio() on stop
-    const bandsRef = useRef(bands);
-    const crossoverRef = useRef(crossover);
-    const sidechainRef = useRef(sidechain);
-    const outputGainDbRef = useRef(outputGainDb);
-    const selectedBandRef = useRef(selectedBand);
-    const bypassRef = useRef(bypass);
-    useEffect(() => { bandsRef.current = bands; }, [bands]);
-    useEffect(() => { crossoverRef.current = crossover; }, [crossover]);
-    useEffect(() => { sidechainRef.current = sidechain; }, [sidechain]);
-    useEffect(() => { outputGainDbRef.current = outputGainDb; }, [outputGainDb]);
-    useEffect(() => { selectedBandRef.current = selectedBand; }, [selectedBand]);
-    useEffect(() => { bypassRef.current = bypass; }, [bypass]);
-    // Smoothed input/output dB, chased frame-to-frame in animate() and fed
-    // straight into the compression scope's canvas draw — plain refs, not
-    // React state, since they update every animation frame and the scope
-    // redraws itself directly rather than through a re-render.
-    const smoothedInputDbRef = useRef(METER_FLOOR_DB);
-    const smoothedOutputDbRef = useRef(METER_FLOOR_DB);
-    const meterClockRef = useRef(null);
     // Real per-band Gain_Reduction, read off the Faust patch's own hbargraph
     // outputs via setOutputParamHandler (they're read-only DSP outputs, never
     // registered as AudioParams, so getParamValue() on these addresses would
     // just return 0 — see the comment on FaustNodeLike.setOutputParamHandler).
     // Raw values are the compressor's gain in dB (≤0); stored here negated, so
-    // 0 = no reduction and larger = more reduction, matching the meters below.
+    // 0 = no reduction and larger = more reduction — read by getLevels() below
+    // and smoothed for display inside CompressorEditorPanel itself.
     const grRawRef = useRef({ low: 0, lowMid: 0, highMid: 0, high: 0 });
-    const smoothedGrRef = useRef({ low: 0, lowMid: 0, highMid: 0, high: 0 });
-    // Live GR (gain-reduction) meter — a vertical bar beside the transfer
-    // graph for the selected band, updated by direct DOM writes in animate()
-    // (same reasoning as the scope canvas: this changes every frame, so it
-    // bypasses React state) — plus a compact per-band mini-meter row so all
-    // four bands' reduction is visible at a glance.
-    const grFillRef = useRef(null);
-    const grValueRef = useRef(null);
-    const bandGrFillRefs = useRef({});
-    // Knob drag ref (for main lab) — tracks fraction-of-travel (0..1) rather
-    // than the raw value, so segmented knobs (Attack/Release) drag through
-    // specFromFrac/specToFrac exactly like linear ones. Captures which band it
-    // started on, so the drag stays consistent even if selection changes.
-    const mainDragRef = useRef(null);
-    // ── Main transfer canvas ──────────────────────────────────────────────────
-    useEffect(() => {
-        if (transferRef.current) {
-            const band = bands[selectedBand];
-            // When bypassed (globally, or this band alone), draw unity line
-            // (ratio=1 collapses to straight diagonal).
-            const displayParams = (bypass || band.bypass) ? { ...band, threshold: 0, ratio: 1, makeup: 0 } : band;
-            drawTransfer(transferRef.current, displayParams);
-        }
-    }, [bands, selectedBand, bypass]);
     // ── Sync Faust compressor params + bypass (single effect) ─────────────────
     useEffect(() => {
         const node = faustNodeRef.current;
@@ -880,74 +1055,24 @@ export default function Compressor() {
         }
         schedulerRef.current = setTimeout(runScheduler, 25);
     }, []);
-    // ── Animation loop ────────────────────────────────────────────────────────
-    const animate = useCallback(() => {
+    // ── Levels for CompressorEditorPanel's live scope ─────────────────────────
+    // Mirrors getGateLevels in ../panorama/DawWorkstationScreen: reads the dry/
+    // wet analyser taps plus the raw per-band Gain_Reduction ref populated by
+    // startAudio()'s setOutputParamHandler subscription. The panel itself owns
+    // all display-only smoothing (levelBallistic/grReadoutSmooth) and the
+    // scope-history/canvas drawing — this just supplies the raw numbers.
+    const getLevels = useCallback(() => {
         const dryAnal = dryAnalRef.current;
         const wetAnal = wetAnalRef.current;
-        // Real elapsed time since the last frame, used to drive the meter
-        // ballistics below (not just a fixed per-frame step) so the meters read
-        // the same regardless of frame rate.
-        const now = ctxRef.current?.currentTime ?? performance.now() / 1000;
-        const dt = meterClockRef.current !== null ? Math.max(0, Math.min(0.2, now - meterClockRef.current)) : 0;
-        meterClockRef.current = now;
-        if (dryAnal) {
-            const buf = new Float32Array(dryAnal.fftSize);
-            dryAnal.getFloatTimeDomainData(buf);
-            // Real instantaneous peak off the pre-compression tap, smoothed with
-            // fast-attack/slow-release ballistics so it's actually readable frame
-            // to frame instead of jumping around with every sample.
-            let peak = 0;
-            for (let i = 0; i < buf.length; i++)
-                peak = Math.max(peak, Math.abs(buf[i]));
-            const rawInputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
-            smoothedInputDbRef.current = levelBallistic(smoothedInputDbRef.current, rawInputDb, dt);
-        }
-        if (wetAnal) {
-            const buf = new Float32Array(wetAnal.fftSize);
-            wetAnal.getFloatTimeDomainData(buf);
-            // Real post-compression peak (post makeup gain, post all 4 bands).
-            let peak = 0;
-            for (let i = 0; i < buf.length; i++)
-                peak = Math.max(peak, Math.abs(buf[i]));
-            const rawOutputDb = peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB;
-            smoothedOutputDbRef.current = levelBallistic(smoothedOutputDbRef.current, rawOutputDb, dt);
-        }
-        // Real per-band gain reduction, smoothed only for display jitter (the
-        // actual ballistics are the patch's own Attack/Release per band).
-        for (const b of BAND_IDS) {
-            const target = bypassRef.current ? 0 : grRawRef.current[b];
-            smoothedGrRef.current[b] = grReadoutSmooth(smoothedGrRef.current[b], target, dt);
-            const fillEl = bandGrFillRefs.current[b];
-            if (fillEl)
-                fillEl.style.width = `${Math.min(100, (smoothedGrRef.current[b] / GR_METER_MAX_DB) * 100)}%`;
-        }
-        const selectedGrDb = smoothedGrRef.current[selectedBandRef.current];
-        if (grFillRef.current)
-            grFillRef.current.style.height = `${Math.min(100, (selectedGrDb / GR_METER_MAX_DB) * 100)}%`;
-        if (grValueRef.current)
-            grValueRef.current.textContent = selectedGrDb > 0.05 ? `-${selectedGrDb.toFixed(1)}` : '0.0';
-        // Live compression scope — records the smoothed broadband input/output
-        // dB plus the selected band's real gain reduction into a scrolling
-        // history, so Attack/Release are visible as actual motion on the real
-        // signal instead of only as numbers on a knob.
-        if (dryAnal && wetAnal) {
-            const history = scopeHistoryRef.current;
-            history.push({
-                t: now,
-                inputDb: smoothedInputDbRef.current,
-                outputDb: smoothedOutputDbRef.current,
-                grDb: selectedGrDb,
-            });
-            const cutoff = now - SCOPE_WINDOW_S - 0.5;
-            while (history.length > 0 && history[0].t < cutoff)
-                history.shift();
-            if (scopeRef.current) {
-                const selBand = bandsRef.current[selectedBandRef.current];
-                drawCompressorScope(scopeRef.current, history, now, selBand.threshold, !bypassRef.current && !selBand.bypass);
-            }
-        }
-        animRef.current = requestAnimationFrame(animate);
+        if (!dryAnal || !wetAnal)
+            return null;
+        const inputDb = analyserPeakDb(dryAnal);
+        const outputDb = analyserPeakDb(wetAnal);
+        if (inputDb === null || outputDb === null)
+            return null;
+        return { inputDb, outputDb, bandGr: { ...grRawRef.current } };
     }, []);
+    const getNow = useCallback(() => ctxRef.current?.currentTime ?? 0, []);
     // ── Start / Stop audio ────────────────────────────────────────────────────
     const startAudio = useCallback(async () => {
         if (engineStatus !== 'ready' || !generatorRef.current || !dspMetaRef.current || !dspModuleRef.current) {
@@ -1010,7 +1135,6 @@ export default function Compressor() {
         pushFaustParams(faustNode, bands, crossover, sidechain, outputGainDb, bypass, multibandEnabled);
         // Subscribe to all 4 bands' live Gain_Reduction outputs.
         grRawRef.current = { low: 0, lowMid: 0, highMid: 0, high: 0 };
-        smoothedGrRef.current = { low: 0, lowMid: 0, highMid: 0, high: 0 };
         const grAddrToBand = new Map(BAND_IDS.map(b => [ADDR.band(b).gr, b]));
         faustNode.setOutputParamHandler?.((path, value) => {
             const band = grAddrToBand.get(path);
@@ -1084,15 +1208,12 @@ export default function Compressor() {
             currentStepRef.current = 0;
             runScheduler();
         }
-        scopeHistoryRef.current = [];
-        animRef.current = requestAnimationFrame(animate);
         setIsPlaying(true);
-    }, [engineStatus, bands, crossover, sidechain, outputGainDb, bypass, multibandEnabled, runScheduler, animate]);
+    }, [engineStatus, bands, crossover, sidechain, outputGainDb, bypass, multibandEnabled, runScheduler]);
     const stopAudio = useCallback(() => {
         startTokenRef.current++; // invalidate any in-flight startAudio()
         if (schedulerRef.current)
             clearTimeout(schedulerRef.current);
-        cancelAnimationFrame(animRef.current);
         if (bufSourceRef.current) {
             try {
                 bufSourceRef.current.stop();
@@ -1125,33 +1246,13 @@ export default function Compressor() {
         drumBusRef.current = null;
         kickBusRef.current = null;
         outputRef.current = null;
-        smoothedInputDbRef.current = METER_FLOOR_DB;
-        smoothedOutputDbRef.current = METER_FLOOR_DB;
-        meterClockRef.current = null;
         grRawRef.current = { low: 0, lowMid: 0, highMid: 0, high: 0 };
-        smoothedGrRef.current = { low: 0, lowMid: 0, highMid: 0, high: 0 };
         setIsPlaying(false);
-        scopeHistoryRef.current = [];
-        if (scopeRef.current) {
-            const c = scopeRef.current.getContext('2d');
-            c.fillStyle = '#0D0D0F';
-            c.fillRect(0, 0, scopeRef.current.width, scopeRef.current.height);
-        }
-        if (grFillRef.current)
-            grFillRef.current.style.height = '0%';
-        if (grValueRef.current)
-            grValueRef.current.textContent = '0.0';
-        for (const b of BAND_IDS) {
-            const el = bandGrFillRefs.current[b];
-            if (el)
-                el.style.width = '0%';
-        }
     }, []);
     useEffect(() => () => {
         startTokenRef.current++;
         if (schedulerRef.current)
             clearTimeout(schedulerRef.current);
-        cancelAnimationFrame(animRef.current);
         if (bufSourceRef.current) {
             try {
                 bufSourceRef.current.stop();
@@ -1305,36 +1406,6 @@ export default function Compressor() {
             setDownloading(false);
         }
     }, [activeTrack, sidechainTrack, bands, crossover, sidechain, outputGainDb, bypass, multibandEnabled]);
-    // ── Main lab knob drag ────────────────────────────────────────────────────
-    const onMainKnobDown = useCallback((e, spec, val) => {
-        e.preventDefault();
-        mainDragRef.current = { spec, band: selectedBand, startY: e.clientY, startFrac: specToFrac(spec, val) };
-    }, [selectedBand]);
-    useEffect(() => {
-        const onMove = (e) => {
-            const d = mainDragRef.current;
-            if (!d)
-                return;
-            const frac = Math.min(1, Math.max(0, d.startFrac + (d.startY - e.clientY) / 220));
-            const raw = specFromFrac(d.spec, frac);
-            const clamped = Math.min(d.spec.max, Math.max(d.spec.min, Math.round(raw / d.spec.step) * d.spec.step));
-            setBands(prev => ({ ...prev, [d.band]: { ...prev[d.band], [d.spec.key]: clamped } }));
-        };
-        const onUp = () => { mainDragRef.current = null; };
-        window.addEventListener('mousemove', onMove);
-        window.addEventListener('mouseup', onUp);
-        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-    }, []);
-    const setSelectedBandParam = useCallback((key, v) => {
-        setBands(prev => ({ ...prev, [selectedBand]: { ...prev[selectedBand], [key]: v } }));
-    }, [selectedBand]);
-    // Bypasses a specific band's compression (its audio still passes through,
-    // unprocessed) independently of which band is currently selected for
-    // editing — each band tracks its own bypass flag, so any combination of
-    // bands can be bypassed at once, not just one at a time.
-    const toggleBandBypass = useCallback((band) => {
-        setBands(prev => ({ ...prev, [band]: { ...prev[band], bypass: !prev[band].bypass } }));
-    }, []);
     const reset = useCallback(() => {
         setBands(makeDefaultBands());
         setCrossover(DEFAULT_CROSSOVER);
@@ -1343,13 +1414,7 @@ export default function Compressor() {
         setSelectedBand('low');
         setMultibandEnabled(DEFAULT_MULTIBAND);
     }, []);
-    // Derived
-    const selBand = bands[selectedBand];
     const TASK_LABELS = ['Compress a band', 'Reshape the crossover', 'Try External Sidechain', 'Apply makeup gain'];
-    // In single-band mode (Multiband off) only "low" is actually live — its
-    // controls act on the whole signal (see compressor.dsp v3.1), so it reads
-    // as "COMPRESSOR" rather than "LOW" everywhere in the UI.
-    const bandLabel = (b) => (!multibandEnabled && b === 'low') ? 'COMPRESSOR' : BAND_LABELS[b];
     // Signal-source tab row — lets the source be switched (or a new one uploaded).
     const renderSourceRow = () => (<div className="eq-tabrow" style={{
             display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center',
@@ -1420,76 +1485,6 @@ export default function Compressor() {
           {downloadError}
         </span>)}
     </div>);
-    // Band tab row — each tab is two independent controls fused into one
-    // pill: the label half selects which band's knobs/transfer curve/scope/GR
-    // meter are shown, the ⦸ half bypasses *that* band's compression on its
-    // own. Splitting them means any combination of bands can be bypassed at
-    // once — bypass no longer follows the selection around.
-    //
-    // In single-band mode (Multiband off) only "low" is live in the DSP (see
-    // compressor.dsp v3.1), so the other 3 tabs are hidden rather than shown
-    // disabled — their controls would have no audible effect right now.
-    const renderBandTabs = () => (<div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.75rem' }}>
-      {(multibandEnabled ? BAND_IDS : ['low']).map(b => {
-            const active = b === selectedBand;
-            const byp = bands[b].bypass;
-            const borderColor = active ? 'rgba(167,139,250,0.5)' : 'var(--border)';
-            return (<div key={b} style={{
-                    display: 'flex', alignItems: 'stretch', borderRadius: '3px', overflow: 'hidden',
-                    border: `1px solid ${borderColor}`, opacity: byp ? 0.7 : 1, transition: 'opacity 0.15s',
-                }}>
-            <button onClick={() => setSelectedBand(b)} title={`Edit the ${bandLabel(b)} band`} style={{
-                    padding: '0.3rem 0.6rem', border: 'none',
-                    background: active ? 'rgba(167,139,250,0.13)' : 'var(--surface)',
-                    color: active ? 'var(--purple)' : 'var(--text-dim)',
-                    fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
-                    cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
-                    textDecoration: byp ? 'line-through' : 'none',
-                }}>
-              {bandLabel(b)}
-            </button>
-            <button onClick={() => toggleBandBypass(b)} title={byp ? `${bandLabel(b)} is bypassed — click to re-enable` : `Bypass the ${bandLabel(b)} band (its audio still passes through, unprocessed)`} style={{
-                    padding: '0.3rem 0.45rem', border: 'none', borderLeft: `1px solid ${borderColor}`,
-                    background: byp ? 'rgba(255,77,106,0.16)' : 'var(--surface)',
-                    color: byp ? '#FF4D6A' : 'var(--text-faint)',
-                    fontFamily: 'var(--mono)', fontSize: '0.65rem',
-                    cursor: 'pointer', transition: 'all 0.15s',
-                }}>
-              ⦸
-            </button>
-          </div>);
-        })}
-    </div>);
-    // Mode switch — Single Band vs Multiband, as its own two-option segmented
-    // control in its own row (not squeezed into the band-tab row, which is
-    // what was clipping/wrapping the label text before). Mutually exclusive,
-    // so each button sets the mode directly rather than toggling.
-    const renderModeSwitch = () => (<div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem' }}>
-      <button onClick={() => setMultibandEnabled(false)} title="One compressor acting on the whole signal" style={{
-            flex: 1,
-            padding: '0.35rem 0.5rem',
-            background: !multibandEnabled ? 'rgba(0,255,135,0.13)' : 'var(--surface)',
-            border: `1px solid ${!multibandEnabled ? 'rgba(0,255,135,0.5)' : 'var(--border)'}`,
-            borderRadius: '3px',
-            color: !multibandEnabled ? 'var(--green)' : 'var(--text-dim)',
-            fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.04em',
-            cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
-        }}>
-        SINGLE BAND
-      </button>
-      <button onClick={() => setMultibandEnabled(true)} title="Split the signal into 4 independent bands (Low / Low-Mid / High-Mid / High), each with its own compressor" style={{
-            flex: 1,
-            padding: '0.35rem 0.5rem',
-            background: multibandEnabled ? 'rgba(0,255,135,0.13)' : 'var(--surface)',
-            border: `1px solid ${multibandEnabled ? 'rgba(0,255,135,0.5)' : 'var(--border)'}`,
-            borderRadius: '3px',
-            color: multibandEnabled ? 'var(--green)' : 'var(--text-dim)',
-            fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.04em',
-            cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
-        }}>
-        MULTIBAND
-      </button>
-    </div>);
     // ── Render ────────────────────────────────────────────────────────────────
     return (<div className="comp-lab">
       {/* Top bar */}
@@ -1526,100 +1521,40 @@ export default function Compressor() {
         {renderSourceRow()}
       </div>
 
-      {/* Body */}
-      <div className="comp-body">
-        {/* Left: band tabs + knobs + crossover/sidechain controls */}
-        <div className="comp-controls">
-          <div className="canvas-label" style={{ marginBottom: '0.5rem' }}>
-            MODE
-          </div>
-          {renderModeSwitch()}
-
-          <div className="canvas-label" style={{ marginBottom: '0.5rem' }}>
-            BAND · DRAG KNOBS VERTICALLY
-          </div>
-          {renderBandTabs()}
-
-          {/* Knobs for whichever band is selected above. */}
-          <div className="knob-grid">
-            {KNOBS.map(spec => {
-            const val = selBand[spec.key];
-            const rot = knobRotationForSpec(spec, val);
-            return (<div className="knob-wrap" key={spec.key}>
-                  <div style={{ position: 'relative', width: 64, height: 64 }}>
-                    <svg style={{ position: 'absolute', top: 0, left: 0 }} width={64} height={64} viewBox="-32 -32 64 64">
-                      <path d={describeArc(28, -140, 140)} fill="none" stroke="var(--border)" strokeWidth={3} strokeLinecap="round"/>
-                      <path d={describeArc(28, -140, rot)} fill="none" stroke="var(--purple)" strokeWidth={3} strokeLinecap="round" opacity={0.85}/>
-                    </svg>
-                    <div className="big-knob" style={{ position: 'absolute', top: 6, left: 6, width: 52, height: 52, cursor: 'ns-resize', userSelect: 'none' }} onMouseDown={e => onMainKnobDown(e, spec, val)}>
-                      <div style={{
-                    position: 'absolute', top: '50%', left: '50%',
-                    width: 3, height: 16, background: 'var(--text)', borderRadius: 2,
-                    transformOrigin: 'bottom center',
-                    transform: `translate(-50%, -100%) rotate(${rot}deg)`,
-                    marginTop: -2,
-                }}/>
-                    </div>
-                  </div>
-                  <div className="knob-name">{spec.label}</div>
-                  <div className="knob-val">{spec.fmt(val)}</div>
-                  <KnobNumberInput value={val} min={spec.min} max={spec.max} step={spec.step} onChange={v => setSelectedBandParam(spec.key, v)}/>
-                </div>);
-        })}
-          </div>
-
-          {/* Crossover — 3 points splitting the signal into 4 bands. Only
-            meaningful (and only sent anywhere audible) once Multiband is
-            on — see compressor.dsp v3.1, where the crossover filters are
-            bypassed entirely in single-band mode. */}
-          <div className="canvas-label" style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
-            CROSSOVER
-          </div>
-          {multibandEnabled ? (<>
-              <MiniSlider label="Low – Low-Mid" value={crossover.loLowMid} min={20} max={1000} step={1} fmt={v => `${v.toFixed(0)} Hz`} onChange={v => setCrossover(c => ({ ...c, loLowMid: v }))}/>
-              <MiniSlider label="Low-Mid – High-Mid" value={crossover.lowMidHiMid} min={200} max={5000} step={1} fmt={v => `${v.toFixed(0)} Hz`} onChange={v => setCrossover(c => ({ ...c, lowMidHiMid: v }))}/>
-              <MiniSlider label="High-Mid – High" value={crossover.hiMidHigh} min={500} max={20000} step={1} fmt={v => `${v.toFixed(0)} Hz`} onChange={v => setCrossover(c => ({ ...c, hiMidHigh: v }))}/>
-            </>) : (<div style={{ fontFamily: 'var(--mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginBottom: '0.5rem', lineHeight: 1.5 }}>
-              One compressor, whole signal. Turn on <strong style={{ color: 'var(--green)' }}>MULTIBAND</strong> above to split into 4 bands with independent crossover points.
-            </div>)}
-
-          {/* Sidechain — internal (each band's own audio) vs external
-            (a filtered detector signal fed into a second input, which can
-            now be a genuinely different track via the source row below).
-            "Kick Only" is deliberately NOT the same signal as a "Drum
-            Loop" main source — it's an isolated copy of just the kick
-            hits (see scheduleStep/kickBus in startAudio), so selecting it
-            alongside a drum-loop main input is a real, audible trigger
-            rather than the exact same audio duplicated. */}
-          <div className="canvas-label" style={{ marginTop: '0.75rem', marginBottom: '0.5rem' }}>
-            SIDECHAIN
-          </div>
-          <div style={{
-            display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.5rem',
-        }}>
-            {[['none', 'SAME AS MAIN'], ['synth', 'KICK ONLY']]
+      {/* Sidechain source picker — standalone-lab-only (picking a genuinely
+          different track/synth to feed the detector); the DAW workstation has
+          only one audio source so it omits this and just renders
+          CompressorEditorPanel directly (see EXTERNAL SC / SC LISTEN / SC HPF
+          inside the panel itself, which stay since they're real DSP params
+          rather than source selection). */}
+      <div style={{ padding: '0.5rem 1.25rem 0', borderBottom: '1px solid var(--border)' }}>
+        <div className="canvas-label" style={{ marginBottom: '0.4rem' }}>
+          SIDECHAIN SOURCE
+        </div>
+        <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.5rem' }}>
+          {[['none', 'SAME AS MAIN'], ['synth', 'KICK ONLY']]
             .concat(uploadedTracks.map(t => [t.id, t.name]))
             .map(([id, label]) => {
-            const active = id === sidechainSourceId;
-            const title = id === 'none'
+              const active = id === sidechainSourceId;
+              const title = id === 'none'
                 ? 'Detector hears the same signal as the main input'
                 : id === 'synth'
-                    ? "Detector hears only the kick drum hits, isolated from the full loop — a classic sidechain trigger"
-                    : `Detector hears ${label} instead of the main input`;
-            return (<button key={String(id)} onClick={() => handleSelectSidechainSource(id)} title={title} style={{
-                    padding: '0.25rem 0.5rem',
-                    background: active ? 'rgba(245,166,35,0.13)' : 'var(--surface)',
-                    border: `1px solid ${active ? 'rgba(245,166,35,0.5)' : 'var(--border)'}`,
-                    borderRadius: '3px',
-                    color: active ? 'var(--amber)' : 'var(--text-dim)',
-                    fontFamily: 'var(--mono)', fontSize: '0.55rem', letterSpacing: '0.04em',
-                    cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
-                }}>
-                    {label}
-                  </button>);
-        })}
-            <input ref={sidechainFileInputRef} type="file" accept="audio/*" onChange={handleSidechainFileSelected} style={{ display: 'none' }}/>
-            <button onClick={handleUploadSidechainClick} disabled={decoding} title="Upload a separate track to use as the sidechain source — e.g. a kick loop to duck the main input" style={{
+                  ? "Detector hears only the kick drum hits, isolated from the full loop — a classic sidechain trigger"
+                  : `Detector hears ${label} instead of the main input`;
+              return (<button key={String(id)} onClick={() => handleSelectSidechainSource(id)} title={title} style={{
+                padding: '0.25rem 0.5rem',
+                background: active ? 'rgba(245,166,35,0.13)' : 'var(--surface)',
+                border: `1px solid ${active ? 'rgba(245,166,35,0.5)' : 'var(--border)'}`,
+                borderRadius: '3px',
+                color: active ? 'var(--amber)' : 'var(--text-dim)',
+                fontFamily: 'var(--mono)', fontSize: '0.55rem', letterSpacing: '0.04em',
+                cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+              }}>
+                {label}
+              </button>);
+            })}
+          <input ref={sidechainFileInputRef} type="file" accept="audio/*" onChange={handleSidechainFileSelected} style={{ display: 'none' }}/>
+          <button onClick={handleUploadSidechainClick} disabled={decoding} title="Upload a separate track to use as the sidechain source — e.g. a kick loop to duck the main input" style={{
             display: 'flex', alignItems: 'center', gap: '0.3rem',
             padding: '0.25rem 0.5rem',
             background: 'var(--surface)',
@@ -1628,106 +1563,20 @@ export default function Compressor() {
             color: 'var(--text-dim)',
             fontFamily: 'var(--mono)', fontSize: '0.55rem', letterSpacing: '0.04em',
             cursor: decoding ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
-        }}>
-              <span>{decoding ? '⏳' : '+'}</span>
-              <span>{decoding ? 'DECODING…' : 'UPLOAD'}</span>
-            </button>
-          </div>
-          <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.5rem' }}>
-            <button className={`toggle-btn${sidechain.external ? ' on' : ''}`} onClick={() => setSidechain(s => ({ ...s, external: !s.external }))} title="Detect off the Sidechain Source above (filtered) instead of each band's own raw audio">
-              EXTERNAL SC
-            </button>
-            <button className={`toggle-btn${sidechain.listen ? ' on' : ''}`} onClick={() => setSidechain(s => ({ ...s, listen: !s.listen }))} title="Audition the detector signal itself, in place of the compressed output">
-              SC LISTEN
-            </button>
-          </div>
-          {sidechainSourceId !== 'none' && !sidechain.external && (<div style={{ fontFamily: 'var(--mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginBottom: '0.5rem', lineHeight: 1.5 }}>
-              A Sidechain Source is selected but EXTERNAL SC is off, so it isn't driving detection yet — turn EXTERNAL SC on to use it.
-            </div>)}
-          <MiniSlider label="SC HPF" value={sidechain.hpf} min={20} max={2000} step={1} fmt={v => `${v.toFixed(0)} Hz`} onChange={v => setSidechain(s => ({ ...s, hpf: v }))}/>
-
-          {/* Output trim */}
-          <div className="canvas-label" style={{ marginTop: '0.75rem', marginBottom: '0.5rem' }}>
-            OUTPUT
-          </div>
-          <MiniSlider label="Gain" value={outputGainDb} min={-24} max={24} step={0.1} fmt={v => `${v > 0 ? '+' : ''}${v.toFixed(1)} dB`} onChange={setOutputGainDb}/>
-
-          <div style={{ marginTop: '1rem' }}>
-            <div className="concept-callout" style={{ background: 'var(--purple-dim)', borderColor: 'rgba(167,139,250,0.2)' }}>
-              <strong style={{ color: 'var(--purple)' }}>Concept: </strong>
-              {bandLabel(selectedBand)}{multibandEnabled ? ' band' : ''} at {selBand.ratio.toFixed(0)}:1 —{' '}
-              {selBand.ratio > 10 ? 'Limiting territory. Very aggressive.' : selBand.ratio > 6 ? 'Heavy compression. Peak control.' : selBand.ratio > 3 ? 'Classic glue. Musical.' : 'Gentle, transparent.'}
-              {' '}
-              {multibandEnabled
-            ? 'Each band compresses independently — try a fast, tight ratio on one band while leaving another gentle.'
-            : 'Acting on the whole signal right now — turn on MULTIBAND above to split it into 4 independently-compressed bands.'}
-              {' '}Toggle <strong style={{ color: 'var(--purple)' }}>BYPASS</strong> while playing to A/B.
-            </div>
-          </div>
+          }}>
+            <span>{decoding ? '⏳' : '+'}</span>
+            <span>{decoding ? 'DECODING…' : 'UPLOAD'}</span>
+          </button>
         </div>
-
-        {/* Right: transfer (+ GR meter alongside) + live scope */}
-        <div className="comp-visual">
-          <div className="canvas-label" style={{ marginBottom: '0.75rem' }}>
-            TRANSFER FUNCTION — {bandLabel(selectedBand)}{multibandEnabled ? ' BAND' : ''}
-            <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
-              · shape set by THRESHOLD / RATIO / KNEE, <span style={{ color: 'var(--amber)' }}>MAKEUP GAIN</span> shifts it up (amber) — attack &amp; release are time-domain, see scope below
-            </span>
-          </div>
-          <div className="transfer-row">
-            <div className="transfer-graph" style={{ flex: 1 }}>
-              <canvas ref={transferRef} width={400} height={200} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
-            </div>
-            <div className="gr-meter-col">
-              <span className="gr-meter-lbl">0dB</span>
-              <div className="gr-meter-track-v">
-                <div ref={grFillRef} className="gr-meter-fill-v" style={{ height: '0%' }}/>
-              </div>
-              <span className="gr-meter-val" ref={grValueRef}>0.0</span>
-              <span className="gr-meter-unit">GR</span>
-            </div>
-          </div>
-
-          {/* All live bands' real gain reduction at a glance — click a label
-            to jump the knob column / transfer graph / scope to that band.
-            Single-band mode only has one live band, so this collapses to
-            one entry instead of 4. */}
-          <div className="canvas-label" style={{ marginTop: '0.75rem', marginBottom: '0.4rem' }}>
-            {multibandEnabled ? 'ALL BANDS — GAIN REDUCTION' : 'GAIN REDUCTION'}
-          </div>
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.25rem' }}>
-            {(multibandEnabled ? BAND_IDS : ['low']).map(b => (<div key={b} onClick={() => setSelectedBand(b)} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', cursor: 'pointer' }}>
-                <div style={{
-                fontFamily: 'var(--mono)', fontSize: '0.5rem', textAlign: 'center', letterSpacing: '0.04em',
-                color: b === selectedBand ? 'var(--purple)' : 'var(--text-faint)',
-            }}>
-                  {bandLabel(b)}
-                </div>
-                <div style={{ height: 6, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 3, overflow: 'hidden' }}>
-                  <div ref={el => { bandGrFillRefs.current[b] = el; }} style={{ height: '100%', width: '0%', background: 'linear-gradient(90deg, #00FF87 0%, #F5A623 65%, #FF4D6A 100%)', transition: 'width 0.1s ease' }}/>
-                </div>
-              </div>))}
-          </div>
-
-          <div className="canvas-label" style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>
-            LIVE COMPRESSION SCOPE {!isPlaying && '· HIT PLAY TO SEE LIVE SIGNAL'}
-            <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: '0.5rem' }}>
-              · real broadband input/output level over time — red shows the {bandLabel(selectedBand)}{multibandEnabled ? ' band' : ''}'s real gain reduction
-            </span>
-          </div>
-          <div className="scope-graph">
-            <canvas ref={scopeRef} width={400} height={150} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
-          </div>
-          <div className="legend-row" style={{ marginTop: '0.5rem', marginBottom: 0, flexWrap: 'wrap' }}>
-            <div className="legend-item"><span className="legend-line" style={{ background: '#00FF87' }}/>INPUT</div>
-            <div className="legend-item"><span className="legend-line" style={{ background: '#A78BFA' }}/>OUTPUT</div>
-            <div className="legend-item"><span className="legend-line" style={{ background: '#FF4D6A' }}/>{bandLabel(selectedBand)} GAIN REDUCTION</div>
-          </div>
-          <div style={{ fontFamily: 'var(--mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginTop: '0.35rem', lineHeight: 1.5 }}>
-            Red is the real Gain_Reduction the Faust patch reports for this band — it shrinks toward nothing as Threshold rises or Bypass is on.
-          </div>
-        </div>
+        {sidechainSourceId !== 'none' && !sidechain.external && (<div style={{ fontFamily: 'var(--mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginBottom: '0.5rem', lineHeight: 1.5 }}>
+          A Sidechain Source is selected but EXTERNAL SC is off, so it isn't driving detection yet — turn EXTERNAL SC on to use it.
+        </div>)}
       </div>
+
+      {/* Body — the mode switch/band tabs/knobs/crossover/sidechain-toggles/
+          transfer-curve/live-scope, shared verbatim with the DAW workstation's
+          Compressor insert popup via CompressorEditorPanel (see above). */}
+      <CompressorEditorPanel bands={bands} setBands={setBands} crossover={crossover} setCrossover={setCrossover} sidechain={sidechain} setSidechain={setSidechain} outputGainDb={outputGainDb} setOutputGainDb={setOutputGainDb} selectedBand={selectedBand} setSelectedBand={setSelectedBand} multibandEnabled={multibandEnabled} setMultibandEnabled={setMultibandEnabled} bypass={bypass} isPlaying={isPlaying} getLevels={getLevels} getNow={getNow}/>
 
       {/* Footer */}
       <div className="lab-footer">

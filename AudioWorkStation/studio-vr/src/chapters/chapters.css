@@ -82,9 +82,7 @@
 
   /* The module accent colors are pastel/neon tones tuned to glow on a dark
      rack — as text or borders on the new light chassis they're too low
-     contrast, so each gets a deeper, more saturated equivalent here. Their
-     -dim/-glow translucent variants are left alone; a faint tint still
-     reads fine over a light panel. */
+     contrast, so each gets a deeper, more saturated equivalent here. */
   --amber:  #ad6a12;
   --green:  #0f9d58;
   --blue:   #2563eb;
@@ -92,6 +90,28 @@
   --purple: #7c3aed;
   --sat:    #c2521f;
   --teal:   #0f9488;
+
+  /* The -dim/-glow translucent variants were originally left at their dark-
+     theme opacity, on the assumption a faint tint still reads over a light
+     panel — in practice an active plugin tile or "is-on" chip (background:
+     var(--*-dim)) washes out almost to invisible over the new light
+     --surface/--panel, so each gets bumped to a stronger tint built from
+     its (already-darkened) light accent above instead of the neon dark-mode
+     hex, so selected/active states stay legible on the light chassis. */
+  --amber-dim:  rgba(173, 106, 18, 0.24);
+  --amber-glow: rgba(173, 106, 18, 0.5);
+  --green-dim:  rgba(15, 157, 88, 0.22);
+  --green-glow: rgba(15, 157, 88, 0.45);
+  --blue-dim:   rgba(37, 99, 235, 0.2);
+  --blue-glow:  rgba(37, 99, 235, 0.45);
+  --red-dim:    rgba(192, 41, 63, 0.22);
+  --red-glow:   rgba(192, 41, 63, 0.45);
+  --purple-dim: rgba(124, 58, 237, 0.2);
+  --purple-glow:rgba(124, 58, 237, 0.45);
+  --sat-dim:    rgba(194, 82, 31, 0.22);
+  --sat-glow:   rgba(194, 82, 31, 0.45);
+  --teal-dim:   rgba(15, 148, 136, 0.22);
+  --teal-glow:  rgba(15, 148, 136, 0.45);
 
   /* Physical control knobs: a light brushed-metal gradient instead of the
      dark plastic/metal one (same call as the shared Knob.jsx component and
