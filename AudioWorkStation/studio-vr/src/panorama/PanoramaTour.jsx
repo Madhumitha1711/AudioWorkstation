@@ -275,6 +275,13 @@ function PanoramaTour() {
       // Start zoomed in; on arrival we animate back out to zoomLvl 5 for a
       // "zoom out to normal position" reveal instead of just appearing.
       defaultZoomLvl: 75,
+      // Initial camera direction the very first panorama (the studio room,
+      // per START_NODE_ID) loads facing — yaw 0 (straight ahead per the
+      // photo's own reference direction), pitch -30.1 (tilted down toward
+      // the console/rack area rather than looking level or up at the
+      // ceiling) for the first-arrival reveal.
+      defaultYaw: "359deg",
+      defaultPitch: "-15deg",
       // Caps how far zoom-in can go (via the navbar slider, scroll, or a
       // hotspot's zoomLvl). Raised back up from the library default of 30 —
       // it had been lowered to 15 to allow an extreme close-in, but that let
@@ -290,7 +297,7 @@ function PanoramaTour() {
       // larger. Past ~120 the wide-angle distortion gets noticeable, so
       // this stays comfortably under that. Zoom-out/FOV is otherwise
       // unchanged — only the zoom-in ceiling above was tightened.
-      maxFov: 118,
+      maxFov: 113,
       navbar: ["zoom", "caption", "fullscreen"],
       plugins: [
         [
