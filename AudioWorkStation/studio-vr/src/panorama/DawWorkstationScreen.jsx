@@ -172,7 +172,7 @@ const DEFAULT_AMBIENCE = { filterFreq: 500, gain: 0.03, gustDepth: 0.015 };
 // Studio room (see `interactiveMarkers` in roomsData.js), so this just
 // mirrors that room's own roomBleed profile.
 const ROOM_BLEED = {
-  audio: "/audio/BolzAndKnecht_HungarianDanceNo5_Full/03_Saxophone.wav",
+  audio: "/audio/AndresGuazzelli_FloresDeAbril_Full/02_Piano.wav",
   yaw: 127.7,
   pitch: 0.4,
 };
@@ -643,8 +643,10 @@ function DawWorkstationScreen({ open, onClose }) {
 
   // currentOffset() reports the shared transport position — a straight line
   // from startOffset for a single pass, wrapped within [0, arrangementDuration)
-  // when looping (each track's own AudioBufferSourceNode natively loops at
-  // its own buffer length; this is just the shared playhead/scrub clock).
+  // when looping (the whole arrangement restarts together once the longest
+  // track finishes — see the end-of-arrangement timer in playFrom — rather
+  // than each track's own AudioBufferSourceNode looping at its own buffer
+  // length; this is just the shared playhead/scrub clock).
   const currentOffset = useCallback(() => {
     if (!isPlayingRef.current) return pausedOffsetRef.current;
     const ctx = getAudioContext();
@@ -719,12 +721,15 @@ function DawWorkstationScreen({ open, onClose }) {
   // below), so where in ITS OWN buffer a track needs to be at the shared
   // transport position `offset` depends on that track's own startAt: not
   // started yet (schedule it to begin later), partway through (start now,
-  // partway into the buffer), or — if not looping — already finished this
-  // pass (skip it entirely). With Loop on, every track's source natively
-  // loops across its own full length once it begins, so the only thing
-  // startAt changes there is when that loop first kicks in; with Loop off,
-  // a single pass plays and a timer flips the transport back to stopped
-  // once the last track (by startAt + duration) finishes.
+  // partway into the buffer), or already finished this pass (skip it
+  // entirely). Every track's source plays a single pass of its own buffer
+  // — looping is handled once, at the whole-arrangement level, by the timer
+  // below, rather than each source natively looping at its own buffer
+  // length (which used to let a short track repeat several times before a
+  // longer track had even finished once). A single pass plays and, once the
+  // last track (by startAt + duration) finishes, a timer either flips the
+  // transport back to stopped (Loop off) or restarts the whole mix from 0
+  // (Loop on).
   const playFrom = useCallback(
     async (offset) => {
       const token = ++playCallTokenRef.current;
@@ -759,18 +764,16 @@ function DawWorkstationScreen({ open, onClose }) {
       list.forEach((track) => {
         const buffer = track.buffer;
         const startAt = track.startAt ?? 0;
-        // Not looping and this track's clip has already fully played out by
-        // the current transport position — nothing to schedule for it this
-        // pass (leaving it out of trackNodes is fine; every reader of that
-        // map already guards on the entry existing).
-        if (!useLoop && clampedOffset >= startAt + buffer.duration) return;
+        // This track's clip has already fully played out by the current
+        // transport position — nothing to schedule for it this pass
+        // (leaving it out of trackNodes is fine; every reader of that map
+        // already guards on the entry existing). This applies whether or
+        // not Loop is on: looping restarts the whole arrangement together
+        // (see the end-of-arrangement timer below) instead of letting each
+        // track loop on its own buffer length.
+        if (clampedOffset >= startAt + buffer.duration) return;
         const source = ctx.createBufferSource();
         source.buffer = buffer;
-        if (useLoop) {
-          source.loop = true;
-          source.loopStart = 0;
-          source.loopEnd = buffer.duration;
-        }
         const trackGain = ctx.createGain();
         trackGain.gain.value = track.muted ? 0 : (track.volume ?? 1);
 
@@ -847,12 +850,12 @@ function DawWorkstationScreen({ open, onClose }) {
           source.start(ctx.currentTime + (startAt - clampedOffset), 0);
         } else {
           // Already at or past this clip's start — begin immediately, at
-          // however far into its own buffer that point falls. With Loop on
-          // this can be more than one buffer-length past startAt (the
-          // track has already wrapped around at least once), so wrap it
-          // into range the same way the source itself would natively.
+          // however far into its own buffer that point falls. The skip
+          // check above guarantees this is still within the buffer (each
+          // track plays only a single pass per arrangement loop), so no
+          // wrap-around is needed here.
           const into = clampedOffset - startAt;
-          const bufferOffset = useLoop ? into % buffer.duration : clamp(into, 0, buffer.duration);
+          const bufferOffset = clamp(into, 0, buffer.duration);
           source.start(ctx.currentTime, bufferOffset);
         }
         trackNodes.set(track.id, { source, extraNodes, trackGain });
@@ -871,15 +874,23 @@ function DawWorkstationScreen({ open, onClose }) {
       };
       setIsPlaying(true);
 
-      if (!useLoop) {
-        const remaining = Math.max(0, arrDur - clampedOffset);
-        endTimeoutRef.current = setTimeout(() => {
-          endTimeoutRef.current = null;
+      // Fires once the LAST track (by startAt + duration, i.e. the whole
+      // arrangement) finishes its single pass. Loop off stops the transport
+      // there, same as before. Loop on now restarts the whole mix together
+      // from 0 instead of relying on each track's source looping on its own
+      // buffer length — that per-track approach let a short track repeat
+      // several times before a longer track had even finished once.
+      const remaining = Math.max(0, arrDur - clampedOffset);
+      endTimeoutRef.current = setTimeout(() => {
+        endTimeoutRef.current = null;
+        if (loopOnRef.current) {
+          playFrom(0);
+        } else {
           pausedOffsetRef.current = 0;
           setPlayhead(0);
           setIsPlaying(false);
-        }, remaining * 1000 + 40);
-      }
+        }
+      }, remaining * 1000 + 40);
     },
     [ensureContext, teardownPlaybackGraph],
   );
@@ -912,12 +923,12 @@ function DawWorkstationScreen({ open, onClose }) {
     }
   }, [isPlaying, playFrom]);
 
-  // Loop on/off is baked into each track's AudioBufferSourceNode at graph-
-  // build time (source.loop / loopStart / loopEnd) and into the
-  // stop-at-end timer — flipping the loopOn state alone doesn't touch nodes
-  // that already exist, which is why the button used to look like it had no
-  // effect on live playback (turning it off didn't stop an already-looping
-  // mix, turning it on didn't make a single-pass mix start looping). Update
+  // Loop on/off is baked into the end-of-arrangement timer at graph-build
+  // time (see the setTimeout in playFrom) — flipping the loopOn state alone
+  // doesn't touch a timer that's already scheduled, which is why the button
+  // used to look like it had no effect on live playback (turning it off
+  // didn't stop an already-looping mix, turning it on didn't make a
+  // single-pass mix start looping). Update
   // loopOnRef synchronously (state updates apply on the next render, too
   // late for the rebuild below to see them) and, if already playing,
   // rebuild the graph from the current position so the new setting takes

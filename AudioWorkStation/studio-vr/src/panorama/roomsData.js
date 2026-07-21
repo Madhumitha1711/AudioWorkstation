@@ -57,7 +57,7 @@ export const ROOMS = [
     // design — see BLEED_CEILING_GAIN in spatialAudioEngine.js, which the
     // volumeControls slider below can only ever turn up to, never past.
     roomBleed: {
-      audio: "/audio/BolzAndKnecht_HungarianDanceNo5_Full/03_Saxophone.wav",
+      audio: "/audio/AndresGuazzelli_FloresDeAbril_Full/02_Piano.wav",
       yaw: 127.7,
       pitch: 0.4,
     },

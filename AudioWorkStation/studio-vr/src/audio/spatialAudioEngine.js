@@ -68,11 +68,11 @@ const extraBinauralRoutings = new Set();
 const DEFAULT_AMBIENCE = { filterFreq: 500, gain: 0.03, gustDepth: 0.015 };
 
 // ---- Room bleed (see startRoomBleed() further down) ------------------------
-// Starting position (0..1) of the in-scene volume-slider hotspot. At this
-// default the bed sits roughly in line with the ambient bed's own gain
-// (~0.03) — perceptible as "something's happening next door" without ever
-// competing with it.
-const DEFAULT_BLEED_VOLUME = 0.4;
+// Starting position (0..1) of the in-scene volume-slider hotspot. Kept low
+// on purpose — at 10% the bed sits well under the ambient bed's own gain
+// (~0.03), just barely perceptible as "something's happening next door"
+// rather than something you'd immediately notice.
+const DEFAULT_BLEED_VOLUME = 0.1;
 // Gain at slider = 1 (100%), applied AFTER the compressor/makeup gain built
 // in startRoomBleed() below — i.e. after the source recording's own (often
 // much quieter/raw) mix level has already been normalized out, so this is a
