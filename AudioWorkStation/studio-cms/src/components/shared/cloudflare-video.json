@@ -3,14 +3,15 @@
   "info": {
     "displayName": "Cloudflare Video",
     "icon": "play-circle",
-    "description": "Reference to a video hosted on Cloudflare Stream. Strapi does not store the video file itself — upload it to Cloudflare Stream first (dashboard or API) and paste the resulting UID here."
+    "description": "Reference to a video hosted on Cloudflare Stream. Strapi does not store the video file itself — use the upload button on this field in the admin (pushes to Cloudflare Stream via POST /api/lessons/:id/video), or paste a UID by hand if you uploaded to Cloudflare yourself."
   },
   "options": {},
   "attributes": {
     "videoUid": {
-      "type": "string",
+      "type": "customField",
+      "customField": "global::video-upload",
       "required": true,
-      "description": "Cloudflare Stream video UID, e.g. the id returned after upload / from the Stream dashboard."
+      "description": "Cloudflare Stream video UID. Auto-filled by the upload button above; can still be pasted by hand if you uploaded via the Cloudflare dashboard instead."
     },
     "durationSeconds": {
       "type": "integer",

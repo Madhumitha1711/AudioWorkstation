@@ -77,6 +77,17 @@ the Public role).
   under Settings -> API Tokens, since they're not part of the default CRUD
   set a full-access token already covers.
 
+  **Admin UI:** the Lesson edit view's `video.videoUid` field is a custom
+  field ("video-upload", registered in `src/index.ts` + `src/admin/app.tsx`,
+  widget at `src/admin/extensions/video-upload/Input.tsx`) rather than a
+  plain text box — it shows an "Upload video" / "Replace video" button that
+  calls the route above directly, plus a "Check status" button for the
+  status route. Content editors don't need Postman/curl for the common
+  case; upload only works once the lesson has been saved at least once
+  (needs a `documentId`), and the page reloads after a successful upload so
+  the rest of the form (status, duration) reflects what the route just
+  wrote to the document.
+
   The manual fallback (Cloudflare dashboard, then paste the UID by hand)
   still works fine for one-offs — the route is just there to automate it.
   Cloudflare's default player embed is
