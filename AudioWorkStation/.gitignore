@@ -1,9 +1,21 @@
-# ── Node / npm ────────────────────────────────────────────────────────────────
-daw-frontend/node_modules/
-daw-frontend/dist/
+# ── Node / npm (repo-wide; applies to every app folder) ───────────────────────
+node_modules/
+dist/
+build/
+*.log
+npm-debug.log*
+
+# ── Env files (repo-wide) ──────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── Strapi (studio-cms) ────────────────────────────────────────────────────────
+.strapi/
+.strapi-updater.json
 
 # ── Vite ──────────────────────────────────────────────────────────────────────
-daw-frontend/.vite/
+.vite/
 
 # ── macOS ─────────────────────────────────────────────────────────────────────
 .DS_Store
@@ -14,3 +26,6 @@ daw-frontend/.vite/
 .idea/
 *.swp
 *.swo
+
+# ── Scratch (safe to delete manually) ─────────────────────────────────────────
+_to_delete/
