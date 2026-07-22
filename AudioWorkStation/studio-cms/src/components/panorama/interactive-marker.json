@@ -1,0 +1,33 @@
+{
+  "collectionName": "components_panorama_interactive_markers",
+  "info": {
+    "displayName": "Interactive Marker",
+    "icon": "sliders-h",
+    "description": "A live-DSP hotspot (not a read-only info panel), matching ROOMS[].interactiveMarkers[] — rendered by PanoramaTour.jsx / EqCompressorHotspot.jsx."
+  },
+  "options": {},
+  "attributes": {
+    "markerKey": {
+      "type": "string",
+      "required": true,
+      "description": "Stable short id, e.g. \"channel-eq\"."
+    },
+    "type": {
+      "type": "enumeration",
+      "enum": ["eq", "compressor"],
+      "required": true
+    },
+    "yaw": {
+      "type": "float",
+      "required": true
+    },
+    "pitch": {
+      "type": "float",
+      "required": true
+    },
+    "title": {
+      "type": "string",
+      "required": true
+    }
+  }
+}

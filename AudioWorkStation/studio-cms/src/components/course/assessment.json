@@ -1,0 +1,24 @@
+{
+  "collectionName": "components_course_assessments",
+  "info": {
+    "displayName": "Assessment",
+    "icon": "clipboard-check",
+    "description": "Knowledge-check quiz for a topic, matching TOPICS[].assessment in studio-vr's courseData.js."
+  },
+  "options": {},
+  "attributes": {
+    "assessmentKey": {
+      "type": "string",
+      "description": "Stable short id, e.g. \"speaker-assessment\"."
+    },
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "questions": {
+      "type": "component",
+      "repeatable": true,
+      "component": "course.question"
+    }
+  }
+}

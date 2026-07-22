@@ -1,0 +1,14 @@
+{
+  "collectionName": "components_course_answer_options",
+  "info": {
+    "displayName": "Answer Option",
+    "icon": "check-square"
+  },
+  "options": {},
+  "attributes": {
+    "text": {
+      "type": "string",
+      "required": true
+    }
+  }
+}

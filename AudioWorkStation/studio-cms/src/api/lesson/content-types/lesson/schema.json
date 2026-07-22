@@ -1,0 +1,51 @@
+{
+  "kind": "collectionType",
+  "collectionName": "lessons",
+  "info": {
+    "singularName": "lesson",
+    "pluralName": "lessons",
+    "displayName": "Lesson",
+    "description": "A single narrated video lesson within a Course Topic, matching TOPICS[].lessons[] in studio-vr's courseData.js."
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "slug": {
+      "type": "uid",
+      "targetField": "title",
+      "required": true,
+      "description": "Matches lesson.id, e.g. \"monitor-types\", \"ported-vs-sealed\"."
+    },
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "duration": {
+      "type": "string",
+      "description": "Human-readable duration shown in the UI, e.g. \"4 min\" (matches lesson.duration)."
+    },
+    "order": {
+      "type": "integer",
+      "default": 0,
+      "description": "Position within the parent topic's lesson list."
+    },
+    "content": {
+      "type": "blocks",
+      "required": true,
+      "description": "Lesson body. Replaces lesson.paragraphs[] — studio-vr can render each top-level block as a paragraph."
+    },
+    "video": {
+      "type": "component",
+      "repeatable": false,
+      "component": "shared.cloudflare-video"
+    },
+    "topic": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::course-topic.course-topic",
+      "inversedBy": "lessons"
+    }
+  }
+}
