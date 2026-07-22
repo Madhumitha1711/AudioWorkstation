@@ -119,18 +119,23 @@ admin:
    `users-permissions` plugin in this project (end-user accounts/login live
    in the separate NestJS service instead), so there's no Public/Authenticated
    role to flip on — every content-API request needs this token as
-   `Authorization: Bearer <token>`. Treat it as a server-side secret: call it
-   from the NestJS service (or any other trusted backend), not directly from
-   a browser. If studio-vr itself needs to hit Strapi directly one day,
-   route that through a backend proxy rather than embedding the token
-   client-side.
-2. Enter content for each topic/lesson (or write a one-off seed script
-   against the Documents API to bulk-import the existing `courseData.js`
-   objects).
+   `Authorization: Bearer <token>`. Treat it as a server-side secret: put it
+   in `studio-backend/.env` as `STRAPI_API_TOKEN` (that service proxies
+   Strapi for studio-vr — see `studio-backend/src/courses` — so the token
+   never has to reach the browser).
+2. Enter content for each topic/lesson by hand in the admin, **or** run
+   `scripts/seed-course-content.mjs` to bulk-import the existing
+   `courseData.js` objects — see that script's header comment for setup.
+   It needs its own token with *write* access (Full access is simplest for
+   a one-off migration run); that can be a separate, temporary token from
+   the read-only one studio-backend uses, or the same token if you gave it
+   broader access.
 
 ## Fetching from studio-vr
 
-Example `qs`-style populate query to replace `courseData.js`'s `TOPICS`:
+studio-vr no longer calls Strapi directly — it fetches from
+studio-backend's `/courses` endpoint (`src/course/useCourseTopics.js`),
+which proxies Strapi with this populate query:
 
 ```
 GET /api/course-topics?populate[lessons][populate][model3d][populate]=*
@@ -146,7 +151,7 @@ Note the explicit `[audioClips][populate]=*` — a bare `populate=*` on
 media file nested one level further inside each one, so it has to be
 spelled out.
 
-Not yet wired into studio-vr — `courseData.js` still works exactly as
-before. Swapping it for an API call (e.g. a `useEffect` + `fetch` in
-`CoursePage.jsx`) is a separate follow-up whenever you're ready to point
-the frontend at the CMS.
+`studio-backend/src/courses/course.mapper.ts` reshapes the response back
+into the same `TOPICS[]` shape `courseData.js` used to hardcode, so if you
+add content in the Strapi admin it shows up in studio-vr without any
+frontend changes.

@@ -1,8 +1,16 @@
-// Course content for the "Start Course" screen, organized per VR hotspot
-// (topic). Each ready topic has: narrated video lessons, a knowledge-check
-// assessment, and a hands-on interactive practice section. Only "Speakers"
-// and "DAW Workstation" are fully built out for now — the rest are stubbed
-// as locked/"coming soon" and will be filled in with real course content.
+// Original course content for the "Start Course" screen, organized per VR
+// hotspot (topic). Each ready topic has: narrated video lessons, a
+// knowledge-check assessment, and a hands-on interactive practice section.
+// Only "Speakers" and "DAW Workstation" are fully built out for now — the
+// rest are stubbed as locked/"coming soon".
+//
+// The live app no longer reads TOPICS directly — CoursePage.jsx now fetches
+// course content from studio-backend's `/courses` endpoint (see
+// src/course/useCourseTopics.js), which proxies studio-cms (Strapi). TOPICS
+// is kept here as the source data for studio-cms/scripts/seed-course-content.mjs,
+// the one-off script that migrates this content into Strapi; edit it there
+// (or directly in Strapi once seeded) rather than expecting changes here to
+// reach the running app.
 //
 // assessment.questions[] entries may optionally carry an `audioClips` array
 // — [{ id, label, url }, ...] — for ear-training-style questions where the

@@ -12,7 +12,8 @@
     "start": "strapi start",
     "strapi": "strapi",
     "upgrade": "npx @strapi/upgrade latest",
-    "upgrade:dry": "npx @strapi/upgrade latest --dry"
+    "upgrade:dry": "npx @strapi/upgrade latest --dry",
+    "seed:course": "node scripts/seed-course-content.mjs"
   },
   "dependencies": {
     "@strapi/plugin-cloud": "5.50.2",

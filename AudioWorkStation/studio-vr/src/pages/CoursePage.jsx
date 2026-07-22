@@ -1,44 +1,70 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { TOPICS, buildStepList, firstStepIdForTopic } from "../course/courseData";
+import { buildStepList, firstStepIdForTopic } from "../course/courseData";
+import { useCourseTopics } from "../course/useCourseTopics";
 import AssessmentSection from "../course/AssessmentSection";
 import InteractiveSection from "../course/InteractiveSection";
 import GearModelViewer from "../panorama/GearModelViewer";
 import "./CoursePage.css";
 
-const STEPS = buildStepList(TOPICS);
-
 const STEP_TAG = { assessment: "Quiz", interactive: "Lab" };
+
+function CourseStatusScreen({ title, message, actionLabel, onAction }) {
+  return (
+    <div className="svr-course">
+      <div className="course-status-screen">
+        <h1>{title}</h1>
+        <p>{message}</p>
+        {actionLabel && (
+          <button className="btn-primary" onClick={onAction}>
+            {actionLabel}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function CoursePage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { topics, loading, error, refetch } = useCourseTopics();
+
   // If a hotspot in the VR tour requested a specific topic (via "Start
   // course"), it's passed as route state — open straight to it; otherwise
   // fall back to the first step. Read once, at mount: revisiting this page
   // later shouldn't keep reopening a stale request.
   const pendingTopicId = useMemo(() => location.state?.topicId ?? null, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const initialStepId = useMemo(() => {
-    const requested = pendingTopicId && firstStepIdForTopic(STEPS, pendingTopicId);
-    return requested ?? STEPS[0]?.id;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only meant to run once, at mount
-  }, []);
+  // Topics now arrive asynchronously from studio-backend instead of being
+  // available synchronously from a hardcoded import, so the step list and
+  // the initial active step can't be computed at mount the way they used
+  // to be. This derives STEPS whenever topics load/change, and the effect
+  // below picks an initial step the first time real topics show up.
+  const STEPS = useMemo(() => (topics ? buildStepList(topics) : []), [topics]);
 
-  const [openTopics, setOpenTopics] = useState(() => {
-    const topicId = STEPS.find((s) => s.id === initialStepId)?.topicId ?? STEPS[0]?.topicId;
-    return new Set([topicId]);
-  });
-  const [activeStepId, setActiveStepId] = useState(initialStepId);
+  const [openTopics, setOpenTopics] = useState(() => new Set());
+  const [activeStepId, setActiveStepId] = useState(null);
   const [completed, setCompleted] = useState(() => new Set());
+  const [hasInitialized, setHasInitialized] = useState(false);
+
+  useEffect(() => {
+    if (hasInitialized || STEPS.length === 0) return;
+    const requested = pendingTopicId && firstStepIdForTopic(STEPS, pendingTopicId);
+    const stepId = requested ?? STEPS[0]?.id;
+    const topicId = STEPS.find((s) => s.id === stepId)?.topicId ?? STEPS[0]?.topicId;
+    setActiveStepId(stepId);
+    if (topicId) setOpenTopics(new Set([topicId]));
+    setHasInitialized(true);
+  }, [STEPS, hasInitialized, pendingTopicId]);
 
   const activeIndex = STEPS.findIndex((s) => s.id === activeStepId);
   const activeStep = STEPS[activeIndex] ?? STEPS[0];
-  const activeTopic = TOPICS.find((t) => t.id === activeStep?.topicId);
+  const activeTopic = (topics ?? []).find((t) => t.id === activeStep?.topicId);
 
   const stepsInTopic = useMemo(
     () => STEPS.filter((s) => s.topicId === activeTopic?.id),
-    [activeTopic]
+    [STEPS, activeTopic]
   );
   const doneInTopic = stepsInTopic.filter((s) => completed.has(s.id)).length;
   const topicPct = stepsInTopic.length ? Math.round((doneInTopic / stepsInTopic.length) * 100) : 0;
@@ -86,10 +112,41 @@ function CoursePage() {
 
   const lessonIndex =
     activeStep?.kind === "lesson"
-      ? activeTopic.lessons.findIndex((l) => l.id === activeStep.id)
+      ? (activeTopic?.lessons ?? []).findIndex((l) => l.id === activeStep.id)
       : -1;
 
   const isDone = completed.has(activeStep?.id);
+
+  if (loading) {
+    return (
+      <CourseStatusScreen
+        title="Loading course…"
+        message="Fetching the latest course content from studio-cms."
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <CourseStatusScreen
+        title="Couldn't load the course"
+        message={error}
+        actionLabel="Retry"
+        onAction={refetch}
+      />
+    );
+  }
+
+  if (STEPS.length === 0) {
+    return (
+      <CourseStatusScreen
+        title="No course content yet"
+        message="studio-cms doesn't have any published course topics yet. Check back soon."
+        actionLabel="Retry"
+        onAction={refetch}
+      />
+    );
+  }
 
   return (
     <div className="svr-course">
@@ -123,7 +180,7 @@ function CoursePage() {
       <div className="course-layout">
         <aside className="course-sidebar">
           <div className="sidebar-section-label">Control Room</div>
-          {TOPICS.map((topic) => {
+          {(topics ?? []).map((topic) => {
             if (!topic.ready) {
               return (
                 <div className="topic-block" key={topic.id}>
