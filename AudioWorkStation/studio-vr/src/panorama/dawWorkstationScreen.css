@@ -197,6 +197,41 @@
   color: var(--blue);
 }
 
+/* Unmissable "still previewing a portion" indicator, right next to the
+   transport — a redundant, always-in-view way out alongside the dock's own
+   "✕ Exit Selection" button and the Escape key (see exitSelection in
+   DawWorkstationScreen.jsx), since the dock's copy can scroll out of view
+   or wrap depending on window width. */
+.preview-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px 5px 12px;
+  border-radius: 999px;
+  background: var(--amber-dim);
+  border: 1px solid var(--amber);
+  color: var(--amber);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.preview-pill button {
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  color: #1a1200;
+  background: var(--amber);
+  border: none;
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.preview-pill button:hover {
+  filter: brightness(1.1);
+}
+
 .timecode {
   display: flex;
   align-items: baseline;
@@ -527,20 +562,42 @@
   top: 4px;
   bottom: 4px;
   left: 0;
+  display: flex;
+  flex-direction: column;
   border-radius: 5px;
   background: color-mix(in srgb, var(--track-color) 22%, var(--panel));
   border: 1px solid color-mix(in srgb, var(--track-color) 55%, var(--border));
   overflow: hidden;
-  /* Draggable — see beginClipDrag/onClipPointerMove/endClipDrag in
-     DawWorkstationScreen.jsx. touch-action: none so a touch-drag moves the
-     clip instead of scrolling the arrangement pane. */
-  cursor: grab;
-  touch-action: none;
   transition: border-color 0.15s ease;
 }
-.clip:active {
-  cursor: grabbing;
+.clip:has(.clip-header:active) {
   border-color: var(--track-color);
+}
+/* Thin drag handle at the top of the clip — see beginClipDrag/
+   onClipPointerMove/endClipDrag in DawWorkstationScreen.jsx. Dragging
+   anywhere in .clip-body below it draws a portion instead (see
+   beginRegionDrag et al). touch-action: none so a touch-drag moves the clip
+   instead of scrolling the arrangement pane. */
+.clip-header {
+  height: 8px;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--track-color) 45%, transparent);
+  cursor: grab;
+  touch-action: none;
+}
+.clip-header:active {
+  cursor: grabbing;
+}
+/* The rest of the clip — dragging here marks a new portion (see
+   beginRegionDrag/onRegionPointerMove/endRegionDrag in
+   DawWorkstationScreen.jsx). touch-action: none so a touch-drag draws a
+   portion instead of scrolling the arrangement pane. */
+.clip-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  cursor: crosshair;
+  touch-action: none;
 }
 .wave-svg {
   position: absolute;
@@ -550,6 +607,62 @@
   color: var(--track-color);
   stroke: currentColor;
   stroke-width: 1;
+  pointer-events: none;
+}
+
+/* ── Portions (regions) drawn on a clip's waveform — see
+   beginRegionDrag/selectRegion/createRegion in DawWorkstationScreen.jsx ── */
+.clip-region {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--amber) 32%, transparent);
+  border: 1px solid color-mix(in srgb, var(--amber) 70%, transparent);
+  cursor: pointer;
+  touch-action: none;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.clip-region:hover {
+  background: color-mix(in srgb, var(--amber) 45%, transparent);
+}
+.clip-region.is-selected {
+  background: color-mix(in srgb, var(--amber) 58%, transparent);
+  border-color: var(--amber);
+  box-shadow: 0 0 0 1px var(--amber), 0 0 10px var(--amber-glow, rgba(255, 176, 32, 0.5));
+}
+.clip-region.is-draft {
+  pointer-events: none;
+  background: color-mix(in srgb, var(--amber) 25%, transparent);
+  border-style: dashed;
+}
+.clip-region__remove {
+  width: 13px;
+  height: 13px;
+  margin: 1px;
+  border-radius: 3px;
+  border: none;
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--text);
+  font-size: 9px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.clip-region:hover .clip-region__remove,
+.clip-region.is-selected .clip-region__remove {
+  opacity: 1;
+}
+.clip-region__count {
+  position: absolute;
+  left: 3px;
+  bottom: 1px;
+  font-size: 8px;
+  color: var(--text-faint);
   pointer-events: none;
 }
 .playhead {
@@ -604,20 +717,61 @@
 }
 .dock-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   margin-bottom: 10px;
-  gap: 10px;
+  gap: 6px 10px;
 }
 .dock-title {
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: 0.14em;
   color: var(--text-faint);
+  min-width: 0;
 }
 .dock-hint {
   font-size: 10.5px;
   color: var(--text-faint);
+}
+.dock-head-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  flex-shrink: 0;
+}
+
+/* ── Scope tabs: flip the dock between a selected portion's own chain and
+   its track's outer whole-track chain without losing the portion highlight
+   or preview loop. ── */
+.dock-scope-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 7px;
+  background: var(--panel-recess, rgba(0, 0, 0, 0.25));
+  border: 1px solid var(--line-soft, rgba(255, 255, 255, 0.08));
+  flex-shrink: 0;
+}
+.dock-scope-tab {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.dock-scope-tab:hover {
+  color: var(--text);
+}
+.dock-scope-tab.is-active {
+  background: var(--accent, #e0a458);
+  color: #1a140b;
 }
 
 /* ── Chain rack (added plugins, in order, for the selected track) ── */
