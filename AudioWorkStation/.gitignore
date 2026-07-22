@@ -1,6 +1,14 @@
-# ── Node / npm ────────────────────────────────────────────────────────────────
-daw-frontend/node_modules/
-daw-frontend/dist/
+# ── Node / npm (repo-wide safety net; each app also has its own .gitignore) ───
+node_modules/
+dist/
+build/
+*.log
+npm-debug.log*
+
+# ── Env files ─────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
 
 # ── Vite ──────────────────────────────────────────────────────────────────────
 daw-frontend/.vite/
@@ -14,4 +22,6 @@ daw-frontend/.vite/
 .idea/
 *.swp
 *.swo
+
+# ── Scratch (leftover nested-git cleanup, safe to delete) ─────────────────────
 _to_delete/
