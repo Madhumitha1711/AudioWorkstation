@@ -6,6 +6,7 @@ export function Fader({ spec, value, onChange, disabled = false, target, height 
     const accent = spec.accent ?? 'var(--amber)';
     const trackRef = useRef(null);
     const draggingRef = useRef(false);
+
     const valueFromClientY = useCallback((clientY) => {
         const el = trackRef.current;
         if (!el)
@@ -42,8 +43,8 @@ export function Fader({ spec, value, onChange, disabled = false, target, height 
     const pct = (value - spec.min) / (spec.max - spec.min);
     const targetPct = target !== undefined ? (target - spec.min) / (spec.max - spec.min) : null;
     return (<div className="knob-wrap" style={disabled ? { opacity: 0.35, pointerEvents: 'none' } : {}}>
-      <div ref={trackRef} className="channel-fader-track" style={{ height, cursor: disabled ? 'not-allowed' : 'ns-resize' }} onMouseDown={onDown}>
-        {targetPct !== null && (<div style={{
+        <div ref={trackRef} className="channel-fader-track" style={{ height, cursor: disabled ? 'not-allowed' : 'ns-resize' }} onMouseDown={onDown}>
+            {targetPct !== null && (<div style={{
                 position: 'absolute',
                 left: 0, right: 0,
                 top: `${(1 - targetPct) * 100}%`,
@@ -51,16 +52,16 @@ export function Fader({ spec, value, onChange, disabled = false, target, height 
                 background: 'var(--amber)',
                 transform: 'translateY(-50%)',
                 pointerEvents: 'none',
-            }}/>)}
-        <div className="channel-fader-thumb" style={{
-            top: `${(1 - pct) * 100}%`,
-            transform: 'translate(-50%, -50%)',
-            borderColor: disabled ? undefined : accent,
-        }}/>
-      </div>
-      <div className="knob-name" style={disabled ? { color: 'var(--text-faint)' } : {}}>{spec.label}</div>
-      <div className="knob-val" style={{ color: disabled ? 'var(--text-faint)' : accent }}>
-        {spec.fmt(value)}
-      </div>
+            }} />)}
+            <div className="channel-fader-thumb" style={{
+                top: `${(1 - pct) * 100}%`,
+                transform: 'translate(-50%, -50%)',
+                borderColor: disabled ? undefined : accent,
+            }} />
+        </div>
+        <div className="knob-name" style={disabled ? { color: 'var(--text-faint)' } : {}}>{spec.label}</div>
+        <div className="knob-val" style={{ color: disabled ? 'var(--text-faint)' : accent }}>
+            {spec.fmt(value)}
+        </div>
     </div>);
 }

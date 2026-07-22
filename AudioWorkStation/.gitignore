@@ -1,17 +1,21 @@
-# ── Node / npm (repo-wide safety net; each app also has its own .gitignore) ───
+# ── Node / npm (repo-wide; applies to every app folder) ───────────────────────
 node_modules/
 dist/
 build/
 *.log
 npm-debug.log*
 
-# ── Env files ─────────────────────────────────────────────────────────────────
+# ── Env files (repo-wide) ──────────────────────────────────────────────────────
 .env
 .env.local
 .env.*.local
 
+# ── Strapi (studio-cms) ────────────────────────────────────────────────────────
+.strapi/
+.strapi-updater.json
+
 # ── Vite ──────────────────────────────────────────────────────────────────────
-daw-frontend/.vite/
+.vite/
 
 # ── macOS ─────────────────────────────────────────────────────────────────────
 .DS_Store
@@ -23,5 +27,5 @@ daw-frontend/.vite/
 *.swp
 *.swo
 
-# ── Scratch (leftover nested-git cleanup, safe to delete) ─────────────────────
+# ── Scratch (safe to delete manually) ─────────────────────────────────────────
 _to_delete/
