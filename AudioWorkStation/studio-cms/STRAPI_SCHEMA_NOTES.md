@@ -1,9 +1,14 @@
 # Strapi schema for Studio VR courses
 
 These content types/components mirror the data already hardcoded in
-`studio-vr/src/course/courseData.js` and `studio-vr/src/panorama/roomsData.js`,
-so the CMS can become the source of truth for course + tour content without
-changing the shape the frontend expects.
+`studio-vr/src/course/courseData.js`, so the CMS can become the source of
+truth for `/course` page content without changing the shape the frontend
+expects.
+
+This CMS is scoped to the `/course` route only. Content types and
+components that would have backed the `/studio` panorama tour route
+(Studio Room, Studio Hotspot, Tour Setting, and the `panorama.*`
+components) have been removed.
 
 **Auth note:** `@strapi/plugin-users-permissions` has been removed from this
 project on purpose. Student accounts, login, and paid-access state are owned
@@ -13,7 +18,7 @@ the Public role).
 
 ## Content types (`src/api/`)
 
-- **Course Topic** (`course-topic`) — one per VR hotspot topic (Speakers,
+- **Course Topic** (`course-topic`) — one per course topic (Speakers,
   Mixing Console, DAW Workstation, …). Matches `TOPICS[]`. Has a
   `model3d` component (the `.glb` gear scan), a one-to-many relation to
   **Lesson**, a nested `assessment` component, and a nested `interactive`
@@ -22,35 +27,22 @@ the Public role).
   `TOPICS[].lessons[]`. `content` is a rich-text (blocks) field replacing
   `paragraphs[]`; `video` is a `shared.cloudflare-video` component holding
   the Cloudflare Stream UID + S3 thumbnail.
-- **Studio Room** (`studio-room`) — one per panorama stop. Matches `ROOMS[]`.
-  `panorama` is an S3-backed image field; `ambience` and `links` are
-  components; `hotspots` is a one-to-many relation to **Studio Hotspot**.
-- **Studio Hotspot** (`studio-hotspot`) — one clickable gear marker. Matches
-  `ROOMS[].markers[]`. Relates back to its `room` and (optionally) to the
-  **Course Topic** it opens. `narrationAudio` is S3-backed.
-- **Tour Setting** (`tour-setting`, single type) — holds `startRoom`,
-  replacing `START_NODE_ID`.
-
-`ROOMS[].interactiveMarkers[]` (the live-DSP EQ/Compressor hotspots) stayed a
-repeatable component on Studio Room rather than its own content type, since
-in the source data they're only ever two fixed entries tied to specific
-Faust patches, not editorial content.
 
 ## Components (`src/components/`)
 
 - `shared/cloudflare-video` — `videoUid`, `durationSeconds`, `thumbnail`
   (S3 image), `captionsUrl`, `status`.
 - `shared/model-asset` — `kind` + `.glb` file (S3).
+- `shared/audio-asset` — `label` + an audio file (S3, `allowedTypes:
+  ["audios"]`). Used by `course/question.audioClips` for ear-training-style
+  questions that need the student to listen to something before answering
+  (e.g. a "Before"/"After" pair).
 - `course/assessment`, `course/question`, `course/answer-option` — nested
   quiz structure; `correctIndex` is a 0-based index into `options`.
+  `course/question` also has a repeatable `audioClips`
+  (`shared.audio-asset`) field, empty for ordinary text-only questions.
 - `course/interactive-activity` — `kind` is free text (`speaker-lab`,
   `equalizer-lab`, …) so new labs don't require a schema change.
-- `panorama/ambience`, `panorama/room-link`, `panorama/objective`,
-  `panorama/interactive-marker`.
-
-`room-link.targetRoomSlug` is a plain string (not a relation) so it can be
-authored as the destination room's `slug` even before that room exists —
-same pattern the original `nodeId` string used.
 
 ## Media storage
 
@@ -61,14 +53,43 @@ same pattern the original `nodeId` string used.
   `.env` (see `.env.example`). `AWS_ENDPOINT` is only needed for an
   S3-compatible service (R2, MinIO, etc.) instead of real AWS.
 - **Video** is *not* run through Strapi's upload plugin — there's no
-  Strapi-maintained Cloudflare Stream provider. Upload each lesson's video
-  directly to Cloudflare Stream (dashboard or `POST
-  https://api.cloudflare.com/client/v4/accounts/{account_id}/stream`), then
-  paste the returned UID into that lesson's `video.videoUid` field.
+  Strapi-maintained Cloudflare Stream provider. Instead, two custom routes on
+  the lesson API (`src/api/lesson/routes/video-upload.ts` +
+  `src/api/lesson/controllers/lesson.ts`, backed by
+  `src/utils/cloudflare-stream.ts`) push the file to Cloudflare
+  server-to-server and write the result onto the lesson automatically:
+
+  - `POST /api/lessons/:documentId/video` — send the video file as
+    `multipart/form-data` under a `file` field (`video` also works). The
+    route uploads it to Cloudflare Stream, then updates that lesson's
+    `video` component with the returned `videoUid`, `status`, and
+    `durationSeconds` (once Cloudflare reports one). Requires
+    `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_STREAM_API_TOKEN` to be set.
+  - `GET /api/lessons/:documentId/video/status` — re-checks encoding status
+    with Cloudflare and syncs `video.status`/`video.durationSeconds` onto
+    the lesson. Cloudflare encodes asynchronously, so a video usually stays
+    `pending`/`processing` for a bit after upload — poll this (or call it
+    from a cron job later) until it flips to `ready`.
+
+  Both are plain content-API routes, so they use the same auth as everything
+  else here — an API token as `Authorization: Bearer <token>` (see "Setup"
+  below). A "custom"-scoped token needs those two actions explicitly granted
+  under Settings -> API Tokens, since they're not part of the default CRUD
+  set a full-access token already covers.
+
+  The manual fallback (Cloudflare dashboard, then paste the UID by hand)
+  still works fine for one-offs — the route is just there to automate it.
   Cloudflare's default player embed is
   `https://iframe.cloudflarestream.com/<uid>`, and the HLS manifest is
   `https://customer-<subdomain>.cloudflarestream.com/<uid>/manifest/video.m3u8`
   (subdomain from the Stream dashboard).
+
+  This uploads the whole file in one request, which is fine for typical
+  lesson-length clips but buffers it in memory/temp disk — for very large
+  files, switch to Cloudflare's "direct creator upload" (TUS) flow instead
+  (request a one-time upload URL, upload straight to Cloudflare from the
+  caller, then use `GET .../video/status` or a webhook to pick up
+  completion).
 
 ## Setup
 
@@ -83,7 +104,7 @@ On first boot Strapi will create the new tables/components. Then in the
 admin:
 
 1. **Settings → API Tokens → Create new API Token** — give it Read-only (or
-   custom, scoped to just the five content types above) access. There is no
+   custom, scoped to just the two content types above) access. There is no
    `users-permissions` plugin in this project (end-user accounts/login live
    in the separate NestJS service instead), so there's no Public/Authenticated
    role to flip on — every content-API request needs this token as
@@ -92,35 +113,29 @@ admin:
    a browser. If studio-vr itself needs to hit Strapi directly one day,
    route that through a backend proxy rather than embedding the token
    client-side.
-2. Enter content for each topic/lesson/room/hotspot (or write a one-off seed
-   script against the Documents API to bulk-import the existing
-   `courseData.js` / `roomsData.js` objects).
+2. Enter content for each topic/lesson (or write a one-off seed script
+   against the Documents API to bulk-import the existing `courseData.js`
+   objects).
 
 ## Fetching from studio-vr
 
 Example `qs`-style populate query to replace `courseData.js`'s `TOPICS`:
 
 ```
-GET /api/course-topics?populate[model3d][populate]=*
-                       &populate[lessons][populate]=*
-                       &populate[assessment][populate][questions][populate]=*
+GET /api/course-topics?populate[lessons][populate][model3d][populate]=*
+                       &populate[lessons][populate][video]=*
+                       &populate[assessment][populate][questions][populate][options]=*
+                       &populate[assessment][populate][questions][populate][audioClips][populate]=*
                        &populate[interactive]=*
                        &sort=order:asc
 ```
 
-And to replace `roomsData.js`'s `ROOMS`:
+Note the explicit `[audioClips][populate]=*` — a bare `populate=*` on
+`questions` populates the `audioClips` components themselves but not the
+media file nested one level further inside each one, so it has to be
+spelled out.
 
-```
-GET /api/studio-rooms?populate[panorama]=*
-                      &populate[ambience]=*
-                      &populate[links]=*
-                      &populate[interactiveMarkers]=*
-                      &populate[hotspots][populate]=*
-                      &sort=order:asc
-```
-
-Neither of these is wired into studio-vr yet — `courseData.js` and
-`roomsData.js` still work exactly as before. Swapping them for API calls
-(e.g. a `useEffect` + `fetch` in `App.jsx`, or moving the fetch into
-`PanoramaTour.jsx`/`CoursePage.jsx`) is a separate follow-up whenever you're
-ready to point the frontend at the CMS.
+Not yet wired into studio-vr — `courseData.js` still works exactly as
+before. Swapping it for an API call (e.g. a `useEffect` + `fetch` in
+`CoursePage.jsx`) is a separate follow-up whenever you're ready to point
+the frontend at the CMS.

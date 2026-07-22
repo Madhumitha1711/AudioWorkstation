@@ -3,6 +3,15 @@
 // assessment, and a hands-on interactive practice section. Only "Speakers"
 // and "DAW Workstation" are fully built out for now — the rest are stubbed
 // as locked/"coming soon" and will be filled in with real course content.
+//
+// assessment.questions[] entries may optionally carry an `audioClips` array
+// — [{ id, label, url }, ...] — for ear-training-style questions where the
+// student has to listen before answering (e.g. a "Before"/"After" pair, or
+// two takes with different compression settings). AssessmentSection renders
+// these as toggle-able play buttons above the answer options; leave the
+// array off (or empty) for ordinary text-only questions. This mirrors
+// `course.question.audioClips` (shared.audio-asset, S3-backed) in the
+// studio-cms Strapi schema.
 
 export const TOPICS = [
   {

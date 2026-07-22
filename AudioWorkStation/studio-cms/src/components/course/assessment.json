@@ -3,7 +3,7 @@
   "info": {
     "displayName": "Assessment",
     "icon": "clipboard-check",
-    "description": "Knowledge-check quiz for a topic, matching TOPICS[].assessment in studio-vr's courseData.js."
+    "description": "Knowledge-check quiz for a topic, matching TOPICS[].assessment in studio-vr's courseData.js. Individual questions can carry their own audioClips (see course.question) for ear-training-style questions."
   },
   "options": {},
   "attributes": {

@@ -27,6 +27,12 @@
     },
     "explanation": {
       "type": "text"
+    },
+    "audioClips": {
+      "type": "component",
+      "repeatable": true,
+      "component": "shared.audio-asset",
+      "description": "Optional reference clips a student listens to before answering, e.g. a \"Before\"/\"After\" pair for an ear-training question. Empty for ordinary text questions."
     }
   }
 }

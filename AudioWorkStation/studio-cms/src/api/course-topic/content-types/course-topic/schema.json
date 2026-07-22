@@ -40,11 +40,6 @@
       "default": 0,
       "description": "Display/curriculum order; studio-vr's buildStepList() walks topics in this order."
     },
-    "model3d": {
-      "type": "component",
-      "repeatable": false,
-      "component": "shared.model-asset"
-    },
     "lessons": {
       "type": "relation",
       "relation": "oneToMany",

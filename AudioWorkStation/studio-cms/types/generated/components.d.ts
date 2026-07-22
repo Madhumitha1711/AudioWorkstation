@@ -14,7 +14,7 @@ export interface CourseAnswerOption extends Struct.ComponentSchema {
 export interface CourseAssessment extends Struct.ComponentSchema {
   collectionName: 'components_course_assessments';
   info: {
-    description: "Knowledge-check quiz for a topic, matching TOPICS[].assessment in studio-vr's courseData.js.";
+    description: "Knowledge-check quiz for a topic, matching TOPICS[].assessment in studio-vr's courseData.js. Individual questions can carry their own audioClips (see course.question) for ear-training-style questions.";
     displayName: 'Assessment';
     icon: 'clipboard-check';
   };
@@ -46,6 +46,7 @@ export interface CourseQuestion extends Struct.ComponentSchema {
     icon: 'question';
   };
   attributes: {
+    audioClips: Schema.Attribute.Component<'shared.audio-asset', true>;
     correctIndex: Schema.Attribute.Integer & Schema.Attribute.Required;
     explanation: Schema.Attribute.Text;
     options: Schema.Attribute.Component<'course.answer-option', true> &
@@ -55,59 +56,16 @@ export interface CourseQuestion extends Struct.ComponentSchema {
   };
 }
 
-export interface PanoramaAmbience extends Struct.ComponentSchema {
-  collectionName: 'components_panorama_ambiences';
+export interface SharedAudioAsset extends Struct.ComponentSchema {
+  collectionName: 'components_shared_audio_assets';
   info: {
-    description: "Synthetic ambient-bed profile for a room, matching ROOMS[].ambience consumed by spatialAudioEngine.js's startAmbientBed()/setRoomAmbience().";
-    displayName: 'Room Ambience';
+    description: 'A short reference audio clip (e.g. a before/after ear-training example) that can be attached to an assessment question.';
+    displayName: 'Audio Asset';
     icon: 'volume-up';
   };
   attributes: {
-    filterFreq: Schema.Attribute.Integer & Schema.Attribute.Required;
-    gain: Schema.Attribute.Decimal & Schema.Attribute.Required;
-    gustDepth: Schema.Attribute.Decimal & Schema.Attribute.Required;
-  };
-}
-
-export interface PanoramaInteractiveMarker extends Struct.ComponentSchema {
-  collectionName: 'components_panorama_interactive_markers';
-  info: {
-    description: 'A live-DSP hotspot (not a read-only info panel), matching ROOMS[].interactiveMarkers[] \u2014 rendered by PanoramaTour.jsx / EqCompressorHotspot.jsx.';
-    displayName: 'Interactive Marker';
-    icon: 'sliders-h';
-  };
-  attributes: {
-    markerKey: Schema.Attribute.String & Schema.Attribute.Required;
-    pitch: Schema.Attribute.Float & Schema.Attribute.Required;
-    title: Schema.Attribute.String & Schema.Attribute.Required;
-    type: Schema.Attribute.Enumeration<['eq', 'compressor']> &
-      Schema.Attribute.Required;
-    yaw: Schema.Attribute.Float & Schema.Attribute.Required;
-  };
-}
-
-export interface PanoramaObjective extends Struct.ComponentSchema {
-  collectionName: 'components_panorama_objectives';
-  info: {
-    displayName: 'Learning Objective';
-    icon: 'bullseye';
-  };
-  attributes: {
-    text: Schema.Attribute.String & Schema.Attribute.Required;
-  };
-}
-
-export interface PanoramaRoomLink extends Struct.ComponentSchema {
-  collectionName: 'components_panorama_room_links';
-  info: {
-    description: 'A doorway arrow from this room to another, matching ROOMS[].links[].';
-    displayName: 'Room Link';
-    icon: 'arrows-alt';
-  };
-  attributes: {
-    pitch: Schema.Attribute.Float & Schema.Attribute.Required;
-    targetRoomSlug: Schema.Attribute.String & Schema.Attribute.Required;
-    yaw: Schema.Attribute.Float & Schema.Attribute.Required;
+    file: Schema.Attribute.Media<'audios'> & Schema.Attribute.Required;
+    label: Schema.Attribute.String;
   };
 }
 
@@ -150,10 +108,7 @@ declare module '@strapi/strapi' {
       'course.assessment': CourseAssessment;
       'course.interactive-activity': CourseInteractiveActivity;
       'course.question': CourseQuestion;
-      'panorama.ambience': PanoramaAmbience;
-      'panorama.interactive-marker': PanoramaInteractiveMarker;
-      'panorama.objective': PanoramaObjective;
-      'panorama.room-link': PanoramaRoomLink;
+      'shared.audio-asset': SharedAudioAsset;
       'shared.cloudflare-video': SharedCloudflareVideo;
       'shared.model-asset': SharedModelAsset;
     }

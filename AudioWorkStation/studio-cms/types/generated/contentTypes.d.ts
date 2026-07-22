@@ -114,43 +114,6 @@ export interface AdminApiTokenPermission extends Struct.CollectionTypeSchema {
   };
 }
 
-export interface AdminAuditLog extends Struct.CollectionTypeSchema {
-  collectionName: 'strapi_audit_logs';
-  info: {
-    displayName: 'Audit Log';
-    pluralName: 'audit-logs';
-    singularName: 'audit-log';
-  };
-  options: {
-    draftAndPublish: false;
-    timestamps: false;
-  };
-  pluginOptions: {
-    'content-manager': {
-      visible: false;
-    };
-    'content-type-builder': {
-      visible: false;
-    };
-  };
-  attributes: {
-    action: Schema.Attribute.String & Schema.Attribute.Required;
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    date: Schema.Attribute.DateTime & Schema.Attribute.Required;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<'oneToMany', 'admin::audit-log'> &
-      Schema.Attribute.Private;
-    payload: Schema.Attribute.JSON;
-    publishedAt: Schema.Attribute.DateTime;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    user: Schema.Attribute.Relation<'oneToOne', 'admin::user'>;
-  };
-}
-
 export interface AdminPermission extends Struct.CollectionTypeSchema {
   collectionName: 'admin_permissions';
   info: {
@@ -506,7 +469,6 @@ export interface ApiCourseTopicCourseTopic extends Struct.CollectionTypeSchema {
       'api::course-topic.course-topic'
     > &
       Schema.Attribute.Private;
-    model3d: Schema.Attribute.Component<'shared.model-asset', false>;
     order: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     publishedAt: Schema.Attribute.DateTime;
     ready: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
@@ -542,6 +504,7 @@ export interface ApiLessonLesson extends Struct.CollectionTypeSchema {
       'api::lesson.lesson'
     > &
       Schema.Attribute.Private;
+    model3d: Schema.Attribute.Component<'shared.model-asset', false>;
     order: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     publishedAt: Schema.Attribute.DateTime;
     slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
@@ -554,125 +517,6 @@ export interface ApiLessonLesson extends Struct.CollectionTypeSchema {
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     video: Schema.Attribute.Component<'shared.cloudflare-video', false>;
-  };
-}
-
-export interface ApiStudioHotspotStudioHotspot
-  extends Struct.CollectionTypeSchema {
-  collectionName: 'studio_hotspots';
-  info: {
-    description: "A clickable gear marker inside a Studio Room, matching ROOMS[].markers[] in studio-vr's roomsData.js.";
-    displayName: 'Studio Hotspot';
-    pluralName: 'studio-hotspots';
-    singularName: 'studio-hotspot';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  attributes: {
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    description: Schema.Attribute.Text & Schema.Attribute.Required;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::studio-hotspot.studio-hotspot'
-    > &
-      Schema.Attribute.Private;
-    narrationAudio: Schema.Attribute.Media<'audio'>;
-    objectives: Schema.Attribute.Component<'panorama.objective', true>;
-    order: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
-    pitch: Schema.Attribute.Float & Schema.Attribute.Required;
-    publishedAt: Schema.Attribute.DateTime;
-    room: Schema.Attribute.Relation<
-      'manyToOne',
-      'api::studio-room.studio-room'
-    >;
-    slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
-    title: Schema.Attribute.String & Schema.Attribute.Required;
-    topic: Schema.Attribute.Relation<
-      'oneToOne',
-      'api::course-topic.course-topic'
-    >;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    yaw: Schema.Attribute.Float & Schema.Attribute.Required;
-  };
-}
-
-export interface ApiStudioRoomStudioRoom extends Struct.CollectionTypeSchema {
-  collectionName: 'studio_rooms';
-  info: {
-    description: "A panorama stop in the VR tour, matching ROOMS[] in studio-vr's src/panorama/roomsData.js.";
-    displayName: 'Studio Room';
-    pluralName: 'studio-rooms';
-    singularName: 'studio-room';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  attributes: {
-    ambience: Schema.Attribute.Component<'panorama.ambience', false>;
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    hotspots: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::studio-hotspot.studio-hotspot'
-    >;
-    interactiveMarkers: Schema.Attribute.Component<
-      'panorama.interactive-marker',
-      true
-    >;
-    links: Schema.Attribute.Component<'panorama.room-link', true>;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::studio-room.studio-room'
-    > &
-      Schema.Attribute.Private;
-    name: Schema.Attribute.String & Schema.Attribute.Required;
-    order: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
-    panorama: Schema.Attribute.Media<'images'> & Schema.Attribute.Required;
-    publishedAt: Schema.Attribute.DateTime;
-    slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-  };
-}
-
-export interface ApiTourSettingTourSetting extends Struct.SingleTypeSchema {
-  collectionName: 'tour_setting';
-  info: {
-    description: "Global VR tour configuration, matching START_NODE_ID in studio-vr's roomsData.js.";
-    displayName: 'Tour Setting';
-    pluralName: 'tour-settings';
-    singularName: 'tour-setting';
-  };
-  options: {
-    draftAndPublish: false;
-  };
-  attributes: {
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::tour-setting.tour-setting'
-    > &
-      Schema.Attribute.Private;
-    publishedAt: Schema.Attribute.DateTime;
-    startRoom: Schema.Attribute.Relation<
-      'oneToOne',
-      'api::studio-room.studio-room'
-    >;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
   };
 }
 
@@ -1029,7 +873,6 @@ declare module '@strapi/strapi' {
     export interface ContentTypeSchemas {
       'admin::api-token': AdminApiToken;
       'admin::api-token-permission': AdminApiTokenPermission;
-      'admin::audit-log': AdminAuditLog;
       'admin::permission': AdminPermission;
       'admin::role': AdminRole;
       'admin::session': AdminSession;
@@ -1038,9 +881,6 @@ declare module '@strapi/strapi' {
       'admin::user': AdminUser;
       'api::course-topic.course-topic': ApiCourseTopicCourseTopic;
       'api::lesson.lesson': ApiLessonLesson;
-      'api::studio-hotspot.studio-hotspot': ApiStudioHotspotStudioHotspot;
-      'api::studio-room.studio-room': ApiStudioRoomStudioRoom;
-      'api::tour-setting.tour-setting': ApiTourSettingTourSetting;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;

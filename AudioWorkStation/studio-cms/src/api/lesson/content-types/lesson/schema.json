@@ -41,6 +41,12 @@
       "repeatable": false,
       "component": "shared.cloudflare-video"
     },
+    "model3d": {
+      "type": "component",
+      "repeatable": false,
+      "component": "shared.model-asset",
+      "description": "Rotatable 3D gear scan for this lesson (moved here from Course Topic so each lesson can carry its own model)."
+    },
     "topic": {
       "type": "relation",
       "relation": "manyToOne",
