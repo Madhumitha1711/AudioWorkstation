@@ -1,6 +1,7 @@
 import { Route, Routes, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import Header from "./components/Header";
+import RequireAuth from "./components/RequireAuth";
 import LandingPage from "./pages/LandingPage";
 import PaymentPage from "./pages/PaymentPage";
 import CoursePage from "./pages/CoursePage";
@@ -32,12 +33,37 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/payment" element={<PaymentPage />} />
-          <Route path="/course" element={<CoursePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/studio" element={<PanoramaTour />} />
-          <Route path="/discussion" element={<DiscussionPage />} />
+
+          {/* Member-only area — see RequireAuth.jsx. Matches the "studio
+              nav" bucket of routes in Header.jsx (STUDIO_NAV_PATHS). */}
+          <Route
+            path="/course"
+            element={
+              <RequireAuth>
+                <CoursePage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/studio"
+            element={
+              <RequireAuth>
+                <PanoramaTour />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/discussion"
+            element={
+              <RequireAuth>
+                <DiscussionPage />
+              </RequireAuth>
+            }
+          />
+
           <Route path="/panorama-test" element={<PanoramaImageTester />} />
           <Route path="/splat-test" element={<GaussianSplatTester />} />
           <Route path="/model-test" element={<ObjectModelTester />} />

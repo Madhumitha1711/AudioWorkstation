@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 
 // studio-backend proxies studio-cms (Strapi) so the browser never needs the
 // Strapi API token — see studio-backend/src/courses. Configure via
@@ -11,11 +12,19 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000
  * file now only exports the `buildStepList`/`firstStepIdForTopic` helpers,
  * which still work the same way against whatever topics this hook returns.
  *
+ * `/courses` now requires sign-in (studio-backend guards every route by
+ * default — see JwtAuthGuard/AuthModule), so this reads the token from the
+ * session slice and sends it as a Bearer header. CoursePage sits behind
+ * RequireAuth so a missing token here should only ever be momentary (right
+ * around log-off); this hook just declines to fetch rather than erroring in
+ * that case.
+ *
  * Returns `{ topics, loading, error, refetch }`. `topics` is `null` until
  * the first request resolves; `error` is a plain string message rather than
  * an Error instance, since it's meant to be rendered directly.
  */
 export function useCourseTopics() {
+  const token = useSelector((state) => state.session.token);
   const [topics, setTopics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -25,12 +34,25 @@ export function useCourseTopics() {
     let cancelled = false;
 
     async function load() {
+      if (!token) {
+        setTopics(null);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`${API_BASE_URL}/courses`);
+        const response = await fetch(`${API_BASE_URL}/courses`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (!response.ok) {
-          throw new Error(`studio-backend responded with ${response.status}`);
+          throw new Error(
+            response.status === 401
+              ? "Your session has expired — please sign in again."
+              : `studio-backend responded with ${response.status}`,
+          );
         }
         const data = await response.json();
         if (!cancelled) setTopics(data);
@@ -47,7 +69,7 @@ export function useCourseTopics() {
     return () => {
       cancelled = true;
     };
-  }, [reloadToken]);
+  }, [reloadToken, token]);
 
   const refetch = useCallback(() => setReloadToken((n) => n + 1), []);
 

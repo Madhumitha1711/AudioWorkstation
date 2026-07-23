@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { setSession, markPaid } from "../store/sessionSlice";
 import { initAudio, resumeAudio } from "../audio/spatialAudioEngine";
 import { signUp, googleAuth } from "../api/auth";
@@ -43,6 +43,7 @@ function SignupPage() {
   const [error, setError] = useState("");
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -51,6 +52,12 @@ function SignupPage() {
       mounted.current = false;
     };
   }, []);
+
+  // Same "send them back where they were headed" handoff as LoginPage —
+  // see RequireAuth.jsx. Reaches SignupPage either directly from
+  // RequireAuth's redirect, or via the "Create an account" link on
+  // LoginPage, which forwards the same state.
+  const from = location.state?.from?.pathname || "/studio";
 
   const runUnlockSequence = async () => {
     setPhase("granted");
@@ -75,7 +82,7 @@ function SignupPage() {
       }),
     );
     dispatch(markPaid());
-    navigate("/studio");
+    navigate(from, { replace: true });
   };
 
   const handleSubmit = async (e) => {
@@ -244,7 +251,10 @@ function SignupPage() {
           <GoogleAuthButton onCredential={handleGoogleCredential} onError={handleGoogleError} disabled={busy} />
 
           <div className="auth-fineprint">
-            Already a member? <Link to="/login">Sign in</Link>
+            Already a member?{" "}
+            <Link to="/login" state={location.state?.from ? { from: location.state.from } : undefined}>
+              Sign in
+            </Link>
           </div>
         </div>
       </div>

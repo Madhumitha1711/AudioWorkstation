@@ -54,6 +54,13 @@ function LoginPage() {
     };
   }, []);
 
+  // RequireAuth (see components/RequireAuth.jsx) redirects here with
+  // `state: { from: location }` when an unauthenticated visit to a
+  // member-only route (e.g. /studio) gets bounced — landing back on the
+  // page the student actually wanted instead of always dropping them at
+  // /studio.
+  const from = location.state?.from?.pathname || "/studio";
+
   // Runs the shared unlock → open → welcome beats once credentials (or a
   // Google credential) have actually been accepted by the server, then
   // hands the resolved session off to the caller to dispatch + navigate.
@@ -76,7 +83,7 @@ function LoginPage() {
         token: result.token,
       }),
     );
-    navigate("/studio");
+    navigate(from, { replace: true });
   };
 
   const handleSubmit = async (e) => {
@@ -212,7 +219,10 @@ function LoginPage() {
           <GoogleAuthButton onCredential={handleGoogleCredential} onError={handleGoogleError} disabled={busy} />
 
           <div className="auth-fineprint">
-            New to Studio VR? <Link to="/signup">Create an account</Link>
+            New to Studio VR?{" "}
+            <Link to="/signup" state={location.state?.from ? { from: location.state.from } : undefined}>
+              Create an account
+            </Link>
           </div>
         </div>
       </div>
