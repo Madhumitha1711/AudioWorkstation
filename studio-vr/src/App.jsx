@@ -6,6 +6,7 @@ import PaymentPage from "./pages/PaymentPage";
 import CoursePage from "./pages/CoursePage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import DiscussionPage from "./pages/DiscussionPage";
 import PanoramaTour from "./panorama/PanoramaTour";
 import PanoramaImageTester from "./panorama/PanoramaImageTester";
@@ -34,6 +35,7 @@ function App() {
           <Route path="/course" element={<CoursePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/studio" element={<PanoramaTour />} />
           <Route path="/discussion" element={<DiscussionPage />} />
           <Route path="/panorama-test" element={<PanoramaImageTester />} />

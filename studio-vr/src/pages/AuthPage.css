@@ -510,6 +510,111 @@
     color: var(--accent);
   }
 
+  /* A single row above the unlock button on LoginPage — kept out of
+     .auth-fineprint (which sits below the button) so "forgot your
+     passcode" reads as part of the form, not an afterthought under it. */
+  .auth-forgot-row {
+    display: flex;
+    justify-content: flex-end;
+    margin: -6px 0 13px;
+  }
+
+  .auth-link-inline {
+    font-size: 11.5px;
+    color: var(--text-dimmer);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .auth-link-inline:hover {
+    color: var(--accent);
+  }
+
+  /* A plain inline button styled as a text link — used where a link needs
+     to trigger JS (e.g. "Resend code") rather than navigate. */
+  .auth-link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+
+  .auth-link-btn:hover:not(:disabled) {
+    color: var(--accent);
+  }
+
+  .auth-link-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  /* Wide letter-spacing + centered digits for the 6-digit reset code, so it
+     reads like a code rather than a normal text field. */
+  .auth-code-field {
+    letter-spacing: 0.4em;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── "or" divider between the email/password form and Google Sign-In ── */
+  .auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 16px 0 14px;
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dimmer);
+  }
+
+  .auth-divider::before,
+  .auth-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border-soft);
+  }
+
+  /* Real Google button (rendered by @react-oauth/google once
+     VITE_GOOGLE_CLIENT_ID is set) gets a full-width wrapper so its own
+     iframe sizes consistently with the rest of the panel. */
+  .auth-google-wrap {
+    display: flex;
+    justify-content: center;
+  }
+
+  .auth-google-wrap.is-disabled {
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  /* Disabled placeholder shown until VITE_GOOGLE_CLIENT_ID is configured —
+     see GoogleAuthButton.jsx. Styled to sit quietly among the real buttons
+     rather than drawing attention to a feature that isn't wired up yet. */
+  .auth-google-btn {
+    width: 100%;
+    padding: 10px 0;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text-dimmer);
+    font-weight: 600;
+    font-size: 13px;
+    cursor: default;
+  }
+
+  /* Forgot-password page has no door, just the panel centered on its own —
+     .auth-stage normally splits width between door + panel via flex/gap. */
+  .auth-stage.auth-stage-solo {
+    gap: 0;
+  }
+
   /* ══════════════════════ WELCOME OVERLAY ══════════════════════ */
   .auth-welcome {
     position: absolute;
@@ -717,4 +822,8 @@
 
 :root[data-theme="light"] .svr-auth .auth-welcome h1 {
   color: #0c130f;
+}
+
+:root[data-theme="light"] .svr-auth .auth-google-btn {
+  background: rgba(4, 20, 12, 0.04);
 }

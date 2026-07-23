@@ -1,18 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate, Link } from "react-router-dom";
-import { setStudentName } from "../store/sessionSlice";
-import { setEmail as setCheckoutEmail, setFullName } from "../store/checkoutSlice";
+import { setSession, markPaid } from "../store/sessionSlice";
 import { initAudio, resumeAudio } from "../audio/spatialAudioEngine";
+import { signUp, googleAuth } from "../api/auth";
 import StudioDoor from "../components/StudioDoor";
+import GoogleAuthButton from "../components/GoogleAuthButton";
 import "./AuthPage.css";
 
 // Same sequence timings as LoginPage, kept in lockstep so both doors feel
-// like one consistent mechanism.
-const VERIFY_MS = 900;
+// like one consistent mechanism. See LoginPage.jsx for why MIN_VERIFY_MS is
+// a floor raced against the real signup API call rather than a fixed delay.
+const MIN_VERIFY_MS = 900;
 const OPEN_MS = 550;
 const WELCOME_MS = 1050;
 const NAVIGATE_MS = 900;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 // The header's own nav already carries a theme toggle on this route, so
 // this page only needs a way back — rendered as a proper icon button
@@ -34,15 +40,58 @@ function SignupPage() {
   const [confirm, setConfirm] = useState("");
   const [phase, setPhase] = useState("idle"); // idle | verifying | granted | opening
   const [showWelcome, setShowWelcome] = useState(false);
+  const [error, setError] = useState("");
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const timers = useRef([]);
+  const mounted = useRef(true);
 
-  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
-  const handleSubmit = (e) => {
+  const runUnlockSequence = async () => {
+    setPhase("granted");
+    await sleep(OPEN_MS);
+    if (!mounted.current) return false;
+    setPhase("opening");
+    await sleep(WELCOME_MS);
+    if (!mounted.current) return false;
+    setShowWelcome(true);
+    await sleep(NAVIGATE_MS);
+    return mounted.current;
+  };
+
+  // Payment is out of scope for now (see PaymentPage.jsx's checkout
+  // hand-off comment) — a new account goes straight into the studio with
+  // full access instead of being routed through checkout first.
+  const finishSignup = (result, fallbackName) => {
+    dispatch(
+      setSession({
+        studentName: result.user.username || fallbackName,
+        token: result.token,
+      }),
+    );
+    dispatch(markPaid());
+    navigate("/studio");
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (phase !== "idle") return;
+
+    setError("");
+
+    if (password.length < 6) {
+      setError("Passcode must be at least 6 characters.");
+      return;
+    }
+    if (password !== confirm) {
+      setError("Passcodes don't match.");
+      return;
+    }
 
     // Browsers only allow audio to start from within a real user gesture —
     // this click is the most reliable place to unlock it for the whole app.
@@ -50,24 +99,54 @@ function SignupPage() {
     resumeAudio();
 
     setPhase("verifying");
-    let t = VERIFY_MS;
-    timers.current.push(setTimeout(() => setPhase("granted"), t));
-    t += OPEN_MS;
-    timers.current.push(setTimeout(() => setPhase("opening"), t));
-    t += WELCOME_MS;
-    timers.current.push(setTimeout(() => setShowWelcome(true), t));
-    t += NAVIGATE_MS;
-    timers.current.push(
-      setTimeout(() => {
-        const trimmedName = name.trim();
-        dispatch(setStudentName(trimmedName || email.split("@")[0] || "Student"));
-        // Hand the new account details to checkout so PaymentPage opens
-        // pre-filled instead of asking the person to type them twice.
-        dispatch(setFullName(trimmedName));
-        dispatch(setCheckoutEmail(email));
-        navigate("/payment");
-      }, t)
-    );
+
+    const trimmedName = name.trim();
+    let result;
+    try {
+      [result] = await Promise.all([
+        signUp({ email, password, username: trimmedName || undefined }),
+        sleep(MIN_VERIFY_MS),
+      ]);
+    } catch (err) {
+      if (mounted.current) {
+        // studio-backend's AuthService rejects a duplicate email with
+        // "User already in database" — surfaced here verbatim.
+        setError(err.message || "Couldn't create your account. Please try again.");
+        setPhase("idle");
+      }
+      return;
+    }
+
+    const ok = await runUnlockSequence();
+    if (!ok) return;
+    finishSignup(result, trimmedName || email.split("@")[0] || "Student");
+  };
+
+  const handleGoogleCredential = async (idToken) => {
+    if (phase !== "idle") return;
+    initAudio();
+    resumeAudio();
+    setError("");
+    setPhase("verifying");
+
+    let result;
+    try {
+      [result] = await Promise.all([googleAuth(idToken), sleep(MIN_VERIFY_MS)]);
+    } catch (err) {
+      if (mounted.current) {
+        setError(err.message || "Google sign-up failed. Please try again.");
+        setPhase("idle");
+      }
+      return;
+    }
+
+    const ok = await runUnlockSequence();
+    if (!ok) return;
+    finishSignup(result, result.user.email.split("@")[0] || "Student");
+  };
+
+  const handleGoogleError = (message) => {
+    setError(message);
   };
 
   const busy = phase !== "idle";
@@ -95,7 +174,7 @@ function SignupPage() {
 
           <form onSubmit={handleSubmit} noValidate>
             <label className="auth-field-label" htmlFor="signup-name">
-              Full name
+              Username (optional)
             </label>
             <input
               id="signup-name"
@@ -151,12 +230,18 @@ function SignupPage() {
               {busy ? "Unlocking…" : "Request access →"}
             </button>
 
-            <div className={`auth-readout${phase === "granted" || phase === "opening" ? " success" : ""}`}>
-              {phase === "idle" && "Panel ready"}
+            <div className={`auth-readout${error ? " error" : ""}${phase === "granted" || phase === "opening" ? " success" : ""}`}>
+              {phase === "idle" && (error || "Panel ready")}
               {phase === "verifying" && "Creating your key…"}
               {(phase === "granted" || phase === "opening") && "Access granted"}
             </div>
           </form>
+
+          <div className="auth-divider">
+            <span>or</span>
+          </div>
+
+          <GoogleAuthButton onCredential={handleGoogleCredential} onError={handleGoogleError} disabled={busy} />
 
           <div className="auth-fineprint">
             Already a member? <Link to="/login">Sign in</Link>
@@ -166,7 +251,7 @@ function SignupPage() {
 
       <div className={`auth-welcome${showWelcome ? " show" : ""}`}>
         <h1>Welcome to Studio VR.</h1>
-        <p>Continuing to checkout →</p>
+        <p>Entering the studio →</p>
       </div>
     </div>
   );
