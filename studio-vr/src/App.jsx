@@ -4,6 +4,7 @@ import Header from "./components/Header";
 import RequireAuth from "./components/RequireAuth";
 import LandingPage from "./pages/LandingPage";
 import PaymentPage from "./pages/PaymentPage";
+import PaymentCompletePage from "./pages/PaymentCompletePage";
 import CoursePage from "./pages/CoursePage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
@@ -33,6 +34,7 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/payment" element={<PaymentPage />} />
+          <Route path="/payment/complete" element={<PaymentCompletePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />

@@ -8,6 +8,7 @@ import { LoginDto } from './dto/login.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SignUpDto } from './dto/sign-up.dto';
 import { Public } from './public.decorator';
+import { SkipPayment } from './skip-payment.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -57,7 +58,11 @@ export class AuthController {
   }
 
   // Not marked @Public() — requires a valid token like every other route
-  // now that JwtAuthGuard is applied app-wide.
+  // now that JwtAuthGuard is applied app-wide. It *is* marked @SkipPayment()
+  // though: the frontend calls this right after signup/login to decide
+  // whether to route the student to /payment or straight into the studio,
+  // so it has to work before hasAccess is true.
+  @SkipPayment()
   @Get('me')
   me(@CurrentUser() user: User) {
     return {
@@ -66,6 +71,8 @@ export class AuthController {
       username: user.username,
       hasPassword: Boolean(user.passwordHash),
       hasGoogle: Boolean(user.googleId),
+      hasPaid: user.hasAccess,
+      role: user.role,
     };
   }
 }

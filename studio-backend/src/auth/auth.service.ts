@@ -21,6 +21,15 @@ export interface PublicUser {
   username: string | null;
   hasPassword: boolean;
   hasGoogle: boolean;
+  // Drives the frontend's post-signup/login redirect (payment screen vs.
+  // straight into the studio) — see LoginPage/SignupPage. Reports
+  // user.hasAccess (a real payment OR an admin account), not the raw
+  // hasPaid column, so an admin never gets routed to /payment. The backend
+  // itself never trusts this field coming back from a client; it's
+  // read-only output here, enforced independently by JwtAuthGuard on
+  // every request.
+  hasPaid: boolean;
+  role: 'user' | 'admin';
 }
 
 export interface AuthResult {
@@ -31,6 +40,7 @@ export interface AuthResult {
 @Injectable()
 export class AuthService {
   private readonly googleClient: OAuth2Client;
+  private readonly adminEmails: Set<string>;
 
   constructor(
     private readonly usersService: UsersService,
@@ -41,6 +51,27 @@ export class AuthService {
     this.googleClient = new OAuth2Client(
       this.config.get<string>('GOOGLE_CLIENT_ID'),
     );
+    this.adminEmails = new Set(
+      this.config
+        .get<string>('ADMIN_EMAILS', '')
+        .split(',')
+        .map((email) => email.trim().toLowerCase())
+        .filter(Boolean),
+    );
+  }
+
+  // Promotes a user to admin the first time they authenticate with an
+  // email listed in ADMIN_EMAILS (studio-backend/.env) — checked on every
+  // signup/login/Google sign-in rather than only at signup, so adding an
+  // email to that list takes effect on that account's very next sign-in
+  // without touching the database directly. Deliberately promote-only:
+  // removing an email from the list stops *new* promotions, it doesn't
+  // revoke admin from an account that already has it.
+  private async syncAdminRole(user: User): Promise<User> {
+    if (user.role === 'admin') return user;
+    if (!this.adminEmails.has(user.email.toLowerCase())) return user;
+    user.role = 'admin';
+    return this.usersService.save(user);
   }
 
   private toPublicUser(user: User): PublicUser {
@@ -50,6 +81,8 @@ export class AuthService {
       username: user.username,
       hasPassword: Boolean(user.passwordHash),
       hasGoogle: Boolean(user.googleId),
+      hasPaid: user.hasAccess,
+      role: user.role,
     };
   }
 
@@ -71,11 +104,12 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-    const user = await this.usersService.create({
+    let user = await this.usersService.create({
       email,
       username: username?.trim() || null,
       passwordHash,
     });
+    user = await this.syncAdminRole(user);
 
     return { token: this.issueToken(user), user: this.toPublicUser(user) };
   }
@@ -91,7 +125,8 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    return { token: this.issueToken(user), user: this.toPublicUser(user) };
+    const synced = await this.syncAdminRole(user);
+    return { token: this.issueToken(synced), user: this.toPublicUser(synced) };
   }
 
   async loginWithGoogle(idToken: string): Promise<AuthResult> {
@@ -137,6 +172,7 @@ export class AuthService {
       });
     }
 
+    user = await this.syncAdminRole(user);
     return { token: this.issueToken(user), user: this.toPublicUser(user) };
   }
 

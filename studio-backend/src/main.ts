@@ -4,7 +4,12 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // rawBody: true keeps the exact request bytes available on req.rawBody
+  // alongside the normal JSON-parsed body — needed by PaymentsController's
+  // webhook routes, whose signature verification (RazorpayGateway /
+  // StripeGateway .verifyWebhook) is computed over the raw payload the
+  // gateway sent, not a re-serialized copy of it.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const config = app.get(ConfigService);
 
   // studio-vr (the Vite dev server / eventual static host) calls this API

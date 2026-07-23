@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate, Link, useLocation } from "react-router-dom";
-import { setSession, markPaid } from "../store/sessionSlice";
+import { setSession } from "../store/sessionSlice";
 import { initAudio, resumeAudio } from "../audio/spatialAudioEngine";
 import { signUp, googleAuth } from "../api/auth";
 import StudioDoor from "../components/StudioDoor";
@@ -71,17 +71,23 @@ function SignupPage() {
     return mounted.current;
   };
 
-  // Payment is out of scope for now (see PaymentPage.jsx's checkout
-  // hand-off comment) — a new account goes straight into the studio with
-  // full access instead of being routed through checkout first.
+  // Every new account starts unpaid — studio-backend's User.hasPaid
+  // defaults to false, and JwtAuthGuard blocks every route other than
+  // @Public()/@SkipPayment() ones until it's set. So a fresh signup always
+  // goes to /payment next, never straight into the studio.
   const finishSignup = (result, fallbackName) => {
     dispatch(
       setSession({
         studentName: result.user.username || fallbackName,
+        email: result.user.email,
         token: result.token,
+        hasPaid: result.user.hasPaid,
       }),
     );
-    dispatch(markPaid());
+    if (!result.user.hasPaid) {
+      navigate("/payment", { replace: true, state: { from: location.state?.from } });
+      return;
+    }
     navigate(from, { replace: true });
   };
 

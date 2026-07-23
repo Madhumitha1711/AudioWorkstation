@@ -7,6 +7,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+export type UserRole = 'user' | 'admin';
+
 // A single account can be created with a password, with Google Sign-In, or
 // end up with both (see AuthService.loginWithGoogle, which links a Google
 // identity onto an existing password account with the same email instead of
@@ -48,9 +50,38 @@ export class User {
   @Column({ type: 'timestamptz', nullable: true })
   resetCodeExpiresAt: Date | null;
 
+  // --- Payment gate: every authenticated route other than the handful
+  // marked @SkipPayment() requires hasAccess to be true (see
+  // JwtAuthGuard). hasPaid is set once by PaymentsService after a gateway
+  // (Razorpay/Stripe) confirms the one-time lifetime-access purchase —
+  // never trust a client-supplied flag for this. ---
+  @Column({ default: false })
+  hasPaid: boolean;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  paidAt: Date | null;
+
+  // Only ever set to 'admin' by AuthService.syncAdminRole(), which promotes
+  // an account the first time it authenticates with an email listed in
+  // ADMIN_EMAILS (studio-backend/.env) — see that method for why this is
+  // promote-only (removing an email from the list doesn't auto-demote an
+  // account that already has it).
+  @Column({ default: 'user' })
+  role: UserRole;
+
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  // Single source of truth for "does this account get past the payment
+  // gate" — a real purchase (hasPaid) or an admin account (role==='admin')
+  // both count. JwtAuthGuard, PaymentsService, and AuthService.toPublicUser
+  // all read this instead of `hasPaid` directly, so admin bypass logic
+  // lives in exactly one place rather than being duplicated (and
+  // potentially missed) at each call site.
+  get hasAccess(): boolean {
+    return this.hasPaid || this.role === 'admin';
+  }
 }

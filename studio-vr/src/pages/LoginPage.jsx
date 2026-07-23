@@ -80,9 +80,19 @@ function LoginPage() {
     dispatch(
       setSession({
         studentName: result.user.username || fallbackName,
+        email: result.user.email,
         token: result.token,
+        hasPaid: result.user.hasPaid,
       }),
     );
+    // Signed in but never paid (or paid, then logged off, then back in) —
+    // send them to checkout instead of wherever they were headed. Carry
+    // `from` through so PaymentPage can still land them on the right route
+    // once payment completes, instead of always dropping them at /studio.
+    if (!result.user.hasPaid) {
+      navigate("/payment", { replace: true, state: { from: location.state?.from } });
+      return;
+    }
     navigate(from, { replace: true });
   };
 
