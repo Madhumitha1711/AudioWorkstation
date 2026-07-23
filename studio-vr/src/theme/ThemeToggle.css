@@ -1,0 +1,55 @@
+/* Animation-only styles for the theme toggle button. Deliberately scoped to
+   brand-new class names (svr-theme-toggle / svr-theme-toggle-icon) rather
+   than the pre-existing "theme-toggle-btn" that CoursePage.css / PaymentPage.css
+   / LandingPage.css already define per-page (sizing, border, background) —
+   this file only adds hover/press feedback and the icon-swap animation, so
+   it layers on top of every page's own button chrome without fighting it. */
+
+.svr-theme-toggle {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease,
+    transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.svr-theme-toggle:hover {
+  transform: translateY(-1px) scale(1.06);
+}
+
+.svr-theme-toggle:active {
+  transform: scale(0.86);
+  transition-duration: 0.08s;
+}
+
+.svr-theme-toggle:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.svr-theme-toggle-icon {
+  display: inline-flex;
+}
+
+/* The sun/moon icon swap re-mounts (React key={theme}) rather than
+   cross-fading in place, so each swap can play a little entrance flourish —
+   a quick spin-and-settle with a touch of overshoot — instead of just
+   popping. Respect prefers-reduced-motion by only animating when the user
+   hasn't asked for less motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .svr-theme-toggle-icon {
+    animation: svr-theme-icon-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+}
+
+@keyframes svr-theme-icon-in {
+  from {
+    transform: rotate(-100deg) scale(0.35);
+    opacity: 0;
+  }
+  60% {
+    transform: rotate(10deg) scale(1.12);
+    opacity: 1;
+  }
+  to {
+    transform: rotate(0deg) scale(1);
+    opacity: 1;
+  }
+}

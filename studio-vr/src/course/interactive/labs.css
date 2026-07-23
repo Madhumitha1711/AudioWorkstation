@@ -1,0 +1,394 @@
+.lab {
+  /* No width cap — let the lab (and its 3D canvas) fill the same width as
+     the rest of the course content instead of leaving dead space on wide
+     screens. Prose bits inside individual labs still get their own
+     comfortable max-width via .lab-intro below. */
+  max-width: none;
+}
+
+.lab-section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  margin-bottom: 16px;
+}
+.lab-section-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-soft);
+}
+
+.lab-divider {
+  height: 1px;
+  background: var(--border-soft);
+  margin: 28px 0 24px;
+}
+
+.lab-intro {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-dim);
+  margin: 0 0 22px;
+  max-width: 720px;
+}
+
+.lab-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.lab-control-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dimmer);
+  margin-bottom: 10px;
+}
+
+.lab-toggle-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lab-toggle {
+  padding: 11px 18px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.lab-toggle:hover {
+  border-color: rgba(125, 255, 184, 0.35);
+  color: var(--text);
+}
+.lab-toggle.selected {
+  border-color: var(--accent);
+  background: rgba(125, 255, 184, 0.08);
+  color: var(--accent);
+}
+
+.lab-result {
+  border-radius: 12px;
+  border: 1px solid var(--border-soft);
+  background: var(--panel);
+  padding: 18px 20px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--text-dim);
+  min-height: 24px;
+}
+.lab-result.good {
+  border-color: rgba(125, 255, 184, 0.3);
+  background: rgba(125, 255, 184, 0.05);
+  color: var(--text);
+}
+.lab-result.caution {
+  border-color: rgba(255, 184, 107, 0.4);
+  background: rgba(255, 184, 107, 0.06);
+  color: var(--text);
+}
+.lab-result-empty {
+  color: var(--text-dimmer);
+  font-style: italic;
+}
+
+.lab-hint {
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--text-dimmer);
+}
+
+.lab-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+/* --- DAW comping grid --- */
+.comp-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.comp-grid-row {
+  display: grid;
+  grid-template-columns: 96px repeat(3, 1fr);
+  gap: 6px;
+  align-items: stretch;
+}
+
+.comp-grid-header {
+  margin-bottom: 2px;
+}
+
+.comp-row-label {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dimmer);
+}
+
+.comp-col-label {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dimmer);
+  padding-bottom: 4px;
+}
+
+.comp-cell {
+  height: 46px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.comp-cell:hover {
+  border-color: rgba(125, 255, 184, 0.35);
+}
+.comp-cell.selected {
+  border-color: var(--accent);
+  background: rgba(125, 255, 184, 0.12);
+}
+
+.comp-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+.comp-result-label {
+  font-weight: 700;
+  color: var(--text-dimmer);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+
+.comp-result-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+}
+
+/* --- Sweet Spot 3D lab --- */
+.sweet-spot-canvas-wrap {
+  position: relative;
+  width: 100%;
+  /* Scales with the now-uncapped .lab width instead of a flat 340px, so
+     the 3D view actually grows on wide screens rather than just getting
+     wider and staying just as short. */
+  aspect-ratio: 16 / 7;
+  min-height: 340px;
+  max-height: 560px;
+  border-radius: 12px;
+  border: 1px solid var(--border-soft);
+  background: #08080a;
+  overflow: hidden;
+  touch-action: none;
+  margin-bottom: 14px;
+}
+
+.sweet-spot-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+
+.sweet-spot-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-dimmer);
+  font-size: 13px;
+  text-align: center;
+  padding: 0 20px;
+}
+
+.sweet-spot-hint {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--text-dimmer);
+  background: rgba(5, 5, 7, 0.75);
+  border: 1px solid var(--border-soft);
+  padding: 5px 11px;
+  border-radius: 999px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.sweet-spot-readouts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.sweet-spot-readout {
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+  background: var(--panel);
+  padding: 11px 14px;
+}
+.sweet-spot-readout .lbl {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dimmer);
+  margin-bottom: 6px;
+}
+.sweet-spot-readout .v {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.sweet-spot-readout .v.small {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.sweet-spot-readout.good .v {
+  color: var(--accent);
+}
+.sweet-spot-readout.caution .v {
+  color: #ffb86b;
+}
+.sweet-spot-readout.bad .v {
+  color: #ff8080;
+}
+
+.sweet-spot-readout-toe {
+  margin: 12px 0 20px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.lab-control-value {
+  color: var(--accent);
+  font-weight: 700;
+  margin-left: 6px;
+}
+
+.lab-slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+  margin-top: 6px;
+}
+.lab-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #050507;
+  box-shadow: 0 0 0 1px var(--accent);
+  cursor: pointer;
+}
+.lab-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #050507;
+  cursor: pointer;
+}
+
+.sweet-spot-audio-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  cursor: pointer;
+  background: rgba(125, 255, 184, 0.08);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 13px;
+  border: 1px solid rgba(125, 255, 184, 0.3);
+  transition: background 0.2s ease;
+  font-family: inherit;
+}
+.sweet-spot-audio-btn:hover {
+  background: rgba(125, 255, 184, 0.14);
+}
+.sweet-spot-audio-btn.playing {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.lab-file-change {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-dimmer);
+  font-size: 11.5px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.lab-file-change:hover {
+  color: var(--accent);
+}
+
+.lab-upload-error {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: #ff8080;
+}
+
+/* ── Light theme ─────────────────────────────────────────────────────────
+   The two spots below hardcode a translucent-white tint meant to sit on a
+   dark page background; on light backgrounds that's nearly invisible, so
+   flip it to a translucent-dark tint instead. The 3D sweet-spot viewport
+   (.sweet-spot-canvas-wrap) intentionally stays dark in both themes, like
+   any WebGL/3D viewport convention. */
+:root[data-theme='light'] .svr-course .lab {
+  .lab-toggle,
+  .comp-cell {
+    background: rgba(4, 20, 12, 0.04);
+  }
+}

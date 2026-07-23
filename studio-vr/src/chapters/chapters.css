@@ -1,0 +1,2043 @@
+/* Scoped styles for the ported Faust chapter labs (Equalizer, Compressor,
+   Reverb, etc.) and their shared widgets (Knob, Fader, FaustPanel).
+   Everything below is namespaced under .chapter-lab so it can't leak into
+   the rest of the app (landing page, course chrome, payment/login) the way
+   an unscoped global stylesheet would. */
+
+
+/* ── Google Fonts ─────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ── Design tokens ────────────────────────────────────────────────────────── */
+
+.chapter-lab {
+  color: var(--text);
+  font-family: var(--body);
+  line-height: 1.6;
+
+  & , & *, & *::before, & *::after { box-sizing: border-box; }
+  --black:        #0D0D0F;
+  --console:      #141418;
+  --panel:        #1A1A22;
+  --surface:      #22222E;
+  --border:       #2E2E3D;
+  --border-bright:#3D3D52;
+
+  --amber:        #F5A623;
+  --amber-dim:    rgba(245,166,35,0.15);
+  --amber-glow:   rgba(245,166,35,0.4);
+
+  --green:        #00FF87;
+  --green-dim:    rgba(0,255,135,0.12);
+
+  --blue:         #4D9EFF;
+  --blue-dim:     rgba(77,158,255,0.15);
+
+  --red:          #FF4D6A;
+  --red-dim:      rgba(255,77,106,0.15);
+
+  --purple:       #A78BFA;
+  --purple-dim:   rgba(167,139,250,0.15);
+
+  --sat:          #FF7A45;
+  --sat-dim:      rgba(255,122,69,0.15);
+  --sat-glow:     rgba(255,122,69,0.4);
+
+  --teal:         #2DD4BF;
+  --teal-dim:     rgba(45,212,191,0.15);
+  --teal-glow:    rgba(45,212,191,0.4);
+
+  --text:         #E8E8EC;
+  --text-dim:     #8A8A9A;
+  --text-faint:   #4A4A5A;
+
+  --mono:    'JetBrains Mono', monospace;
+  --display: 'Space Grotesk', sans-serif;
+  --body:    'Inter', sans-serif;
+}
+
+/* ── Light theme ──────────────────────────────────────────────────────────
+   Flips the rack chassis (console/panel/surface/border/text) to a light
+   palette. --black stays dark in both themes — every rule that uses it is
+   an oscilloscope/meter/graph "screen", and those read as lit displays
+   (like real hardware, or any DAW's light-mode metering) rather than page
+   background, so they intentionally don't follow the rest of the flip. */
+:root[data-theme='light'] .chapter-lab {
+  /* Elevation now reads bottom-to-top as console (recessed) → panel (shell)
+     → surface (raised — inputs, inactive tab fills), each step lighter, the
+     same direction as the dark palette. --border/--border-bright are kept
+     a clear ~15-25% darker than --surface so tabs/inputs/dividers actually
+     read as bordered chips instead of blending into the panel — the first
+     pass here was too close in lightness across the board and washed out. */
+  --console:      #e7eae1;
+  --panel:        #f0f2eb;
+  --surface:      #f9faf6;
+  --border:       #c6cbbe;
+  --border-bright:#98a08c;
+
+  --text:         #12140f;
+  --text-dim:     #565b52;
+  --text-faint:   #838a7c;
+
+  /* The module accent colors are pastel/neon tones tuned to glow on a dark
+     rack — as text or borders on the new light chassis they're too low
+     contrast, so each gets a deeper, more saturated equivalent here. */
+  --amber:  #ad6a12;
+  --green:  #0f9d58;
+  --blue:   #2563eb;
+  --red:    #c0293f;
+  --purple: #7c3aed;
+  --sat:    #c2521f;
+  --teal:   #0f9488;
+
+  /* The -dim/-glow translucent variants were originally left at their dark-
+     theme opacity, on the assumption a faint tint still reads over a light
+     panel — in practice an active plugin tile or "is-on" chip (background:
+     var(--*-dim)) washes out almost to invisible over the new light
+     --surface/--panel, so each gets bumped to a stronger tint built from
+     its (already-darkened) light accent above instead of the neon dark-mode
+     hex, so selected/active states stay legible on the light chassis. */
+  --amber-dim:  rgba(173, 106, 18, 0.24);
+  --amber-glow: rgba(173, 106, 18, 0.5);
+  --green-dim:  rgba(15, 157, 88, 0.22);
+  --green-glow: rgba(15, 157, 88, 0.45);
+  --blue-dim:   rgba(37, 99, 235, 0.2);
+  --blue-glow:  rgba(37, 99, 235, 0.45);
+  --red-dim:    rgba(192, 41, 63, 0.22);
+  --red-glow:   rgba(192, 41, 63, 0.45);
+  --purple-dim: rgba(124, 58, 237, 0.2);
+  --purple-glow:rgba(124, 58, 237, 0.45);
+  --sat-dim:    rgba(194, 82, 31, 0.22);
+  --sat-glow:   rgba(194, 82, 31, 0.45);
+  --teal-dim:   rgba(15, 148, 136, 0.22);
+  --teal-glow:  rgba(15, 148, 136, 0.45);
+
+  /* Physical control knobs: a light brushed-metal gradient instead of the
+     dark plastic/metal one (same call as the shared Knob.jsx component and
+     Equalizer.jsx's own local Knob) — matches a light-mode DAW's knurled
+     aluminum knobs rather than leaving them as black discs on a light rack. */
+  .big-knob { background: radial-gradient(circle at 35% 35%, #fbfcf8, #ccd2c2); box-shadow: 0 2px 6px rgba(18,20,15,0.18), inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -3px 5px rgba(18,20,15,0.08); }
+  .sat-knob { background: radial-gradient(circle at 35% 35%, #fdf8f3, #ddc9b6); box-shadow: 0 2px 6px rgba(18,20,15,0.18), inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -3px 5px rgba(18,20,15,0.08); }
+  .pan-knob { background: radial-gradient(circle at 35% 35%, #fbfcf8, #cfd3d9); }
+
+  /* .btn-primary pairs a near-black label with a bright amber fill — keep
+     that fill at full brightness even though --amber itself was darkened
+     above for text/border contrast elsewhere, so the dark label stays
+     legible on it. */
+  .btn-primary {
+    background: #f5a623;
+  }
+  .btn-primary:hover {
+    background: #ffb83d;
+  }
+}
+
+/* ── Reset ────────────────────────────────────────────────────────────────── */
+
+/* ── App shell ────────────────────────────────────────────────────────────── */
+
+/* ── Site header ──────────────────────────────────────────────────────────── */
+
+/* ── Top tab bar (chapter switcher) ──────────────────────────────────────── */
+
+/* ── Chapter divider ──────────────────────────────────────────────────────── */
+
+/* ── Screen wrapper ───────────────────────────────────────────────────────── */
+
+/* ════════════════════════════════════════════════════════════════════
+   CHAPTER 1 — WAVEFORM BUILDER
+════════════════════════════════════════════════════════════════════ */
+
+.chapter-lab .waveform-lab {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Top bar */
+
+.chapter-lab .lab-topbar {
+  background: var(--console);
+  border-bottom: 1px solid var(--border);
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chapter-lab .lab-title-row { display: flex; align-items: center; gap: 0.75rem; }
+
+.chapter-lab .lab-icon {
+  width: 28px; height: 28px;
+  background: var(--amber-dim);
+  border: 1px solid var(--amber-glow);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+}
+
+.chapter-lab .lab-name { font-family: var(--display); font-size: 0.875rem; font-weight: 600; }
+
+.chapter-lab .lab-subtitle { font-family: var(--mono); font-size: 0.6rem; color: var(--text-dim); letter-spacing: 0.08em; }
+
+.chapter-lab .lab-status {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--green);
+}
+
+.chapter-lab .status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: chapterLabPulse 2s ease infinite;
+}
+
+@keyframes chapterLabPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* Body layout */
+
+.chapter-lab .waveform-body { display: grid; grid-template-columns: 1fr 280px; }
+
+/* Left pane */
+
+.chapter-lab .waveform-canvas-area { padding: 1.5rem; border-right: 1px solid var(--border); }
+
+.chapter-lab .canvas-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-faint);
+  letter-spacing: 0.1em;
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+}
+
+/* Oscilloscope frame */
+
+.chapter-lab .waveform-display {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  height: 140px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.chapter-lab .axis-label-y {
+  position: absolute;
+  left: 6px;
+  font-family: var(--mono);
+  font-size: 0.5rem;
+  color: var(--text-faint);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.chapter-lab .axis-label-y.top { top: 6px; }
+
+.chapter-lab .axis-label-y.mid { top: 50%; transform: translateY(-50%); }
+
+.chapter-lab .axis-label-y.bot { bottom: 6px; }
+
+/* Wave type buttons */
+
+.chapter-lab .wave-type-row { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+
+.chapter-lab .wave-btn {
+  flex: 1;
+  padding: 0.5rem 0.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+  transition: all 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.chapter-lab .wave-btn.active { background: var(--amber-dim); border-color: var(--amber); color: var(--amber); }
+
+.chapter-lab .wave-btn:hover:not(.active) { border-color: var(--border-bright); color: var(--text); }
+
+.chapter-lab .wave-shape { height: 20px; width: 36px; }
+
+/* Parameter sliders */
+
+.chapter-lab .param-sliders { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+.chapter-lab .param-group { display: flex; flex-direction: column; gap: 0.35rem; }
+
+.chapter-lab .param-label {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.chapter-lab .param-val { color: var(--amber); }
+
+.chapter-lab .param-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.chapter-lab .param-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 8px var(--amber-glow);
+  cursor: pointer;
+}
+
+/* Right pane — sidebar */
+
+.chapter-lab .waveform-sidebar { padding: 1.25rem; display: flex; flex-direction: column; gap: 1.25rem; }
+
+/* VU meter */
+
+.chapter-lab .meter-block { display: flex; flex-direction: column; gap: 0.6rem; }
+
+.chapter-lab .meter-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.chapter-lab .vu-meter { display: flex; gap: 3px; align-items: flex-end; height: 50px; }
+
+.chapter-lab .vu-bar { flex: 1; border-radius: 2px 2px 0 0; min-height: 2px; }
+
+.chapter-lab .vu-bar.green { background: var(--green); box-shadow: 0 0 4px rgba(0,255,135,0.4); }
+
+.chapter-lab .vu-bar.amber { background: var(--amber); box-shadow: 0 0 4px rgba(245,166,35,0.4); }
+
+.chapter-lab .vu-bar.red { background: var(--red);   box-shadow: 0 0 4px rgba(255,77,106,0.4); }
+
+.chapter-lab .meter-sublabel { color: var(--text-faint); font-size: 0.5rem; font-weight: 400; }
+
+.chapter-lab .vu-legend { display: flex; gap: 0.5rem; margin-top: 0.25rem; }
+
+.chapter-lab .vu-legend-item { font-family: var(--mono); font-size: 0.5rem; letter-spacing: 0.04em; }
+
+.chapter-lab .vu-legend-item.green { color: var(--green); }
+
+.chapter-lab .vu-legend-item.amber { color: var(--amber); }
+
+.chapter-lab .vu-legend-item.red { color: var(--red); }
+
+/* Frequency readout */
+
+.chapter-lab .freq-readout {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.75rem;
+  font-family: var(--mono);
+}
+
+.chapter-lab .freq-big { font-size: 1.5rem; color: var(--green); font-weight: 500; letter-spacing: 0.02em; }
+
+.chapter-lab .freq-unit { font-size: 0.65rem; color: var(--text-dim); margin-left: 0.25rem; }
+
+.chapter-lab .freq-row { display: flex; justify-content: space-between; margin-top: 0.5rem; }
+
+.chapter-lab .freq-item { text-align: center; }
+
+.chapter-lab .freq-item-val { font-size: 0.75rem; color: var(--blue); }
+
+.chapter-lab .freq-item-lbl { font-size: 0.5rem; color: var(--text-faint); letter-spacing: 0.08em; text-transform: uppercase; }
+
+.chapter-lab .freq-item-sub { font-size: 0.45rem; color: var(--text-faint); opacity: 0.6; margin-top: 1px; }
+
+/* Concept callout */
+
+.chapter-lab .concept-callout {
+  background: var(--green-dim);
+  border: 1px solid rgba(0,255,135,0.2);
+  border-radius: 4px;
+  padding: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.chapter-lab .concept-callout strong { color: var(--green); font-weight: 500; }
+
+/* Task list */
+
+.chapter-lab .task-list { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.chapter-lab .task-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.chapter-lab .task-check {
+  width: 14px; height: 14px;
+  border-radius: 3px;
+  border: 1.5px solid var(--border-bright);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.5rem;
+  color: var(--green);
+}
+
+.chapter-lab .task-check.done { background: var(--green-dim); border-color: var(--green); }
+
+/* Lab footer */
+
+.chapter-lab .lab-footer {
+  border-top: 1px solid var(--border);
+  padding: 0.875rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--console);
+}
+
+.chapter-lab .hint-text {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.chapter-lab .hint-key {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.1rem 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+}
+
+.chapter-lab .btn-row { display: flex; gap: 0.5rem; }
+
+/* ═══════════════════════════════════════════
+   CHAPTER 2 — EQ MATCHING LAB
+═══════════════════════════════════════════ */
+
+.chapter-lab .eq-lab {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chapter-lab .eq-body {
+  display: grid;
+  grid-template-columns: 1fr 190px;
+}
+
+.chapter-lab .eq-main {
+  padding: 1.25rem;
+  border-right: 1px solid var(--border);
+}
+
+/* Instrument / upload tab row — slim themed scrollbar instead of the
+   default thick OS bar when the row overflows horizontally. */
+
+.chapter-lab .eq-tabrow {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.chapter-lab .eq-tabrow::-webkit-scrollbar {
+  height: 6px;
+}
+
+.chapter-lab .eq-tabrow::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chapter-lab .eq-tabrow::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.chapter-lab .eq-tabrow::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
+}
+
+/* Spectrum display */
+
+.chapter-lab .spectrum-display {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  height: 180px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+/* Legend */
+
+.chapter-lab .legend-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.chapter-lab .legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+}
+
+.chapter-lab .legend-line {
+  width: 24px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+/* EQ fader bands */
+
+.chapter-lab .eq-bands {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 0.5rem;
+  align-items: end;
+}
+
+.chapter-lab .eq-band {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.chapter-lab .eq-band-label {
+  font-family: var(--mono);
+  font-size: 0.5rem;
+  color: var(--text-faint);
+  text-align: center;
+  line-height: 1.4;
+}
+
+.chapter-lab .eq-fader-track {
+  width: 8px;
+  height: 80px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  position: relative;
+}
+
+.chapter-lab .eq-fader-track:hover { border-color: var(--border-bright); }
+
+.chapter-lab .eq-fader-thumb {
+  width: 18px;
+  height: 6px;
+  background: var(--blue);
+  border-radius: 2px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 0 6px rgba(77,158,255,0.5);
+  cursor: ns-resize;
+  transition: background 0.1s;
+}
+
+.chapter-lab .eq-fader-thumb:hover { background: #7DB8FF; }
+
+.chapter-lab .eq-gain-val {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--blue);
+  min-height: 14px;
+  text-align: center;
+}
+
+/* Sidebar */
+
+.chapter-lab .eq-sidebar {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Score ring */
+
+.chapter-lab .score-ring-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chapter-lab .score-ring {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s ease;
+}
+
+.chapter-lab .score-ring-inner {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.chapter-lab .score-num {
+  font-family: var(--display);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.chapter-lab .score-lbl {
+  font-family: var(--mono);
+  font-size: 0.45rem;
+  color: var(--text-faint);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chapter-lab .score-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+}
+
+/* Band accuracy rows */
+
+.chapter-lab .band-analysis { display: flex; flex-direction: column; gap: 0.35rem; }
+
+.chapter-lab .band-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  justify-content: space-between;
+}
+
+.chapter-lab .band-name {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--text-dim);
+  width: 48px;
+  flex-shrink: 0;
+}
+
+.chapter-lab .band-bar-track {
+  flex: 1;
+  height: 4px;
+  background: var(--surface);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.chapter-lab .band-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.2s ease;
+}
+
+.chapter-lab .band-diff {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  width: 34px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Tip box */
+
+.chapter-lab .tip-box {
+  background: var(--blue-dim);
+  border: 1px solid rgba(77,158,255,0.25);
+  border-radius: 4px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.chapter-lab .tip-box strong { color: var(--blue); font-weight: 500; }
+
+.chapter-lab .btn-secondary {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-family: var(--display);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.chapter-lab .btn-secondary:hover { border-color: var(--border-bright); color: var(--text); }
+
+.chapter-lab .btn-primary {
+  padding: 0.5rem 1.25rem;
+  background: var(--amber);
+  border: none;
+  border-radius: 4px;
+  color: var(--black);
+  font-family: var(--display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: all 0.15s;
+}
+
+.chapter-lab .btn-primary:hover { background: #FFB83D; box-shadow: 0 0 16px var(--amber-glow); }
+
+/* ── Badge ────────────────────────────────────────────────────────────────── */
+
+.chapter-lab .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--amber-dim);
+  border: 1px solid var(--amber-glow);
+  border-radius: 3px;
+  padding: 0.25rem 0.6rem;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--amber);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   CHAPTER 4 — COMPRESSION LAB
+════════════════════════════════════════════════════════════════════ */
+
+.chapter-lab .comp-lab {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chapter-lab .comp-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.chapter-lab .comp-controls {
+  padding: 1.25rem;
+  border-right: 1px solid var(--border);
+}
+
+.chapter-lab .comp-visual {
+  padding: 1.25rem;
+}
+
+/* Knob grid */
+
+.chapter-lab .knob-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.chapter-lab .knob-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.chapter-lab .big-knob {
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #2E2E40, var(--console));
+  border: 2px solid var(--border-bright);
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+  transition: border-color 0.15s;
+}
+
+.chapter-lab .big-knob:hover { border-color: var(--purple); }
+
+.chapter-lab .big-knob:active { border-color: var(--purple); box-shadow: 0 0 12px rgba(167,139,250,0.3); }
+
+.chapter-lab .knob-name {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.chapter-lab .knob-val {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--purple);
+}
+
+/* Raw-value entry, shown under each knob's formatted readout */
+
+.chapter-lab .knob-num-input {
+  width: 52px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  text-align: center;
+  padding: 0.1rem 0.15rem;
+  outline: none;
+}
+
+.chapter-lab .knob-num-input:hover { border-color: var(--border-bright); }
+
+.chapter-lab .knob-num-input:focus { border-color: var(--purple); }
+
+.chapter-lab .knob-num-input::-webkit-inner-spin-button, .chapter-lab .knob-num-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+.chapter-lab .knob-num-input[type=number] { -moz-appearance: textfield; }
+
+/* Toggle buttons */
+
+.chapter-lab .toggle-btn {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--surface);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.chapter-lab .toggle-btn:hover { border-color: var(--border-bright); color: var(--text); }
+
+.chapter-lab .toggle-btn.on { background: var(--purple-dim); border-color: var(--purple); color: var(--purple); }
+
+/* Transfer-function graph */
+
+.chapter-lab .transfer-graph {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  height: 200px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Before / after waveform compare (Gate/Saturation/Limiter labs) */
+
+.chapter-lab .waveform-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.chapter-lab .compare-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chapter-lab .compare-lbl {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--text-faint);
+  width: 28px;
+  text-align: right;
+  letter-spacing: 0.06em;
+}
+
+.chapter-lab .mini-wave {
+  flex: 1;
+  height: 30px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+/* Live compression scope (Chapter 4) — separate, dedicated analyzer for
+   real input/output level over time (Attack/Release made visible), distinct
+   from the static transfer-function graph above it. */
+
+.chapter-lab .scope-graph {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  height: 150px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Live GR (gain-reduction) meter — vertical bar alongside the transfer
+   graph, in the right (visual) column. */
+
+.chapter-lab .transfer-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.6rem;
+}
+
+.chapter-lab .gr-meter-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  width: 34px;
+  flex-shrink: 0;
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.5rem 0.25rem;
+}
+
+.chapter-lab .gr-meter-lbl, .chapter-lab .gr-meter-val, .chapter-lab .gr-meter-unit {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.chapter-lab .gr-meter-val { color: var(--purple); font-size: 0.6rem; }
+
+.chapter-lab .gr-meter-unit { color: var(--text-faint); letter-spacing: 0.06em; }
+
+.chapter-lab .gr-meter-track-v {
+  flex: 1;
+  width: 8px;
+  background: var(--surface);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-start;
+}
+
+.chapter-lab .gr-meter-fill-v {
+  width: 100%;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #00FF87 0%, #F5A623 65%, #FF4D6A 100%);
+  transition: height 0.1s ease;
+}
+
+/* Compact range slider (Chapter 4's Crossover/Sidechain/Output mini-controls)
+   — native <input type="range"> defaults to a chunky, platform-styled track
+   and a large thumb; this trims it down to a thin 3px rail with a small
+   accent-colored dot, matching the rest of the app's dark, low-chrome look.
+   --mini-range-accent lets a given slider override the thumb color. */
+
+.chapter-lab .mini-range {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 12px;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+}
+
+.chapter-lab .mini-range::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.chapter-lab .mini-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--mini-range-accent, var(--purple));
+  border: 1px solid rgba(0,0,0,0.35);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--mini-range-accent, var(--purple)) 60%, transparent);
+  transition: box-shadow 0.15s;
+}
+
+.chapter-lab .mini-range:hover::-webkit-slider-thumb {
+  box-shadow: 0 0 7px color-mix(in srgb, var(--mini-range-accent, var(--purple)) 80%, transparent);
+}
+
+.chapter-lab .mini-range::-moz-range-track {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.chapter-lab .mini-range::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--mini-range-accent, var(--purple));
+  border: 1px solid rgba(0,0,0,0.35);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--mini-range-accent, var(--purple)) 60%, transparent);
+}
+
+.chapter-lab .mini-range:focus { outline: none; }
+
+.chapter-lab .mini-range:focus::-webkit-slider-thumb, .chapter-lab .mini-range:focus::-moz-range-thumb {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mini-range-accent, var(--purple)) 30%, transparent);
+}
+
+/* (challenge panel reuses .comp-lab, .comp-body, .comp-controls, .comp-visual) */
+
+/* ════════════════════════════════════════════════════════════════════
+   CHAPTER 7 — SATURATION LAB
+════════════════════════════════════════════════════════════════════ */
+
+.chapter-lab .sat-lab {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chapter-lab .sat-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.chapter-lab .sat-left {
+  padding: 1.25rem;
+  border-right: 1px solid var(--border);
+}
+
+.chapter-lab .sat-right {
+  padding: 1.25rem;
+}
+
+/* Saturation type selector */
+
+.chapter-lab .sat-type-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.chapter-lab .sat-type-btn {
+  padding: 0.6rem 0.4rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.chapter-lab .sat-type-btn.active { background: var(--sat-dim); border-color: var(--sat); }
+
+.chapter-lab .sat-type-btn:hover:not(.active) { border-color: var(--border-bright); }
+
+.chapter-lab .sat-type-name { font-family: var(--mono); font-size: 0.6rem; color: var(--text-dim); letter-spacing: 0.04em; }
+
+.chapter-lab .sat-type-btn.active .sat-type-name { color: var(--sat); }
+
+.chapter-lab .sat-type-desc { font-family: var(--mono); font-size: 0.45rem; color: var(--text-faint); margin-top: 0.15rem; }
+
+/* Transfer curve canvas container */
+
+.chapter-lab .curve-display {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  height: 180px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+/* Input / output level meters */
+
+.chapter-lab .sat-input-output {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.chapter-lab .io-meter-block {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.chapter-lab .io-meter-label {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--text-faint);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.chapter-lab .io-meter-bar {
+  height: 8px;
+  background: var(--surface);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.chapter-lab .io-meter-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 80ms ease-out;
+}
+
+/* Harmonic spectrum display */
+
+.chapter-lab .harmonics-display {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.75rem;
+}
+
+.chapter-lab .harmonics-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 70px;
+  margin-bottom: 0.5rem;
+}
+
+.chapter-lab .harmonic-bar-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.chapter-lab .harmonic-bar {
+  width: 100%;
+  border-radius: 2px 2px 0 0;
+  transition: height 120ms ease-out;
+}
+
+.chapter-lab .harmonic-label {
+  font-family: var(--mono);
+  font-size: 0.5rem;
+  color: var(--text-faint);
+}
+
+/* Sat knob — uses CSS custom property for dynamic needle rotation */
+
+.chapter-lab .sat-knob {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #5C2E1A, var(--console));
+  border: 2px solid var(--border-bright);
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+  cursor: default;
+}
+
+.chapter-lab .sat-knob::after {
+  content: '';
+  position: absolute;
+  width: 3px;
+  height: 16px;
+  background: var(--text);
+  border-radius: 2px;
+  top: 6px;
+  left: 50%;
+  transform-origin: bottom center;
+  transform: translateX(-50%) rotate(var(--knob-rot, -135deg));
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   CHAPTER 3 — MIXING CONSOLE
+════════════════════════════════════════════════════════════════════ */
+
+.chapter-lab .mix-lab {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chapter-lab .mix-body { padding: 1.25rem; }
+
+/* Transport bar */
+
+.chapter-lab .transport-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--console);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.chapter-lab .transport-btns { display: flex; gap: 0.25rem; }
+
+.chapter-lab .t-btn {
+  width: 32px; height: 28px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.chapter-lab .t-btn:hover:not(.active) { color: var(--text); border-color: var(--border-bright); }
+
+.chapter-lab .t-btn.active { background: var(--red-dim); border-color: var(--red); color: var(--red); }
+
+.chapter-lab .time-display {
+  font-family: var(--mono);
+  font-size: 1rem;
+  color: var(--green);
+  letter-spacing: 0.1em;
+  background: var(--black);
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.75rem;
+  border-radius: 3px;
+}
+
+.chapter-lab .bpm-display {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  background: var(--black);
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.6rem;
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.chapter-lab .bpm-val { color: var(--amber); font-size: 0.9rem; }
+
+/* Channel grid: 6 tracks + 1 master */
+
+.chapter-lab .tracks-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr) 180px;
+  gap: 0.5rem;
+  align-items: end;
+}
+
+/* Channel strip */
+
+.chapter-lab .channel-strip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  transition: border-color 0.15s;
+  cursor: pointer;
+  user-select: none;
+}
+
+.chapter-lab .channel-strip:hover { border-color: var(--border-bright); }
+
+.chapter-lab .channel-strip.selected { border-color: var(--blue); box-shadow: 0 0 12px rgba(77,158,255,0.15); }
+
+.chapter-lab .channel-name {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* Mute / Solo buttons */
+
+.chapter-lab .channel-btns { display: flex; gap: 0.25rem; }
+
+.chapter-lab .ch-btn {
+  width: 20px; height: 16px;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+  background: var(--console);
+  font-family: var(--mono);
+  font-size: 0.45rem;
+  color: var(--text-faint);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.chapter-lab .ch-btn:hover { border-color: var(--border-bright); color: var(--text-dim); }
+
+.chapter-lab .ch-btn.m-active { background: rgba(255,77,106,0.2); border-color: var(--red); color: var(--red); }
+
+.chapter-lab .ch-btn.s-active { background: rgba(0,255,135,0.15); border-color: var(--green); color: var(--green); }
+
+/* Pan knob */
+
+.chapter-lab .pan-knob-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.chapter-lab .pan-knob {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, var(--border-bright), var(--console));
+  border: 1px solid var(--border-bright);
+  position: relative;
+  cursor: ew-resize;
+  transition: border-color 0.15s;
+}
+
+.chapter-lab .pan-knob:hover { border-color: var(--amber); }
+
+.chapter-lab .pan-knob:active { border-color: var(--amber); box-shadow: 0 0 8px rgba(245,166,35,0.3); cursor: grabbing; }
+
+/* Smooth rotating needle — controlled via inline transform */
+
+.chapter-lab .pan-needle {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 2px;
+  height: 9px;
+  background: var(--amber);
+  border-radius: 1px 1px 0 0;
+  transform-origin: bottom center;
+  pointer-events: none;
+  box-shadow: 0 0 4px rgba(245,166,35,0.6);
+}
+
+.chapter-lab .pan-label {
+  font-family: var(--mono);
+  font-size: 0.5rem;
+  color: var(--text-faint);
+}
+
+/* Fader */
+
+.chapter-lab .channel-fader-track {
+  width: 12px; height: 90px;
+  background: var(--console);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  position: relative;
+  cursor: ns-resize;
+  user-select: none;
+}
+
+.chapter-lab .channel-fader-thumb {
+  width: 22px; height: 8px;
+  background: linear-gradient(135deg, var(--border-bright), var(--surface));
+  border: 1px solid var(--text-faint);
+  border-radius: 2px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  transition: border-color 0.1s;
+}
+
+.chapter-lab .channel-fader-thumb:hover { border-color: var(--amber); }
+
+.chapter-lab .db-val {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--text-faint);
+}
+
+/* Level meter (segmented LEDs) */
+
+.chapter-lab .level-meter-strip {
+  display: flex;
+  gap: 2px;
+  height: 90px;
+  align-items: flex-end;
+}
+
+.chapter-lab .level-col {
+  width: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  justify-content: flex-end;
+}
+
+.chapter-lab .level-seg {
+  height: 3px;
+  border-radius: 1px;
+}
+
+.chapter-lab .level-seg.g { background: var(--green); box-shadow: 0 0 3px rgba(0,255,135,0.4); }
+
+.chapter-lab .level-seg.a { background: var(--amber); box-shadow: 0 0 3px rgba(245,166,35,0.4); }
+
+.chapter-lab .level-seg.r { background: var(--red);   box-shadow: 0 0 3px rgba(255,77,106,0.4); }
+
+/* Master strip */
+
+.chapter-lab .master-strip {
+  background: var(--console);
+  border: 1px solid var(--border-bright);
+  border-radius: 6px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chapter-lab .master-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--amber);
+  letter-spacing: 0.1em;
+}
+
+.chapter-lab .master-meters {
+  display: flex;
+  gap: 4px;
+  height: 90px;
+  align-items: flex-end;
+}
+
+.chapter-lab .master-col {
+  width: 14px;
+  background: var(--surface);
+  border-radius: 2px 2px 0 0;
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.chapter-lab .master-col-fill { border-radius: 0; }
+
+.chapter-lab .loudness-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   CHAPTER 6 — REVERB DESIGNER
+════════════════════════════════════════════════════════════════════ */
+
+.chapter-lab .reverb-lab {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chapter-lab .reverb-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.chapter-lab .reverb-left {
+  padding: 1.25rem;
+  border-right: 1px solid var(--border);
+}
+
+.chapter-lab .reverb-right {
+  padding: 1.25rem;
+}
+
+/* Impulse response display */
+
+.chapter-lab .ir-display {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  height: 160px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+/* Room preset row */
+
+.chapter-lab .room-preset-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.chapter-lab .room-preset {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.6rem 0.4rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.chapter-lab .room-preset.active {
+  background: var(--teal-dim);
+  border-color: var(--teal);
+}
+
+.chapter-lab .room-preset:hover:not(.active) {
+  border-color: var(--border-bright);
+}
+
+.chapter-lab .room-preset-icon {
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.chapter-lab .room-preset-name {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+
+.chapter-lab .room-preset.active .room-preset-name {
+  color: var(--teal);
+}
+
+/* RT60 decay visualiser */
+
+.chapter-lab .reverb-decay-viz {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.chapter-lab .decay-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 60px;
+  margin-bottom: 0.5rem;
+}
+
+.chapter-lab .decay-bar {
+  flex: 1;
+  background: var(--teal);
+  border-radius: 1px 1px 0 0;
+  opacity: 0.9;
+  transition: height 0.4s ease;
+}
+
+.chapter-lab .decay-readout {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+}
+
+.chapter-lab .decay-readout strong { color: var(--teal); }
+
+/* Live reverb tail scope — real dry/wet level over time (separate from the
+   illustrative, formula-driven IR diagram above it). */
+
+.chapter-lab .reverb-scope-display {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  height: 150px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+/* 5-column knob grid for reverb (SIZE/DECAY/PRE-DELAY/DAMPING/DIFFUSION,
+   then HI-SHELF freq+gain/LO-SHELF freq+gain/WET-DRY) */
+
+.chapter-lab .reverb-knob-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   CHAPTER 9 — DELAY DESIGN STUDIO (H-Delay style: mod + filter + character)
+════════════════════════════════════════════════════════════════════ */
+
+.chapter-lab .hdelay-lab {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chapter-lab .hdelay-body { display: grid; grid-template-columns: 1fr 1fr; }
+
+.chapter-lab .hdelay-left { padding: 1.25rem; border-right: 1px solid var(--border); }
+
+.chapter-lab .hdelay-right { padding: 1.25rem; }
+
+.chapter-lab .subsection-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.75rem;
+}
+
+/* Delay tap visualiser — plain positioned divs (left %, height px), driven
+   live from delayTimeMs/feedback/pingPong rather than baked-in mockup values */
+
+.chapter-lab .tap-display {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  height: 140px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.chapter-lab .tap-grid {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255,255,255,0.03) 40px);
+}
+
+.chapter-lab .tap-baseline { position: absolute; bottom: 24px; left: 0; right: 0; height: 1px; background: var(--border-bright); }
+
+.chapter-lab .tap-bar {
+  position: absolute;
+  bottom: 24px;
+  width: 6px;
+  border-radius: 2px 2px 0 0;
+  transition: height 0.15s ease, left 0.15s ease;
+}
+
+.chapter-lab .tap-bar-label {
+  position: absolute;
+  bottom: 6px;
+  font-family: var(--mono);
+  font-size: 0.5rem;
+  color: var(--text-faint);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  transition: left 0.15s ease;
+}
+
+/* Live delay echo scope — real dry/wet level over time (separate from the
+   illustrative, formula-driven tap display above it). Mirrors
+   .reverb-scope-display in Chapter 6. */
+
+.chapter-lab .hdelay-scope-display {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  height: 150px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.chapter-lab .delay-sync-row { display: flex; gap: 0.4rem; margin-bottom: 1rem; }
+
+.chapter-lab .sync-btn {
+  flex: 1;
+  padding: 0.4rem 0.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.chapter-lab .sync-btn.active { background: var(--teal-dim); border-color: var(--teal); color: var(--teal); }
+
+.chapter-lab .sync-btn:hover:not(.active) { border-color: var(--border-bright); color: var(--text); }
+
+/* Knob grid variants reused across the MODULATION / FILTERS / OUTPUT
+   subsections — column count set per-instance via inline style, same
+   pattern as .reverb-knob-grid. */
+
+.chapter-lab .hdelay-knob-grid { display: grid; gap: 1rem; }
+
+/* ════════════════════════════════════════════════════════════════════
+   FAUST PANEL — generic renderer for any Faust dsp-meta.json ui tree
+════════════════════════════════════════════════════════════════════ */
+
+.chapter-lab .faust-panel { display: flex; flex-direction: column; gap: 1rem; }
+
+.chapter-lab .faust-group {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+}
+
+.chapter-lab .faust-group-title {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 0.6rem;
+}
+
+.chapter-lab .faust-group-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1.25rem;
+}
+
+.chapter-lab .faust-group-body.faust-group-vgroup { flex-direction: column; }
+
+.chapter-lab .faust-trigger-btn, .chapter-lab .faust-toggle-btn {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--console);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.chapter-lab .faust-trigger-btn:hover { border-color: var(--border-bright); color: var(--text); }
+
+.chapter-lab .faust-trigger-btn:active { background: var(--amber-dim); border-color: var(--amber); color: var(--amber); }
+
+.chapter-lab .faust-toggle-btn:hover { border-color: var(--border-bright); color: var(--text); }
+
+.chapter-lab .faust-toggle-btn.on { background: var(--teal-dim); border-color: var(--teal); color: var(--teal); }
+
+.chapter-lab .faust-trigger-btn:disabled, .chapter-lab .toggle-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.chapter-lab .faust-trigger-btn:disabled:hover { border-color: var(--border); color: var(--text-dim); }
+
+/* ════════════════════════════════════════════════════════════════════
+   CHAPTER 5 — SPATIAL AUDIO
+════════════════════════════════════════════════════════════════════ */
+
+.chapter-lab .spatial-lab {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chapter-lab .spatial-body {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+}
+
+/* Left panel */
+
+.chapter-lab .spatial-stage-wrap {
+  border-right: 1px solid var(--border);
+  padding: 1.25rem;
+}
+
+.chapter-lab .stage-display {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  aspect-ratio: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.chapter-lab .stage-rings {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chapter-lab .stage-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.04);
+}
+
+.chapter-lab .listener-icon {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px; height: 20px;
+  background: var(--blue-dim);
+  border: 2px solid var(--blue);
+  border-radius: 50%;
+  box-shadow: 0 0 12px rgba(77,158,255,0.4);
+  font-size: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--blue);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.chapter-lab .sound-source {
+  position: absolute;
+  width: 20px; height: 20px;
+  border-radius: 4px;
+  border: 1.5px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  cursor: move;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+  transition: box-shadow 0.1s;
+}
+
+.chapter-lab .source-line {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform-origin: left center;
+  height: 1px;
+  opacity: 0.3;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.chapter-lab .azimuth-indicator {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px dashed rgba(77,158,255,0.15);
+  pointer-events: none;
+}
+
+.chapter-lab .compass-label {
+  position: absolute;
+  font-family: var(--mono);
+  font-size: 0.5rem;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
+.chapter-lab .compass-label.top { top: 4px; left: 50%; transform: translateX(-50%); }
+
+.chapter-lab .compass-label.bot { bottom: 4px; left: 50%; transform: translateX(-50%); }
+
+.chapter-lab .compass-label.lft { left: 4px; top: 50%; transform: translateY(-50%); }
+
+.chapter-lab .compass-label.rgt { right: 4px; top: 50%; transform: translateY(-50%); }
+
+/* Source list */
+
+.chapter-lab .sources-list {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.chapter-lab .source-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.chapter-lab .source-item:hover { border-color: var(--border-bright); }
+
+.chapter-lab .source-item.active { border-color: var(--blue); background: var(--blue-dim); }
+
+.chapter-lab .source-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+.chapter-lab .source-item-name { font-family: var(--mono); font-size: 0.65rem; color: var(--text-dim); flex: 1; }
+
+.chapter-lab .source-item-pos { font-family: var(--mono); font-size: 0.6rem;  color: var(--text-faint); }
+
+/* Right panel */
+
+.chapter-lab .spatial-params {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.chapter-lab .param-block { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.chapter-lab .param-block-title {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+/* HRTF display */
+
+.chapter-lab .hrtf-display {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.75rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.chapter-lab .ear-channel { display: flex; flex-direction: column; gap: 0.35rem; }
+
+.chapter-lab .ear-label {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--text-faint);
+  letter-spacing: 0.06em;
+}
+
+.chapter-lab .ear-waveform {
+  height: 36px;
+  background: var(--surface);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+/* Reverb tank */
+
+.chapter-lab .reverb-tank {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.75rem;
+}
+
+.chapter-lab .reverb-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.chapter-lab .reverb-param { display: flex; flex-direction: column; gap: 0.25rem; }
+
+.chapter-lab .reverb-param-label {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--text-faint);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.chapter-lab .reverb-param-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  cursor: pointer;
+  outline: none;
+}
+
+.chapter-lab .reverb-param-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--purple);
+  box-shadow: 0 0 6px rgba(167,139,250,0.5);
+  cursor: pointer;
+}
+
+.chapter-lab .reverb-param-val {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--purple);
+  text-align: right;
+}

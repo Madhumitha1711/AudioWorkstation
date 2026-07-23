@@ -1,0 +1,1476 @@
+{
+    "name": "ParamEQ",
+    "filename": "ParamEQ.dsp",
+    "version": "2.79.3",
+    "compile_options": "-lang wasm-i -ct 1 -es 1 -mcd 16 -mdd 1024 -mdy 33 -single -ftz 2",
+    "library_list": [
+        "/usr/share/faust/stdfaust.lib",
+        "/usr/share/faust/filters.lib",
+        "/usr/share/faust/signals.lib",
+        "/usr/share/faust/maths.lib",
+        "/usr/share/faust/platform.lib",
+        "/usr/share/faust/analyzers.lib",
+        "/usr/share/faust/basics.lib"
+    ],
+    "include_pathnames": [
+        "/share/faust",
+        "/usr/local/share/faust",
+        "/usr/share/faust",
+        "."
+    ],
+    "size": 1628,
+    "code": "yCnVBJQ9Hw==",
+    "inputs": 2,
+    "outputs": 2,
+    "meta": [
+        {
+            "analyzers.lib/amp_follower_ar:author": "Jonatan Liljedahl, revised by Romain Michon"
+        },
+        {
+            "analyzers.lib/name": "Faust Analyzer Library"
+        },
+        {
+            "analyzers.lib/version": "1.2.0"
+        },
+        {
+            "basics.lib/name": "Faust Basic Element Library"
+        },
+        {
+            "basics.lib/version": "1.21.0"
+        },
+        {
+            "compile_options": "-lang wasm-i -ct 1 -es 1 -mcd 16 -mdd 1024 -mdy 33 -single -ftz 2"
+        },
+        {
+            "filename": "ParamEQ.dsp"
+        },
+        {
+            "filters.lib/fir:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/fir:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/fir:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/highpass:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/highpass:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/iir:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/iir:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/iir:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/lowpass0_highpass1": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/lowpass0_highpass1:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/lowpass:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/lowpass:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/lowpass:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/name": "Faust Filters Library"
+        },
+        {
+            "filters.lib/peak_eq:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/peak_eq:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/peak_eq:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/peak_eq_cq:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/peak_eq_cq:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/peak_eq_cq:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/resonbp:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/resonbp:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/resonbp:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/tf2:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/tf2:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/tf2:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/tf2s:author": "Julius O. Smith III"
+        },
+        {
+            "filters.lib/tf2s:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+        },
+        {
+            "filters.lib/tf2s:license": "MIT-style STK-4.3 license"
+        },
+        {
+            "filters.lib/version": "1.7.1"
+        },
+        {
+            "maths.lib/author": "GRAME"
+        },
+        {
+            "maths.lib/copyright": "GRAME"
+        },
+        {
+            "maths.lib/license": "LGPL with exception"
+        },
+        {
+            "maths.lib/name": "Faust Math Library"
+        },
+        {
+            "maths.lib/version": "2.8.1"
+        },
+        {
+            "name": "ParamEQ"
+        },
+        {
+            "platform.lib/name": "Generic Platform Library"
+        },
+        {
+            "platform.lib/version": "1.3.0"
+        },
+        {
+            "signals.lib/name": "Faust Signal Routing Library"
+        },
+        {
+            "signals.lib/onePoleSwitching:author": "Jonatan Liljedahl, revised by Dario Sanfilippo"
+        },
+        {
+            "signals.lib/onePoleSwitching:licence": "STK-4.3"
+        },
+        {
+            "signals.lib/version": "1.6.0"
+        }
+    ],
+    "ui": [
+        {
+            "type": "vgroup",
+            "label": "ParamEQ",
+            "items": [
+                {
+                    "type": "checkbox",
+                    "label": "HPF/Bypass",
+                    "varname": "fCheckbox9",
+                    "shortname": "HPF_Bypass",
+                    "address": "/ParamEQ/HPF_Bypass",
+                    "index": 80,
+                    "meta": [
+                        {
+                            "0": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "High Shelf/Bypass",
+                    "varname": "fCheckbox1",
+                    "shortname": "High_Shelf_Bypass",
+                    "address": "/ParamEQ/High_Shelf_Bypass",
+                    "index": 8,
+                    "meta": [
+                        {
+                            "0": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "LPF/Bypass",
+                    "varname": "fCheckbox0",
+                    "shortname": "LPF_Bypass",
+                    "address": "/ParamEQ/LPF_Bypass",
+                    "index": 0,
+                    "meta": [
+                        {
+                            "0": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Low Shelf/Bypass",
+                    "varname": "fCheckbox7",
+                    "shortname": "Low_Shelf_Bypass",
+                    "address": "/ParamEQ/Low_Shelf_Bypass",
+                    "index": 60,
+                    "meta": [
+                        {
+                            "0": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Peak1/Bypass",
+                    "varname": "fCheckbox6",
+                    "shortname": "Peak1_Bypass",
+                    "address": "/ParamEQ/Peak1_Bypass",
+                    "index": 56,
+                    "meta": [
+                        {
+                            "0": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Peak2/Bypass",
+                    "varname": "fCheckbox5",
+                    "shortname": "Peak2_Bypass",
+                    "address": "/ParamEQ/Peak2_Bypass",
+                    "index": 52,
+                    "meta": [
+                        {
+                            "0": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Peak3/Bypass",
+                    "varname": "fCheckbox4",
+                    "shortname": "Peak3_Bypass",
+                    "address": "/ParamEQ/Peak3_Bypass",
+                    "index": 48,
+                    "meta": [
+                        {
+                            "0": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Peak4/Bypass",
+                    "varname": "fCheckbox3",
+                    "shortname": "Peak4_Bypass",
+                    "address": "/ParamEQ/Peak4_Bypass",
+                    "index": 44,
+                    "meta": [
+                        {
+                            "0": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "hslider",
+                    "label": "HPF/Freq",
+                    "varname": "fHslider2",
+                    "shortname": "HPF_Freq",
+                    "address": "/ParamEQ/HPF_Freq",
+                    "index": 92,
+                    "meta": [
+                        {
+                            "1": ""
+                        },
+                        {
+                            "unit": "Hz"
+                        }
+                    ],
+                    "init": 20,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "High Shelf/Freq",
+                    "varname": "fHslider37",
+                    "shortname": "High_Shelf_Freq",
+                    "address": "/ParamEQ/High_Shelf_Freq",
+                    "index": 876,
+                    "meta": [
+                        {
+                            "1": ""
+                        },
+                        {
+                            "Hz": ""
+                        }
+                    ],
+                    "init": 7500,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "LPF/Freq",
+                    "varname": "fHslider43",
+                    "shortname": "LPF_Freq",
+                    "address": "/ParamEQ/LPF_Freq",
+                    "index": 992,
+                    "meta": [
+                        {
+                            "1": ""
+                        },
+                        {
+                            "Hz": ""
+                        }
+                    ],
+                    "init": 20000,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Low Shelf/Freq",
+                    "varname": "fHslider3",
+                    "shortname": "Low_Shelf_Freq",
+                    "address": "/ParamEQ/Low_Shelf_Freq",
+                    "index": 224,
+                    "meta": [
+                        {
+                            "1": ""
+                        },
+                        {
+                            "unit": "Hz"
+                        }
+                    ],
+                    "init": 75,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak1/Freq",
+                    "varname": "fHslider9",
+                    "shortname": "Peak1_Freq",
+                    "address": "/ParamEQ/Peak1_Freq",
+                    "index": 348,
+                    "meta": [
+                        {
+                            "1": ""
+                        },
+                        {
+                            "Hz": ""
+                        }
+                    ],
+                    "init": 100,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak2/Freq",
+                    "varname": "fHslider16",
+                    "shortname": "Peak2_Freq",
+                    "address": "/ParamEQ/Peak2_Freq",
+                    "index": 480,
+                    "meta": [
+                        {
+                            "1": ""
+                        },
+                        {
+                            "Hz": ""
+                        }
+                    ],
+                    "init": 250,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak3/Freq",
+                    "varname": "fHslider23",
+                    "shortname": "Peak3_Freq",
+                    "address": "/ParamEQ/Peak3_Freq",
+                    "index": 612,
+                    "meta": [
+                        {
+                            "1": ""
+                        },
+                        {
+                            "Hz": ""
+                        }
+                    ],
+                    "init": 1000,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak4/Freq",
+                    "varname": "fHslider30",
+                    "shortname": "Peak4_Freq",
+                    "address": "/ParamEQ/Peak4_Freq",
+                    "index": 744,
+                    "meta": [
+                        {
+                            "1": ""
+                        },
+                        {
+                            "Hz": ""
+                        }
+                    ],
+                    "init": 2500,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "nentry",
+                    "label": "HPF/Order",
+                    "varname": "fEntry1",
+                    "shortname": "HPF_Order",
+                    "address": "/ParamEQ/HPF_Order",
+                    "index": 84,
+                    "meta": [
+                        {
+                            "2": ""
+                        }
+                    ],
+                    "init": 1,
+                    "min": 0,
+                    "max": 3,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "High Shelf/Gain",
+                    "varname": "fHslider0",
+                    "shortname": "High_Shelf_Gain",
+                    "address": "/ParamEQ/High_Shelf_Gain",
+                    "index": 24,
+                    "meta": [
+                        {
+                            "2": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "nentry",
+                    "label": "LPF/Order",
+                    "varname": "fEntry0",
+                    "shortname": "LPF_Order",
+                    "address": "/ParamEQ/LPF_Order",
+                    "index": 4,
+                    "meta": [
+                        {
+                            "2": ""
+                        }
+                    ],
+                    "init": 1,
+                    "min": 0,
+                    "max": 3,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Low Shelf/Gain",
+                    "varname": "fHslider1",
+                    "shortname": "Low_Shelf_Gain",
+                    "address": "/ParamEQ/Low_Shelf_Gain",
+                    "index": 64,
+                    "meta": [
+                        {
+                            "2": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak1/Gain",
+                    "varname": "fHslider10",
+                    "shortname": "Peak1_Gain",
+                    "address": "/ParamEQ/Peak1_Gain",
+                    "index": 360,
+                    "meta": [
+                        {
+                            "2": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak2/Gain",
+                    "varname": "fHslider17",
+                    "shortname": "Peak2_Gain",
+                    "address": "/ParamEQ/Peak2_Gain",
+                    "index": 492,
+                    "meta": [
+                        {
+                            "2": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak3/Gain",
+                    "varname": "fHslider24",
+                    "shortname": "Peak3_Gain",
+                    "address": "/ParamEQ/Peak3_Gain",
+                    "index": 624,
+                    "meta": [
+                        {
+                            "2": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak4/Gain",
+                    "varname": "fHslider31",
+                    "shortname": "Peak4_Gain",
+                    "address": "/ParamEQ/Peak4_Gain",
+                    "index": 756,
+                    "meta": [
+                        {
+                            "2": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": 0,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "High Shelf/Q",
+                    "varname": "fHslider38",
+                    "shortname": "High_Shelf_Q",
+                    "address": "/ParamEQ/High_Shelf_Q",
+                    "index": 888,
+                    "meta": [
+                        {
+                            "3": ""
+                        }
+                    ],
+                    "init": 0.7,
+                    "min": 0.1,
+                    "max": 5,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Low Shelf/Q",
+                    "varname": "fHslider4",
+                    "shortname": "Low_Shelf_Q",
+                    "address": "/ParamEQ/Low_Shelf_Q",
+                    "index": 236,
+                    "meta": [
+                        {
+                            "3": ""
+                        }
+                    ],
+                    "init": 0.7,
+                    "min": 0.1,
+                    "max": 5,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak1/Q",
+                    "varname": "fHslider11",
+                    "shortname": "Peak1_Q",
+                    "address": "/ParamEQ/Peak1_Q",
+                    "index": 376,
+                    "meta": [
+                        {
+                            "3": ""
+                        }
+                    ],
+                    "init": 0.7,
+                    "min": 0.1,
+                    "max": 10,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak2/Q",
+                    "varname": "fHslider18",
+                    "shortname": "Peak2_Q",
+                    "address": "/ParamEQ/Peak2_Q",
+                    "index": 508,
+                    "meta": [
+                        {
+                            "3": ""
+                        }
+                    ],
+                    "init": 1,
+                    "min": 0.1,
+                    "max": 10,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak3/Q",
+                    "varname": "fHslider25",
+                    "shortname": "Peak3_Q",
+                    "address": "/ParamEQ/Peak3_Q",
+                    "index": 640,
+                    "meta": [
+                        {
+                            "3": ""
+                        }
+                    ],
+                    "init": 1,
+                    "min": 0.1,
+                    "max": 10,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak4/Q",
+                    "varname": "fHslider32",
+                    "shortname": "Peak4_Q",
+                    "address": "/ParamEQ/Peak4_Q",
+                    "index": 772,
+                    "meta": [
+                        {
+                            "3": ""
+                        }
+                    ],
+                    "init": 1,
+                    "min": 0.1,
+                    "max": 10,
+                    "step": 0.01
+                },
+                {
+                    "type": "checkbox",
+                    "label": "High Shelf/Dynamic On",
+                    "varname": "fCheckbox2",
+                    "shortname": "High_Shelf_Dynamic_On",
+                    "address": "/ParamEQ/High_Shelf_Dynamic_On",
+                    "index": 40,
+                    "meta": [
+                        {
+                            "4": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Low Shelf/Dynamic On",
+                    "varname": "fCheckbox8",
+                    "shortname": "Low_Shelf_Dynamic_On",
+                    "address": "/ParamEQ/Low_Shelf_Dynamic_On",
+                    "index": 76,
+                    "meta": [
+                        {
+                            "4": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Peak1/Dynamic On",
+                    "varname": "fCheckbox10",
+                    "shortname": "Peak1_Dynamic_On",
+                    "address": "/ParamEQ/Peak1_Dynamic_On",
+                    "index": 372,
+                    "meta": [
+                        {
+                            "4": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Peak2/Dynamic On",
+                    "varname": "fCheckbox11",
+                    "shortname": "Peak2_Dynamic_On",
+                    "address": "/ParamEQ/Peak2_Dynamic_On",
+                    "index": 504,
+                    "meta": [
+                        {
+                            "4": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Peak3/Dynamic On",
+                    "varname": "fCheckbox12",
+                    "shortname": "Peak3_Dynamic_On",
+                    "address": "/ParamEQ/Peak3_Dynamic_On",
+                    "index": 636,
+                    "meta": [
+                        {
+                            "4": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "Peak4/Dynamic On",
+                    "varname": "fCheckbox13",
+                    "shortname": "Peak4_Dynamic_On",
+                    "address": "/ParamEQ/Peak4_Dynamic_On",
+                    "index": 768,
+                    "meta": [
+                        {
+                            "4": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "hslider",
+                    "label": "High Shelf/Threshold",
+                    "varname": "fHslider41",
+                    "shortname": "High_Shelf_Threshold",
+                    "address": "/ParamEQ/High_Shelf_Threshold",
+                    "index": 944,
+                    "meta": [
+                        {
+                            "5": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": -24,
+                    "min": -60,
+                    "max": 0,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Low Shelf/Threshold",
+                    "varname": "fHslider7",
+                    "shortname": "Low_Shelf_Threshold",
+                    "address": "/ParamEQ/Low_Shelf_Threshold",
+                    "index": 296,
+                    "meta": [
+                        {
+                            "5": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": -24,
+                    "min": -60,
+                    "max": 0,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak1/Threshold",
+                    "varname": "fHslider14",
+                    "shortname": "Peak1_Threshold",
+                    "address": "/ParamEQ/Peak1_Threshold",
+                    "index": 432,
+                    "meta": [
+                        {
+                            "5": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": -24,
+                    "min": -60,
+                    "max": 0,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak2/Threshold",
+                    "varname": "fHslider21",
+                    "shortname": "Peak2_Threshold",
+                    "address": "/ParamEQ/Peak2_Threshold",
+                    "index": 564,
+                    "meta": [
+                        {
+                            "5": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": -24,
+                    "min": -60,
+                    "max": 0,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak3/Threshold",
+                    "varname": "fHslider28",
+                    "shortname": "Peak3_Threshold",
+                    "address": "/ParamEQ/Peak3_Threshold",
+                    "index": 696,
+                    "meta": [
+                        {
+                            "5": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": -24,
+                    "min": -60,
+                    "max": 0,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak4/Threshold",
+                    "varname": "fHslider35",
+                    "shortname": "Peak4_Threshold",
+                    "address": "/ParamEQ/Peak4_Threshold",
+                    "index": 828,
+                    "meta": [
+                        {
+                            "5": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": -24,
+                    "min": -60,
+                    "max": 0,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "High Shelf/Range",
+                    "varname": "fHslider42",
+                    "shortname": "High_Shelf_Range",
+                    "address": "/ParamEQ/High_Shelf_Range",
+                    "index": 956,
+                    "meta": [
+                        {
+                            "6": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": -6,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Low Shelf/Range",
+                    "varname": "fHslider8",
+                    "shortname": "Low_Shelf_Range",
+                    "address": "/ParamEQ/Low_Shelf_Range",
+                    "index": 308,
+                    "meta": [
+                        {
+                            "6": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": -6,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak1/Range",
+                    "varname": "fHslider15",
+                    "shortname": "Peak1_Range",
+                    "address": "/ParamEQ/Peak1_Range",
+                    "index": 444,
+                    "meta": [
+                        {
+                            "6": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": -6,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak2/Range",
+                    "varname": "fHslider22",
+                    "shortname": "Peak2_Range",
+                    "address": "/ParamEQ/Peak2_Range",
+                    "index": 576,
+                    "meta": [
+                        {
+                            "6": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": -6,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak3/Range",
+                    "varname": "fHslider29",
+                    "shortname": "Peak3_Range",
+                    "address": "/ParamEQ/Peak3_Range",
+                    "index": 708,
+                    "meta": [
+                        {
+                            "6": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": -6,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak4/Range",
+                    "varname": "fHslider36",
+                    "shortname": "Peak4_Range",
+                    "address": "/ParamEQ/Peak4_Range",
+                    "index": 840,
+                    "meta": [
+                        {
+                            "6": ""
+                        },
+                        {
+                            "dB": ""
+                        }
+                    ],
+                    "init": -6,
+                    "min": -24,
+                    "max": 24,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "High Shelf/Attack",
+                    "varname": "fHslider40",
+                    "shortname": "High_Shelf_Attack",
+                    "address": "/ParamEQ/High_Shelf_Attack",
+                    "index": 924,
+                    "meta": [
+                        {
+                            "7": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.005,
+                    "min": 0.001,
+                    "max": 0.5,
+                    "step": 0.001
+                },
+                {
+                    "type": "hslider",
+                    "label": "Low Shelf/Attack",
+                    "varname": "fHslider6",
+                    "shortname": "Low_Shelf_Attack",
+                    "address": "/ParamEQ/Low_Shelf_Attack",
+                    "index": 276,
+                    "meta": [
+                        {
+                            "7": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.005,
+                    "min": 0.001,
+                    "max": 0.5,
+                    "step": 0.001
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak1/Attack",
+                    "varname": "fHslider13",
+                    "shortname": "Peak1_Attack",
+                    "address": "/ParamEQ/Peak1_Attack",
+                    "index": 412,
+                    "meta": [
+                        {
+                            "7": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.005,
+                    "min": 0.001,
+                    "max": 0.5,
+                    "step": 0.001
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak2/Attack",
+                    "varname": "fHslider20",
+                    "shortname": "Peak2_Attack",
+                    "address": "/ParamEQ/Peak2_Attack",
+                    "index": 544,
+                    "meta": [
+                        {
+                            "7": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.005,
+                    "min": 0.001,
+                    "max": 0.5,
+                    "step": 0.001
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak3/Attack",
+                    "varname": "fHslider27",
+                    "shortname": "Peak3_Attack",
+                    "address": "/ParamEQ/Peak3_Attack",
+                    "index": 676,
+                    "meta": [
+                        {
+                            "7": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.005,
+                    "min": 0.001,
+                    "max": 0.5,
+                    "step": 0.001
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak4/Attack",
+                    "varname": "fHslider34",
+                    "shortname": "Peak4_Attack",
+                    "address": "/ParamEQ/Peak4_Attack",
+                    "index": 808,
+                    "meta": [
+                        {
+                            "7": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.005,
+                    "min": 0.001,
+                    "max": 0.5,
+                    "step": 0.001
+                },
+                {
+                    "type": "hslider",
+                    "label": "High Shelf/Release",
+                    "varname": "fHslider39",
+                    "shortname": "High_Shelf_Release",
+                    "address": "/ParamEQ/High_Shelf_Release",
+                    "index": 912,
+                    "meta": [
+                        {
+                            "8": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.15,
+                    "min": 0.01,
+                    "max": 2,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Low Shelf/Release",
+                    "varname": "fHslider5",
+                    "shortname": "Low_Shelf_Release",
+                    "address": "/ParamEQ/Low_Shelf_Release",
+                    "index": 260,
+                    "meta": [
+                        {
+                            "8": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.15,
+                    "min": 0.01,
+                    "max": 2,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak1/Release",
+                    "varname": "fHslider12",
+                    "shortname": "Peak1_Release",
+                    "address": "/ParamEQ/Peak1_Release",
+                    "index": 400,
+                    "meta": [
+                        {
+                            "8": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.15,
+                    "min": 0.01,
+                    "max": 2,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak2/Release",
+                    "varname": "fHslider19",
+                    "shortname": "Peak2_Release",
+                    "address": "/ParamEQ/Peak2_Release",
+                    "index": 532,
+                    "meta": [
+                        {
+                            "8": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.15,
+                    "min": 0.01,
+                    "max": 2,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak3/Release",
+                    "varname": "fHslider26",
+                    "shortname": "Peak3_Release",
+                    "address": "/ParamEQ/Peak3_Release",
+                    "index": 664,
+                    "meta": [
+                        {
+                            "8": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.15,
+                    "min": 0.01,
+                    "max": 2,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "Peak4/Release",
+                    "varname": "fHslider33",
+                    "shortname": "Peak4_Release",
+                    "address": "/ParamEQ/Peak4_Release",
+                    "index": 796,
+                    "meta": [
+                        {
+                            "8": ""
+                        },
+                        {
+                            "s": ""
+                        }
+                    ],
+                    "init": 0.15,
+                    "min": 0.01,
+                    "max": 2,
+                    "step": 0.01
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "High Shelf/Live Gain",
+                    "varname": "fHbargraph5",
+                    "shortname": "P61_ParamEQ_High_Shelf_Live_Gain",
+                    "address": "/ParamEQ/High_Shelf_Live_Gain",
+                    "index": 976,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "High Shelf/Live Gain",
+                    "varname": "fHbargraph11",
+                    "shortname": "P61_ParamEQ_High_Shelf_Live_Gain",
+                    "address": "/ParamEQ/High_Shelf_Live_Gain",
+                    "index": 976,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Low Shelf/Live Gain",
+                    "varname": "fHbargraph0",
+                    "shortname": "P63_ParamEQ_Low_Shelf_Live_Gain",
+                    "address": "/ParamEQ/Low_Shelf_Live_Gain",
+                    "index": 1272,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Low Shelf/Live Gain",
+                    "varname": "fHbargraph6",
+                    "shortname": "P63_ParamEQ_Low_Shelf_Live_Gain",
+                    "address": "/ParamEQ/Low_Shelf_Live_Gain",
+                    "index": 1272,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Peak1/Live Gain",
+                    "varname": "fHbargraph1",
+                    "shortname": "P65_ParamEQ_Peak1_Live_Gain",
+                    "address": "/ParamEQ/Peak1_Live_Gain",
+                    "index": 1316,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Peak1/Live Gain",
+                    "varname": "fHbargraph7",
+                    "shortname": "P65_ParamEQ_Peak1_Live_Gain",
+                    "address": "/ParamEQ/Peak1_Live_Gain",
+                    "index": 1316,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Peak2/Live Gain",
+                    "varname": "fHbargraph2",
+                    "shortname": "P67_ParamEQ_Peak2_Live_Gain",
+                    "address": "/ParamEQ/Peak2_Live_Gain",
+                    "index": 1360,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Peak2/Live Gain",
+                    "varname": "fHbargraph8",
+                    "shortname": "P67_ParamEQ_Peak2_Live_Gain",
+                    "address": "/ParamEQ/Peak2_Live_Gain",
+                    "index": 1360,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Peak3/Live Gain",
+                    "varname": "fHbargraph3",
+                    "shortname": "P69_ParamEQ_Peak3_Live_Gain",
+                    "address": "/ParamEQ/Peak3_Live_Gain",
+                    "index": 1404,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Peak3/Live Gain",
+                    "varname": "fHbargraph9",
+                    "shortname": "P69_ParamEQ_Peak3_Live_Gain",
+                    "address": "/ParamEQ/Peak3_Live_Gain",
+                    "index": 1404,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Peak4/Live Gain",
+                    "varname": "fHbargraph4",
+                    "shortname": "P71_ParamEQ_Peak4_Live_Gain",
+                    "address": "/ParamEQ/Peak4_Live_Gain",
+                    "index": 860,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                },
+                {
+                    "type": "hbargraph",
+                    "label": "Peak4/Live Gain",
+                    "varname": "fHbargraph10",
+                    "shortname": "P71_ParamEQ_Peak4_Live_Gain",
+                    "address": "/ParamEQ/Peak4_Live_Gain",
+                    "index": 860,
+                    "meta": [
+                        {
+                            "9": ""
+                        },
+                        {
+                            "unit": "dB"
+                        }
+                    ],
+                    "min": -24,
+                    "max": 24
+                }
+            ]
+        }
+    ]
+}

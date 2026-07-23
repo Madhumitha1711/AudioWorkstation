@@ -1,0 +1,38 @@
+{
+  "collectionName": "components_course_questions",
+  "info": {
+    "displayName": "Assessment Question",
+    "icon": "question"
+  },
+  "options": {},
+  "attributes": {
+    "questionKey": {
+      "type": "string",
+      "description": "Stable short id for this question, e.g. \"q1\" (matches studio-vr's TOPICS[].assessment.questions[].id)."
+    },
+    "prompt": {
+      "type": "text",
+      "required": true
+    },
+    "options": {
+      "type": "component",
+      "repeatable": true,
+      "component": "course.answer-option",
+      "required": true
+    },
+    "correctIndex": {
+      "type": "integer",
+      "required": true,
+      "description": "Zero-based index into `options` that is the correct answer."
+    },
+    "explanation": {
+      "type": "text"
+    },
+    "audioClips": {
+      "type": "component",
+      "repeatable": true,
+      "component": "shared.audio-asset",
+      "description": "Optional reference clips a student listens to before answering, e.g. a \"Before\"/\"After\" pair for an ear-training question. Empty for ordinary text questions."
+    }
+  }
+}

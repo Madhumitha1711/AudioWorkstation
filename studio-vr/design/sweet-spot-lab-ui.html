@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Sweet Spot — Spatial Audio Lab</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg: #0b0a08;
+    --panel: #141210;
+    --panel-2: #191612;
+    --border: #2a241c;
+    --border-soft: #201c16;
+    --text: #ece7de;
+    --text-dim: #8a8175;
+    --text-faint: #55504a;
+    --amber: #e8934a;
+    --amber-dim: #6b4826;
+    --green: #5fd9a0;
+    --green-dim: #2c5c48;
+  }
+
+  *{ box-sizing: border-box; margin:0; padding:0; }
+
+  body{
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .mono{ font-family: 'JetBrains Mono', monospace; }
+  .display{ font-family: 'Space Grotesk', sans-serif; }
+
+  /* ---------- header ---------- */
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border-soft);
+    background: linear-gradient(180deg, #0d0b09, #0b0a08);
+  }
+  .crumb{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.16em;
+    color: var(--text-dim);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .crumb .sep{ color: var(--text-faint); }
+  .crumb .current{ color: var(--green); }
+  .header-title{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:22px;
+    font-weight:600;
+    margin-top:4px;
+    letter-spacing:-0.01em;
+  }
+  .close-btn{
+    width:34px; height:34px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background: var(--panel);
+    color: var(--text-dim);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    font-size:16px;
+    transition: all .15s ease;
+  }
+  .close-btn:hover{ border-color: var(--amber); color: var(--amber); }
+
+  /* ---------- layout ---------- */
+  .layout{
+    display:grid;
+    grid-template-columns: 1fr 320px;
+    gap: 1px;
+    background: var(--border-soft);
+  }
+  @media (max-width: 900px){
+    .layout{ grid-template-columns: 1fr; }
+  }
+
+  .stage-wrap{
+    background: var(--bg);
+    padding: 28px 32px 20px;
+    display:flex;
+    flex-direction:column;
+    gap: 18px;
+  }
+
+  .stage-header{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap: 20px;
+  }
+  .stage-header h1{
+    font-family:'Space Grotesk', sans-serif;
+    font-size: 28px;
+    font-weight:600;
+    letter-spacing:-0.01em;
+  }
+  .stage-header p{
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-top: 6px;
+    max-width: 480px;
+    line-height:1.5;
+  }
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--green);
+    margin-bottom: 8px;
+  }
+
+  .hint-chips{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .chip{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    background: var(--panel);
+    cursor:pointer;
+    transition: all .15s ease;
+    white-space:nowrap;
+  }
+  .chip:hover{
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  /* ---------- stage / room ---------- */
+  .room-frame{
+    position:relative;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background:
+      radial-gradient(ellipse at 50% 15%, rgba(232,147,74,0.05), transparent 55%),
+      #0d0b09;
+    overflow:hidden;
+  }
+  .room-frame svg{ display:block; width:100%; height:auto; }
+
+  .readouts{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .readout-card{
+    border:1px solid var(--border);
+    background: var(--panel);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .readout-label{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+  .meter-track{
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border-soft);
+    position: relative;
+    overflow:hidden;
+  }
+  .meter-fill{
+    position:absolute; top:0; bottom:0;
+    background: linear-gradient(90deg, var(--green), var(--amber));
+    border-radius: 3px;
+    transition: all .15s ease;
+  }
+  .meter-marker{
+    position:absolute; top:-3px; bottom:-3px;
+    width:2px;
+    background: var(--text-faint);
+    left:50%;
+  }
+  .readout-value{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 15px;
+    margin-top: 10px;
+    color: var(--text);
+  }
+  .readout-value.corr-good{ color: var(--green); }
+  .readout-value.corr-bad{ color: var(--amber); }
+
+  /* ---------- sidebar ---------- */
+  .sidebar{
+    background: var(--bg);
+    padding: 28px 24px;
+    display:flex;
+    flex-direction:column;
+    gap: 26px;
+  }
+  .side-section-title{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .side-section-title::after{
+    content:'';
+    flex:1;
+    height:1px;
+    background: var(--border-soft);
+  }
+
+  .control{
+    margin-bottom: 18px;
+  }
+  .control-label{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+  .control-label .val{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--amber);
+  }
+
+  input[type="range"]{
+    -webkit-appearance:none;
+    width:100%;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    outline:none;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:15px; height:15px;
+    border-radius:50%;
+    background: var(--amber);
+    border: 2px solid #0b0a08;
+    box-shadow: 0 0 0 1px var(--amber);
+    cursor:pointer;
+  }
+
+  .toggle-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .toggle-row:last-child{ border-bottom:none; }
+  .toggle-text .t-title{ font-size: 13px; color: var(--text); }
+  .toggle-text .t-sub{ font-size: 11px; color: var(--text-faint); margin-top:2px; }
+
+  .switch{
+    width: 38px; height: 22px;
+    border-radius: 999px;
+    background: var(--border);
+    position:relative;
+    cursor:pointer;
+    transition: background .2s ease;
+    flex-shrink:0;
+  }
+  .switch::after{
+    content:'';
+    position:absolute;
+    top: 3px; left: 3px;
+    width: 16px; height:16px;
+    border-radius:50%;
+    background: var(--text-dim);
+    transition: all .2s ease;
+  }
+  .switch.on{ background: var(--green-dim); }
+  .switch.on::after{ left: 19px; background: var(--green); }
+
+  .legend{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .legend-row{ display:flex; align-items:center; gap:8px; }
+  .swatch{ width:10px; height:10px; border-radius:3px; }
+
+  .reset-btn{
+    width:100%;
+    padding: 11px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text-dim);
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing:0.08em;
+    cursor:pointer;
+    transition: all .15s ease;
+  }
+  .reset-btn:hover{
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  /* ---------- try it yourself footer ---------- */
+  .try-it{
+    margin: 0 32px 32px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(95,217,160,0.05), rgba(232,147,74,0.04));
+    padding: 22px 26px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 24px;
+  }
+  .try-it-left{ display:flex; align-items:flex-start; gap:14px; }
+  .try-it-icon{
+    width: 38px; height:38px;
+    border-radius: 10px;
+    background: var(--amber-dim);
+    color: var(--amber);
+    display:flex; align-items:center; justify-content:center;
+    font-size:16px;
+    flex-shrink:0;
+  }
+  .try-it-title{
+    font-family:'Space Grotesk', sans-serif;
+    font-size: 15px;
+    font-weight:600;
+  }
+  .try-it-sub{
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    max-width: 520px;
+    line-height:1.5;
+  }
+  .try-it-cta{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    padding: 12px 20px;
+    border-radius: 8px;
+    background: var(--green);
+    color: #0b0a08;
+    font-weight:600;
+    cursor:pointer;
+    white-space:nowrap;
+    border:none;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .try-it-cta:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(95,217,160,0.2);
+  }
+
+  .try-it-badge{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--bg);
+    background: var(--green);
+    padding: 3px 7px;
+    border-radius: 999px;
+    margin-left: 9px;
+    vertical-align: middle;
+    font-weight:700;
+  }
+
+  @media (max-width: 900px){
+    .try-it{ flex-direction:column; align-items:flex-start; }
+  }
+
+  /* ---------- 3D full lab overlay ---------- */
+  .lab3d-overlay{
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(232,147,74,0.07), transparent 60%),
+      rgba(6,5,4,0.98);
+    z-index: 1000;
+    display: none;
+    flex-direction: column;
+    opacity: 0;
+    transition: opacity .25s ease;
+  }
+  .lab3d-overlay.open{ display:flex; opacity:1; }
+
+  .lab3d-topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--border-soft);
+    flex-shrink:0;
+  }
+  .lab3d-heading{ font-size:19px; font-weight:600; margin-top:2px; letter-spacing:-0.01em; }
+  .lab3d-actions{ display:flex; align-items:center; gap:14px; }
+  .lab3d-audio-btn{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--green-dim);
+    background: rgba(95,217,160,0.08);
+    color: var(--green);
+    cursor:pointer;
+    white-space:nowrap;
+    transition: all .15s ease;
+  }
+  .lab3d-audio-btn:hover{ border-color: var(--green); box-shadow: 0 0 0 1px var(--green-dim) inset; }
+  .lab3d-audio-btn.playing{ background: var(--green); color:#0b0a08; }
+
+  .lab3d-canvas-wrap{
+    position:relative;
+    flex:1;
+    min-height:0;
+  }
+  #lab3dCanvas{ position:absolute; inset:0; width:100%; height:100%; display:block; cursor:grab; }
+
+  .lab3d-readouts{
+    position:absolute;
+    top:18px; left:28px;
+    display:flex;
+    gap:10px;
+    pointer-events:none;
+  }
+  .lab3d-readout{
+    font-family:'JetBrains Mono', monospace;
+    background: rgba(20,18,16,0.75);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    padding: 8px 12px;
+    backdrop-filter: blur(4px);
+  }
+  .lab3d-readout .lbl{ font-size:10px; letter-spacing:0.1em; color: var(--text-dim); }
+  .lab3d-readout .v{ color: var(--text); font-size:13px; display:block; margin-top:3px; }
+  .lab3d-readout .v.good{ color: var(--green); }
+  .lab3d-readout .v.bad{ color: var(--amber); }
+
+  .lab3d-hint{
+    position:absolute;
+    bottom:18px; left:50%;
+    transform: translateX(-50%);
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing:0.05em;
+    color: var(--text-faint);
+    background: rgba(20,18,16,0.7);
+    border: 1px solid var(--border-soft);
+    padding: 8px 14px;
+    border-radius: 999px;
+    pointer-events:none;
+    white-space:nowrap;
+  }
+
+  @media (max-width: 700px){
+    .lab3d-readouts{ flex-wrap:wrap; right:16px; left:16px; }
+    .lab3d-hint{ font-size:10px; padding:6px 10px; max-width:90%; white-space:normal; text-align:center; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="crumb">
+      <span>SPATIAL AUDIO</span>
+      <span class="sep">/</span>
+      <span class="current">THE SWEET SPOT</span>
+    </div>
+  </div>
+  <div class="close-btn">✕</div>
+</header>
+
+<div class="layout">
+  <div class="stage-wrap">
+    <div class="stage-header">
+      <div>
+        <div class="eyebrow">LAB 04 · STEREO IMAGING</div>
+        <h1>The Sweet Spot</h1>
+        <p>Drag the listener around the room and hear the stereo image shift. Move the speakers to feel how width, angle, and distance change what reaches each ear.</p>
+      </div>
+    </div>
+
+    <div class="hint-chips">
+      <div class="chip">→ Walk off-center</div>
+      <div class="chip">↔ Narrow the pair</div>
+      <div class="chip">◤ Add toe-in</div>
+      <div class="chip">◎ Switch to mono source</div>
+    </div>
+
+    <div class="room-frame">
+      <svg viewBox="0 0 800 460" id="stage">
+        <!-- floor grid -->
+        <defs>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1a1611" stroke-width="1"/>
+          </pattern>
+          <radialGradient id="sweetGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#5fd9a0" stop-opacity="0.22"/>
+            <stop offset="70%" stop-color="#5fd9a0" stop-opacity="0.05"/>
+            <stop offset="100%" stop-color="#5fd9a0" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="ringL" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#e8934a" stop-opacity="0.5"/>
+            <stop offset="100%" stop-color="#e8934a" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="ringR" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#5fd9a0" stop-opacity="0.5"/>
+            <stop offset="100%" stop-color="#5fd9a0" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+
+        <rect x="30" y="20" width="740" height="420" rx="10" fill="url(#grid)"/>
+        <rect x="30" y="20" width="740" height="420" rx="10" fill="none" stroke="#241f18" stroke-width="1.5"/>
+
+        <!-- polar pattern cones (toggled) -->
+        <g id="polarL" opacity="0"></g>
+        <g id="polarR" opacity="0"></g>
+
+        <!-- sweet spot glow -->
+        <ellipse id="sweetSpot" cx="400" cy="300" rx="90" ry="130" fill="url(#sweetGlow)"/>
+
+        <!-- sound rings container -->
+        <g id="ringsL"></g>
+        <g id="ringsR"></g>
+
+        <!-- connecting lines -->
+        <line id="lineL" x1="0" y1="0" x2="0" y2="0" stroke="#e8934a" stroke-width="1" stroke-dasharray="3,4" opacity="0.35"/>
+        <line id="lineR" x1="0" y1="0" x2="0" y2="0" stroke="#5fd9a0" stroke-width="1" stroke-dasharray="3,4" opacity="0.35"/>
+
+        <!-- speaker width measurement -->
+        <line id="widthLine" x1="0" y1="90" x2="0" y2="90" stroke="#55504a" stroke-width="1"/>
+
+        <!-- speakers -->
+        <g id="speakerL" style="cursor:grab;">
+          <rect x="-16" y="-22" width="32" height="44" rx="4" fill="#18140f" stroke="#2a241c" stroke-width="1.5"/>
+          <circle cx="0" cy="-8" r="7" fill="#0a0908" stroke="#e8934a" stroke-width="1"/>
+          <circle cx="0" cy="10" r="10" fill="#0a0908" stroke="#e8934a" stroke-width="1"/>
+        </g>
+        <g id="speakerR" style="cursor:grab;">
+          <rect x="-16" y="-22" width="32" height="44" rx="4" fill="#18140f" stroke="#2a241c" stroke-width="1.5"/>
+          <circle cx="0" cy="-8" r="7" fill="#0a0908" stroke="#5fd9a0" stroke-width="1"/>
+          <circle cx="0" cy="10" r="10" fill="#0a0908" stroke="#5fd9a0" stroke-width="1"/>
+        </g>
+
+        <!-- listener -->
+        <g id="listener" style="cursor:grab;">
+          <circle cx="0" cy="0" r="16" fill="#141210" stroke="#ece7de" stroke-width="1.5" opacity="0.9"/>
+          <circle cx="0" cy="0" r="4" fill="#ece7de"/>
+          <path d="M 0 -22 L -6 -14 L 6 -14 Z" fill="#ece7de" opacity="0.8"/>
+        </g>
+      </svg>
+    </div>
+
+    <div class="readouts">
+      <div class="readout-card">
+        <div class="readout-label">IMAGE POSITION</div>
+        <div class="meter-track">
+          <div class="meter-marker"></div>
+          <div class="meter-fill" id="imgFill" style="left:50%; width:2px;"></div>
+        </div>
+        <div class="readout-value mono" id="imgValue">CENTER</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">PHASE CORRELATION</div>
+        <div class="meter-track">
+          <div class="meter-fill" id="corrFill" style="left:0%; width:100%;"></div>
+        </div>
+        <div class="readout-value mono corr-good" id="corrValue">+1.00</div>
+      </div>
+      <div class="readout-card">
+        <div class="readout-label">DISTANCE L / R</div>
+        <div class="meter-track">
+          <div class="meter-marker"></div>
+          <div class="meter-fill" id="distFill" style="left:50%; width:2px;"></div>
+        </div>
+        <div class="readout-value mono" id="distValue">2.4m / 2.4m</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div>
+      <div class="side-section-title">GEOMETRY</div>
+      <div class="control">
+        <div class="control-label"><span>Speaker width</span><span class="val" id="widthVal">1.8 m</span></div>
+        <input type="range" id="widthSlider" min="60" max="220" value="150">
+      </div>
+      <div class="control">
+        <div class="control-label"><span>Toe-in angle</span><span class="val" id="toeVal">12°</span></div>
+        <input type="range" id="toeSlider" min="0" max="45" value="12">
+      </div>
+    </div>
+
+    <div>
+      <div class="side-section-title">SOURCE</div>
+      <div class="toggle-row">
+        <div class="toggle-text">
+          <div class="t-title">Polar pattern overlay</div>
+          <div class="t-sub">Show bass vs. treble radiation</div>
+        </div>
+        <div class="switch" id="polarToggle"></div>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-text">
+          <div class="t-title">Mono source</div>
+          <div class="t-sub">Test phantom center formation</div>
+        </div>
+        <div class="switch" id="monoToggle"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="side-section-title">LEGEND</div>
+      <div class="legend">
+        <div class="legend-row"><div class="swatch" style="background:#5fd9a0"></div>Sweet spot zone</div>
+        <div class="legend-row"><div class="swatch" style="background:#e8934a; opacity:0.4"></div>Bass radiation (wide)</div>
+        <div class="legend-row"><div class="swatch" style="background:#5fd9a0; opacity:0.7"></div>Treble radiation (narrow)</div>
+      </div>
+    </div>
+
+    <button class="reset-btn" id="resetBtn">RESET TO DEFAULT TRIANGLE</button>
+  </div>
+</div>
+
+<div class="try-it">
+  <div class="try-it-left">
+    <div class="try-it-icon">♪</div>
+    <div>
+      <div class="try-it-title">Try it yourself<span class="try-it-badge">3D + AUDIO</span></div>
+      <div class="try-it-sub">Drag the listener off-center and listen to the phantom image collapse toward one speaker. Then narrow the pair and add toe-in to hear the image lock back into focus. The full lab renders the same room in 3D and plays real spatial audio through your speakers or headphones.</div>
+    </div>
+  </div>
+  <button class="try-it-cta" id="enterLab3dBtn">ENTER 3D LAB →</button>
+</div>
+
+<div class="lab3d-overlay" id="lab3dOverlay">
+  <div class="lab3d-topbar">
+    <div>
+      <div class="eyebrow" style="margin-bottom:2px;">LAB 04 · 3D SPATIAL VIEW</div>
+      <div class="lab3d-heading display">The Sweet Spot — Full Lab</div>
+    </div>
+    <div class="lab3d-actions">
+      <button class="lab3d-audio-btn" id="audioToggleBtn">▶ PLAY DEMO TONES</button>
+      <div class="close-btn" id="lab3dClose">✕</div>
+    </div>
+  </div>
+  <div class="lab3d-canvas-wrap">
+    <canvas id="lab3dCanvas"></canvas>
+    <div class="lab3d-readouts">
+      <div class="lab3d-readout" id="ro3dPos"><div class="lbl">IMAGE</div><span class="v">CENTER</span></div>
+      <div class="lab3d-readout" id="ro3dCorr"><div class="lbl">PHASE CORR.</div><span class="v good">+1.00</span></div>
+      <div class="lab3d-readout" id="ro3dDist"><div class="lbl">DIST L / R</div><span class="v">2.4m / 2.4m</span></div>
+    </div>
+    <div class="lab3d-hint">Drag the listener or speakers to explore in 3D · headphones recommended for panning</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+  const svg = document.getElementById('stage');
+  const speakerL = document.getElementById('speakerL');
+  const speakerR = document.getElementById('speakerR');
+  const listener = document.getElementById('listener');
+  const lineL = document.getElementById('lineL');
+  const lineR = document.getElementById('lineR');
+  const widthLine = document.getElementById('widthLine');
+  const sweetSpot = document.getElementById('sweetSpot');
+  const polarL = document.getElementById('polarL');
+  const polarR = document.getElementById('polarR');
+  const ringsL = document.getElementById('ringsL');
+  const ringsR = document.getElementById('ringsR');
+
+  const widthSlider = document.getElementById('widthSlider');
+  const toeSlider = document.getElementById('toeSlider');
+  const widthVal = document.getElementById('widthVal');
+  const toeVal = document.getElementById('toeVal');
+  const polarToggle = document.getElementById('polarToggle');
+  const monoToggle = document.getElementById('monoToggle');
+  const resetBtn = document.getElementById('resetBtn');
+
+  const imgFill = document.getElementById('imgFill');
+  const imgValue = document.getElementById('imgValue');
+  const corrFill = document.getElementById('corrFill');
+  const corrValue = document.getElementById('corrValue');
+  const distFill = document.getElementById('distFill');
+  const distValue = document.getElementById('distValue');
+
+  const ROOM = { x: 30, y: 20, w: 740, h: 420 };
+  const SPK_Y = 90;
+
+  let state = {
+    halfWidth: 150,
+    toe: 12,
+    listenerX: 400,
+    listenerY: 300,
+    polarOn: false,
+    monoOn: false,
+  };
+
+  function setTransform(el, x, y, rot) {
+    el.setAttribute('transform', `translate(${x},${y})${rot ? ` rotate(${rot})` : ''}`);
+  }
+
+  function dist(x1, y1, x2, y2) {
+    return Math.hypot(x2 - x1, y2 - y1);
+  }
+
+  function buildCone(cx, cy, angleDeg, spreadDeg, length, color, opacity) {
+    const a1 = (angleDeg - spreadDeg / 2) * Math.PI / 180;
+    const a2 = (angleDeg + spreadDeg / 2) * Math.PI / 180;
+    const x1 = cx + Math.cos(a1) * length;
+    const y1 = cy + Math.sin(a1) * length;
+    const x2 = cx + Math.cos(a2) * length;
+    const y2 = cy + Math.sin(a2) * length;
+    return `<path d="M ${cx} ${cy} L ${x1} ${y1} A ${length} ${length} 0 0 1 ${x2} ${y2} Z" fill="${color}" opacity="${opacity}"/>`;
+  }
+
+  function render() {
+    const lx = ROOM.x + ROOM.w / 2 - state.halfWidth;
+    const rx = ROOM.x + ROOM.w / 2 + state.halfWidth;
+
+    setTransform(speakerL, lx, SPK_Y, state.toe);
+    setTransform(speakerR, rx, SPK_Y, -state.toe);
+    setTransform(listener, state.listenerX, state.listenerY);
+
+    lineL.setAttribute('x1', lx); lineL.setAttribute('y1', SPK_Y);
+    lineL.setAttribute('x2', state.listenerX); lineL.setAttribute('y2', state.listenerY);
+    lineR.setAttribute('x1', rx); lineR.setAttribute('y1', SPK_Y);
+    lineR.setAttribute('x2', state.listenerX); lineR.setAttribute('y2', state.listenerY);
+
+    widthLine.setAttribute('x1', lx); widthLine.setAttribute('x2', rx);
+
+    // sweet spot geometry: centered between speakers, elongated toward the triangle apex
+    const midX = (lx + rx) / 2;
+    const spread = Math.max(50, state.halfWidth * 0.65);
+    sweetSpot.setAttribute('cx', midX);
+    sweetSpot.setAttribute('cy', SPK_Y + state.halfWidth * 1.05);
+    sweetSpot.setAttribute('rx', spread);
+    sweetSpot.setAttribute('ry', spread * 1.35);
+
+    // polar cones
+    if (state.polarOn) {
+      polarL.setAttribute('opacity', 1);
+      polarR.setAttribute('opacity', 1);
+      const aimL = 90 - state.toe;
+      const aimR = 90 + state.toe;
+      polarL.innerHTML =
+        buildCone(lx, SPK_Y, aimL, 150, 260, '#e8934a', 0.07) +
+        buildCone(lx, SPK_Y, aimL, 55, 220, '#5fd9a0', 0.12);
+      polarR.innerHTML =
+        buildCone(rx, SPK_Y, aimR, 150, 260, '#e8934a', 0.07) +
+        buildCone(rx, SPK_Y, aimR, 55, 220, '#5fd9a0', 0.12);
+    } else {
+      polarL.setAttribute('opacity', 0);
+      polarR.setAttribute('opacity', 0);
+    }
+
+    // readouts
+    const dL = dist(state.listenerX, state.listenerY, lx, SPK_Y);
+    const dR = dist(state.listenerX, state.listenerY, rx, SPK_Y);
+    const diff = dL - dR; // positive => closer to R => image pulls right... define below
+    const maxDiff = state.halfWidth * 1.6;
+    let pos = diff / maxDiff; // >0 closer to R (dL>dR) -> wait invert
+    pos = -pos; // closer to L (dL<dR, diff<0) => pos>0 pulls left; flip sign convention below
+    pos = Math.max(-1, Math.min(1, -diff / maxDiff));
+
+    const pct = 50 + pos * 50;
+    imgFill.style.left = Math.min(50, pct) + '%';
+    imgFill.style.width = Math.abs(pct - 50) + '%';
+    imgFill.style.background = pos < 0
+      ? 'linear-gradient(90deg, #e8934a, transparent)'
+      : 'linear-gradient(90deg, transparent, #5fd9a0)';
+
+    let posLabel = 'CENTER';
+    if (Math.abs(pos) > 0.08) {
+      const side = pos < 0 ? 'LEFT' : 'RIGHT';
+      const strength = Math.abs(pos) > 0.55 ? 'HARD ' : '';
+      posLabel = `${strength}${side}`;
+    }
+    imgValue.textContent = state.monoOn ? posLabel + ' · MONO' : posLabel;
+
+    const asym = Math.abs(diff) / maxDiff;
+    const toeFactor = state.toe / 45;
+    let corr = 1 - asym * 0.85 - Math.max(0, 0.3 - toeFactor * 0.3) * (asym > 0.05 ? 1 : 0);
+    corr = Math.max(-0.2, Math.min(1, corr));
+    corrFill.style.width = ((corr + 0.2) / 1.2 * 100) + '%';
+    corrValue.textContent = (corr >= 0 ? '+' : '') + corr.toFixed(2);
+    corrValue.className = 'readout-value mono ' + (corr > 0.5 ? 'corr-good' : 'corr-bad');
+
+    const metersPerPx = 0.012;
+    const mL = (dL * metersPerPx).toFixed(1);
+    const mR = (dR * metersPerPx).toFixed(1);
+    distValue.textContent = `${mL}m / ${mR}m`;
+    const dpct = 50 + Math.max(-1, Math.min(1, -diff / maxDiff)) * 50;
+    distFill.style.left = Math.min(50, dpct) + '%';
+    distFill.style.width = Math.abs(dpct - 50) + '%';
+
+    widthVal.textContent = (state.halfWidth * 2 * 0.012).toFixed(1) + ' m';
+    toeVal.textContent = state.toe + '°';
+
+    if (typeof syncLab3D === 'function') syncLab3D();
+  }
+
+  // ---- sound ring pulses ----
+  function spawnRing(container, cx, cy, gradientId, speakerSide) {
+    const dL = dist(state.listenerX, state.listenerY, cx, cy);
+    const intensity = Math.max(0.15, 1 - dL / 500);
+    const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    ring.setAttribute('cx', cx);
+    ring.setAttribute('cy', cy);
+    ring.setAttribute('r', 4);
+    ring.setAttribute('fill', `url(#${gradientId})`);
+    ring.setAttribute('opacity', intensity * 0.7);
+    container.appendChild(ring);
+
+    let r = 4;
+    const maxR = 130;
+    const step = () => {
+      r += 3.2;
+      const t = r / maxR;
+      ring.setAttribute('r', r);
+      ring.setAttribute('opacity', (1 - t) * intensity * 0.7);
+      if (r < maxR) requestAnimationFrame(step);
+      else container.removeChild(ring);
+    };
+    requestAnimationFrame(step);
+  }
+
+  let pulseTick = 0;
+  setInterval(() => {
+    const lx = ROOM.x + ROOM.w / 2 - state.halfWidth;
+    const rx = ROOM.x + ROOM.w / 2 + state.halfWidth;
+    spawnRing(ringsL, lx, SPK_Y, 'ringL');
+    if (!state.monoOn) spawnRing(ringsR, rx, SPK_Y, 'ringR');
+    else spawnRing(ringsR, rx, SPK_Y, 'ringL');
+    pulseTick++;
+    if (typeof spawnLab3DRings === 'function') spawnLab3DRings();
+  }, 850);
+
+  // ---- dragging ----
+  function pointFromEvent(e) {
+    const rect = svg.getBoundingClientRect();
+    const scaleX = 800 / rect.width;
+    const scaleY = 460 / rect.height;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  }
+
+  let dragTarget = null;
+
+  function startDrag(target) {
+    return (e) => {
+      dragTarget = target;
+      e.preventDefault();
+    };
+  }
+
+  function onMove(e) {
+    if (!dragTarget) return;
+    const p = pointFromEvent(e);
+    if (dragTarget === 'listener') {
+      state.listenerX = Math.max(ROOM.x + 20, Math.min(ROOM.x + ROOM.w - 20, p.x));
+      state.listenerY = Math.max(SPK_Y + 40, Math.min(ROOM.y + ROOM.h - 20, p.y));
+    } else if (dragTarget === 'speakerL' || dragTarget === 'speakerR') {
+      const centerX = ROOM.x + ROOM.w / 2;
+      const hw = Math.max(40, Math.min(300, Math.abs(p.x - centerX)));
+      state.halfWidth = hw;
+      widthSlider.value = hw;
+    }
+    render();
+  }
+
+  function endDrag() { dragTarget = null; }
+
+  listener.addEventListener('mousedown', startDrag('listener'));
+  listener.addEventListener('touchstart', startDrag('listener'));
+  speakerL.addEventListener('mousedown', startDrag('speakerL'));
+  speakerL.addEventListener('touchstart', startDrag('speakerL'));
+  speakerR.addEventListener('mousedown', startDrag('speakerR'));
+  speakerR.addEventListener('touchstart', startDrag('speakerR'));
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('touchmove', onMove, { passive: false });
+  window.addEventListener('mouseup', endDrag);
+  window.addEventListener('touchend', endDrag);
+
+  // ---- controls ----
+  widthSlider.addEventListener('input', () => {
+    state.halfWidth = parseFloat(widthSlider.value);
+    render();
+  });
+  toeSlider.addEventListener('input', () => {
+    state.toe = parseFloat(toeSlider.value);
+    render();
+  });
+  polarToggle.addEventListener('click', () => {
+    state.polarOn = !state.polarOn;
+    polarToggle.classList.toggle('on', state.polarOn);
+    render();
+  });
+  monoToggle.addEventListener('click', () => {
+    state.monoOn = !state.monoOn;
+    monoToggle.classList.toggle('on', state.monoOn);
+    render();
+  });
+  resetBtn.addEventListener('click', () => {
+    state.halfWidth = 150;
+    state.toe = 12;
+    state.listenerX = 400;
+    state.listenerY = 300;
+    widthSlider.value = 150;
+    toeSlider.value = 12;
+    render();
+  });
+
+  // hint chips quick-demo
+  document.querySelectorAll('.chip').forEach((chip, i) => {
+    chip.addEventListener('click', () => {
+      if (i === 0) { state.listenerX = 260; render(); }
+      if (i === 1) { state.halfWidth = 90; widthSlider.value = 90; render(); }
+      if (i === 2) { state.toe = 30; toeSlider.value = 30; render(); }
+      if (i === 3) { state.monoOn = true; monoToggle.classList.add('on'); render(); }
+    });
+  });
+
+  render();
+</script>
+
+<script>
+  /* =========================================================
+     3D FULL LAB — three.js scene + Web Audio spatial panning
+     Reads/writes the same `state` object as the 2D SVG lab
+     above, so both views (and real playback) stay in sync.
+     ========================================================= */
+
+  const overlay3D = document.getElementById('lab3dOverlay');
+  const canvas3D = document.getElementById('lab3dCanvas');
+  const closeBtn3D = document.getElementById('lab3dClose');
+  const enterBtn3D = document.getElementById('enterLab3dBtn');
+  const audioToggleBtn = document.getElementById('audioToggleBtn');
+  const ro3D_pos = document.querySelector('#ro3dPos .v');
+  const ro3D_corr = document.querySelector('#ro3dCorr .v');
+  const ro3D_dist = document.querySelector('#ro3dDist .v');
+
+  const METERS_PER_PX = 0.012;
+  const centerPxX = ROOM.x + ROOM.w / 2;
+
+  function pxToWorld(px, py) {
+    return { x: (px - centerPxX) * METERS_PER_PX, z: (py - SPK_Y) * METERS_PER_PX };
+  }
+  function worldToPx(x, z) {
+    return { px: centerPxX + x / METERS_PER_PX, py: SPK_Y + z / METERS_PER_PX };
+  }
+
+  let lab3dInitialized = false;
+  let lab3dOpen = false;
+  let scene, camera, renderer;
+  let floorMesh, sweetDisc, speakerLGroup, speakerRGroup, listenerGroup, polarConesGroup;
+  let ringsGroup3D = [];
+  let rafId3D = null;
+  const clock3D = new THREE.Clock();
+
+  function buildSpeakerMesh(accentColor) {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(0.34, 0.5, 0.3),
+      new THREE.MeshStandardMaterial({ color: 0x18140f, roughness: 0.7, metalness: 0.15 })
+    );
+    body.position.y = 0.25;
+    g.add(body);
+
+    const coneMat = new THREE.MeshStandardMaterial({
+      color: 0x0a0908, emissive: accentColor, emissiveIntensity: 0.45, roughness: 0.5,
+    });
+    const tweeter = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.05, 20), coneMat);
+    tweeter.rotation.x = Math.PI / 2;
+    tweeter.position.set(0, 0.36, 0.16);
+    g.add(tweeter);
+
+    const woofer = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.06, 24), coneMat);
+    woofer.rotation.x = Math.PI / 2;
+    woofer.position.set(0, 0.2, 0.16);
+    g.add(woofer);
+
+    return g;
+  }
+
+  function buildListenerMesh() {
+    const g = new THREE.Group();
+    const head = new THREE.Mesh(
+      new THREE.SphereGeometry(0.16, 20, 16),
+      new THREE.MeshStandardMaterial({ color: 0x141210, emissive: 0xece7de, emissiveIntensity: 0.12, roughness: 0.6 })
+    );
+    head.position.y = 0.16;
+    g.add(head);
+    const nose = new THREE.Mesh(
+      new THREE.ConeGeometry(0.05, 0.12, 12),
+      new THREE.MeshStandardMaterial({ color: 0xece7de, emissive: 0xece7de, emissiveIntensity: 0.25 })
+    );
+    nose.rotation.x = Math.PI / 2;
+    nose.position.set(0, 0.16, 0.18);
+    g.add(nose);
+    return g;
+  }
+
+  function buildPolarCone(originVec3, extraRotY, color, opacity, spreadDeg, length) {
+    const radius = length * Math.tan((spreadDeg * Math.PI) / 180);
+    const geo = new THREE.ConeGeometry(radius, length, 24, 1, true);
+    geo.translate(0, -length / 2, 0);
+    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.rotation.y = extraRotY;
+    mesh.position.copy(originVec3);
+    mesh.position.y += 0.3;
+    return mesh;
+  }
+
+  function initLab3D() {
+    if (lab3dInitialized) return;
+    lab3dInitialized = true;
+
+    scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x0b0a08, 0.032);
+
+    camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+    camera.position.set(0, 6.4, 10.2);
+    camera.lookAt(0, 0.3, 2.1);
+
+    renderer = new THREE.WebGLRenderer({ canvas: canvas3D, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+    scene.add(new THREE.AmbientLight(0x4a3f33, 1.1));
+    const key = new THREE.DirectionalLight(0xffd9ad, 0.9);
+    key.position.set(3, 8, 4);
+    scene.add(key);
+    const rim = new THREE.PointLight(0x5fd9a0, 0.7, 20);
+    rim.position.set(-4, 3, 8);
+    scene.add(rim);
+
+    floorMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(10, 8),
+      new THREE.MeshStandardMaterial({ color: 0x0d0b09, roughness: 0.95 })
+    );
+    floorMesh.rotation.x = -Math.PI / 2;
+    floorMesh.position.set(0, 0, 2.1);
+    scene.add(floorMesh);
+
+    const grid = new THREE.GridHelper(10, 20, 0x2a241c, 0x1a1611);
+    grid.position.set(0, 0.005, 2.1);
+    scene.add(grid);
+
+    const wall = new THREE.Mesh(
+      new THREE.PlaneGeometry(10, 3),
+      new THREE.MeshStandardMaterial({ color: 0x0d0b09, roughness: 1 })
+    );
+    wall.position.set(0, 1.5, -0.15);
+    scene.add(wall);
+
+    sweetDisc = new THREE.Mesh(
+      new THREE.CircleGeometry(1, 48),
+      new THREE.MeshBasicMaterial({ color: 0x5fd9a0, transparent: true, opacity: 0.14, side: THREE.DoubleSide })
+    );
+    sweetDisc.rotation.x = -Math.PI / 2;
+    sweetDisc.position.y = 0.008;
+    scene.add(sweetDisc);
+
+    speakerLGroup = buildSpeakerMesh(0xe8934a);
+    speakerRGroup = buildSpeakerMesh(0x5fd9a0);
+    scene.add(speakerLGroup, speakerRGroup);
+
+    polarConesGroup = new THREE.Group();
+    scene.add(polarConesGroup);
+
+    listenerGroup = buildListenerMesh();
+    scene.add(listenerGroup);
+
+    setupLab3DDrag();
+    window.addEventListener('resize', resizeLab3D);
+
+    syncLab3D();
+  }
+
+  function resizeLab3D() {
+    if (!renderer) return;
+    const wrap = canvas3D.parentElement;
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+
+  function syncLab3D() {
+    if (!lab3dInitialized) return;
+
+    const lx = ROOM.x + ROOM.w / 2 - state.halfWidth;
+    const rx = ROOM.x + ROOM.w / 2 + state.halfWidth;
+    const pL = pxToWorld(lx, SPK_Y);
+    const pR = pxToWorld(rx, SPK_Y);
+    const pLis = pxToWorld(state.listenerX, state.listenerY);
+    const toeRad = (state.toe * Math.PI) / 180;
+
+    speakerLGroup.position.set(pL.x, 0, pL.z);
+    speakerLGroup.rotation.y = toeRad;
+    speakerRGroup.position.set(pR.x, 0, pR.z);
+    speakerRGroup.rotation.y = -toeRad;
+
+    listenerGroup.position.set(pLis.x, 0, pLis.z);
+    const midX = (pL.x + pR.x) / 2, midZ = (pL.z + pR.z) / 2;
+    listenerGroup.lookAt(midX, 0, midZ);
+
+    const spread = Math.max(50, state.halfWidth * 0.65) * METERS_PER_PX;
+    const cy = SPK_Y + state.halfWidth * 1.05;
+    const cW = pxToWorld(centerPxX, cy);
+    sweetDisc.position.set(cW.x, 0.008, cW.z);
+    sweetDisc.scale.set(spread, spread * 1.35, 1);
+
+    polarConesGroup.clear();
+    if (state.polarOn) {
+      polarConesGroup.add(buildPolarCone(speakerLGroup.position, toeRad, 0xe8934a, 0.12, 55, 3.1));
+      polarConesGroup.add(buildPolarCone(speakerLGroup.position, toeRad, 0x5fd9a0, 0.18, 22, 2.6));
+      polarConesGroup.add(buildPolarCone(speakerRGroup.position, -toeRad, 0xe8934a, 0.12, 55, 3.1));
+      polarConesGroup.add(buildPolarCone(speakerRGroup.position, -toeRad, 0x5fd9a0, 0.18, 22, 2.6));
+    }
+
+    updateLab3DReadouts();
+    syncAudioPositions();
+  }
+
+  function updateLab3DReadouts() {
+    if (!ro3D_pos) return;
+    ro3D_pos.textContent = imgValue.textContent;
+    ro3D_corr.textContent = corrValue.textContent;
+    ro3D_corr.className = 'v ' + (corrValue.classList.contains('corr-good') ? 'good' : 'bad');
+    ro3D_dist.textContent = distValue.textContent;
+  }
+
+  function spawnLab3DRings() {
+    if (!lab3dInitialized || !lab3dOpen) return;
+    spawnRing3D(speakerLGroup.position, 0xe8934a);
+    spawnRing3D(speakerRGroup.position, state.monoOn ? 0xe8934a : 0x5fd9a0);
+  }
+
+  function spawnRing3D(originVec3, color) {
+    const mesh = new THREE.Mesh(
+      new THREE.RingGeometry(0.9, 1, 48),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false })
+    );
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(originVec3.x, 0.02, originVec3.z);
+    mesh.scale.setScalar(0.03);
+    scene.add(mesh);
+    ringsGroup3D.push({ mesh, scale: 0.03 });
+  }
+
+  function animateLab3D() {
+    rafId3D = requestAnimationFrame(animateLab3D);
+    const dt = Math.min(clock3D.getDelta(), 0.1);
+
+    for (let i = ringsGroup3D.length - 1; i >= 0; i--) {
+      const item = ringsGroup3D[i];
+      item.scale += dt * 2.2;
+      item.mesh.scale.setScalar(item.scale);
+      const t = item.scale / 3.2;
+      item.mesh.material.opacity = Math.max(0, 0.55 * (1 - t));
+      if (t >= 1) {
+        scene.remove(item.mesh);
+        item.mesh.geometry.dispose();
+        item.mesh.material.dispose();
+        ringsGroup3D.splice(i, 1);
+      }
+    }
+
+    const t = clock3D.elapsedTime;
+    camera.position.x = Math.sin(t * 0.08) * 0.6;
+    camera.lookAt(0, 0.3, 2.1);
+
+    renderer.render(scene, camera);
+  }
+
+  function setupLab3DDrag() {
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    let dragTarget3D = null;
+
+    function updateMouse(e) {
+      const rect = canvas3D.getBoundingClientRect();
+      const cx = e.touches ? e.touches[0].clientX : e.clientX;
+      const cy = e.touches ? e.touches[0].clientY : e.clientY;
+      mouse.x = ((cx - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((cy - rect.top) / rect.height) * 2 + 1;
+    }
+
+    function pick(e) {
+      updateMouse(e);
+      raycaster.setFromCamera(mouse, camera);
+      const hits = raycaster.intersectObjects([listenerGroup, speakerLGroup, speakerRGroup], true);
+      if (!hits.length) return null;
+      let obj = hits[0].object;
+      while (obj.parent && obj.parent !== scene) obj = obj.parent;
+      return obj;
+    }
+
+    function onDown(e) {
+      const hit = pick(e);
+      if (hit === listenerGroup) dragTarget3D = 'listener';
+      else if (hit === speakerLGroup) dragTarget3D = 'speakerL';
+      else if (hit === speakerRGroup) dragTarget3D = 'speakerR';
+      else dragTarget3D = null;
+      if (dragTarget3D) e.preventDefault();
+    }
+
+    function onMove3D(e) {
+      if (!dragTarget3D) return;
+      updateMouse(e);
+      raycaster.setFromCamera(mouse, camera);
+      const point = new THREE.Vector3();
+      const hit = raycaster.ray.intersectPlane(floorPlane, point);
+      if (!hit) return;
+
+      if (dragTarget3D === 'listener') {
+        const p = worldToPx(point.x, point.z);
+        state.listenerX = Math.max(ROOM.x + 20, Math.min(ROOM.x + ROOM.w - 20, p.px));
+        state.listenerY = Math.max(SPK_Y + 40, Math.min(ROOM.y + ROOM.h - 20, p.py));
+      } else {
+        const hwWorld = Math.max(0.5, Math.min(3.6, Math.abs(point.x)));
+        state.halfWidth = hwWorld / METERS_PER_PX;
+        widthSlider.value = state.halfWidth;
+      }
+      render();
+    }
+
+    function onUp() { dragTarget3D = null; }
+
+    canvas3D.addEventListener('mousedown', onDown);
+    canvas3D.addEventListener('touchstart', onDown, { passive: false });
+    window.addEventListener('mousemove', onMove3D);
+    window.addEventListener('touchmove', onMove3D, { passive: false });
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchend', onUp);
+  }
+
+  /* ---------- Web Audio: real spatial playback ---------- */
+  let audioCtx = null;
+  let oscL = null, oscR = null, pannerL = null, pannerR = null, gainL = null, gainR = null, masterGain = null;
+  let audioPlaying = false;
+
+  function getSpeakerFreqs() {
+    return state.monoOn ? { l: 246.94, r: 246.94 } : { l: 196.0, r: 293.66 };
+  }
+
+  function ensureAudioGraph() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.22;
+    masterGain.connect(audioCtx.destination);
+
+    pannerL = audioCtx.createPanner();
+    pannerR = audioCtx.createPanner();
+    [pannerL, pannerR].forEach((p) => {
+      p.panningModel = 'HRTF';
+      p.distanceModel = 'inverse';
+      p.refDistance = 1;
+      p.maxDistance = 12;
+      p.rolloffFactor = 1.1;
+      p.connect(masterGain);
+    });
+
+    gainL = audioCtx.createGain(); gainL.gain.value = 0.9; gainL.connect(pannerL);
+    gainR = audioCtx.createGain(); gainR.gain.value = 0.9; gainR.connect(pannerR);
+  }
+
+  function setPannerPos(panner, pos) {
+    if (panner.positionX) {
+      panner.positionX.value = pos.x;
+      panner.positionY.value = 0.3;
+      panner.positionZ.value = pos.z;
+    } else {
+      panner.setPosition(pos.x, 0.3, pos.z);
+    }
+  }
+
+  function syncAudioPositions() {
+    if (!audioCtx) return;
+    if (oscL) {
+      const f = getSpeakerFreqs();
+      oscL.frequency.setTargetAtTime(f.l, audioCtx.currentTime, 0.05);
+      oscR.frequency.setTargetAtTime(f.r, audioCtx.currentTime, 0.05);
+    }
+    setPannerPos(pannerL, speakerLGroup.position);
+    setPannerPos(pannerR, speakerRGroup.position);
+
+    const lp = listenerGroup.position;
+    const l = audioCtx.listener;
+    if (l.positionX) {
+      l.positionX.value = lp.x; l.positionY.value = 1.2; l.positionZ.value = lp.z;
+      l.forwardX.value = 0; l.forwardY.value = 0; l.forwardZ.value = -1;
+      l.upX.value = 0; l.upY.value = 1; l.upZ.value = 0;
+    } else {
+      l.setPosition(lp.x, 1.2, lp.z);
+      l.setOrientation(0, 0, -1, 0, 1, 0);
+    }
+  }
+
+  function startAudio() {
+    ensureAudioGraph();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+
+    oscL = audioCtx.createOscillator();
+    oscR = audioCtx.createOscillator();
+    oscL.type = 'sine';
+    oscR.type = 'sine';
+    const f = getSpeakerFreqs();
+    oscL.frequency.value = f.l;
+    oscR.frequency.value = f.r;
+    oscL.connect(gainL);
+    oscR.connect(gainR);
+    oscL.start();
+    oscR.start();
+
+    audioPlaying = true;
+    audioToggleBtn.textContent = '■ STOP DEMO TONES';
+    audioToggleBtn.classList.add('playing');
+    syncAudioPositions();
+  }
+
+  function stopAudio() {
+    if (oscL) { try { oscL.stop(); } catch (e) {} oscL.disconnect(); oscL = null; }
+    if (oscR) { try { oscR.stop(); } catch (e) {} oscR.disconnect(); oscR = null; }
+    audioPlaying = false;
+    audioToggleBtn.textContent = '▶ PLAY DEMO TONES';
+    audioToggleBtn.classList.remove('playing');
+  }
+
+  audioToggleBtn.addEventListener('click', () => {
+    if (audioPlaying) stopAudio(); else startAudio();
+  });
+
+  /* ---------- open / close ---------- */
+  function openLab3D() {
+    initLab3D();
+    overlay3D.classList.add('open');
+    lab3dOpen = true;
+    document.body.style.overflow = 'hidden';
+    resizeLab3D();
+    syncLab3D();
+    if (rafId3D === null) animateLab3D();
+  }
+
+  function closeLab3D() {
+    overlay3D.classList.remove('open');
+    lab3dOpen = false;
+    document.body.style.overflow = '';
+    if (rafId3D !== null) { cancelAnimationFrame(rafId3D); rafId3D = null; }
+    stopAudio();
+  }
+
+  enterBtn3D.addEventListener('click', openLab3D);
+  closeBtn3D.addEventListener('click', closeLab3D);
+  overlay3D.addEventListener('click', (e) => { if (e.target === overlay3D) closeLab3D(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && lab3dOpen) closeLab3D(); });
+</script>
+</body>
+</html>
