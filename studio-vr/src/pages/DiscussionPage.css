@@ -25,6 +25,15 @@
   --text: #f0ece3;
   --text-dim: #9a9aa0;
   --text-faint: #55545c;
+  /* Solid modal-only surfaces, deliberately separate from --panel/--panel-2:
+     those two are translucent tints in the light theme (meant to sit over
+     the page's opaque --bg), but the modal instead floats over a dark
+     dimmed backdrop (.disc-modal-overlay) — reusing --panel there would let
+     that dark backdrop show through and read as a muddy gray card instead
+     of a clean one. Dark theme's --panel/--panel-2 are already solid hex,
+     so these just mirror them; only the light-theme override below differs. */
+  --modal-panel: var(--panel);
+  --modal-panel-2: var(--panel-2);
 
   width: 100%;
   height: 100%;
@@ -259,7 +268,93 @@
 
     &.answered {
       color: var(--green);
+      cursor: default;
     }
+
+    &.danger {
+      margin-left: auto;
+    }
+
+    &.danger:hover {
+      color: #e88a8a;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+  }
+
+  /* per-thread inline reply box, opened by the card's "Reply" action —
+     posts straight to POST /discussions/:id/replies (see
+     src/api/discussions.js) rather than routing through the main
+     composer, since a reply always belongs to the thread it's opened
+     from. */
+  .disc-reply-composer {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+
+    textarea {
+      width: 100%;
+      min-height: 44px;
+      resize: vertical;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--text);
+      font-family: "Inter", sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      outline: none;
+      transition: border-color 0.2s ease;
+
+      &:focus {
+        border-color: var(--amber);
+      }
+
+      &::placeholder {
+        color: var(--text-faint);
+      }
+    }
+  }
+
+  .disc-reply-send {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 14px;
+    color: var(--text-dim);
+
+    &:hover {
+      color: var(--text);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      color: var(--text-faint);
+    }
+  }
+
+  /* error banner — network failures or a rejected request (e.g. a 403
+     PAYMENT_REQUIRED from studio-backend, or trying to reply into another
+     student's private talkback thread) surface here with the backend's
+     own message rather than failing silently. */
+  .disc-error {
+    margin: -8px 0 20px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: rgba(224, 92, 92, 0.12);
+    border: 1px solid rgba(224, 92, 92, 0.3);
+    color: #e88a8a;
+    font-size: 12.5px;
+    line-height: 1.5;
   }
 
   /* thread */
@@ -305,6 +400,38 @@
 
   .disc-reply-body {
     flex: 1;
+  }
+
+  /* Wraps the reply's name/role line together with its own delete button
+     (only rendered when the reply is `canDelete`, see DiscussionPage.jsx)
+     so the ✕ sits at the right edge of that row rather than the whole
+     reply block. */
+  .disc-reply-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .disc-reply-delete {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0 2px;
+    font-size: 12px;
+    line-height: 1;
+    color: var(--text-faint);
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: #e88a8a;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
   }
 
   .disc-reply-text {
@@ -508,6 +635,12 @@
     &:active {
       transform: scale(0.97);
     }
+
+    &:disabled {
+      cursor: not-allowed;
+      filter: grayscale(0.4) brightness(0.9);
+      transform: none;
+    }
   }
 
   .disc-composer.talkback-mode .disc-send-btn {
@@ -541,6 +674,85 @@
       transition: none;
     }
   }
+
+  /* delete confirmation modal (ConfirmDialog in DiscussionPage.jsx) —
+     replaces window.confirm so "are you sure you want to delete this" is
+     styled to match the rest of the page instead of popping up as
+     unstyled browser chrome. Fixed + centered over a dimmed backdrop;
+     clicking the backdrop cancels, same as the Cancel button. */
+  .disc-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 1000;
+  }
+
+  .disc-modal {
+    width: 100%;
+    max-width: 360px;
+    background: var(--modal-panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px 20px 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  }
+
+  .disc-modal-title {
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  .disc-modal-body {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin: 0 0 20px;
+  }
+
+  .disc-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  .disc-modal-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--modal-panel-2);
+    color: var(--text-dim);
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 600;
+    font-size: 12.5px;
+    cursor: pointer;
+    transition: filter 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+
+    &:hover {
+      color: var(--text);
+    }
+
+    &.danger {
+      background: #c94f4f;
+      border-color: #c94f4f;
+      color: #fff;
+    }
+
+    &.danger:hover {
+      filter: brightness(1.08);
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+  }
 }
 
 /* ── Light theme ──────────────────────────────────────────────────────────
@@ -565,6 +777,11 @@
   --text: #0c130f;
   --text-dim: rgba(12, 19, 15, 0.7);
   --text-faint: rgba(12, 19, 15, 0.5);
+  /* Solid, not translucent — see the comment on these two variables at the
+     top of this file for why the modal can't just reuse --panel/--panel-2
+     here the way disc-card/disc-composer do. */
+  --modal-panel: #ffffff;
+  --modal-panel-2: #eef0ee;
 
   .disc-avatar {
     background: linear-gradient(135deg, rgba(4, 20, 12, 0.14), rgba(4, 20, 12, 0.05));

@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { CoursesModule } from './courses/courses.module';
 import { DatabaseModule } from './database/database.module';
+import { DiscussionsModule } from './discussions/discussions.module';
 import { PaymentsModule } from './payments/payments.module';
 import { UsersModule } from './users/users.module';
 
@@ -16,6 +17,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     PaymentsModule,
     CoursesModule,
+    DiscussionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
