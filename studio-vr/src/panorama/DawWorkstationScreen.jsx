@@ -408,6 +408,36 @@ function fmtTime(s) {
   return `${m}:${sec.toFixed(2).padStart(5, "0")}`;
 }
 
+// ── Arrangement ruler tick spacing — the ruler used to always draw one
+// labeled mark per second (see rulerMarks below), which is fine for a
+// clip a few seconds long but for anything on the order of minutes packs
+// in far more labels than the ruler is wide enough to show without them
+// overlapping (a 4-minute arrangement drew 241 of them). Instead, pick the
+// coarsest "nice" step (1s, then 2/5/10/15/30s, then whole minutes) that
+// still keeps the total mark count under a reasonable target — the same
+// approach real DAW/editor rulers use — so longer arrangements get fewer,
+// wider-spaced marks instead of the same fixed one-per-second density.
+const RULER_STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600];
+const RULER_TARGET_MARKS = 24;
+function pickRulerStep(durationSec) {
+  for (const step of RULER_STEPS) {
+    if (durationSec / step <= RULER_TARGET_MARKS) return step;
+  }
+  return RULER_STEPS[RULER_STEPS.length - 1];
+}
+// Ruler labels stay in short "12s" form under a minute (matching the old
+// behavior) and switch to "m:ss" once the step reaches whole minutes,
+// rather than fmtTime's fractional-second precision (meant for the
+// millisecond-accurate portion labels elsewhere), which would be both
+// wider than a 1-minute-spaced tick has room for and needless precision
+// for a ruler that's now spaced tens of seconds apart anyway.
+function fmtRulerMark(s) {
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const sec = Math.round(s - m * 60);
+  return `${m}:${String(sec).padStart(2, "0")}`;
+}
+
 // ── Track colors — cycled across channel strips as they're added, same
 // palette students pick from in the Logic-style "New Track" dialog ────────
 const TRACK_COLORS = ["teal", "amber", "blue", "purple", "green", "red", "cyan", "pink", "lime"];
@@ -2947,7 +2977,11 @@ function DawWorkstationScreen({ open, onClose }) {
   // chain (the "Outer" tab) rather than its own chain or (with nothing
   // selected) the track's real whole-track chain.
   const dockOnPortionOuterScope = !!selectedRegionObj && dockScope === "track";
-  const rulerMarks = Array.from({ length: Math.max(1, Math.ceil(arrangementDuration)) + 1 }, (_, i) => i);
+  const rulerStep = pickRulerStep(Math.max(1, arrangementDuration));
+  const rulerMarks = Array.from(
+    { length: Math.floor(Math.max(1, Math.ceil(arrangementDuration)) / rulerStep) + 1 },
+    (_, i) => i * rulerStep,
+  );
 
   return (
     <div className="chapter-lab daw-root">
@@ -3202,7 +3236,7 @@ function DawWorkstationScreen({ open, onClose }) {
                 <div className="ruler">
                   {rulerMarks.map((s) => (
                     <span key={s} className="ruler-mark" style={{ left: `${(s / Math.max(arrangementDuration, 1)) * 100}%` }}>
-                      {s}s
+                      {fmtRulerMark(s)}
                     </span>
                   ))}
                 </div>
