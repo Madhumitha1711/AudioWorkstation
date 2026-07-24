@@ -1220,6 +1220,13 @@ function DawWorkstationScreen({ open, onClose }) {
   useEffect(() => {
     activeEditorRef.current = activeEditor;
   }, [activeEditor]);
+  // Snapshot of every track's `solo` flag from just before the popup
+  // auto-isolated the track being edited (see the isolation effect below,
+  // near handleProcess/handleApply/handleCancel) — restored the moment the
+  // popup closes or switches to a different track, so temporarily isolating
+  // a track to preview its plugin never clobbers whatever solo state the
+  // user actually had set. `null` while no isolation is active.
+  const preIsolateSoloRef = useRef(null);
 
   const engineCacheRef = useRef(new Map()); // plugin key -> compiled Faust factory (shared across all tracks/portions)
   const slotRuntimeRef = useRef(new Map()); // `${trackId}:${regionId}:${key}` -> { bypassGain, wetGain, scopeAnalyser, inputAnalyser, outputAnalyser } (live, only while playing)
@@ -1292,12 +1299,29 @@ function DawWorkstationScreen({ open, onClose }) {
   // stale if the clip is dragged after the portion was selected.
   const getPreviewWindow = useCallback(() => {
     const sel = selectedRegionRef.current;
-    if (!sel) return null;
-    const track = tracksRef.current.find((t) => t.id === sel.trackId);
-    const region = track?.regions.find((r) => r.id === sel.regionId);
-    if (!track || !region) return null;
-    const startAt = track.startAt ?? 0;
-    return { start: startAt + region.start, end: startAt + region.end };
+    if (sel) {
+      const track = tracksRef.current.find((t) => t.id === sel.trackId);
+      const region = track?.regions.find((r) => r.id === sel.regionId);
+      if (track && region) {
+        const startAt = track.startAt ?? 0;
+        return { start: startAt + region.start, end: startAt + region.end };
+      }
+    }
+    // No portion selected — while a track's whole-track chain popup is open
+    // (see the isolation effect near handleProcess), that track is the only
+    // audible one, so scope the loop to just its own duration instead of
+    // the whole arrangement; otherwise a shorter isolated track would keep
+    // "looping" silence for however much longer the longest track in the
+    // arrangement runs before the window wraps back around.
+    const ed = activeEditorRef.current;
+    if (ed && ed.regionId === TRACK_CHAIN_SCOPE) {
+      const track = tracksRef.current.find((t) => t.id === ed.trackId);
+      if (track?.buffer) {
+        const startAt = track.startAt ?? 0;
+        return { start: startAt, end: startAt + track.buffer.duration };
+      }
+    }
+    return null;
   }, []);
 
   // currentOffset() reports the shared transport position — a straight line
@@ -2790,6 +2814,42 @@ function DawWorkstationScreen({ open, onClose }) {
   const handleCancel = useCallback(() => {
     setActiveEditor(null);
   }, []);
+
+  // While the plugin popup is open, temporarily solo the track it belongs
+  // to (see trackIsAudible) so Process/auto-join previews ONLY that track,
+  // not the whole mix — matches the popup's own "so you can hear this
+  // track" copy, and is what makes a short track's preview actually loop
+  // just itself instead of running for however long the longest OTHER
+  // track in the arrangement happens to be (see the loopEnd fallback fix
+  // in getPreviewWindow above). Keyed on the trackId (not the whole
+  // activeEditor, which also changes when switching plugins/portions
+  // within the same track — that shouldn't re-isolate). Snapshots every
+  // track's real `solo` flag right before overriding it, and restores that
+  // exact snapshot the moment the popup closes or moves to a different
+  // track, so this never clobbers a solo the user actually set.
+  useEffect(() => {
+    const trackId = activeEditor?.trackId;
+    if (!trackId) return undefined;
+    const prevSolo = new Map(tracksRef.current.map((t) => [t.id, t.solo]));
+    preIsolateSoloRef.current = prevSolo;
+    const isolated = tracksRef.current.map((t) => (t.solo === (t.id === trackId) ? t : { ...t, solo: t.id === trackId }));
+    tracksRef.current = isolated;
+    setTracks(isolated);
+    if (isPlayingRef.current) playFrom(currentOffset());
+    return () => {
+      const prev = preIsolateSoloRef.current;
+      preIsolateSoloRef.current = null;
+      if (!prev) return;
+      const restored = tracksRef.current.map((t) => {
+        const prevVal = prev.has(t.id) ? prev.get(t.id) : t.solo;
+        return t.solo === prevVal ? t : { ...t, solo: prevVal };
+      });
+      tracksRef.current = restored;
+      setTracks(restored);
+      if (isPlayingRef.current) playFrom(currentOffset());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeEditor?.trackId]);
 
   // ── Transport/mixer keyboard shortcuts — same keys Logic Pro itself uses
   // (Space play/pause, Home return-to-start, M/S mute/solo the selected
