@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { FaustMonoDspGenerator } from "@grame/faustwasm";
 import { compileFaustWasm } from "../faust/faustTypes";
 import {
@@ -64,6 +65,8 @@ import {
   applyOutputGain as applyEqOutputGain,
 } from "../chapters/equalizerEngine";
 import { downloadAudioBufferAsWav } from "../audio/wavRender";
+import { Fader } from "../components/Fader";
+import { Knob } from "../components/Knob";
 import "../chapters/chapters.css";
 import "./dawWorkstationScreen.css";
 
@@ -123,6 +126,19 @@ const PLUGIN_DEFS = [
   { key: "reverb", name: "Reverb", tag: "Send", color: "cyan", basePath: "/faust/reverb", wiring: "direct" },
 ];
 
+// PLUGIN_DEFS grouped by category (tag) in a fixed display order — the
+// insert picker's own categorized menu (see InsertRack below), same
+// grouping Logic's own plugin menu uses (Dynamics / EQ / Delay & Reverb).
+const PLUGIN_TAG_ORDER = ["Dynamics", "Tone", "Send"];
+const PLUGIN_DEFS_GROUPED = (() => {
+  const groups = new Map();
+  PLUGIN_DEFS.forEach((def) => {
+    if (!groups.has(def.tag)) groups.set(def.tag, []);
+    groups.get(def.tag).push(def);
+  });
+  return PLUGIN_TAG_ORDER.filter((t) => groups.has(t)).map((t) => [t, groups.get(t)]);
+})();
+
 const PLUGIN_ICON_PATHS = {
   gate: [{ d: "M4 4v16M20 4v16M4 12h6M14 12h6", cap: "round" }],
   deess: [
@@ -168,6 +184,221 @@ function PluginIcon({ pkey }) {
   );
 }
 
+// ── Channel-strip insert list — numbered insert slots (Logic's own "Audio
+// FX" rack), each occupied slot showing a bypass toggle + reorder + remove,
+// plus a trailing empty slot whose "+ Insert" button opens a
+// category-grouped plugin picker instead of always showing every plugin as
+// a big always-visible tile grid. Purely presentational: every callback
+// prop is one of this screen's own chain-management functions
+// (addOrSelectPlugin, removePlugin, movePlugin, reorderPlugin,
+// toggleBypass), pre-bound by the caller to whichever (trackId, regionId)
+// it's rendering for — this component owns no chain state itself besides
+// the picker's own open/closed flag, so the exact same instance works both
+// in the bottom dock (whole arrangement) and in each Mixer-view channel
+// strip (see `compact`) without risking any of the actual audio-graph
+// bookkeeping those functions do.
+function InsertRack({ chain, onAddPlugin, onOpenSlot, onToggleBypass, onMove, onRemove, onReorder, draggingKey, setDraggingKey, compact = false }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  // Where the picker renders — computed from the "+ Insert" button's own
+  // position right when it opens (see openPicker below). The picker itself
+  // is portaled to <body> (see the createPortal call below) and positioned
+  // with `position: fixed` off these coordinates, rather than rendered
+  // inline where the dock's own `overflow-y: auto` (a short, bottom-docked
+  // panel — see .dock in dawWorkstationScreen.css) was silently clipping
+  // it, hiding whichever categories didn't fit in the sliver of space left
+  // over. Escaping to the body also means it isn't clipped by the Mixer
+  // view's per-strip layout either.
+  const [pickerPos, setPickerPos] = useState(null);
+  const btnRef = useRef(null);
+  const pickerRef = useRef(null);
+  const inChainKeys = useMemo(() => new Set(chain.map((s) => s.key)), [chain]);
+
+  const openPicker = useCallback(() => {
+    const btn = btnRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const width = Math.min(220, window.innerWidth - 16);
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    // Prefer opening downward (reads more naturally under the button) —
+    // only flip upward when there's genuinely more room that way, so a
+    // short list near the top of a tall dock still opens down instead of
+    // needlessly flipping.
+    const openDown = spaceBelow >= 180 || spaceBelow >= spaceAbove;
+    const left = clamp(rect.left, 8, window.innerWidth - width - 8);
+    setPickerPos({
+      left,
+      width,
+      openDown,
+      top: openDown ? rect.bottom + 4 : undefined,
+      bottom: openDown ? undefined : window.innerHeight - rect.top + 4,
+      maxHeight: Math.max(120, (openDown ? spaceBelow : spaceAbove) - 12),
+    });
+    setPickerOpen(true);
+  }, []);
+  const closePicker = useCallback(() => {
+    setPickerOpen(false);
+    setPickerPos(null);
+  }, []);
+
+  // Close on outside click/tap, Escape, or the page scrolling/resizing out
+  // from under it (the portal itself can't move with a scroll the way an
+  // inline-positioned element would).
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onPointerDown = (e) => {
+      if (pickerRef.current?.contains(e.target) || btnRef.current?.contains(e.target)) return;
+      closePicker();
+    };
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") closePicker();
+    };
+    const onScrollOrResize = () => closePicker();
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, [pickerOpen, closePicker]);
+
+  return (
+    <div className={"insert-rack" + (compact ? " is-compact" : "")}>
+      {chain.map((slot, i) => (
+        <div
+          key={slot.key}
+          className={
+            "insert-slot" +
+            (slot.bypassed ? " is-bypassed" : "") +
+            (slot.status === "error" ? " is-error" : "") +
+            (draggingKey === slot.key ? " is-dragging" : "")
+          }
+          style={{ "--pc": `var(--${slot.color})` }}
+          draggable
+          onDragStart={() => setDraggingKey(slot.key)}
+          onDragEnd={() => setDraggingKey(null)}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            if (draggingKey) onReorder(draggingKey, slot.key);
+            setDraggingKey(null);
+          }}
+          onClick={() => onOpenSlot(slot.key)}
+          title={`Insert ${i + 1}: ${slot.name} — click to edit, drag to reorder`}
+        >
+          <span className="insert-slot__num mono">{i + 1}</span>
+          <PluginIcon pkey={slot.key} />
+          <span className="insert-slot__name">{slot.name}</span>
+          {slot.status === "loading" && <span className="insert-slot__status">…</span>}
+          <span className="insert-slot__btns">
+            <button
+              className={"power" + (slot.bypassed ? "" : " is-on")}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleBypass(slot.key);
+              }}
+              title={slot.bypassed ? "Bypassed — click to re-enable" : "Click to bypass"}
+            >
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                <path d="M8 2v5" strokeLinecap="round" />
+                <path d="M11.5 3.6a5 5 0 1 1-7 0" strokeLinecap="round" fill="none" />
+              </svg>
+            </button>
+            {!compact && (
+              <>
+                <button
+                  disabled={i === 0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMove(slot.key, -1);
+                  }}
+                  title="Move earlier"
+                >
+                  ‹
+                </button>
+                <button
+                  disabled={i === chain.length - 1}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMove(slot.key, 1);
+                  }}
+                  title="Move later"
+                >
+                  ›
+                </button>
+              </>
+            )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove(slot.key);
+              }}
+              title="Remove"
+            >
+              ×
+            </button>
+          </span>
+        </div>
+      ))}
+
+      <div className="insert-slot insert-slot--empty">
+        <button
+          type="button"
+          ref={btnRef}
+          className="insert-add-btn"
+          aria-expanded={pickerOpen}
+          onClick={() => (pickerOpen ? closePicker() : openPicker())}
+        >
+          <span className="insert-slot__num mono">{chain.length + 1}</span>
+          <span>+ Insert</span>
+        </button>
+      </div>
+
+      {pickerOpen &&
+        pickerPos &&
+        createPortal(
+          <div
+            ref={pickerRef}
+            className={"chapter-lab daw-root insert-picker" + (compact ? " is-compact" : "")}
+            style={{
+              left: pickerPos.left,
+              width: pickerPos.width,
+              top: pickerPos.top,
+              bottom: pickerPos.bottom,
+              maxHeight: pickerPos.maxHeight,
+            }}
+          >
+            {PLUGIN_DEFS_GROUPED.map(([tag, defs]) => (
+              <div key={tag} className="insert-picker__group">
+                <div className="insert-picker__group-label mono">{tag.toUpperCase()}</div>
+                {defs.map((def) => (
+                  <button
+                    key={def.key}
+                    type="button"
+                    className={`insert-picker__item c-${def.color}` + (inChainKeys.has(def.key) ? " is-active" : "")}
+                    onClick={() => {
+                      onAddPlugin(def);
+                      closePicker();
+                    }}
+                  >
+                    <PluginIcon pkey={def.key} />
+                    <span>{def.name}</span>
+                    {inChainKeys.has(def.key) && <span className="insert-picker__led" />}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </div>
+  );
+}
+
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
 function fmtTime(s) {
@@ -177,8 +408,80 @@ function fmtTime(s) {
   return `${m}:${sec.toFixed(2).padStart(5, "0")}`;
 }
 
-// ── Track colors — cycled across channel strips as they're added ──────────
-const TRACK_COLORS = ["teal", "amber", "blue", "purple", "green", "red", "cyan"];
+// ── Track colors — cycled across channel strips as they're added, same
+// palette students pick from in the Logic-style "New Track" dialog ────────
+const TRACK_COLORS = ["teal", "amber", "blue", "purple", "green", "red", "cyan", "pink", "lime"];
+
+// ── Track icons — purely cosmetic source-type badges shown in the track
+// swatch/header and the New Track dialog (this app is audio-only, so these
+// stand in for Logic's instrument icons without implying MIDI/instrument
+// tracks actually exist here) ───────────────────────────────────────────────
+const TRACK_ICON_PATHS = {
+  audio: [{ d: "M3 12h3l2.5-7 3 14 3-11 2 7h4.5", cap: "round", join: "round" }],
+  vocal: [
+    { d: "M12 3a3 3 0 0 1 3 3v6a3 3 0 1 1-6 0V6a3 3 0 0 1 3-3Z", join: "round" },
+    { d: "M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6", cap: "round", join: "round" },
+  ],
+  guitar: [
+    { circle: [8, 16, 4.2] },
+    { d: "M11 13 18 6M18 6l2.5-.5L20 8l-2 0M14 9l1.5 1.5M16 7l1.5 1.5", cap: "round", join: "round" },
+  ],
+  keys: [{ d: "M3 6h18v12H3zM7 6v7.5M11 6v7.5M15 6v7.5M19 6v7.5", cap: "round" }],
+  drum: [
+    { d: "M4 8a8 3 0 1 0 16 0 8 3 0 1 0-16 0Z" },
+    { d: "M4 8v7a8 3 0 0 0 16 0V8", cap: "round" },
+  ],
+  bass: [
+    { circle: [7, 17, 3.4] },
+    { d: "M9.5 14.5 17 7M17 7l3-1M17 7l1 3M14 5l1.5 1.5", cap: "round", join: "round" },
+  ],
+};
+
+function TrackIcon({ ikey }) {
+  const parts = TRACK_ICON_PATHS[ikey] || TRACK_ICON_PATHS.audio;
+  return (
+    <svg className="track-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+      {parts.map((p, i) =>
+        p.circle ? (
+          <circle key={i} cx={p.circle[0]} cy={p.circle[1]} r={p.circle[2]} opacity={p.opacity} />
+        ) : (
+          <path key={i} d={p.d} strokeLinecap={p.cap} strokeLinejoin={p.join} opacity={p.opacity} />
+        ),
+      )}
+    </svg>
+  );
+}
+
+const TRACK_ICON_KEYS = Object.keys(TRACK_ICON_PATHS);
+
+// A track is actually heard when it isn't muted AND (nothing in the mix is
+// soloed, or it's one of the soloed ones) — same solo-exclusivity rule Logic
+// (and every other DAW) uses. `allTracks` should be the full track list (not
+// just the ones with audio loaded) so soloing an empty track still silences
+// everything else, same as it would once that track gets audio.
+function trackIsAudible(track, allTracks) {
+  if (track.muted) return false;
+  const anySolo = allTracks.some((t) => t.solo);
+  return !anySolo || !!track.solo;
+}
+
+// ── Shared Fader/Knob specs for the Mixer view's channel strips (see
+// components/Fader.jsx + components/Knob.jsx — the same drag-to-adjust
+// controls every standalone plugin lab in this app already uses) ──────────
+const VOLUME_FADER_SPEC = {
+  min: 0,
+  max: 1.5,
+  step: 0.01,
+  label: "VOL",
+  fmt: (v) => (v <= 0.001 ? "-∞" : `${(20 * Math.log10(v)).toFixed(1)} dB`),
+};
+const PAN_KNOB_SPEC = {
+  min: -1,
+  max: 1,
+  step: 0.02,
+  label: "PAN",
+  fmt: (v) => (Math.abs(v) < 0.02 ? "C" : v < 0 ? `L${Math.round(-v * 100)}` : `R${Math.round(v * 100)}`),
+};
 
 // A portion needs at least this many seconds of length to be kept — filters
 // out a stray click (zero-length drag) on the waveform from creating a
@@ -684,7 +987,13 @@ async function renderTrackOffline(engineCache, track) {
   const trackGain = offlineCtx.createGain();
   trackGain.gain.value = track.volume ?? 1;
   chainOut.connect(trackGain);
-  trackGain.connect(offlineCtx.destination);
+  // Pan is a channel-strip property (like volume), not a mix-relative
+  // control (like mute/solo) — a soloed stem is expected to sound exactly
+  // like this channel does in the mix, panning included.
+  const panner = offlineCtx.createStereoPanner();
+  panner.pan.value = track.pan ?? 0;
+  trackGain.connect(panner);
+  panner.connect(offlineCtx.destination);
   return offlineCtx.startRendering();
 }
 
@@ -712,9 +1021,16 @@ async function renderMixOffline(engineCache, tracks, sampleRate) {
   for (const track of list) {
     const chainOut = await buildOfflineTrackOutput(offlineCtx, engineCache, track, track.startAt ?? 0);
     const trackGain = offlineCtx.createGain();
-    trackGain.gain.value = track.muted ? 0 : (track.volume ?? 1);
+    // Mute AND solo both apply to a full mixdown — unlike renderTrackOffline
+    // (an isolated single-track stem), "tracks" here is the whole session,
+    // so it needs to be silent everywhere Mute or an active Solo would
+    // silence it live (see trackIsAudible).
+    trackGain.gain.value = trackIsAudible(track, tracks) ? (track.volume ?? 1) : 0;
     chainOut.connect(trackGain);
-    trackGain.connect(masterGain);
+    const panner = offlineCtx.createStereoPanner();
+    panner.pan.value = track.pan ?? 0;
+    trackGain.connect(panner);
+    panner.connect(masterGain);
   }
   return offlineCtx.startRendering();
 }
@@ -809,6 +1125,11 @@ function DawWorkstationScreen({ open, onClose }) {
     [tracks],
   );
 
+  // Whether anything in the mix is currently soloed — dims every non-soloed
+  // track row so it's visually obvious why they've gone quiet, same as a
+  // real console's solo-in-place indicator.
+  const anySoloed = useMemo(() => tracks.some((t) => t.solo), [tracks]);
+
   // ── Track selection (the tracklist row that drives which track's clip is
   // in focus — like clicking a channel in a real DAW) ────────────────────
   const [selectedTrackId, setSelectedTrackId] = useState(null);
@@ -816,6 +1137,29 @@ function DawWorkstationScreen({ open, onClose }) {
   useEffect(() => {
     selectedTrackIdRef.current = selectedTrackId;
   }, [selectedTrackId]);
+
+  // ── View: Arrange (tracklist + waveform arrangement, the default) or
+  // Mixer (Logic-style vertical channel strips) — toggled from the topbar
+  // or the X key (same shortcut Logic itself uses for its Mixer). ────────
+  const [viewMode, setViewMode] = useState("arrange"); // "arrange" | "mixer"
+
+  // ── "New Track" dialog — Logic Pro's own New Track sheet lets you pick a
+  // type/input/color/name before the track is created; this app is
+  // audio-only (no MIDI/instrument tracks), so the dialog collects the part
+  // that's actually meaningful here — name, color, and a cosmetic source
+  // icon — then creates an empty track exactly like the old one-click
+  // "+ Add Track" row did (upload/demo still happen afterwards, from the
+  // track row itself, same as before). ───────────────────────────────────
+  const [addTrackDialogOpen, setAddTrackDialogOpen] = useState(false);
+  const [newTrackDraft, setNewTrackDraft] = useState({ name: "", color: TRACK_COLORS[0], icon: "audio" });
+  const openAddTrackDialog = useCallback(() => {
+    const n = trackIdRef.current + 1;
+    setNewTrackDraft({ name: `Track ${n}`, color: TRACK_COLORS[(n - 1) % TRACK_COLORS.length], icon: "audio" });
+    setAddTrackDialogOpen(true);
+  }, []);
+  // confirmAddTrack is defined right after addEmptyTrack below (it closes
+  // over that callback, which isn't declared yet at this point in the
+  // component body).
 
   // ── Portion (region) selection — the highlighted portion whose own chain
   // drives the bottom dock's editor. Selecting a portion also scopes the
@@ -1131,7 +1475,7 @@ function DawWorkstationScreen({ open, onClose }) {
         extraNodes.push(...trackExtra);
 
         const trackGain = ctx.createGain();
-        trackGain.gain.value = track.muted ? 0 : (track.volume ?? 1);
+        trackGain.gain.value = trackIsAudible(track, tracksRef.current) ? (track.volume ?? 1) : 0;
 
         // Fan the track-chain output into one path per portion (each
         // running that portion's own PRIVATE outer chain — see
@@ -1195,8 +1539,18 @@ function DawWorkstationScreen({ open, onClose }) {
           });
         });
 
-        trackGain.connect(masterGain);
-        trackNodes.set(track.id, { sources: [source], extraNodes, trackGain });
+        // Pan (a channel-strip property, set from the Mixer view's Knob) and
+        // a small per-track analyser (the Mixer view's own meter) both sit
+        // after the volume fader, same position a real channel strip puts
+        // them — see setTrackPan and the mixer-meter poll below.
+        const pannerNode = ctx.createStereoPanner();
+        pannerNode.pan.value = track.pan ?? 0;
+        const trackAnalyser = ctx.createAnalyser();
+        trackAnalyser.fftSize = 256;
+        trackGain.connect(pannerNode);
+        pannerNode.connect(masterGain);
+        pannerNode.connect(trackAnalyser);
+        trackNodes.set(track.id, { sources: [source], extraNodes, trackGain, pannerNode, trackAnalyser });
       });
 
       graphRef.current = {
@@ -1282,7 +1636,10 @@ function DawWorkstationScreen({ open, onClose }) {
   // Playhead + master meter — each open plugin popup reads its own live
   // scope/meters directly (via getXLevels/getInputPeak-style host callbacks
   // called from that plugin's own *EditorPanel animation loop), so this poll
-  // only needs to drive the main transport.
+  // only needs to drive the main transport. Also drives each track's own
+  // little Mixer-view meter (see trackAnalyser in playFrom) — only computed
+  // while the Mixer is actually visible, since nothing else reads it.
+  const [trackLevels, setTrackLevels] = useState({});
   useEffect(() => {
     if (!isPlaying) return;
     const id = setInterval(() => {
@@ -1303,21 +1660,32 @@ function DawWorkstationScreen({ open, onClose }) {
         }
         setMeterLevel(Math.sqrt(sum / data.length));
       }
+      if (viewMode === "mixer" && g) {
+        const levels = {};
+        g.trackNodes.forEach((nodes, trackId) => {
+          if (!nodes.trackAnalyser) return;
+          const data = new Uint8Array(nodes.trackAnalyser.fftSize);
+          nodes.trackAnalyser.getByteTimeDomainData(data);
+          let sum = 0;
+          for (let i = 0; i < data.length; i++) {
+            const v = (data[i] - 128) / 128;
+            sum += v * v;
+          }
+          levels[trackId] = Math.sqrt(sum / data.length);
+        });
+        setTrackLevels(levels);
+      }
     }, 90);
     return () => clearInterval(id);
-  }, [isPlaying, currentOffset, arrangementDuration]);
-
-  // Escape exits the currently-selected portion, same as the dock's "✕ Exit
-  // Selection" button.
+  }, [isPlaying, currentOffset, arrangementDuration, viewMode]);
   useEffect(() => {
-    if (!isOpen) return;
-    const onKeyDown = (e) => {
-      if (e.key === "Escape" && selectedRegionRef.current) exitSelection();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+    if (!isPlaying) setTrackLevels({});
+  }, [isPlaying]);
+
+  // (Escape-to-exit-selection, plus the rest of the transport/mixer
+  // shortcuts, now live in one combined keydown effect further down — see
+  // the "Transport/mixer keyboard shortcuts" comment below, right before
+  // this component's own `if (!isOpen) return null;`.)
 
   // ── Track management (add / remove / upload / demo / volume) ───────────
   const addTrackWithBuffer = useCallback(
@@ -1326,7 +1694,10 @@ function DawWorkstationScreen({ open, onClose }) {
       const id = `t${n}`;
       const color = TRACK_COLORS[(n - 1) % TRACK_COLORS.length];
       const peaks = computePeaks(buffer);
-      const track = { id, name, color, buffer, peaks, duration: buffer.duration, loadError: "", chain: [], regions: [], volume: 1, muted: false, startAt: 0 };
+      const track = {
+        id, name, color, icon: "audio", buffer, peaks, duration: buffer.duration, loadError: "",
+        chain: [], regions: [], volume: 1, pan: 0, muted: false, solo: false, startAt: 0,
+      };
       const next = [...tracksRef.current, track];
       tracksRef.current = next;
       setTracks(next);
@@ -1337,16 +1708,32 @@ function DawWorkstationScreen({ open, onClose }) {
     [playFrom, currentOffset],
   );
 
-  const addEmptyTrack = useCallback(() => {
+  // Backs both the plain "+ Add Track" row (no options) and the Logic-style
+  // New Track dialog (name/color/icon chosen there) — see
+  // addTrackDialogOpen/newTrackDraft/confirmAddTrack below.
+  const addEmptyTrack = useCallback((opts) => {
     const n = ++trackIdRef.current;
     const id = `t${n}`;
-    const color = TRACK_COLORS[(n - 1) % TRACK_COLORS.length];
-    const track = { id, name: `Track ${n}`, color, buffer: null, peaks: null, duration: 0, loadError: "", chain: [], regions: [], volume: 1, muted: false, startAt: 0 };
+    const color = opts?.color || TRACK_COLORS[(n - 1) % TRACK_COLORS.length];
+    const name = opts?.name?.trim() || `Track ${n}`;
+    const icon = opts?.icon || "audio";
+    const track = {
+      id, name, color, icon, buffer: null, peaks: null, duration: 0, loadError: "",
+      chain: [], regions: [], volume: 1, pan: 0, muted: false, solo: false, startAt: 0,
+    };
     const next = [...tracksRef.current, track];
     tracksRef.current = next;
     setTracks(next);
     setSelectedTrackId(id);
+    return id;
   }, []);
+
+  // See addTrackDialogOpen/newTrackDraft/openAddTrackDialog above — the New
+  // Track dialog's own "Create Track" button.
+  const confirmAddTrack = useCallback(() => {
+    addEmptyTrack(newTrackDraft);
+    setAddTrackDialogOpen(false);
+  }, [addEmptyTrack, newTrackDraft]);
 
   const removeTrack = useCallback(
     (id) => {
@@ -1484,20 +1871,51 @@ function DawWorkstationScreen({ open, onClose }) {
     }
   }, []);
 
-  const toggleTrackMute = useCallback((id) => {
-    let mutedNow = false;
-    let volumeNow = 1;
-    const next = tracksRef.current.map((t) => {
-      if (t.id !== id) return t;
-      mutedNow = !t.muted;
-      volumeNow = t.volume ?? 1;
-      return { ...t, muted: mutedNow };
+  // Re-applies every LIVE track's own trackGain from scratch against the
+  // just-updated track list — needed for both Mute and Solo, because
+  // (un)soloing or (un)muting any one track can change whether every OTHER
+  // track is audible too (see trackIsAudible), not just the one that was
+  // clicked.
+  const applyMuteSoloGains = useCallback((allTracks) => {
+    const g = graphRef.current;
+    if (!g) return;
+    allTracks.forEach((t) => {
+      const nodes = g.trackNodes.get(t.id);
+      if (!nodes) return;
+      nodes.trackGain.gain.setTargetAtTime(trackIsAudible(t, allTracks) ? (t.volume ?? 1) : 0, g.ctx.currentTime, 0.01);
     });
+  }, []);
+
+  const toggleTrackMute = useCallback(
+    (id) => {
+      const next = tracksRef.current.map((t) => (t.id === id ? { ...t, muted: !t.muted } : t));
+      tracksRef.current = next;
+      setTracks(next);
+      applyMuteSoloGains(next);
+    },
+    [applyMuteSoloGains],
+  );
+
+  // Solo works exactly like every other DAW's: soloing any track(s) silences
+  // every non-soloed track in the mix (Mute stays independent — a muted
+  // track stays silent even if it's also soloed).
+  const toggleTrackSolo = useCallback(
+    (id) => {
+      const next = tracksRef.current.map((t) => (t.id === id ? { ...t, solo: !t.solo } : t));
+      tracksRef.current = next;
+      setTracks(next);
+      applyMuteSoloGains(next);
+    },
+    [applyMuteSoloGains],
+  );
+
+  const setTrackPan = useCallback((id, pan) => {
+    const next = tracksRef.current.map((t) => (t.id === id ? { ...t, pan } : t));
     tracksRef.current = next;
     setTracks(next);
     const nodes = graphRef.current?.trackNodes.get(id);
-    if (nodes && graphRef.current) {
-      nodes.trackGain.gain.setTargetAtTime(mutedNow ? 0 : volumeNow, graphRef.current.ctx.currentTime, 0.01);
+    if (nodes?.pannerNode && graphRef.current) {
+      nodes.pannerNode.pan.setTargetAtTime(pan, graphRef.current.ctx.currentTime, 0.01);
     }
   }, []);
 
@@ -2373,6 +2791,65 @@ function DawWorkstationScreen({ open, onClose }) {
     setActiveEditor(null);
   }, []);
 
+  // ── Transport/mixer keyboard shortcuts — same keys Logic Pro itself uses
+  // (Space play/pause, Home return-to-start, M/S mute/solo the selected
+  // track, X toggle the Mixer). Ignored while a text field, the New Track
+  // dialog, or the plugin popup has focus/is open, and while any menu-style
+  // element (select, button in a form) is focused, so typing a track name
+  // or a number field never gets hijacked. Re-subscribes whenever any of
+  // the actions below change identity (isPlaying/loopOn changing is what
+  // makes togglePlay/rewind/toggleLoop change) so it never fires a stale
+  // closure — cheap, since this is just an addEventListener swap. ────────
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e) => {
+      if (addTrackDialogOpen || activeEditor) return;
+      const tag = e.target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target?.isContentEditable) return;
+      switch (e.key) {
+        case " ":
+        case "Spacebar":
+          if (e.repeat) return;
+          e.preventDefault();
+          togglePlay();
+          break;
+        case "Home":
+        case "Enter":
+          if (e.repeat) return;
+          e.preventDefault();
+          rewind();
+          break;
+        case "m":
+        case "M":
+          if (e.repeat || !selectedTrackIdRef.current) return;
+          toggleTrackMute(selectedTrackIdRef.current);
+          break;
+        case "s":
+        case "S":
+          if (e.repeat || !selectedTrackIdRef.current) return;
+          toggleTrackSolo(selectedTrackIdRef.current);
+          break;
+        case "l":
+        case "L":
+          if (e.repeat) return;
+          toggleLoop();
+          break;
+        case "x":
+        case "X":
+          if (e.repeat) return;
+          setViewMode((v) => (v === "mixer" ? "arrange" : "mixer"));
+          break;
+        case "Escape":
+          if (selectedRegionRef.current) exitSelection();
+          break;
+        default:
+          break;
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, addTrackDialogOpen, activeEditor, togglePlay, rewind, toggleTrackMute, toggleTrackSolo, toggleLoop, exitSelection]);
+
   if (!isOpen) return null;
 
   const activeTrack = tracks.find((t) => t.id === activeEditor?.trackId);
@@ -2431,6 +2908,29 @@ function DawWorkstationScreen({ open, onClose }) {
                 </div>
               </div>
               <div className="topbar-divider" />
+              <div className="view-switch" role="tablist" aria-label="View">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={viewMode === "arrange"}
+                  className={"view-switch__btn" + (viewMode === "arrange" ? " is-active" : "")}
+                  onClick={() => setViewMode("arrange")}
+                  title="Arrange view"
+                >
+                  Arrange
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={viewMode === "mixer"}
+                  className={"view-switch__btn" + (viewMode === "mixer" ? " is-active" : "")}
+                  onClick={() => setViewMode("mixer")}
+                  title="Mixer view (X)"
+                >
+                  Mixer
+                </button>
+              </div>
+              <div className="topbar-divider" />
               <div className="transport">
                 <button className="transport-btn" onClick={rewind} disabled={tracks.length === 0} title="Return to start">
                   ⏮
@@ -2487,33 +2987,47 @@ function DawWorkstationScreen({ open, onClose }) {
               </div>
             </div>
 
+            {viewMode === "arrange" ? (
+              <>
             {/* Body: tracklist (left) + arrangement/waveforms (right) —
                 same layout as design/daw-workstation-screen-ui.html, just
                 driven by the real multi-track state instead of mock data. */}
             <div className="daw-body">
               <div className="tracklist" ref={tracklistRef} onScroll={onTracklistScroll}>
-                {tracks.map((track) => (
+                {tracks.map((track, trackIndex) => (
                   <div
                     key={track.id}
-                    className={"track-row" + (track.id === selectedTrackId ? " is-selected" : "")}
+                    className={
+                      "track-row" +
+                      (track.id === selectedTrackId ? " is-selected" : "") +
+                      (track.solo ? " is-soloed" : "") +
+                      (anySoloed && !track.solo ? " is-dimmed" : "")
+                    }
                     style={{ "--track-color": `var(--${track.color})` }}
                     onClick={() => {
                       setSelectedTrackId(track.id);
                       if (selectedRegion && selectedRegion.trackId !== track.id) exitSelection();
                     }}
                   >
-                    <div className="track-swatch" />
-                    <div className="track-meta">
-                      <div className="track-name">{track.name}</div>
-                      <div className="track-sub mono">
-                        {track.loadError ? (
-                          <span className="track-sub-error">{track.loadError}</span>
-                        ) : track.buffer ? (
-                          `${track.startAt ? `@${fmtTime(track.startAt)} · ` : ""}${fmtTime(track.duration)} · ${track.chain.length} on track · ${track.regions.length} portion${track.regions.length === 1 ? "" : "s"}${track.muted ? " · Muted" : ""}`
-                        ) : (
-                          "No audio"
-                        )}
+                    <div className="track-row__head">
+                      <span className="track-num mono">{trackIndex + 1}</span>
+                      <div className="track-swatch">
+                        <TrackIcon ikey={track.icon} />
                       </div>
+                      <div className="track-meta">
+                        <div className="track-name">{track.name}</div>
+                        <div className="track-sub mono">
+                          {track.loadError ? (
+                            <span className="track-sub-error">{track.loadError}</span>
+                          ) : track.buffer ? (
+                            `${track.startAt ? `@${fmtTime(track.startAt)} · ` : ""}${fmtTime(track.duration)} · ${track.chain.length} on track · ${track.regions.length} portion${track.regions.length === 1 ? "" : "s"}${track.muted ? " · Muted" : ""}${track.solo ? " · Solo" : ""}`
+                          ) : (
+                            "No audio"
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="track-row__controls">
                       <input
                         type="range"
                         className="track-vol"
@@ -2525,90 +3039,100 @@ function DawWorkstationScreen({ open, onClose }) {
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) => setTrackVolume(track.id, parseFloat(e.target.value))}
                       />
-                    </div>
-                    <div className="track-btns">
-                      <input
-                        type="file"
-                        accept="audio/*"
-                        id={`daw-file-${track.id}`}
-                        className="daw-file-input"
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => handleTrackFile(track.id, e)}
-                      />
-                      <label htmlFor={`daw-file-${track.id}`} className="tbtn" title="Upload audio" onClick={(e) => e.stopPropagation()}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M12 15V4M7.5 8.5 12 4l4.5 4.5" strokeLinecap="round" strokeLinejoin="round" />
-                          <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </label>
-                      <div className="tbtn-select-wrap" onClick={(e) => e.stopPropagation()}>
-                        <span className="tbtn" aria-hidden="true">
-                          D
-                        </span>
-                        <select
-                          className="tbtn-select"
-                          value=""
-                          title="Load a Hungarian Dance No. 5 stem onto this track"
-                          aria-label="Load a demo clip onto this track"
-                          onChange={(e) => {
-                            const clip = DEMO_CLIPS.find((c) => c.id === e.target.value);
-                            if (clip) loadDemoForTrack(track.id, clip);
-                            e.target.value = "";
+                      <div className="track-btns">
+                        <input
+                          type="file"
+                          accept="audio/*"
+                          id={`daw-file-${track.id}`}
+                          className="daw-file-input"
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => handleTrackFile(track.id, e)}
+                        />
+                        <label htmlFor={`daw-file-${track.id}`} className="tbtn" title="Upload audio" onClick={(e) => e.stopPropagation()}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 15V4M7.5 8.5 12 4l4.5 4.5" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </label>
+                        <div className="tbtn-select-wrap" onClick={(e) => e.stopPropagation()}>
+                          <span className="tbtn" aria-hidden="true">
+                            D
+                          </span>
+                          <select
+                            className="tbtn-select"
+                            value=""
+                            title="Load a Hungarian Dance No. 5 stem onto this track"
+                            aria-label="Load a demo clip onto this track"
+                            onChange={(e) => {
+                              const clip = DEMO_CLIPS.find((c) => c.id === e.target.value);
+                              if (clip) loadDemoForTrack(track.id, clip);
+                              e.target.value = "";
+                            }}
+                          >
+                            <option value="" disabled>
+                              Demo…
+                            </option>
+                            {DEMO_CLIPS.map((clip) => (
+                              <option key={clip.id} value={clip.id}>
+                                {clip.name.replace("Hungarian Dance No. 5 — ", "")}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <button
+                          className={"tbtn s" + (track.solo ? " is-on" : "")}
+                          title={track.solo ? "Unsolo track" : "Solo track — silences every other track (S)"}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleTrackSolo(track.id);
                           }}
                         >
-                          <option value="" disabled>
-                            Demo…
-                          </option>
-                          {DEMO_CLIPS.map((clip) => (
-                            <option key={clip.id} value={clip.id}>
-                              {clip.name.replace("Hungarian Dance No. 5 — ", "")}
-                            </option>
-                          ))}
-                        </select>
+                          S
+                        </button>
+                        <button
+                          className={"tbtn m" + (track.muted ? " is-on" : "")}
+                          title={track.muted ? "Unmute track" : "Mute track (M)"}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleTrackMute(track.id);
+                          }}
+                        >
+                          M
+                        </button>
+                        <button
+                          className="tbtn"
+                          title={track.buffer ? "Download this track (its own portions + volume) as a WAV" : "Add audio to this track first"}
+                          disabled={!track.buffer || downloadingTrackId === track.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleDownloadTrack(track.id);
+                          }}
+                        >
+                          {downloadingTrackId === track.id ? (
+                            "…"
+                          ) : (
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M12 4v11M7.5 11.5 12 16l4.5-4.5" strokeLinecap="round" strokeLinejoin="round" />
+                              <path d="M4 17v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </button>
+                        <button
+                          className="tbtn danger"
+                          title="Remove track"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeTrack(track.id);
+                          }}
+                        >
+                          ×
+                        </button>
                       </div>
-                      <button
-                        className={"tbtn m" + (track.muted ? " is-on" : "")}
-                        title={track.muted ? "Unmute track" : "Mute track"}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleTrackMute(track.id);
-                        }}
-                      >
-                        M
-                      </button>
-                      <button
-                        className="tbtn"
-                        title={track.buffer ? "Download this track (its own portions + volume) as a WAV" : "Add audio to this track first"}
-                        disabled={!track.buffer || downloadingTrackId === track.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void handleDownloadTrack(track.id);
-                        }}
-                      >
-                        {downloadingTrackId === track.id ? (
-                          "…"
-                        ) : (
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M12 4v11M7.5 11.5 12 16l4.5-4.5" strokeLinecap="round" strokeLinejoin="round" />
-                            <path d="M4 17v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                      </button>
-                      <button
-                        className="tbtn danger"
-                        title="Remove track"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeTrack(track.id);
-                        }}
-                      >
-                        ×
-                      </button>
                     </div>
                   </div>
                 ))}
 
-                <div className="track-row add-track-row" onClick={addEmptyTrack}>
+                <div className="track-row add-track-row" onClick={openAddTrackDialog} title="New Track…">
                   <span className="add-track-plus">+</span>
                   <span>Add Track</span>
                 </div>
@@ -2815,121 +3339,179 @@ function DawWorkstationScreen({ open, onClose }) {
               </div>
 
               {dockTrack && dockChain && (
-                <>
-                  {dockChain.length > 0 && (
-                    <div className="chain-rack">
-                      {dockChain.map((slot, i) => (
-                        <div
-                          key={slot.key}
-                          className={
-                            "chain-chip" +
-                            (slot.bypassed ? " is-bypassed" : "") +
-                            (slot.status === "error" ? " is-error" : "") +
-                            (draggingKey === slot.key ? " is-dragging" : "")
-                          }
-                          style={{ "--pc": `var(--${slot.color})` }}
-                          draggable
-                          onDragStart={(e) => {
-                            setDraggingKey(slot.key);
-                            e.dataTransfer.effectAllowed = "move";
-                          }}
-                          onDragEnd={() => setDraggingKey(null)}
-                          onDragOver={(e) => {
-                            e.preventDefault();
-                            e.dataTransfer.dropEffect = "move";
-                          }}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            if (draggingKey) reorderPlugin(dockTrack.id, dockRegionId, draggingKey, slot.key);
-                            setDraggingKey(null);
-                          }}
-                          onClick={() => setActiveEditor({ trackId: dockTrack.id, regionId: dockRegionId, key: slot.key })}
-                        >
-                          <svg className="chain-chip__grip" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true">
-                            <circle cx="2.5" cy="2.5" r="1.4" />
-                            <circle cx="7.5" cy="2.5" r="1.4" />
-                            <circle cx="2.5" cy="8" r="1.4" />
-                            <circle cx="7.5" cy="8" r="1.4" />
-                            <circle cx="2.5" cy="13.5" r="1.4" />
-                            <circle cx="7.5" cy="13.5" r="1.4" />
-                          </svg>
-                          <span className="chain-chip__led" />
-                          <PluginIcon pkey={slot.key} />
-                          <span className="chain-chip__name">{slot.name}</span>
-                          {slot.status === "loading" && <span className="chain-chip__status">…</span>}
-                          <span className="chain-chip__btns">
-                            <button
-                              className={"bypass" + (slot.bypassed ? " is-on" : "")}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleBypass(dockTrack.id, dockRegionId, slot.key);
-                              }}
-                              title={slot.bypassed ? "Bypassed — click to re-enable" : "Bypass this plugin"}
-                            >
-                              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                                <path d="M8 2v5" strokeLinecap="round" />
-                                <path d="M11.5 3.6a5 5 0 1 1-7 0" strokeLinecap="round" fill="none" />
-                              </svg>
-                            </button>
-                            <button
-                              disabled={i === 0}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                movePlugin(dockTrack.id, dockRegionId, slot.key, -1);
-                              }}
-                              title="Move earlier"
-                            >
-                              ‹
-                            </button>
-                            <button
-                              disabled={i === dockChain.length - 1}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                movePlugin(dockTrack.id, dockRegionId, slot.key, 1);
-                              }}
-                              title="Move later"
-                            >
-                              ›
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removePlugin(dockTrack.id, dockRegionId, slot.key);
-                              }}
-                              title="Remove"
-                            >
-                              ×
-                            </button>
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="plugin-grid">
-                    {PLUGIN_DEFS.map((def) => {
-                      const inChain = dockChain.some((s) => s.key === def.key);
-                      return (
-                        <div
-                          key={def.key}
-                          className={`plugin-slot c-${def.color}` + (inChain ? " is-active" : "")}
-                          tabIndex={0}
-                          onClick={() => addOrSelectPlugin(dockTrack.id, dockRegionId, def)}
-                        >
-                          {inChain && <span className="plugin-led" />}
-                          <PluginIcon pkey={def.key} />
-                          <div className="plugin-name">{def.name}</div>
-                          <div className="plugin-tag mono">{def.tag}</div>
-                          <div className="plugin-open mono">{inChain ? "EDIT →" : "ADD →"}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
+                <InsertRack
+                  chain={dockChain}
+                  onAddPlugin={(def) => addOrSelectPlugin(dockTrack.id, dockRegionId, def)}
+                  onOpenSlot={(key) => setActiveEditor({ trackId: dockTrack.id, regionId: dockRegionId, key })}
+                  onToggleBypass={(key) => toggleBypass(dockTrack.id, dockRegionId, key)}
+                  onMove={(key, dir) => movePlugin(dockTrack.id, dockRegionId, key, dir)}
+                  onRemove={(key) => removePlugin(dockTrack.id, dockRegionId, key)}
+                  onReorder={(fromKey, toKey) => reorderPlugin(dockTrack.id, dockRegionId, fromKey, toKey)}
+                  draggingKey={draggingKey}
+                  setDraggingKey={setDraggingKey}
+                />
               )}
             </div>
+              </>
+            ) : (
+              /* Mixer view — Logic-style vertical channel strips: one per
+                 track, each with its own insert rack (the same InsertRack
+                 as the dock above, just bound to that track's whole-track
+                 chain), pan knob, volume fader + meter, and solo/mute —
+                 everything the dock+tracklist expose already, laid out the
+                 way a real mixing console groups it. */
+              <div className="mixer-view">
+                {tracks.length === 0 ? (
+                  <div className="mixer-empty-hint">No tracks yet — switch to Arrange and click + Add Track to get started.</div>
+                ) : (
+                  tracks.map((track, trackIndex) => {
+                    const level = trackLevels[track.id] ?? 0;
+                    return (
+                      <div
+                        key={track.id}
+                        className={
+                          "mixer-strip" +
+                          (track.id === selectedTrackId ? " is-selected" : "") +
+                          (track.solo ? " is-soloed" : "") +
+                          (anySoloed && !track.solo ? " is-dimmed" : "")
+                        }
+                        style={{ "--track-color": `var(--${track.color})` }}
+                        onClick={() => setSelectedTrackId(track.id)}
+                      >
+                        <div className="mixer-strip__head">
+                          <span className="track-num mono">{trackIndex + 1}</span>
+                          <div className="track-swatch">
+                            <TrackIcon ikey={track.icon} />
+                          </div>
+                        </div>
+                        <div className="mixer-strip__name" title={track.name}>
+                          {track.name}
+                        </div>
+
+                        <InsertRack
+                          compact
+                          chain={track.chain}
+                          onAddPlugin={(def) => addOrSelectPlugin(track.id, TRACK_CHAIN_SCOPE, def)}
+                          onOpenSlot={(key) => setActiveEditor({ trackId: track.id, regionId: TRACK_CHAIN_SCOPE, key })}
+                          onToggleBypass={(key) => toggleBypass(track.id, TRACK_CHAIN_SCOPE, key)}
+                          onMove={(key, dir) => movePlugin(track.id, TRACK_CHAIN_SCOPE, key, dir)}
+                          onRemove={(key) => removePlugin(track.id, TRACK_CHAIN_SCOPE, key)}
+                          onReorder={(fromKey, toKey) => reorderPlugin(track.id, TRACK_CHAIN_SCOPE, fromKey, toKey)}
+                          draggingKey={draggingKey}
+                          setDraggingKey={setDraggingKey}
+                        />
+
+                        <div className="mixer-strip__pan" onClick={(e) => e.stopPropagation()}>
+                          <Knob spec={PAN_KNOB_SPEC} value={track.pan ?? 0} onChange={(v) => setTrackPan(track.id, v)} size={40} />
+                        </div>
+
+                        <div className="mixer-strip__fader-row" onClick={(e) => e.stopPropagation()}>
+                          <div className="mixer-strip__meter" title="Post-fader level">
+                            <i style={{ height: `${clamp(level * 260, 2, 100)}%` }} />
+                          </div>
+                          <Fader spec={VOLUME_FADER_SPEC} value={track.volume} onChange={(v) => setTrackVolume(track.id, v)} height={120} />
+                        </div>
+
+                        <div className="mixer-strip__btns" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            className={"tbtn s" + (track.solo ? " is-on" : "")}
+                            title={track.solo ? "Unsolo track" : "Solo track (S)"}
+                            onClick={() => toggleTrackSolo(track.id)}
+                          >
+                            S
+                          </button>
+                          <button
+                            className={"tbtn m" + (track.muted ? " is-on" : "")}
+                            title={track.muted ? "Unmute track" : "Mute track (M)"}
+                            onClick={() => toggleTrackMute(track.id)}
+                          >
+                            M
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
           </div>
         </div>
+
+        {/* "New Track" dialog — Logic-style: pick a name, color and source
+            icon before the track is created (see openAddTrackDialog/
+            confirmAddTrack above). Upload/demo still happen from the track
+            row afterwards, same as they always did. */}
+        {addTrackDialogOpen && (
+          <div className="daw-modal-overlay" onClick={() => setAddTrackDialogOpen(false)}>
+            <div className="daw-modal new-track-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="daw-modal__head">
+                <div className="daw-modal__title">New Track</div>
+                <button className="plugin-popup__close" onClick={() => setAddTrackDialogOpen(false)} aria-label="Close">
+                  ×
+                </button>
+              </div>
+              <div className="daw-modal__body">
+                <label className="daw-field">
+                  <span className="daw-field__label mono">NAME</span>
+                  <input
+                    type="text"
+                    className="daw-field__input"
+                    value={newTrackDraft.name}
+                    autoFocus
+                    onChange={(e) => setNewTrackDraft((d) => ({ ...d, name: e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") confirmAddTrack();
+                    }}
+                  />
+                </label>
+
+                <div className="daw-field">
+                  <span className="daw-field__label mono">COLOR</span>
+                  <div className="swatch-grid">
+                    {TRACK_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        className={"swatch-btn" + (newTrackDraft.color === c ? " is-selected" : "")}
+                        style={{ "--sw": `var(--${c})` }}
+                        title={c}
+                        aria-label={c}
+                        onClick={() => setNewTrackDraft((d) => ({ ...d, color: c }))}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="daw-field">
+                  <span className="daw-field__label mono">ICON</span>
+                  <div className="icon-grid">
+                    {TRACK_ICON_KEYS.map((ikey) => (
+                      <button
+                        key={ikey}
+                        type="button"
+                        className={"icon-btn" + (newTrackDraft.icon === ikey ? " is-selected" : "")}
+                        style={{ "--sw": `var(--${newTrackDraft.color})` }}
+                        title={ikey}
+                        aria-label={ikey}
+                        onClick={() => setNewTrackDraft((d) => ({ ...d, icon: ikey }))}
+                      >
+                        <TrackIcon ikey={ikey} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="daw-modal__foot">
+                <button className="daw-btn small" onClick={() => setAddTrackDialogOpen(false)}>
+                  Cancel
+                </button>
+                <button className="daw-btn small primary" onClick={confirmAddTrack}>
+                  Create Track
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Plugin editor — a popup over everything else, per track/portion + plugin */}
         {activeSlot && activeTrack && (
