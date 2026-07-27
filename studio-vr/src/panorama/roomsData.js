@@ -19,6 +19,15 @@
 //   4. The yaw/pitch of that exact click is printed to the console and
 //      shown on screen — copy those numbers into a new entry below.
 //
+// Each `links[]` entry's `yaw`/`pitch` place the door hotspot within the
+// *current* room's photo — where it appears on screen, nothing else. The
+// separate `arrivalYaw`/`arrivalPitch` on that same entry is the camera
+// direction the viewer lands facing once that door is clicked, inside the
+// *destination* room's photo (see goToRoom() in PanoramaTour.jsx). These are
+// independent because the two panoramas don't share a coordinate frame —
+// "56.6 yaw" in the recording room's photo has no relation to any angle in
+// the studio room's photo.
+//
 // Each marker's `audio` field is the recorded narration clip that plays,
 // spatialized to that hotspot's direction, when it's selected — the path
 // must match a real file in public/audio/ exactly. Any common web audio
@@ -65,8 +74,13 @@ export const ROOMS = [
     links: [
       {
         nodeId: "recording-room",
-        yaw: 120.5,
-        pitch: -3.4,
+        yaw: 256.8,
+        pitch: -8.2,
+        // Where the camera lands, looking into the recording room, once
+        // this door is clicked — independent of the yaw/pitch above, which
+        // only places the door hotspot within *this* room's photo.
+        arrivalYaw: 56.6,
+        arrivalPitch: -16.8,
       },
     ],
     // In-scene control for the roomBleed bed above: its own hotspot
@@ -77,16 +91,16 @@ export const ROOMS = [
       {
         id: "recording-room-bleed-volume",
         target: "roomBleed",
-        yaw: 58.3,
-        pitch: -20.1,
+        yaw: 117.0,
+        pitch: -19.6,
         title: "Recording Room Bleed",
       },
     ],
     markers: [
       {
         id: "speaker",
-        yaw: 322.3,
-        pitch: -3.3,
+        yaw: 22.4,
+        pitch: -2.9,
         title: "Speakers",
         audio: "/audio/speaker.mp3",
         // The rotatable 3D scan preview for this piece of gear now lives on
@@ -106,8 +120,8 @@ export const ROOMS = [
       },
       {
         id: "mixing-console",
-        yaw: 357.4,
-        pitch: -21.8,
+        yaw: 51.7,
+        pitch: -20.0,
         title: "Mixing Console",
         audio: "/audio/mixing-console.mp3",
         description:
@@ -124,8 +138,8 @@ export const ROOMS = [
       },
       {
         id: "patch-bay",
-        yaw: 208.0,
-        pitch: -13.8,
+        yaw: 294.5,
+        pitch: -15.2,
         title: "Patch Bay",
         audio: "/audio/patch-bay.mp3",
         description:
@@ -142,8 +156,8 @@ export const ROOMS = [
       },
       {
         id: "preamp-rack",
-        yaw: 236.5,
-        pitch: -10.8,
+        yaw: 315.0,
+        pitch: -19.2,
         title: "Preamp Rack",
         audio: "/audio/preamp.mp3",
         description:
@@ -160,8 +174,8 @@ export const ROOMS = [
       },
       {
         id: "diffuser-panel",
-        yaw: 63.7,
-        pitch: 17.8,
+        yaw: 124.0,
+        pitch: 19.4,
         title: "Acoustic Diffuser",
         audio: "/audio/diffuser.mp3",
         description:
@@ -178,8 +192,8 @@ export const ROOMS = [
       },
       {
         id: "lf-emitter",
-        yaw: 73.8,
-        pitch: -22.3,
+        yaw: 133.7,
+        pitch: -19.8,
         title: "Low Frequency Emitter",
         audio: "/audio/lfe.mp3",
         description:
@@ -196,8 +210,8 @@ export const ROOMS = [
       },
       {
         id: "sound-card",
-        yaw: 26.7,
-        pitch: -15.4,
+        yaw: 88.5,
+        pitch: -15.1,
         title: "Sound Card",
         audio: "/audio/sound-card.mp3",
         description:
@@ -231,8 +245,8 @@ export const ROOMS = [
       {
         id: "daw-screens",
         type: "daw",
-        yaw: 0,
-        pitch: 8,
+        yaw: 62.2,
+        pitch: 14.8,
         title: "DAW Workstation",
       },
     ],
@@ -254,8 +268,12 @@ export const ROOMS = [
     links: [
       {
         nodeId: "studio-room",
-        yaw: 256.3,
-        pitch: -5.3,
+        yaw: 284.0,
+        pitch: 0.4,
+        // Where the camera lands, looking into the studio room, once this
+        // door is clicked.
+        arrivalYaw: 284.2,
+        arrivalPitch: -7.6,
       },
     ],
     markers: [],

@@ -277,12 +277,10 @@ function PanoramaTour() {
       // "zoom out to normal position" reveal instead of just appearing.
       defaultZoomLvl: 75,
       // Initial camera direction the very first panorama (the studio room,
-      // per START_NODE_ID) loads facing — yaw 0 (straight ahead per the
-      // photo's own reference direction), pitch -30.1 (tilted down toward
-      // the console/rack area rather than looking level or up at the
-      // ceiling) for the first-arrival reveal.
-      defaultYaw: "359deg",
-      defaultPitch: "-15deg",
+      // per START_NODE_ID) loads facing — yaw 61.6, pitch -10.8, for the
+      // first-arrival reveal.
+      defaultYaw: "61.6deg",
+      defaultPitch: "-10.8deg",
       // Caps how far zoom-in can go (via the navbar slider, scroll, or a
       // hotspot's zoomLvl). Raised back up from the library default of 30 —
       // it had been lowered to 15 to allow an extreme close-in, but that let
