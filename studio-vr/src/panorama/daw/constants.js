@@ -115,8 +115,17 @@ export const ROOM_BLEED = {
 // as its default tracks the first time the DAW opens; each track's own "D"
 // demo button lets you pick any one of the three to (re)load onto it
 // instead, via the dropdown next to it.
+//
+// Each clip carries its own fixed `color` so these three default tracks
+// always render the same teal/amber/blue no matter what trackIdRef's
+// running count is (it keeps climbing across a session as tracks get
+// added/removed, so the "cycle through TRACK_COLORS by track number" rule
+// addEmptyTrack/addTrackWithBuffer fall back to would otherwise hand the
+// defaults a different color any time they're reseeded after other tracks
+// came and went) — see addTrackWithBuffer's optional `color` param in
+// DawWorkstationScreen.jsx.
 export const DEMO_CLIPS = [
-  { id: "acousticGtr", name: "Hungarian Dance No. 5 — Acoustic Gtr", url: "/audio/BolzAndKnecht_HungarianDanceNo5_Full/01_AcousticGtr.wav" },
-  { id: "acousticGtrDI", name: "Hungarian Dance No. 5 — Acoustic Gtr DI", url: "/audio/BolzAndKnecht_HungarianDanceNo5_Full/02_AcousticGtrDI.wav" },
-  { id: "saxophone", name: "Hungarian Dance No. 5 — Saxophone", url: "/audio/BolzAndKnecht_HungarianDanceNo5_Full/03_Saxophone.wav" },
+  { id: "acousticGtr", name: "Hungarian Dance No. 5 — Acoustic Gtr", url: "/audio/BolzAndKnecht_HungarianDanceNo5_Full/01_AcousticGtr.wav", color: "teal" },
+  { id: "acousticGtrDI", name: "Hungarian Dance No. 5 — Acoustic Gtr DI", url: "/audio/BolzAndKnecht_HungarianDanceNo5_Full/02_AcousticGtrDI.wav", color: "amber" },
+  { id: "saxophone", name: "Hungarian Dance No. 5 — Saxophone", url: "/audio/BolzAndKnecht_HungarianDanceNo5_Full/03_Saxophone.wav", color: "blue" },
 ];

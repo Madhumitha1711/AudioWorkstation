@@ -848,11 +848,19 @@ function DawWorkstationScreen({ open, onClose }) {
   // this component's own `if (!isOpen) return null;`.)
 
   // ── Track management (add / remove / upload / demo / volume) ───────────
+  // `fixedColor` lets a caller pin a specific swatch (e.g. the default demo
+  // seed below, via DEMO_CLIPS' own `color`) instead of falling back to the
+  // "cycle TRACK_COLORS by running track number" rule — that rule is right
+  // for freshly-added tracks, but trackIdRef's count keeps climbing across a
+  // session as tracks are added/removed, so without a fixed color the three
+  // default tracks would get reassigned different colors any time they're
+  // reseeded after other tracks came and went, instead of always matching
+  // the same teal/amber/blue.
   const addTrackWithBuffer = useCallback(
-    (buffer, name) => {
+    (buffer, name, fixedColor) => {
       const n = ++trackIdRef.current;
       const id = `t${n}`;
-      const color = TRACK_COLORS[(n - 1) % TRACK_COLORS.length];
+      const color = fixedColor || TRACK_COLORS[(n - 1) % TRACK_COLORS.length];
       const peaks = computePeaks(buffer);
       const track = {
         id, name, color, icon: "audio", kind: "audio", buffer, peaks, duration: buffer.duration, loadError: "",
@@ -1458,7 +1466,7 @@ function DawWorkstationScreen({ open, onClose }) {
           buffer = demoBufferRef.current;
           name = "Demo Loop";
         }
-        const id = addTrackWithBuffer(buffer, name);
+        const id = addTrackWithBuffer(buffer, name, clip.color);
         if (firstId === null) firstId = id;
       });
       if (firstId !== null) setSelectedTrackId(firstId);
