@@ -356,6 +356,35 @@ function PanoramaTour() {
       clearSelectedMarkerEl();
       setStatus("ready");
 
+      // Walking through a doorway should land the student facing into the
+      // new room with the door they just came through behind them, not
+      // wherever the rotation-during-transition (transitionOptions.rotation)
+      // happened to leave the camera pointed — that only faces the door in
+      // the *origin* room's photo, which has no relation to this room's
+      // layout once the texture swaps. The origin room's link entry for
+      // this destination carries the calibrated arrivalYaw/arrivalPitch for
+      // exactly this doorway, so snap to it instantly (no animation) before
+      // the fade-in reveals the new panorama, so the "already standing
+      // inside, door behind you" framing is there from the first frame
+      // rather than a visible extra turn after arriving.
+      const fromNodeId = e.data?.fromNode?.id;
+      if (fromNodeId) {
+        const originRoom = ROOMS.find((r) => r.id === fromNodeId);
+        const arrivalLink = originRoom?.links.find(
+          (link) => link.nodeId === e.node.id,
+        );
+        if (
+          arrivalLink &&
+          typeof arrivalLink.arrivalYaw === "number" &&
+          typeof arrivalLink.arrivalPitch === "number"
+        ) {
+          viewer.rotate({
+            yaw: deg(arrivalLink.arrivalYaw),
+            pitch: deg(arrivalLink.arrivalPitch),
+          });
+        }
+      }
+
       // Only on first arrival: reveal the room by zooming back out to the
       // normal establishing view, instead of just popping in already zoomed.
       if (!hasArrivedRef.current) {

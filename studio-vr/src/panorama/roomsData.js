@@ -23,10 +23,18 @@
 // *current* room's photo — where it appears on screen, nothing else. The
 // separate `arrivalYaw`/`arrivalPitch` on that same entry is the camera
 // direction the viewer lands facing once that door is clicked, inside the
-// *destination* room's photo (see goToRoom() in PanoramaTour.jsx). These are
-// independent because the two panoramas don't share a coordinate frame —
-// "56.6 yaw" in the recording room's photo has no relation to any angle in
-// the studio room's photo.
+// *destination* room's photo (see onNodeChanged() in PanoramaTour.jsx, which
+// snaps to it right as the new node loads). These are independent because
+// the two panoramas don't share a coordinate frame — "105.7 yaw" in the
+// studio room's photo has no relation to any angle in the recording room's
+// photo.
+//
+// To make a doorway feel like actually walking in (the door you just came
+// through ends up behind you, out of frame), set arrivalYaw to the
+// *destination* room's own door-yaw for the link back, plus/minus 180°. E.g.
+// the recording room's door back to the studio sits at yaw 285.7 in its own
+// photo (below), so the studio's link *into* the recording room uses
+// arrivalYaw 105.7 (285.7 - 180, wrapped to 0-360).
 //
 // Each marker's `audio` field is the recorded narration clip that plays,
 // spatialized to that hotspot's direction, when it's selected — the path
@@ -74,12 +82,15 @@ export const ROOMS = [
     links: [
       {
         nodeId: "recording-room",
-        yaw: 256.8,
-        pitch: -8.2,
+        yaw: 255.4,
+        pitch: 4.7,
         // Where the camera lands, looking into the recording room, once
         // this door is clicked — independent of the yaw/pitch above, which
-        // only places the door hotspot within *this* room's photo.
-        arrivalYaw: 56.6,
+        // only places the door hotspot within *this* room's photo. Set to
+        // the exact opposite (+180°) of the recording room's own door yaw
+        // (285.7, see that room's links[] below) so the door the student
+        // just walked through is directly behind them on arrival.
+        arrivalYaw: 105.7,
         arrivalPitch: -16.8,
       },
     ],
@@ -268,11 +279,14 @@ export const ROOMS = [
     links: [
       {
         nodeId: "studio-room",
-        yaw: 284.0,
-        pitch: 0.4,
+        yaw: 285.7,
+        pitch: 0.6,
         // Where the camera lands, looking into the studio room, once this
-        // door is clicked.
-        arrivalYaw: 284.2,
+        // door is clicked. Set to the exact opposite (+180°) of the studio
+        // room's own door yaw (255.4, see that room's links[] above) so the
+        // door the student just walked through is directly behind them on
+        // arrival.
+        arrivalYaw: 75.4,
         arrivalPitch: -7.6,
       },
     ],
