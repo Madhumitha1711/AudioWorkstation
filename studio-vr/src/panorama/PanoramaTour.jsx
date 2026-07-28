@@ -26,6 +26,12 @@ import {
   isRoomBleedMuted,
 } from "../audio/spatialAudioEngine";
 import DawWorkstationScreen from "./DawWorkstationScreen";
+import StudioHotspotsPanel from "./StudioHotspotsPanel";
+// Component is HotspotKnowledgeCheck; the file itself is still named
+// HotspotPrecheck.jsx — see the note at the top of that file.
+import HotspotKnowledgeCheck from "./HotspotPrecheck";
+import { TOPICS } from "../course/courseData";
+import "./panoramaTour.css";
 
 const DEFAULT_AMBIENCE = { filterFreq: 500, gain: 0.03, gustDepth: 0.015 };
 // The wide, "standing in the middle of the room" resting view — used both
@@ -62,10 +68,15 @@ const doorMarkerHtml = () => `
 // Icon badge (no number) for functional processing hotspots — instead of
 // the numbered/lettered treatment gear markers get. The icon itself is what
 // signals "this opens a live, interactive module" rather than "read more
-// about this piece of gear"; unlike gear/door markers there's currently
-// only one of these (the DAW workstation) so it just uses the same green
-// ring/dot as the plain gear hotspots below — pass `variant` if a future
-// interactive marker needs a distinct color.
+// about this piece of gear", and the "interactive" variant passed below
+// (orange ring/dot, see panoramaTour.css) reinforces the same distinction
+// visually against the green numbered gear badges. A room can carry more
+// than one of these pointing at the same module (e.g. the DAW's
+// monitor-height and desk-height hotspots), so each also carries its own
+// `icon` (see that field on roomsData.js interactiveMarkers entries) rather
+// than always sharing one glyph per `type` — that's what keeps two hotspots
+// for the same device from rendering as visually identical, unlabeled
+// duplicates.
 const interactiveMarkerHtml = (icon, variant) => `
   <div class="hotspot-marker${variant ? ` hotspot-marker--${variant}` : ""}">
     <span class="hotspot-marker__ring${variant ? ` hotspot-marker__ring--${variant}` : ""}"></span>
@@ -108,7 +119,7 @@ function buildNodes() {
           id: marker.id,
           position: { yaw: deg(marker.yaw), pitch: deg(marker.pitch) },
           html: markerHtml(hotspotNumber),
-          size: { width: 34, height: 34 },
+          size: { width: 26, height: 26 },
           anchor: "center center",
           // Zoom level applied by markers.gotoMarker() so selecting a hotspot
           // feels like walking up to it rather than just glancing over.
@@ -142,7 +153,7 @@ function buildNodes() {
           id: `door-${room.id}-${link.nodeId}`,
           position: { yaw: deg(link.yaw), pitch: deg(link.pitch) },
           html: doorMarkerHtml(),
-          size: { width: 34, height: 34 },
+          size: { width: 26, height: 26 },
           anchor: "center center",
           tooltip: {
             content: `Go to ${destRoom?.name || "next room"}`,
@@ -154,8 +165,11 @@ function buildNodes() {
       ...(room.interactiveMarkers || []).map((marker) => ({
         id: marker.id,
         position: { yaw: deg(marker.yaw), pitch: deg(marker.pitch) },
-        html: interactiveMarkerHtml(marker.type === "daw" ? "🖥" : "⚡"),
-        size: { width: 34, height: 34 },
+        html: interactiveMarkerHtml(
+          marker.icon ?? (marker.type === "daw" ? "🖥" : "⚡"),
+          "interactive",
+        ),
+        size: { width: 26, height: 26 },
         anchor: "center center",
         zoomLvl: marker.zoomLvl ?? 60,
         tooltip: {
@@ -175,7 +189,7 @@ function buildNodes() {
         id: control.id,
         position: { yaw: deg(control.yaw), pitch: deg(control.pitch) },
         html: volumeMarkerHtml(),
-        size: { width: 34, height: 34 },
+        size: { width: 26, height: 26 },
         anchor: "center center",
         tooltip: {
           content: control.title || "Volume",
@@ -202,6 +216,10 @@ function PanoramaTour() {
   const markersRef = useRef(null);
   const virtualTourRef = useRef(null);
   const goToMarkerRef = useRef(null);
+  // Same purpose as goToMarkerRef, for interactive hotspots (e.g. the DAW
+  // workstation) — exposed so the left-docked StudioHotspotsPanel can drive
+  // real navigation for those too, not just plain gear hotspots.
+  const goToInteractiveMarkerRef = useRef(null);
   const hasArrivedRef = useRef(false);
   // Tracks whichever hotspot was requested most recently, so that if a
   // second hotspot is clicked before the first one's arrival animation
@@ -226,6 +244,14 @@ function PanoramaTour() {
   const [currentRoomName, setCurrentRoomName] = useState("");
   const [currentRoomId, setCurrentRoomId] = useState(START_NODE_ID);
   const [activeGear, setActiveGear] = useState(null);
+  // Whether the currently-open gear panel (activeGear) is showing the
+  // optional 5-question "Test your knowledge" quiz (HotspotKnowledgeCheck,
+  // exported from HotspotPrecheck.jsx) instead of its "choose how to start"
+  // view. Selecting a hotspot always opens straight to the choice screen
+  // first — this only flips true once the student clicks "Test your
+  // knowledge" there, and flips back on skip/close/picking a different
+  // hotspot. See the gear-panel body below for where it's set.
+  const [quizActive, setQuizActive] = useState(false);
   // Whichever EQ/Compressor interactive hotspot is currently open, or null.
   // Kept separate from activeGear (rather than folded into one "active
   // panel" union) since gear hotspots and interactive hotspots are opened by
@@ -276,12 +302,10 @@ function PanoramaTour() {
       // "zoom out to normal position" reveal instead of just appearing.
       defaultZoomLvl: 75,
       // Initial camera direction the very first panorama (the studio room,
-      // per START_NODE_ID) loads facing — yaw 0 (straight ahead per the
-      // photo's own reference direction), pitch -30.1 (tilted down toward
-      // the console/rack area rather than looking level or up at the
-      // ceiling) for the first-arrival reveal.
-      defaultYaw: "359deg",
-      defaultPitch: "-15deg",
+      // per START_NODE_ID) loads facing — yaw 61.6, pitch -10.8, for the
+      // first-arrival reveal.
+      defaultYaw: "61.6deg",
+      defaultPitch: "-10.8deg",
       // Caps how far zoom-in can go (via the navbar slider, scroll, or a
       // hotspot's zoomLvl). Raised back up from the library default of 30 —
       // it had been lowered to 15 to allow an extreme close-in, but that let
@@ -351,11 +375,41 @@ function PanoramaTour() {
       setCurrentRoomName(e.node.name || e.node.id);
       setCurrentRoomId(e.node.id);
       setActiveGear(null);
+      setQuizActive(false);
       setActiveModule(null);
       setActiveVolumeControl(null);
       latestRequestRef.current = null;
       clearSelectedMarkerEl();
       setStatus("ready");
+
+      // Walking through a doorway should land the student facing into the
+      // new room with the door they just came through behind them, not
+      // wherever the rotation-during-transition (transitionOptions.rotation)
+      // happened to leave the camera pointed — that only faces the door in
+      // the *origin* room's photo, which has no relation to this room's
+      // layout once the texture swaps. The origin room's link entry for
+      // this destination carries the calibrated arrivalYaw/arrivalPitch for
+      // exactly this doorway, so snap to it instantly (no animation) before
+      // the fade-in reveals the new panorama, so the "already standing
+      // inside, door behind you" framing is there from the first frame
+      // rather than a visible extra turn after arriving.
+      const fromNodeId = e.data?.fromNode?.id;
+      if (fromNodeId) {
+        const originRoom = ROOMS.find((r) => r.id === fromNodeId);
+        const arrivalLink = originRoom?.links.find(
+          (link) => link.nodeId === e.node.id,
+        );
+        if (
+          arrivalLink &&
+          typeof arrivalLink.arrivalYaw === "number" &&
+          typeof arrivalLink.arrivalPitch === "number"
+        ) {
+          viewer.rotate({
+            yaw: deg(arrivalLink.arrivalYaw),
+            pitch: deg(arrivalLink.arrivalPitch),
+          });
+        }
+      }
 
       // Only on first arrival: reveal the room by zooming back out to the
       // normal establishing view, instead of just popping in already zoomed.
@@ -392,7 +446,12 @@ function PanoramaTour() {
         if (latestRequestRef.current !== markerId) return;
         setActiveModule(null);
         setActiveVolumeControl(null);
+        // Selecting a hotspot always opens straight to its "choose how to
+        // start" panel (Test your knowledge / Start course) — the optional
+        // quiz is a detour the student opts into from there, not something
+        // that gates anything. See the gear-panel body below.
         setActiveGear(marker.data);
+        setQuizActive(false);
         setSelectedMarkerEl(markerId);
         // Narration audio is intentionally not played here — selecting a
         // hotspot only reveals its text panel (title/description below).
@@ -418,11 +477,13 @@ function PanoramaTour() {
         if (latestRequestRef.current !== markerId) return;
         stopHotspotNarration();
         setActiveGear(null);
+        setQuizActive(false);
         setActiveVolumeControl(null);
         setActiveModule(data);
         setSelectedMarkerEl(markerId);
       });
     };
+    goToInteractiveMarkerRef.current = goToInteractiveMarker;
 
     // Unlike goToMarker/goToInteractiveMarker above, a `kind: "volume"`
     // hotspot (see roomsData.js `volumeControls`) does NOT walk the camera
@@ -441,6 +502,7 @@ function PanoramaTour() {
       }
       latestRequestRef.current = markerId;
       setActiveGear(null);
+      setQuizActive(false);
       setActiveModule(null);
       setActiveVolumeControl(data);
       setSelectedMarkerEl(markerId);
@@ -526,9 +588,12 @@ function PanoramaTour() {
 
   // Closes the panel and eases the camera back out to the wide resting
   // view instead of leaving it parked at the hotspot's zoomed-in position.
+  // Works the same whether the choice screen or the quiz is showing —
+  // either way, from the student's point of view this hotspot is closing.
   const closeGearPanel = () => {
     stopHotspotNarration();
     setActiveGear(null);
+    setQuizActive(false);
     clearSelectedMarkerEl();
     viewerRef.current?.animate({ zoom: REST_ZOOM_LVL, speed: "10rpm" });
   };
@@ -595,6 +660,7 @@ function PanoramaTour() {
   const goToRoom = (nodeId) => {
     stopHotspotNarration();
     setActiveGear(null);
+    setQuizActive(false);
     setActiveModule(null);
     setActiveVolumeControl(null);
     clearSelectedMarkerEl();
@@ -637,9 +703,30 @@ function PanoramaTour() {
     goToMarkerRef.current?.(next.id);
   };
 
+  // Wired into StudioHotspotsPanel (the left-docked "Hotspots" panel) below
+  // — clicking a device row there should behave exactly like clicking its
+  // marker directly in the scene, just routed through the same
+  // goToMarker/goToInteractiveMarker paths instead of a marker click event.
+  const handlePanelSelectDevice = (kind, id) => {
+    if (kind === "interactive") {
+      const marker = markersRef.current?.getMarker(id);
+      if (marker) goToInteractiveMarkerRef.current?.(id, marker.data);
+    } else {
+      goToMarkerRef.current?.(id);
+    }
+  };
+
+  const currentRoom = ROOMS.find((room) => room.id === currentRoomId);
+  // The topic behind the currently-open gear hotspot, if any — used to look
+  // up this topic's 5-question assessment bank for the optional "Test your
+  // knowledge" quiz. Only ready topics have an assessment; everything else
+  // (locked/"coming soon" gear) simply won't show the quiz option, and the
+  // choice panel below falls back to "Start course" alone.
+  const activeTopic = activeGear ? TOPICS.find((t) => t.id === activeGear.id) : null;
+  const quizQuestions = activeTopic?.assessment?.questions ?? [];
+
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
-      <style>{tourStyles}</style>
       <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
 
       {status === "loading" && (
@@ -730,7 +817,16 @@ function PanoramaTour() {
         </div>
       )}
 
-      {activeGear && (
+      {status === "ready" && (
+        <StudioHotspotsPanel
+          room={currentRoom}
+          activeGear={activeGear}
+          activeModule={activeModule}
+          onSelectDevice={handlePanelSelectDevice}
+        />
+      )}
+
+      {activeGear && !quizActive && (
         <div className="svr-tour-gear-panel">
           <div className="svr-tour-gear-panel__head">
             <span className="svr-tour-gear-badge">{activeGear.number}</span>
@@ -738,7 +834,7 @@ function PanoramaTour() {
               <div className="svr-tour-gear-panel__title">
                 {activeGear.title}
               </div>
-              <div className="svr-tour-gear-panel__kicker">Gear info</div>
+              <div className="svr-tour-gear-panel__kicker">Choose how to start</div>
             </div>
             <button
               onClick={closeGearPanel}
@@ -749,22 +845,51 @@ function PanoramaTour() {
             </button>
           </div>
 
-          <div className="svr-tour-gear-panel__body">
-            <div className="svr-tour-gear-panel__desc">
-              {activeGear.description}
-            </div>
+          <div className="svr-tour-gear-panel__body svr-tour-choice-body">
+            {quizQuestions.length === 0 && !activeGear.course?.id && (
+              // Neither a quiz nor a course exists yet for this hotspot —
+              // every gear marker in roomsData.js currently ships a
+              // course.id, so this is only a defensive fallback for future
+              // hotspots added without one, not something students see today.
+              <p className="svr-tour-choice-empty">
+                Course content for {activeGear.title} is coming soon.
+              </p>
+            )}
 
-            {activeGear.course?.objectives?.length > 0 && (
-              <>
-                <div className="svr-tour-section-label">
-                  What you'll learn
-                </div>
-                <ul className="svr-tour-checklist">
-                  {activeGear.course.objectives.map((point, i) => (
-                    <li key={i}>{point}</li>
-                  ))}
-                </ul>
-              </>
+            {quizQuestions.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setQuizActive(true)}
+                className="svr-tour-choice-card svr-tour-choice-card--quiz"
+              >
+                <span className="svr-tour-choice-card-icon" aria-hidden="true">🧠</span>
+                <span className="svr-tour-choice-card-text">
+                  <span className="svr-tour-choice-card-title">Test your knowledge</span>
+                  <span className="svr-tour-choice-card-sub">
+                    {quizQuestions.length} quick questions on {activeGear.title.toLowerCase()} — optional
+                  </span>
+                </span>
+              </button>
+            )}
+
+            {activeGear.course?.id && (
+              <button
+                type="button"
+                onClick={() => {
+                  // activeGear.id is the hotspot's marker id (e.g. "speaker"),
+                  // which is also the topic id in src/course/courseData.js —
+                  // CoursePage reads this route state to open directly on
+                  // the right topic instead of the default one.
+                  navigate("/course", { state: { topicId: activeGear.id } });
+                }}
+                className="svr-tour-choice-card svr-tour-choice-card--course"
+              >
+                <span className="svr-tour-choice-card-icon" aria-hidden="true">▶</span>
+                <span className="svr-tour-choice-card-text">
+                  <span className="svr-tour-choice-card-title">Start course</span>
+                  <span className="svr-tour-choice-card-sub">Jump straight into the lesson</span>
+                </span>
+              </button>
             )}
           </div>
 
@@ -775,23 +900,20 @@ function PanoramaTour() {
             >
               Next →
             </button>
-            {activeGear.course?.id && (
-              <button
-                onClick={() => {
-                  // activeGear.id is the hotspot's marker id (e.g. "speaker",
-                  // "daw-screens"), which is also the topic id in
-                  // src/course/courseData.js — CoursePage reads this route
-                  // state to open directly on the right topic instead of the
-                  // default one.
-                  navigate("/course", { state: { topicId: activeGear.id } });
-                }}
-                className="svr-tour-btn svr-tour-btn-primary"
-              >
-                Start course
-              </button>
-            )}
           </div>
         </div>
+      )}
+
+      {activeGear && quizActive && (
+        <HotspotKnowledgeCheck
+          key={activeGear.id}
+          gear={activeGear}
+          questions={quizQuestions}
+          onSkip={() => setQuizActive(false)}
+          onBackToOverview={() => setQuizActive(false)}
+          onStartCourse={() => navigate("/course", { state: { topicId: activeGear.id } })}
+          onClose={closeGearPanel}
+        />
       )}
 
       {activeVolumeControl && (
@@ -852,606 +974,5 @@ function PanoramaTour() {
     </div>
   );
 }
-
-// Injected globally so the plain-HTML marker content (rendered by the
-// markers plugin outside of React) can use these classes/keyframes, plus
-// every other floating piece of tour chrome (toolbar, hint chip, gear
-// panel, loading state). Built on the app's own --shell-* tokens (see
-// index.css) so this screen follows the light/dark theme toggle instead of
-// hardcoding its own black.
-const tourStyles = `
-  /* The virtual-tour plugin's own floating 3D doorway arrows are hidden —
-     they drift across the screen as the camera turns. Doorways are instead
-     rendered as regular hotspot markers (.hotspot-marker--door below),
-     fixed at a specific yaw/pitch just like the gear hotspots. */
-  .psv-virtual-tour-link {
-    display: none !important;
-  }
-  .hotspot-marker {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    /* The markers plugin only auto-applies cursor:pointer to markers that
-       use its own tooltip/content options (see .psv-marker--has-tooltip
-       and --has-content in @photo-sphere-viewer/markers-plugin/index.css);
-       these hotspots render their own html instead, so none of the
-       gear/door/interactive markers picked that up for free — set it
-       explicitly here so every hotspot reads as clickable on hover. */
-    cursor: pointer;
-  }
-  .hotspot-marker__ring {
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    border: 2px solid rgba(58, 255, 140, 0.85);
-    animation: hotspot-pulse 2.2s ease-out infinite;
-    transition: animation-duration 0.15s ease;
-  }
-  .hotspot-marker__ring--delayed {
-    animation-delay: 1.1s;
-  }
-  .hotspot-marker__dot {
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font: 700 13px/1 sans-serif;
-    color: #04160a;
-    background: radial-gradient(circle at 32% 28%, #7dffb8, #17c76a 70%);
-    border: 2px solid rgba(255, 255, 255, 0.9);
-    box-shadow:
-      0 0 10px rgba(34, 255, 130, 0.75),
-      inset 0 0 5px rgba(255, 255, 255, 0.5);
-    animation: hotspot-breathe 2.2s ease-in-out infinite;
-    transition: transform 0.15s ease, filter 0.15s ease;
-  }
-  /* Hover: scale + brighten the badge and speed up its pulse rings, on top
-     of the pointer cursor above, so a hotspot visibly "wakes up" under the
-     cursor before it's even clicked. */
-  .hotspot-marker:hover .hotspot-marker__dot {
-    transform: scale(1.15);
-    filter: brightness(1.12);
-  }
-  .hotspot-marker:hover .hotspot-marker__ring {
-    animation-duration: 1.3s;
-  }
-  /* Selected: applied via JS (see setSelectedMarkerEl/clearSelectedMarkerEl
-     in PanoramaTour's render body) to whichever hotspot's panel is
-     currently open — a one-shot "pop" plus a faster, brighter breathing
-     glow so the active hotspot stays visually distinct from the rest while
-     its panel is up, independent of the color-specific badge styling
-     (gear/interactive green, door blue). */
-  .svr-hotspot-selected {
-    animation: hotspot-select-pop 0.35s ease-out;
-  }
-  .svr-hotspot-selected .hotspot-marker__dot {
-    animation: hotspot-breathe-selected 1.1s ease-in-out infinite;
-    filter: brightness(1.2) saturate(1.15);
-  }
-  .svr-hotspot-selected .hotspot-marker__ring {
-    animation-duration: 1.3s;
-  }
-  @keyframes hotspot-pulse {
-    0% {
-      transform: scale(0.9);
-      opacity: 0.8;
-    }
-    100% {
-      transform: scale(2.4);
-      opacity: 0;
-    }
-  }
-  @keyframes hotspot-breathe {
-    0%, 100% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.08);
-    }
-  }
-  @keyframes hotspot-breathe-selected {
-    0%, 100% {
-      transform: scale(1.08);
-    }
-    50% {
-      transform: scale(1.22);
-    }
-  }
-  @keyframes hotspot-select-pop {
-    0% {
-      transform: scale(1);
-    }
-    45% {
-      transform: scale(1.3);
-    }
-    100% {
-      transform: scale(1);
-    }
-  }
-  /* Door hotspots: same pulsing-badge shape as gear hotspots, in blue with
-     a door icon instead of a number, so they read as "go to another room"
-     at a glance. */
-  .hotspot-marker__ring--door {
-    border-color: rgba(90, 170, 255, 0.85);
-  }
-  .hotspot-marker__dot--door {
-    font-size: 15px;
-    background: radial-gradient(circle at 32% 28%, #9fd3ff, #2e7fe0 70%);
-    box-shadow:
-      0 0 10px rgba(70, 150, 255, 0.75),
-      inset 0 0 5px rgba(255, 255, 255, 0.5);
-  }
-  /* Volume-control hotspots (roomsData.js volumeControls): same
-     pulsing-badge shape again, in amber with a speaker icon, so they read
-     as "adjust audio" rather than "gear info" or "go to another room". */
-  .hotspot-marker__ring--volume {
-    border-color: rgba(255, 176, 59, 0.85);
-  }
-  .hotspot-marker__dot--volume {
-    font-size: 14px;
-    background: radial-gradient(circle at 32% 28%, #ffd699, #e08a1e 70%);
-    box-shadow:
-      0 0 10px rgba(255, 176, 59, 0.75),
-      inset 0 0 5px rgba(255, 255, 255, 0.5);
-  }
-
-  /* ---------- Shared chrome (glass) ---------- */
-  .svr-tour-icon-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: 1px solid transparent;
-    background: transparent;
-    color: var(--shell-text);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    font-size: 14px;
-    flex-shrink: 0;
-    transition: background 0.15s ease;
-  }
-  .svr-tour-icon-btn:hover {
-    background: var(--shell-panel-hover);
-  }
-  .svr-tour-icon-btn.active {
-    background: var(--shell-panel);
-    border-color: var(--shell-border);
-  }
-
-  /* ---------- Top toolbar: room name + progress dots + audio ---------- */
-  .svr-tour-toolbar {
-    position: absolute;
-    top: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--shell-bg);
-    border: 1px solid var(--shell-border);
-    border-radius: 999px;
-    padding: 6px;
-    backdrop-filter: blur(14px);
-    box-shadow: var(--shadow);
-    max-width: calc(100vw - 32px);
-    font-family: sans-serif;
-    z-index: 5;
-  }
-  .svr-tour-room-block {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 0 8px;
-    min-width: 0;
-  }
-  .svr-tour-room-name {
-    color: var(--shell-text);
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    white-space: nowrap;
-  }
-  .svr-tour-room-dots {
-    display: flex;
-    gap: 5px;
-    margin-top: 4px;
-  }
-  .svr-tour-room-dot {
-    width: 6px;
-    height: 6px;
-    padding: 0;
-    border-radius: 50%;
-    border: none;
-    background: var(--shell-border);
-    cursor: pointer;
-    transition: background 0.15s ease, transform 0.15s ease;
-  }
-  .svr-tour-room-dot:hover {
-    background: var(--shell-text-dim);
-  }
-  .svr-tour-room-dot.current {
-    background: #22ff88;
-    transform: scale(1.3);
-  }
-  .svr-tour-divider {
-    width: 1px;
-    align-self: stretch;
-    margin: 4px 0;
-    background: var(--shell-border-soft);
-  }
-
-  /* ---------- Binaural toggle: a labeled, colored pill instead of a
-     same-shaped icon button with only a subtle shading difference, so
-     on/off reads at a glance. */
-  .svr-tour-binaural-btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    height: 32px;
-    padding: 0 12px 0 10px;
-    border-radius: 999px;
-    font-size: 11.5px;
-    font-weight: 700;
-    white-space: nowrap;
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-  }
-  .svr-tour-binaural-icon {
-    font-size: 14px;
-    line-height: 1;
-    transition: filter 0.15s ease, opacity 0.15s ease;
-  }
-  .svr-tour-binaural-btn.on {
-    background: #22ff55;
-    border: 1px solid transparent;
-    color: #0a0a0a;
-  }
-  .svr-tour-binaural-btn.on:hover {
-    opacity: 0.9;
-  }
-  .svr-tour-binaural-btn.off {
-    background: transparent;
-    border: 1px solid var(--shell-border);
-    color: var(--shell-text-dimmer);
-  }
-  .svr-tour-binaural-btn.off .svr-tour-binaural-icon {
-    filter: grayscale(1);
-    opacity: 0.6;
-  }
-  .svr-tour-binaural-btn.off:hover {
-    background: var(--shell-panel-hover);
-    color: var(--shell-text-dim);
-  }
-
-  /* ---------- Collapsible hint chip ---------- */
-  .svr-tour-hint-chip {
-    position: absolute;
-    bottom: 16px;
-    left: 16px;
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    background: var(--shell-bg);
-    border: 1px solid var(--shell-border);
-    border-radius: 12px;
-    backdrop-filter: blur(14px);
-    padding: 6px;
-    max-width: 320px;
-    cursor: pointer;
-    font-family: sans-serif;
-    z-index: 5;
-  }
-  .svr-tour-hint-chip.open {
-    padding: 8px 12px 10px 8px;
-    cursor: default;
-  }
-  .svr-tour-hint-text {
-    display: none;
-    font-size: 11.5px;
-    line-height: 1.5;
-    color: var(--shell-text-dim);
-    padding-top: 5px;
-  }
-  .svr-tour-hint-chip.open .svr-tour-hint-text {
-    display: block;
-  }
-  .svr-tour-hint-placement {
-    margin-top: 4px;
-    color: #7cfc9a;
-  }
-
-  /* ---------- Gear info panel ---------- */
-  .svr-tour-gear-panel {
-    position: absolute;
-    top: 74px;
-    right: 16px;
-    width: 320px;
-    max-width: calc(100vw - 32px);
-    max-height: calc(100vh - 110px);
-    background: var(--shell-bg);
-    border: 1px solid var(--shell-border);
-    border-radius: 14px;
-    backdrop-filter: blur(14px);
-    box-shadow: var(--shadow);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    font-family: sans-serif;
-    color: var(--shell-text);
-    animation: svr-tour-slide-in 0.2s ease-out;
-    z-index: 5;
-  }
-  @keyframes svr-tour-slide-in {
-    from {
-      opacity: 0;
-      transform: translateY(-8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  .svr-tour-gear-panel__head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 14px 16px 12px;
-    border-bottom: 1px solid var(--shell-border-soft);
-  }
-  .svr-tour-gear-badge {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    background: radial-gradient(circle at 32% 28%, #7dffb8, #17c76a 70%);
-    color: #04160a;
-    font-size: 12px;
-    font-weight: 700;
-    flex-shrink: 0;
-  }
-  .svr-tour-gear-panel__titles {
-    min-width: 0;
-    flex: 1;
-  }
-  .svr-tour-gear-panel__title {
-    font-size: 14.5px;
-    font-weight: 700;
-    line-height: 1.2;
-  }
-  .svr-tour-gear-panel__kicker {
-    font-size: 10.5px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--shell-text-dimmer);
-    margin-top: 2px;
-  }
-  .svr-tour-gear-panel__close {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    border: none;
-    background: transparent;
-    color: var(--shell-text-dim);
-    font-size: 16px;
-    cursor: pointer;
-    flex-shrink: 0;
-    line-height: 1;
-  }
-  .svr-tour-gear-panel__close:hover {
-    background: var(--shell-panel-hover);
-    color: var(--shell-text);
-  }
-  .svr-tour-gear-panel__body {
-    padding: 14px 16px;
-    overflow-y: auto;
-  }
-  .svr-tour-gear-panel__desc {
-    font-size: 13px;
-    line-height: 1.55;
-    color: var(--shell-text-dim);
-  }
-  .svr-tour-section-label {
-    font-size: 10.5px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--shell-text-dimmer);
-    margin: 16px 0 8px;
-  }
-  .svr-tour-checklist {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-  }
-  .svr-tour-checklist li {
-    display: flex;
-    gap: 8px;
-    font-size: 12.5px;
-    line-height: 1.5;
-    color: var(--shell-text);
-  }
-  .svr-tour-checklist li::before {
-    content: "\\2713";
-    flex-shrink: 0;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: rgba(34, 255, 130, 0.15);
-    color: #22c76a;
-    font-size: 10px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-top: 2px;
-  }
-  .svr-tour-gear-panel__footer {
-    display: flex;
-    gap: 8px;
-    padding: 12px 16px 14px;
-    border-top: 1px solid var(--shell-border-soft);
-  }
-  .svr-tour-btn {
-    flex: 1;
-    padding: 9px 0;
-    border-radius: 8px;
-    font-size: 12.5px;
-    font-weight: 700;
-    cursor: pointer;
-    text-align: center;
-    transition: opacity 0.15s ease, background 0.15s ease;
-  }
-  .svr-tour-btn-primary {
-    background: #22ff55;
-    color: #0a0a0a;
-    border: none;
-  }
-  .svr-tour-btn-primary:hover {
-    opacity: 0.9;
-  }
-  .svr-tour-btn-secondary {
-    background: var(--shell-panel);
-    color: var(--shell-text);
-    border: 1px solid var(--shell-border);
-  }
-  .svr-tour-btn-secondary:hover {
-    background: var(--shell-panel-hover);
-  }
-
-  /* ---------- Volume-control panel (roomsData.js volumeControls) ------
-     Same floating-glass treatment as the gear panel, but compact — just a
-     description, a mute button, and a slider, no course footer. */
-  .svr-tour-volume-panel {
-    position: absolute;
-    top: 74px;
-    right: 16px;
-    width: 300px;
-    max-width: calc(100vw - 32px);
-    background: var(--shell-bg);
-    border: 1px solid var(--shell-border);
-    border-radius: 14px;
-    backdrop-filter: blur(14px);
-    box-shadow: var(--shadow);
-    font-family: sans-serif;
-    color: var(--shell-text);
-    animation: svr-tour-slide-in 0.2s ease-out;
-    z-index: 5;
-  }
-  .svr-tour-volume-panel__head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 14px 16px 12px;
-    border-bottom: 1px solid var(--shell-border-soft);
-  }
-  .svr-tour-volume-panel__icon {
-    font-size: 15px;
-    flex-shrink: 0;
-  }
-  .svr-tour-volume-panel__title {
-    flex: 1;
-    min-width: 0;
-    font-size: 14.5px;
-    font-weight: 700;
-    line-height: 1.2;
-  }
-  .svr-tour-volume-panel__body {
-    padding: 14px 16px 16px;
-  }
-  .svr-tour-volume-panel__desc {
-    font-size: 12.5px;
-    line-height: 1.55;
-    color: var(--shell-text-dim);
-    margin-bottom: 14px;
-  }
-  .svr-tour-volume-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .svr-tour-volume-slider {
-    flex: 1;
-    -webkit-appearance: none;
-    appearance: none;
-    height: 4px;
-    border-radius: 999px;
-    background: var(--shell-border);
-    outline: none;
-    cursor: pointer;
-  }
-  .svr-tour-volume-slider:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-  .svr-tour-volume-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 15px;
-    height: 15px;
-    border-radius: 50%;
-    background: #ffb03b;
-    box-shadow: 0 0 6px rgba(255, 176, 59, 0.65);
-    cursor: pointer;
-    border: 2px solid #0a0a0a;
-  }
-  .svr-tour-volume-slider::-moz-range-thumb {
-    width: 15px;
-    height: 15px;
-    border-radius: 50%;
-    background: #ffb03b;
-    box-shadow: 0 0 6px rgba(255, 176, 59, 0.65);
-    cursor: pointer;
-    border: 2px solid #0a0a0a;
-  }
-  .svr-tour-volume-val {
-    min-width: 44px;
-    text-align: right;
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--shell-text-dim);
-    flex-shrink: 0;
-  }
-
-  /* ---------- Loading / error state ---------- */
-  .svr-tour-loading {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    font-family: sans-serif;
-    background: var(--shell-page-bg);
-  }
-  .svr-tour-spinner {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: 3px solid var(--shell-border);
-    border-top-color: #22ff88;
-    animation: svr-tour-spin 0.9s linear infinite;
-  }
-  @keyframes svr-tour-spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-  .svr-tour-loading-text {
-    font-size: 13px;
-    color: var(--shell-text-dim);
-  }
-  .svr-tour-error-text {
-    color: #f66;
-  }
-`;
 
 export default PanoramaTour;

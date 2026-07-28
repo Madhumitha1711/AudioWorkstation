@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { FaustMonoDspGenerator } from "@grame/faustwasm";
 import { compileFaustWasm } from "../faust/faustTypes";
 import {
@@ -12,63 +11,41 @@ import {
   stopRoomBleed,
   startRoomBleed,
 } from "../audio/spatialAudioEngine";
-import { GateEditorPanel } from "../chapters/NoiseGate";
+import { ADDR as DEESS_ADDR, pushFaustParams as pushDeEsserParams, analyserPeakDb } from "../chapters/deEsserEngine";
+import { pushFaustParams as pushGateParams } from "../chapters/gateEngine";
+import { BAND_IDS as COMP_BAND_IDS, ADDR as COMP_ADDR, pushFaustParams as pushCompParams } from "../chapters/compressorEngine";
+import { ADDR as LIMITER_ADDR, pushFaustParams as pushLimiterParams } from "../chapters/limiterEngine";
+import { pushFaustParams as pushDelayParams, analyserPeakLinear } from "../chapters/delayEngine";
+import { pushFaustParams as pushReverbParams } from "../chapters/reverbEngine";
 import {
-  DEFAULTS as GATE_DEFAULTS,
-  DEFAULT_SIDECHAIN as GATE_DEFAULT_SIDECHAIN,
-  pushFaustParams as pushGateParams,
-  analyserPeakDb,
-} from "../chapters/gateEngine";
-import { DeEsserEditorPanel } from "../chapters/DeEsser";
-import {
-  DEFAULTS as DEESS_DEFAULTS,
-  ADDR as DEESS_ADDR,
-  pushFaustParams as pushDeEsserParams,
-} from "../chapters/deEsserEngine";
-import { CompressorEditorPanel } from "../chapters/Compressor";
-import {
-  BAND_IDS as COMP_BAND_IDS,
-  makeDefaultBands as makeDefaultCompBands,
-  DEFAULT_CROSSOVER as COMP_DEFAULT_CROSSOVER,
-  DEFAULT_SIDECHAIN as COMP_DEFAULT_SIDECHAIN,
-  DEFAULT_OUTPUT_GAIN as COMP_DEFAULT_OUTPUT_GAIN,
-  DEFAULT_MULTIBAND as COMP_DEFAULT_MULTIBAND,
-  ADDR as COMP_ADDR,
-  pushFaustParams as pushCompParams,
-} from "../chapters/compressorEngine";
-import { LimiterEditorPanel } from "../chapters/Limiter";
-import {
-  DEFAULTS as LIMITER_DEFAULTS,
-  ADDR as LIMITER_ADDR,
-  pushFaustParams as pushLimiterParams,
-} from "../chapters/limiterEngine";
-import { DelayEditorPanel } from "../chapters/Delay";
-import {
-  DEFAULTS as DELAY_DEFAULTS,
-  DEFAULT_SYNC,
-  pushFaustParams as pushDelayParams,
-  analyserPeakLinear,
-} from "../chapters/delayEngine";
-import { ReverbEditorPanel } from "../chapters/Reverb";
-import {
-  DEFAULTS as REVERB_DEFAULTS,
-  DEFAULT_PRESET,
-  pushFaustParams as pushReverbParams,
-} from "../chapters/reverbEngine";
-import { EqualizerEditorPanel } from "../chapters/Equalizer";
-import {
-  DEFAULT_BANDS as EQ_DEFAULT_BANDS,
   LIVE_GAIN_ADDR_TO_BAND,
-  ANALYSER_MIN_DB,
-  ANALYSER_MAX_DB,
   applyBandsToNode as applyEqBandsToNode,
   applyOutputGain as applyEqOutputGain,
 } from "../chapters/equalizerEngine";
 import { downloadAudioBufferAsWav } from "../audio/wavRender";
-import { Fader } from "../components/Fader";
-import { Knob } from "../components/Knob";
 import "../chapters/chapters.css";
 import "./dawWorkstationScreen.css";
+
+// ── DAW-local modules — split out of this file (once 4800+ lines) for
+// maintainability. See src/panorama/daw/ for plain constants, formatting
+// helpers, the live/offline audio-graph builders, and every presentational
+// piece of the screen (InsertRack/SendRack, TopBar, TrackList, Arrangement,
+// EditorDock, MixerView, AddTrackDialog, PluginEditorPopup). This file keeps
+// the state/audio-engine "controller" — the tracks/transport/chain
+// management hooks below — and composes those pieces in its render.
+import { PLUGIN_DEFS, TRACK_COLORS, MIN_REGION_LEN, TRACK_CHAIN_SCOPE, DEFAULT_AMBIENCE, ROOM_BLEED, DEMO_CLIPS } from "./daw/constants";
+import { clamp, pickRulerStep } from "./daw/format";
+import { trackIsAudible, computeDryScale, outerScopeId, isOuterScope, baseRegionId } from "./daw/trackHelpers";
+import { createDemoLoopBuffer, computePeaks } from "./daw/audioBuffers";
+import { computeSegments, getChainArray, withChainArray, disconnectChainSlots, wireLiveChain, collectMeters, defaultSlotExtras } from "./daw/chainGraph";
+import { renderTrackOffline, renderMixOffline } from "./daw/offlineRender";
+import { TopBar } from "./daw/TopBar";
+import { TrackList } from "./daw/TrackList";
+import { Arrangement } from "./daw/Arrangement";
+import { EditorDock } from "./daw/EditorDock";
+import { MixerView } from "./daw/MixerView";
+import { AddTrackDialog } from "./daw/AddTrackDialog";
+import { PluginEditorPopup } from "./daw/PluginEditorPopup";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DAW Workstation hotspot — panorama/DawWorkstationScreen.jsx
@@ -115,1010 +92,6 @@ import "./dawWorkstationScreen.css";
 // instead of a generic knob renderer. Opening a popup auto-previews by
 // looping the mix (or just the selected portion) so the change is audible
 // immediately.
-
-const PLUGIN_DEFS = [
-  { key: "gate", name: "Noise Gate", tag: "Dynamics", color: "green", basePath: "/faust/Gate", wiring: "selfSidechain3" },
-  { key: "deess", name: "De-Esser", tag: "Dynamics", color: "purple", basePath: "/faust/deesser", wiring: "direct" },
-  { key: "eq", name: "Equalizer", tag: "Tone", color: "teal", basePath: "/faust/ParamEQ", wiring: "direct" },
-  { key: "comp", name: "Compressor", tag: "Dynamics", color: "amber", basePath: "/faust/compressor", wiring: "selfSidechain2" },
-  { key: "limiter", name: "Limiter", tag: "Dynamics", color: "red", basePath: "/faust/limiter", wiring: "direct" },
-  { key: "delay", name: "Delay", tag: "Send", color: "blue", basePath: "/faust/delay", wiring: "direct" },
-  { key: "reverb", name: "Reverb", tag: "Send", color: "cyan", basePath: "/faust/reverb", wiring: "direct" },
-];
-
-// PLUGIN_DEFS grouped by category (tag) in a fixed display order — the
-// insert picker's own categorized menu (see InsertRack below), same
-// grouping Logic's own plugin menu uses (Dynamics / EQ / Delay & Reverb).
-const PLUGIN_TAG_ORDER = ["Dynamics", "Tone", "Send"];
-const PLUGIN_DEFS_GROUPED = (() => {
-  const groups = new Map();
-  PLUGIN_DEFS.forEach((def) => {
-    if (!groups.has(def.tag)) groups.set(def.tag, []);
-    groups.get(def.tag).push(def);
-  });
-  return PLUGIN_TAG_ORDER.filter((t) => groups.has(t)).map((t) => [t, groups.get(t)]);
-})();
-
-const PLUGIN_ICON_PATHS = {
-  gate: [{ d: "M4 4v16M20 4v16M4 12h6M14 12h6", cap: "round" }],
-  deess: [
-    { d: "M6 17c3 0 3-10 6-10s3 10 6 10", cap: "round", join: "round" },
-    { d: "M3 21L21 3", cap: "round" },
-  ],
-  eq: [{ d: "M3 12h4l2-6 3 15 3-11 2 8 2-6h2", cap: "round", join: "round" }],
-  comp: [
-    { d: "M2 17c4 0 4-11 8-11s4 11 8 11 4-6 4-6", cap: "round", join: "round" },
-    { d: "M2 7h20", opacity: 0.4 },
-  ],
-  limiter: [
-    { d: "M3 16c3 0 4-9 7-9s2 9 5 9 3-5 6-5", cap: "round" },
-    { d: "M3 7h18", opacity: 0.4 },
-  ],
-  delay: [{ circle: [6, 12, 3] }, { circle: [13, 12, 2.4], opacity: 0.7 }, { circle: [19, 12, 1.8], opacity: 0.45 }],
-  reverb: [
-    { d: "M4 12a3 3 0 0 1 3-3M4 12a6 6 0 0 1 6-6M4 12a9 9 0 0 1 9-9", cap: "round" },
-    { circle: [4, 12, 1.4], fill: true },
-  ],
-};
-
-function PluginIcon({ pkey }) {
-  const parts = PLUGIN_ICON_PATHS[pkey] || [];
-  return (
-    <svg className="plugin-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-      {parts.map((p, i) =>
-        p.circle ? (
-          <circle
-            key={i}
-            cx={p.circle[0]}
-            cy={p.circle[1]}
-            r={p.circle[2]}
-            opacity={p.opacity}
-            fill={p.fill ? "currentColor" : "none"}
-            stroke={p.fill ? "none" : "currentColor"}
-          />
-        ) : (
-          <path key={i} d={p.d} strokeLinecap={p.cap} strokeLinejoin={p.join} opacity={p.opacity} />
-        ),
-      )}
-    </svg>
-  );
-}
-
-// ── Channel-strip insert list — numbered insert slots (Logic's own "Audio
-// FX" rack), each occupied slot showing a bypass toggle + reorder + remove,
-// plus a trailing empty slot whose "+ Insert" button opens a
-// category-grouped plugin picker instead of always showing every plugin as
-// a big always-visible tile grid. Purely presentational: every callback
-// prop is one of this screen's own chain-management functions
-// (addOrSelectPlugin, removePlugin, movePlugin, reorderPlugin,
-// toggleBypass), pre-bound by the caller to whichever (trackId, regionId)
-// it's rendering for — this component owns no chain state itself besides
-// the picker's own open/closed flag, so the exact same instance works both
-// in the bottom dock (whole arrangement) and in each Mixer-view channel
-// strip (see `compact`) without risking any of the actual audio-graph
-// bookkeeping those functions do.
-function InsertRack({ chain, onAddPlugin, onOpenSlot, onToggleBypass, onMove, onRemove, onReorder, draggingKey, setDraggingKey, compact = false }) {
-  const [pickerOpen, setPickerOpen] = useState(false);
-  // Where the picker renders — computed from the "+ Insert" button's own
-  // position right when it opens (see openPicker below). The picker itself
-  // is portaled to <body> (see the createPortal call below) and positioned
-  // with `position: fixed` off these coordinates, rather than rendered
-  // inline where the dock's own `overflow-y: auto` (a short, bottom-docked
-  // panel — see .dock in dawWorkstationScreen.css) was silently clipping
-  // it, hiding whichever categories didn't fit in the sliver of space left
-  // over. Escaping to the body also means it isn't clipped by the Mixer
-  // view's per-strip layout either.
-  const [pickerPos, setPickerPos] = useState(null);
-  const btnRef = useRef(null);
-  const pickerRef = useRef(null);
-  const inChainKeys = useMemo(() => new Set(chain.map((s) => s.key)), [chain]);
-
-  const openPicker = useCallback(() => {
-    const btn = btnRef.current;
-    if (!btn) return;
-    const rect = btn.getBoundingClientRect();
-    const width = Math.min(220, window.innerWidth - 16);
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const spaceAbove = rect.top;
-    // Prefer opening downward (reads more naturally under the button) —
-    // only flip upward when there's genuinely more room that way, so a
-    // short list near the top of a tall dock still opens down instead of
-    // needlessly flipping.
-    const openDown = spaceBelow >= 180 || spaceBelow >= spaceAbove;
-    const left = clamp(rect.left, 8, window.innerWidth - width - 8);
-    setPickerPos({
-      left,
-      width,
-      openDown,
-      top: openDown ? rect.bottom + 4 : undefined,
-      bottom: openDown ? undefined : window.innerHeight - rect.top + 4,
-      maxHeight: Math.max(120, (openDown ? spaceBelow : spaceAbove) - 12),
-    });
-    setPickerOpen(true);
-  }, []);
-  const closePicker = useCallback(() => {
-    setPickerOpen(false);
-    setPickerPos(null);
-  }, []);
-
-  // Close on outside click/tap, Escape, or the page scrolling/resizing out
-  // from under it (the portal itself can't move with a scroll the way an
-  // inline-positioned element would).
-  useEffect(() => {
-    if (!pickerOpen) return;
-    const onPointerDown = (e) => {
-      if (pickerRef.current?.contains(e.target) || btnRef.current?.contains(e.target)) return;
-      closePicker();
-    };
-    const onKeyDown = (e) => {
-      if (e.key === "Escape") closePicker();
-    };
-    const onScrollOrResize = () => closePicker();
-    document.addEventListener("pointerdown", onPointerDown, true);
-    document.addEventListener("keydown", onKeyDown, true);
-    window.addEventListener("scroll", onScrollOrResize, true);
-    window.addEventListener("resize", onScrollOrResize);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown, true);
-      document.removeEventListener("keydown", onKeyDown, true);
-      window.removeEventListener("scroll", onScrollOrResize, true);
-      window.removeEventListener("resize", onScrollOrResize);
-    };
-  }, [pickerOpen, closePicker]);
-
-  return (
-    <div className={"insert-rack" + (compact ? " is-compact" : "")}>
-      {chain.map((slot, i) => (
-        <div
-          key={slot.key}
-          className={
-            "insert-slot" +
-            (slot.bypassed ? " is-bypassed" : "") +
-            (slot.status === "error" ? " is-error" : "") +
-            (draggingKey === slot.key ? " is-dragging" : "")
-          }
-          style={{ "--pc": `var(--${slot.color})` }}
-          draggable
-          onDragStart={() => setDraggingKey(slot.key)}
-          onDragEnd={() => setDraggingKey(null)}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            if (draggingKey) onReorder(draggingKey, slot.key);
-            setDraggingKey(null);
-          }}
-          onClick={() => onOpenSlot(slot.key)}
-          title={`Insert ${i + 1}: ${slot.name} — click to edit, drag to reorder`}
-        >
-          <span className="insert-slot__num mono">{i + 1}</span>
-          <PluginIcon pkey={slot.key} />
-          <span className="insert-slot__name">{slot.name}</span>
-          {slot.status === "loading" && <span className="insert-slot__status">…</span>}
-          <span className="insert-slot__btns">
-            <button
-              className={"power" + (slot.bypassed ? "" : " is-on")}
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleBypass(slot.key);
-              }}
-              title={slot.bypassed ? "Bypassed — click to re-enable" : "Click to bypass"}
-            >
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                <path d="M8 2v5" strokeLinecap="round" />
-                <path d="M11.5 3.6a5 5 0 1 1-7 0" strokeLinecap="round" fill="none" />
-              </svg>
-            </button>
-            {!compact && (
-              <>
-                <button
-                  disabled={i === 0}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onMove(slot.key, -1);
-                  }}
-                  title="Move earlier"
-                >
-                  ‹
-                </button>
-                <button
-                  disabled={i === chain.length - 1}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onMove(slot.key, 1);
-                  }}
-                  title="Move later"
-                >
-                  ›
-                </button>
-              </>
-            )}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemove(slot.key);
-              }}
-              title="Remove"
-            >
-              ×
-            </button>
-          </span>
-        </div>
-      ))}
-
-      <div className="insert-slot insert-slot--empty">
-        <button
-          type="button"
-          ref={btnRef}
-          className="insert-add-btn"
-          aria-expanded={pickerOpen}
-          onClick={() => (pickerOpen ? closePicker() : openPicker())}
-        >
-          <span className="insert-slot__num mono">{chain.length + 1}</span>
-          <span>+ Insert</span>
-        </button>
-      </div>
-
-      {pickerOpen &&
-        pickerPos &&
-        createPortal(
-          <div
-            ref={pickerRef}
-            className={"chapter-lab daw-root insert-picker" + (compact ? " is-compact" : "")}
-            style={{
-              left: pickerPos.left,
-              width: pickerPos.width,
-              top: pickerPos.top,
-              bottom: pickerPos.bottom,
-              maxHeight: pickerPos.maxHeight,
-            }}
-          >
-            {PLUGIN_DEFS_GROUPED.map(([tag, defs]) => (
-              <div key={tag} className="insert-picker__group">
-                <div className="insert-picker__group-label mono">{tag.toUpperCase()}</div>
-                {defs.map((def) => (
-                  <button
-                    key={def.key}
-                    type="button"
-                    className={`insert-picker__item c-${def.color}` + (inChainKeys.has(def.key) ? " is-active" : "")}
-                    onClick={() => {
-                      onAddPlugin(def);
-                      closePicker();
-                    }}
-                  >
-                    <PluginIcon pkey={def.key} />
-                    <span>{def.name}</span>
-                    {inChainKeys.has(def.key) && <span className="insert-picker__led" />}
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>,
-          document.body,
-        )}
-    </div>
-  );
-}
-
-const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-
-function fmtTime(s) {
-  if (!isFinite(s) || s < 0) s = 0;
-  const m = Math.floor(s / 60);
-  const sec = s - m * 60;
-  return `${m}:${sec.toFixed(2).padStart(5, "0")}`;
-}
-
-// ── Arrangement ruler tick spacing — the ruler used to always draw one
-// labeled mark per second (see rulerMarks below), which is fine for a
-// clip a few seconds long but for anything on the order of minutes packs
-// in far more labels than the ruler is wide enough to show without them
-// overlapping (a 4-minute arrangement drew 241 of them). Instead, pick the
-// coarsest "nice" step (1s, then 2/5/10/15/30s, then whole minutes) that
-// still keeps the total mark count under a reasonable target — the same
-// approach real DAW/editor rulers use — so longer arrangements get fewer,
-// wider-spaced marks instead of the same fixed one-per-second density.
-const RULER_STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600];
-const RULER_TARGET_MARKS = 24;
-function pickRulerStep(durationSec) {
-  for (const step of RULER_STEPS) {
-    if (durationSec / step <= RULER_TARGET_MARKS) return step;
-  }
-  return RULER_STEPS[RULER_STEPS.length - 1];
-}
-// Ruler labels stay in short "12s" form under a minute (matching the old
-// behavior) and switch to "m:ss" once the step reaches whole minutes,
-// rather than fmtTime's fractional-second precision (meant for the
-// millisecond-accurate portion labels elsewhere), which would be both
-// wider than a 1-minute-spaced tick has room for and needless precision
-// for a ruler that's now spaced tens of seconds apart anyway.
-function fmtRulerMark(s) {
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  const sec = Math.round(s - m * 60);
-  return `${m}:${String(sec).padStart(2, "0")}`;
-}
-
-// ── Track colors — cycled across channel strips as they're added, same
-// palette students pick from in the Logic-style "New Track" dialog ────────
-const TRACK_COLORS = ["teal", "amber", "blue", "purple", "green", "red", "cyan", "pink", "lime"];
-
-// ── Track icons — purely cosmetic source-type badges shown in the track
-// swatch/header and the New Track dialog (this app is audio-only, so these
-// stand in for Logic's instrument icons without implying MIDI/instrument
-// tracks actually exist here) ───────────────────────────────────────────────
-const TRACK_ICON_PATHS = {
-  audio: [{ d: "M3 12h3l2.5-7 3 14 3-11 2 7h4.5", cap: "round", join: "round" }],
-  vocal: [
-    { d: "M12 3a3 3 0 0 1 3 3v6a3 3 0 1 1-6 0V6a3 3 0 0 1 3-3Z", join: "round" },
-    { d: "M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6", cap: "round", join: "round" },
-  ],
-  guitar: [
-    { circle: [8, 16, 4.2] },
-    { d: "M11 13 18 6M18 6l2.5-.5L20 8l-2 0M14 9l1.5 1.5M16 7l1.5 1.5", cap: "round", join: "round" },
-  ],
-  keys: [{ d: "M3 6h18v12H3zM7 6v7.5M11 6v7.5M15 6v7.5M19 6v7.5", cap: "round" }],
-  drum: [
-    { d: "M4 8a8 3 0 1 0 16 0 8 3 0 1 0-16 0Z" },
-    { d: "M4 8v7a8 3 0 0 0 16 0V8", cap: "round" },
-  ],
-  bass: [
-    { circle: [7, 17, 3.4] },
-    { d: "M9.5 14.5 17 7M17 7l3-1M17 7l1 3M14 5l1.5 1.5", cap: "round", join: "round" },
-  ],
-};
-
-function TrackIcon({ ikey }) {
-  const parts = TRACK_ICON_PATHS[ikey] || TRACK_ICON_PATHS.audio;
-  return (
-    <svg className="track-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-      {parts.map((p, i) =>
-        p.circle ? (
-          <circle key={i} cx={p.circle[0]} cy={p.circle[1]} r={p.circle[2]} opacity={p.opacity} />
-        ) : (
-          <path key={i} d={p.d} strokeLinecap={p.cap} strokeLinejoin={p.join} opacity={p.opacity} />
-        ),
-      )}
-    </svg>
-  );
-}
-
-const TRACK_ICON_KEYS = Object.keys(TRACK_ICON_PATHS);
-
-// A track is actually heard when it isn't muted AND (nothing in the mix is
-// soloed, or it's one of the soloed ones) — same solo-exclusivity rule Logic
-// (and every other DAW) uses. `allTracks` should be the full track list (not
-// just the ones with audio loaded) so soloing an empty track still silences
-// everything else, same as it would once that track gets audio.
-function trackIsAudible(track, allTracks) {
-  if (track.muted) return false;
-  const anySolo = allTracks.some((t) => t.solo);
-  return !anySolo || !!track.solo;
-}
-
-// ── Shared Fader/Knob specs for the Mixer view's channel strips (see
-// components/Fader.jsx + components/Knob.jsx — the same drag-to-adjust
-// controls every standalone plugin lab in this app already uses) ──────────
-const VOLUME_FADER_SPEC = {
-  min: 0,
-  max: 1.5,
-  step: 0.01,
-  label: "VOL",
-  fmt: (v) => (v <= 0.001 ? "-∞" : `${(20 * Math.log10(v)).toFixed(1)} dB`),
-};
-const PAN_KNOB_SPEC = {
-  min: -1,
-  max: 1,
-  step: 0.02,
-  label: "PAN",
-  fmt: (v) => (Math.abs(v) < 0.02 ? "C" : v < 0 ? `L${Math.round(-v * 100)}` : `R${Math.round(v * 100)}`),
-};
-
-// A portion needs at least this many seconds of length to be kept — filters
-// out a stray click (zero-length drag) on the waveform from creating a
-// degenerate region.
-const MIN_REGION_LEN = 0.05;
-
-// Sentinel `regionId` meaning "the track's own whole-track chain" rather
-// than one of its portions — lets every chain-management function
-// (addOrSelectPlugin, removePlugin, wireLiveChain's runtime addressing,
-// etc.) address either scope through the exact same
-// `(trackId, regionId)` pair (see getChainArray/withChainArray below),
-// instead of duplicating each of those functions once per scope.
-const TRACK_CHAIN_SCOPE = "__track__";
-
-// A portion's OWN "outer" pre-chain — a second, portion-private chain that
-// runs before that portion's own chain but, unlike the track's whole-track
-// chain, never plays during gaps or other portions. Addressed via a
-// suffixed regionId (`${region.id}::outer`) so it slots into the exact same
-// `(trackId, regionId)` addressing as the whole-track and portion-own
-// scopes — see outerScopeId/isOuterScope/baseRegionId + getChainArray/
-// withChainArray below.
-const OUTER_CHAIN_SUFFIX = "::outer";
-function outerScopeId(regionId) {
-  return `${regionId}${OUTER_CHAIN_SUFFIX}`;
-}
-function isOuterScope(regionId) {
-  return typeof regionId === "string" && regionId.endsWith(OUTER_CHAIN_SUFFIX);
-}
-function baseRegionId(regionId) {
-  return isOuterScope(regionId) ? regionId.slice(0, -OUTER_CHAIN_SUFFIX.length) : regionId;
-}
-
-// Fallback room-tone profile used to restore the ambient bed when this
-// screen closes (see the isOpen/ambient-bed effect below) — this screen
-// doesn't know which room's own custom ambience (see roomsData.js) was
-// playing before it opened, so it restores the same generic default
-// PanoramaTour.jsx itself falls back to, rather than silence forever.
-// Mirrors spatialAudioEngine's own (unexported) DEFAULT_AMBIENCE.
-const DEFAULT_AMBIENCE = { filterFreq: 500, gain: 0.03, gustDepth: 0.015 };
-
-// Same fallback reasoning as DEFAULT_AMBIENCE above, for the recording-room
-// bleed (see startRoomBleed()/stopRoomBleed() in spatialAudioEngine.js and
-// the `roomBleed` field in roomsData.js) — this screen doesn't know which
-// room's bleed was playing, but the DAW hotspot only ever exists in the
-// Studio room (see `interactiveMarkers` in roomsData.js), so this just
-// mirrors that room's own roomBleed profile.
-const ROOM_BLEED = {
-  audio: "/audio/AndresGuazzelli_FloresDeAbril_Full/02_Piano.wav",
-  yaw: 127.7,
-  pitch: 0.4,
-};
-
-// ── Demo audio: real multitrack stems from a recording of Dvořák's
-// "Hungarian Dance No. 5" (arr. Bolz & Knecht) — see
-// public/audio/BolzAndKnecht_HungarianDanceNo5_Full/Readme.txt (educational
-// use only, per that recording's own license). The mix seeds with all
-// three as its default tracks the first time the DAW opens (see the
-// seed-the-mix effect below); each track's own "D" demo button lets you
-// pick any one of the three to (re)load onto it instead, via the dropdown
-// next to it.
-const DEMO_CLIPS = [
-  { id: "acousticGtr", name: "Hungarian Dance No. 5 — Acoustic Gtr", url: "/audio/BolzAndKnecht_HungarianDanceNo5_Full/01_AcousticGtr.wav" },
-  { id: "acousticGtrDI", name: "Hungarian Dance No. 5 — Acoustic Gtr DI", url: "/audio/BolzAndKnecht_HungarianDanceNo5_Full/02_AcousticGtrDI.wav" },
-  { id: "saxophone", name: "Hungarian Dance No. 5 — Saxophone", url: "/audio/BolzAndKnecht_HungarianDanceNo5_Full/03_Saxophone.wav" },
-];
-
-// ── Synthetic fallback (used only if a real demo clip above fails to load
-// — e.g. offline — so the DAW isn't left completely broken) ───────────────
-function normAndFade(buf, peakTarget = 0.3) {
-  const L = buf.getChannelData(0);
-  const R = buf.getChannelData(1);
-  let peak = 0;
-  for (let i = 0; i < L.length; i++) peak = Math.max(peak, Math.abs(L[i]), Math.abs(R[i]));
-  const scale = peakTarget / Math.max(peak, 0.001);
-  for (let i = 0; i < L.length; i++) {
-    L[i] *= scale;
-    R[i] *= scale;
-  }
-  const sr = buf.sampleRate;
-  const fadeN = Math.round(sr * 0.02);
-  for (let i = 0; i < fadeN; i++) {
-    const f = i / fadeN;
-    L[i] *= f;
-    R[i] *= f;
-    const idx = L.length - 1 - i;
-    L[idx] *= f;
-    R[idx] *= f;
-  }
-}
-function createDemoLoopBuffer(ctx) {
-  const sr = ctx.sampleRate;
-  const dur = 6;
-  const buf = ctx.createBuffer(2, sr * dur, sr);
-  const L = buf.getChannelData(0);
-  const R = buf.getChannelData(1);
-  const padNotes = [110.0, 130.81, 164.81, 196.0, 261.63];
-  const harmonics = [
-    [1, 1.0],
-    [2, 0.35],
-    [3, 0.18],
-    [4, 0.09],
-    [5, 0.05],
-  ];
-  for (const fund of padNotes) {
-    for (const [ratio, amp] of harmonics) {
-      const freq = fund * ratio;
-      if (freq > sr / 2) continue;
-      for (let n = 0; n < L.length; n++) {
-        const t = n / sr;
-        const env = Math.min(1, t / 0.4) * amp * 0.22;
-        const s = Math.sin(2 * Math.PI * freq * t) * env;
-        L[n] += s * 0.9;
-        R[n] += s * 1.1;
-      }
-    }
-  }
-  const bassFreqs = [41.2, 55.0];
-  for (let beat = 0; beat < 12; beat++) {
-    const start = Math.round(beat * 0.5 * sr);
-    const freq = bassFreqs[beat % 2];
-    for (let i = 0; i < Math.round(0.45 * sr) && start + i < L.length; i++) {
-      const t = i / sr;
-      const env = Math.exp(-t * 4) * 0.5;
-      const s = Math.sin(2 * Math.PI * freq * t) * env;
-      L[start + i] += s;
-      R[start + i] += s;
-    }
-  }
-  for (let e = 0; e < 48; e++) {
-    const start = Math.round(e * 0.25 * sr);
-    let prev = 0;
-    for (let i = 0; i < Math.round(sr * 0.05) && start + i < L.length; i++) {
-      const t = i / sr;
-      const env = Math.exp(-t * 45) * 0.18;
-      const n = Math.random() * 2 - 1;
-      const hp = n - prev * 0.94;
-      prev = n;
-      L[start + i] += hp * env;
-      R[start + i] += hp * env;
-    }
-  }
-  normAndFade(buf);
-  return buf;
-}
-
-function computePeaks(buffer, buckets = 220) {
-  const chans = [];
-  for (let c = 0; c < buffer.numberOfChannels; c++) chans.push(buffer.getChannelData(c));
-  const len = buffer.length;
-  const perBucket = Math.max(1, Math.floor(len / buckets));
-  const peaks = new Array(buckets);
-  for (let b = 0; b < buckets; b++) {
-    const start = b * perBucket;
-    const end = Math.min(len, start + perBucket);
-    let min = 0,
-      max = 0;
-    for (let i = start; i < end; i++) {
-      let v = 0;
-      for (let c = 0; c < chans.length; c++) v += chans[c][i];
-      v /= chans.length;
-      if (v > max) max = v;
-      if (v < min) min = v;
-    }
-    peaks[b] = [min, max];
-  }
-  return peaks;
-}
-
-function wireSlotNode(ctx, inputNode, slot) {
-  if (slot.wiring === "selfSidechain2") {
-    const merger = ctx.createChannelMerger(2);
-    inputNode.connect(merger, 0, 0);
-    inputNode.connect(merger, 0, 1);
-    merger.connect(slot.node);
-    return slot.node;
-  }
-  if (slot.wiring === "selfSidechain3") {
-    const splitter = ctx.createChannelSplitter(2);
-    const merger = ctx.createChannelMerger(3);
-    inputNode.connect(splitter);
-    splitter.connect(merger, 0, 0);
-    splitter.connect(merger, 1, 1);
-    inputNode.connect(merger, 0, 2);
-    merger.connect(slot.node);
-    return slot.node;
-  }
-  inputNode.connect(slot.node);
-  return slot.node;
-}
-
-// Splits a track's [0, duration) into an ordered list of non-overlapping
-// segments: gaps (`region: null`, played dry) and the track's own portions
-// (`region: <the portion object>`, played through that portion's own chain
-// — see wireLiveChain/buildOfflineChain). Portions are expected to already
-// be non-overlapping (createRegion below only ever carves a new one out of
-// a free gap), but this still sorts + clamps defensively so a malformed
-// portion can't produce a negative-length or out-of-order segment.
-function computeSegments(track) {
-  const duration = track?.buffer?.duration ?? 0;
-  if (duration <= 0) return [];
-  const regions = [...(track.regions || [])]
-    .map((r) => ({ ...r, start: clamp(r.start, 0, duration), end: clamp(r.end, 0, duration) }))
-    .filter((r) => r.end > r.start)
-    .sort((a, b) => a.start - b.start);
-  const segments = [];
-  let cursor = 0;
-  for (const r of regions) {
-    if (r.start < cursor) continue; // overlaps the previous portion — skip rather than double-schedule
-    if (r.start > cursor) segments.push({ start: cursor, end: r.start, region: null });
-    segments.push({ start: r.start, end: r.end, region: r });
-    cursor = r.end;
-  }
-  if (cursor < duration) segments.push({ start: cursor, end: duration, region: null });
-  return segments;
-}
-
-// Resolves which chain array a `(trackId, regionId)` pair addresses:
-// `track.chain` itself (the whole-track chain) when `regionId ===
-// TRACK_CHAIN_SCOPE`, a portion's private `outerChain` when `regionId` is
-// outer-suffixed (see outerScopeId above), or that portion's own `chain`
-// otherwise. Every chain-management function below (addOrSelectPlugin,
-// removePlugin, movePlugin, reorderPlugin, toggleBypass, updateSlot) goes
-// through this pair so all three scopes are edited by the exact same code
-// path.
-function getChainArray(track, regionId) {
-  if (!track) return undefined;
-  if (regionId === TRACK_CHAIN_SCOPE) return track.chain;
-  if (isOuterScope(regionId)) {
-    const region = track.regions.find((r) => r.id === baseRegionId(regionId));
-    if (!region) return undefined;
-    // Until a portion's outer chain has been explicitly customized (see
-    // forkOuterChainIfNeeded below), its "Outer (this portion)" scope is
-    // just a read-through of the track's OWN whole-chain plugins — same
-    // slots, same order — because that's what's actually already affecting
-    // this portion (the track chain runs upstream of every portion,
-    // customized or not). This also covers the case `region.outerChain`
-    // itself is `undefined` (not `[]`) for a portion whose in-memory shape
-    // predates this field — e.g. one created under a dev-server session
-    // before the outer-chain feature landed and preserved across hot-reload
-    // — which would otherwise make every falsy-guarded read (the dock's
-    // render check, addOrSelectPlugin's early-return, etc.) treat the
-    // portion as having no outer chain at all instead of an empty one, so
-    // the dock silently rendered nothing.
-    return region.outerCustomized ? region.outerChain || [] : track.chain;
-  }
-  return track.regions.find((r) => r.id === regionId)?.chain;
-}
-
-// Returns a new track with the chain at `regionId` replaced by `chain` —
-// the write-side counterpart of getChainArray above. Any write to an outer
-// scope also stamps `outerCustomized: true` — the moment a portion's outer
-// chain is actually written to (add/remove/reorder/bypass/param-change —
-// see forkOuterChainIfNeeded, which is what seeds `chain` with a private
-// snapshot the very first time this fires for a given portion) it stops
-// being a read-through of the track's chain and becomes this portion's own,
-// independent of the track chain and every other portion from then on.
-function withChainArray(track, regionId, chain) {
-  if (regionId === TRACK_CHAIN_SCOPE) return { ...track, chain };
-  if (isOuterScope(regionId)) {
-    const rid = baseRegionId(regionId);
-    return {
-      ...track,
-      regions: track.regions.map((r) => (r.id === rid ? { ...r, outerChain: chain, outerCustomized: true } : r)),
-    };
-  }
-  return { ...track, regions: track.regions.map((r) => (r.id === regionId ? { ...r, chain } : r)) };
-}
-
-// Disconnects every live Faust node in a chain array — used whenever a
-// chain (the track's own, or one of its portions') is torn down: track
-// removal, audio replacement, portion deletion, or closing the DAW.
-function disconnectChainSlots(chain) {
-  chain.forEach((slot) => {
-    try {
-      slot.node?.disconnect();
-    } catch {
-      /* ok */
-    }
-  });
-}
-
-// Wires one portion's own ordered insert chain (in order, respecting
-// per-slot Bypass) onto `source` — the live-graph equivalent of
-// buildOfflineChain below, plus the analysers/meters every open plugin
-// editor reads from (slotRuntimeRef/meterValuesRef/eqRuntimeRef, keyed by
-// `${trackId}:${regionId}[:${slotKey}]` so two portions running the same
-// plugin type never collide). Returns the chain's tail node the caller
-// connects onward (to that track's own volume/mute gain).
-function wireLiveChain(ctx, source, chain, trackId, regionId, refs) {
-  const activeChain = chain.filter((s) => s.node && s.status === "ready");
-  let chainOut = source;
-  const extraNodes = [];
-  activeChain.forEach((slot) => {
-    const slotIn = ctx.createGain();
-    const bypassGain = ctx.createGain();
-    const slotWetGain = ctx.createGain();
-    const slotOut = ctx.createGain();
-    const scopeAnalyser = ctx.createAnalyser();
-    scopeAnalyser.fftSize = 1024;
-    // Pre-effect tap (dry, before this slot's own bypass mix) and a
-    // post-bypass-mix tap — together these let a slot's editor (e.g.
-    // GateEditorPanel) show a real input-vs-output scope that actually
-    // reflects Bypass, same as the chapter labs' own dry/wet/final
-    // analyser trio (dryAnal / wetAnal / finalAnal).
-    const inputAnalyser = ctx.createAnalyser();
-    inputAnalyser.fftSize = 1024;
-    const outputAnalyser = ctx.createAnalyser();
-    outputAnalyser.fftSize = 1024;
-    bypassGain.gain.value = slot.bypassed ? 1 : 0;
-    slotWetGain.gain.value = slot.bypassed ? 0 : 1;
-    chainOut.connect(slotIn);
-    slotIn.connect(bypassGain);
-    slotIn.connect(inputAnalyser);
-    bypassGain.connect(slotOut);
-    let tail = wireSlotNode(ctx, slotIn, slot);
-    // The EQ slot has its own output-gain trim (a plain WebAudio GainNode,
-    // not a Faust param — see equalizerEngine's applyOutputGain) and its
-    // own higher-resolution frequency-response analysers, matching the
-    // standalone Chapter2b lab's ParamEQCurve exactly (2048 fft,
-    // ANALYSER_MIN/MAX_DB) — tapped in parallel with the generic ones
-    // every slot gets above.
-    if (slot.key === "eq") {
-      const eqOutputGain = ctx.createGain();
-      tail.connect(eqOutputGain);
-      tail = eqOutputGain;
-      applyEqOutputGain(eqOutputGain, slot.outputGainDb ?? 0, ctx);
-      const eqAnalyser = ctx.createAnalyser();
-      eqAnalyser.fftSize = 2048;
-      eqAnalyser.smoothingTimeConstant = 0.78;
-      eqAnalyser.minDecibels = ANALYSER_MIN_DB;
-      eqAnalyser.maxDecibels = ANALYSER_MAX_DB;
-      const eqDryAnalyser = ctx.createAnalyser();
-      eqDryAnalyser.fftSize = 2048;
-      eqDryAnalyser.smoothingTimeConstant = 0.78;
-      eqDryAnalyser.minDecibels = ANALYSER_MIN_DB;
-      eqDryAnalyser.maxDecibels = ANALYSER_MAX_DB;
-      slotIn.connect(eqDryAnalyser);
-      tail.connect(eqAnalyser);
-      refs.eqRuntimeRef.current.set(`${trackId}:${regionId}`, { outputGainNode: eqOutputGain, analyser: eqAnalyser, dryAnalyser: eqDryAnalyser });
-      extraNodes.push(eqOutputGain, eqAnalyser, eqDryAnalyser);
-      const ed = refs.activeEditorRef.current;
-      if (ed?.trackId === trackId && ed?.regionId === regionId && ed?.key === "eq") {
-        refs.eqAnalyserRef.current = eqAnalyser;
-        refs.eqDryAnalyserRef.current = eqDryAnalyser;
-      }
-    }
-    tail.connect(slotWetGain);
-    tail.connect(scopeAnalyser);
-    slotWetGain.connect(slotOut);
-    slotOut.connect(outputAnalyser);
-    extraNodes.push(slotIn, bypassGain, slotWetGain, slotOut, scopeAnalyser, inputAnalyser, outputAnalyser);
-    refs.slotRuntimeRef.current.set(`${trackId}:${regionId}:${slot.key}`, { bypassGain, wetGain: slotWetGain, scopeAnalyser, inputAnalyser, outputAnalyser });
-    chainOut = slotOut;
-  });
-  return { chainOut, extraNodes };
-}
-
-// ── Offline (non-realtime) rendering for the Download buttons ─────────────
-// An AudioNode can't move between two different BaseAudioContexts, so a
-// slot's live Faust node (created once, against the live AudioContext, when
-// the plugin was added — see loadPluginEngine/addOrSelectPlugin) can't be
-// reused here. Each of these builds brand-new nodes from the SAME cached
-// factory (engineCacheRef — module + json, not tied to any context) against
-// an OfflineAudioContext instead — same trick every standalone chapter lab's
-// own renderXOffline already uses for its single-plugin "download the
-// processed result" button (e.g. NoiseGate.jsx's renderGateOffline),
-// generalized here across an arbitrary per-portion chain. No
-// analysers/meters — nothing offline reads them.
-
-async function createOfflineSlotNode(offlineCtx, engineCache, slot) {
-  const cached = engineCache.get(slot.key);
-  if (!cached) return null; // shouldn't happen — a "ready" slot already loaded its engine live
-  const generator = new FaustMonoDspGenerator();
-  const node = await generator.createNode(offlineCtx, cached.meta.name, cached.factory, false, 512);
-  switch (slot.key) {
-    case "gate":
-      pushGateParams(node, slot.params, slot.sidechain);
-      break;
-    case "deess":
-      pushDeEsserParams(node, slot.params);
-      break;
-    case "comp":
-      pushCompParams(node, slot.bands, slot.crossover, slot.sidechain, slot.outputGainDb, false, slot.multiband);
-      break;
-    case "limiter":
-      pushLimiterParams(node, slot.params);
-      break;
-    case "delay":
-      pushDelayParams(node, slot.params);
-      break;
-    case "reverb":
-      pushReverbParams(node, slot.params);
-      break;
-    case "eq":
-      applyEqBandsToNode(node, slot.bands);
-      break;
-    default:
-      break;
-  }
-  return node;
-}
-
-// Wires one portion's chain (in order, respecting per-slot Bypass) into
-// `offlineCtx`, from `source` through to a returned tail node the caller
-// connects onward from — the offline counterpart of wireLiveChain above,
-// minus analysers/meters.
-async function buildOfflineChain(offlineCtx, engineCache, chain, source) {
-  const activeChain = chain.filter((s) => s.node && s.status === "ready");
-  let chainOut = source;
-  for (const slot of activeChain) {
-    const node = await createOfflineSlotNode(offlineCtx, engineCache, slot);
-    if (!node) continue;
-    const slotIn = offlineCtx.createGain();
-    const bypassGain = offlineCtx.createGain();
-    const slotWetGain = offlineCtx.createGain();
-    const slotOut = offlineCtx.createGain();
-    bypassGain.gain.value = slot.bypassed ? 1 : 0;
-    slotWetGain.gain.value = slot.bypassed ? 0 : 1;
-    chainOut.connect(slotIn);
-    slotIn.connect(bypassGain);
-    bypassGain.connect(slotOut);
-    let tail = wireSlotNode(offlineCtx, slotIn, { ...slot, node });
-    if (slot.key === "eq") {
-      const eqOutputGain = offlineCtx.createGain();
-      tail.connect(eqOutputGain);
-      tail = eqOutputGain;
-      applyEqOutputGain(eqOutputGain, slot.outputGainDb ?? 0, offlineCtx);
-    }
-    tail.connect(slotWetGain);
-    slotWetGain.connect(slotOut);
-    chainOut = slotOut;
-  }
-  return chainOut;
-}
-
-// Renders one track's full timeline: a single source spanning the whole
-// buffer runs through the track's own whole-track chain (buildOfflineChain
-// against track.chain) — the true "outer" layer, always applied everywhere
-// on the track — and that result is then split into as many parallel paths
-// as the track has portions plus one "no portion" (dry-of-the-track-chain)
-// path, each gated to be audible only during its own time window (see
-// computeSegments) via plain on/off gain automation rather than re-slicing
-// the buffer, since a portion's own chain needs to run on the ALREADY
-// track-processed signal, not a fresh copy of the raw buffer. Within a
-// portion's own path, the signal additionally runs through that portion's
-// PRIVATE outerChain (buildOfflineChain against seg.region.outerChain —
-// distinct from track.chain, and never heard in gaps or other portions)
-// before its own chain, so a portion can layer extra "outer" processing
-// that's scoped only to itself. Mirrors the live graph's own per-track
-// block in playFrom() below, minus analysers/meters. `trackStartAt` offsets
-// every segment boundary within `offlineCtx`'s timeline: 0 for a solo
-// single-track render (see renderTrackOffline), or that track's own
-// arrangement position for a full mixdown (see renderMixOffline).
-async function buildOfflineTrackOutput(offlineCtx, engineCache, track, trackStartAt = 0) {
-  const output = offlineCtx.createGain();
-  const source = offlineCtx.createBufferSource();
-  source.buffer = track.buffer;
-  source.start(trackStartAt, 0, track.buffer.duration);
-
-  const trackChainOut = await buildOfflineChain(offlineCtx, engineCache, track.chain, source);
-
-  const dryGate = offlineCtx.createGain();
-  dryGate.gain.value = 0;
-  trackChainOut.connect(dryGate);
-  dryGate.connect(output);
-
-  const segments = computeSegments(track);
-  const portionGates = new Map(); // regionId -> gate GainNode
-  for (const seg of segments) {
-    if (seg.region && !portionGates.has(seg.region.id)) {
-      const portionOuterOut = await buildOfflineChain(offlineCtx, engineCache, seg.region.outerChain || [], trackChainOut);
-      const portionChainOut = await buildOfflineChain(offlineCtx, engineCache, seg.region.chain, portionOuterOut);
-      const gateGain = offlineCtx.createGain();
-      gateGain.gain.value = 0;
-      portionChainOut.connect(gateGain);
-      gateGain.connect(output);
-      portionGates.set(seg.region.id, gateGain);
-    }
-  }
-
-  const allGates = [{ id: null, gain: dryGate }, ...Array.from(portionGates, ([id, gain]) => ({ id, gain }))];
-  for (const seg of segments) {
-    const at = trackStartAt + seg.start;
-    const activeId = seg.region ? seg.region.id : null;
-    allGates.forEach(({ id, gain }) => {
-      gain.gain.setValueAtTime(id === activeId ? 1 : 0, at);
-    });
-  }
-
-  return output;
-}
-
-// "Download" (an individual track): renders one track's own portions + its
-// own volume fader, alone, at that track's native channel count/length/
-// sample rate — a solo stem export. Mute is deliberately ignored (soloing a
-// muted track's stem is presumably the point of downloading it); everything
-// else (portions/chains, per-slot bypass, volume) matches exactly what that
-// channel strip contributes to the live mix.
-async function renderTrackOffline(engineCache, track) {
-  const buffer = track.buffer;
-  const offlineCtx = new OfflineAudioContext(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
-  const chainOut = await buildOfflineTrackOutput(offlineCtx, engineCache, track, 0);
-  const trackGain = offlineCtx.createGain();
-  trackGain.gain.value = track.volume ?? 1;
-  chainOut.connect(trackGain);
-  // Pan is a channel-strip property (like volume), not a mix-relative
-  // control (like mute/solo) — a soloed stem is expected to sound exactly
-  // like this channel does in the mix, panning included.
-  const panner = offlineCtx.createStereoPanner();
-  panner.pan.value = track.pan ?? 0;
-  trackGain.connect(panner);
-  panner.connect(offlineCtx.destination);
-  return offlineCtx.startRendering();
-}
-
-// "Download Mix": renders every track that has audio loaded through its own
-// portions + volume + mute, summed together — a single pass across the
-// whole arrangement's length (not looped, regardless of the transport's
-// Loop toggle — a download should be one finite file), at `sampleRate` (the
-// live AudioContext's own rate, so every track resamples to the same shared
-// rate exactly like it does during live playback). Deliberately bypasses
-// the VR room's spatial/HRTF speaker bus (createStudioSpeakerBus) — a
-// download should be a plain stereo mixdown, not one colored by wherever
-// the student's head happened to be facing.
-async function renderMixOffline(engineCache, tracks, sampleRate) {
-  const list = tracks.filter((t) => t.buffer);
-  if (list.length === 0) return null;
-  // Same "startAt, seconds" per-track clip position the live graph
-  // schedules around in playFrom() — the arrangement's length is the
-  // latest END point across all tracks, and each source starts at its own
-  // absolute offset in the render instead of at 0.
-  const arrDur = list.reduce((max, t) => Math.max(max, (t.startAt ?? 0) + t.buffer.duration), 0);
-  const length = Math.max(1, Math.ceil(arrDur * sampleRate));
-  const offlineCtx = new OfflineAudioContext(2, length, sampleRate);
-  const masterGain = offlineCtx.createGain();
-  masterGain.connect(offlineCtx.destination);
-  for (const track of list) {
-    const chainOut = await buildOfflineTrackOutput(offlineCtx, engineCache, track, track.startAt ?? 0);
-    const trackGain = offlineCtx.createGain();
-    // Mute AND solo both apply to a full mixdown — unlike renderTrackOffline
-    // (an isolated single-track stem), "tracks" here is the whole session,
-    // so it needs to be silent everywhere Mute or an active Solo would
-    // silence it live (see trackIsAudible).
-    trackGain.gain.value = trackIsAudible(track, tracks) ? (track.volume ?? 1) : 0;
-    chainOut.connect(trackGain);
-    const panner = offlineCtx.createStereoPanner();
-    panner.pan.value = track.pan ?? 0;
-    trackGain.connect(panner);
-    panner.connect(masterGain);
-  }
-  return offlineCtx.startRendering();
-}
-
-// Any hbargraph/vbargraph item is a read-only Faust METER output (gain
-// reduction, live gain, etc.). Pulled out separately here so any plugin's
-// own *EditorPanel (via getXLevels-style host callbacks) can read its live
-// telemetry off meterValuesRef — populated below by a generic
-// node.setOutputParamHandler subscription — with no per-plugin wiring.
-function collectMeters(items) {
-  // Some dsp-meta.json files (ParamEQ's per-band Live_Gain outputs) list the
-  // same output address twice — dedupe so the meter bank doesn't render two
-  // identical bars for one signal.
-  const seen = new Set();
-  const out = [];
-  items
-    .filter((it) => it.type === "hbargraph" || it.type === "vbargraph")
-    .forEach((it) => {
-      if (seen.has(it.address)) return;
-      seen.add(it.address);
-      out.push({ address: it.address, label: it.label, min: it.min ?? 0, max: it.max ?? 1 });
-    });
-  return out;
-}
-
-// Default typed state for a freshly-added plugin slot on a portion — same
-// defaults each plugin's own standalone chapter lab starts from. Stored
-// directly on the chain slot object (per portion, per plugin) rather than
-// in one shared top-level React state, since a mix can now have the SAME
-// plugin type on several different portions (even on the same track) at
-// once, each with its own independent settings.
-function defaultSlotExtras(key) {
-  switch (key) {
-    case "gate":
-      return { params: GATE_DEFAULTS, sidechain: GATE_DEFAULT_SIDECHAIN };
-    case "deess":
-      return { params: DEESS_DEFAULTS };
-    case "comp":
-      return {
-        bands: makeDefaultCompBands(),
-        crossover: COMP_DEFAULT_CROSSOVER,
-        sidechain: COMP_DEFAULT_SIDECHAIN,
-        outputGainDb: COMP_DEFAULT_OUTPUT_GAIN,
-        multiband: COMP_DEFAULT_MULTIBAND,
-      };
-    case "limiter":
-      return { params: LIMITER_DEFAULTS };
-    case "delay":
-      return { params: DELAY_DEFAULTS, sync: DEFAULT_SYNC, link: false };
-    case "reverb":
-      return { params: REVERB_DEFAULTS, preset: DEFAULT_PRESET };
-    case "eq":
-      return { bands: EQ_DEFAULT_BANDS, outputGainDb: 0 };
-    default:
-      return {};
-  }
-}
-
 function DawWorkstationScreen({ open, onClose }) {
   const isOpen = open?.type === "daw";
 
@@ -1181,10 +154,10 @@ function DawWorkstationScreen({ open, onClose }) {
   // "+ Add Track" row did (upload/demo still happen afterwards, from the
   // track row itself, same as before). ───────────────────────────────────
   const [addTrackDialogOpen, setAddTrackDialogOpen] = useState(false);
-  const [newTrackDraft, setNewTrackDraft] = useState({ name: "", color: TRACK_COLORS[0], icon: "audio" });
+  const [newTrackDraft, setNewTrackDraft] = useState({ name: "", color: TRACK_COLORS[0], icon: "audio", kind: "audio" });
   const openAddTrackDialog = useCallback(() => {
     const n = trackIdRef.current + 1;
-    setNewTrackDraft({ name: `Track ${n}`, color: TRACK_COLORS[(n - 1) % TRACK_COLORS.length], icon: "audio" });
+    setNewTrackDraft({ name: `Track ${n}`, color: TRACK_COLORS[(n - 1) % TRACK_COLORS.length], icon: "audio", kind: "audio" });
     setAddTrackDialogOpen(true);
   }, []);
   // confirmAddTrack is defined right after addEmptyTrack below (it closes
@@ -1244,6 +217,53 @@ function DawWorkstationScreen({ open, onClose }) {
     }
   }, []);
 
+  // ── Row-height sync: each .arr-row (right pane) is set to the ACTUAL
+  // measured height of its matching .track-row (left pane), not a shared
+  // guessed constant — a track row's real height can vary slightly (aux vs
+  // audio tracks have a different button count, an error message can wrap
+  // to two lines, fonts/zoom render text at slightly different heights
+  // across machines) and any mismatch, even a couple px, drifts further
+  // apart with every row down the list since the two panes are two
+  // independently-scrolled elements kept in lockstep by copying scrollTop
+  // 1:1 (onTracklistScroll/onArrangementScroll above). --track-row-h in the
+  // CSS is only the fallback used for the very first paint, before this
+  // effect has measured anything. trackRowRefs collects each rendered
+  // .track-row DOM node (see the ref callback on that div below); a
+  // ResizeObserver on every one of them re-measures whenever a row's real
+  // height changes for any reason, and rowSlotHeights[track.id] — the
+  // measured height plus that row's own margin-bottom, i.e. the full
+  // vertical slot it occupies before the next row starts — gets applied as
+  // an inline height on the matching .arr-row (see the arr-rows map below).
+  const trackRowRefs = useRef(new Map());
+  const [rowSlotHeights, setRowSlotHeights] = useState({});
+  useLayoutEffect(() => {
+    const rowEls = trackRowRefs.current;
+    if (rowEls.size === 0) return undefined;
+    const remeasure = () => {
+      setRowSlotHeights((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        rowEls.forEach((el, id) => {
+          const marginBottom = parseFloat(getComputedStyle(el).marginBottom) || 0;
+          const slot = Math.round(el.getBoundingClientRect().height + marginBottom);
+          if (slot > 0 && next[id] !== slot) {
+            next[id] = slot;
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    };
+    remeasure();
+    const ro = new ResizeObserver(remeasure);
+    rowEls.forEach((el) => ro.observe(el));
+    window.addEventListener("resize", remeasure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", remeasure);
+    };
+  }, [tracks, viewMode]);
+
   // ── Plugin editor popup (which track + portion + plugin is open) ───────
   const [activeEditor, setActiveEditor] = useState(null); // { trackId, regionId, key } | null
   const activeEditorRef = useRef(null);
@@ -1261,6 +281,8 @@ function DawWorkstationScreen({ open, onClose }) {
   const engineCacheRef = useRef(new Map()); // plugin key -> compiled Faust factory (shared across all tracks/portions)
   const slotRuntimeRef = useRef(new Map()); // `${trackId}:${regionId}:${key}` -> { bypassGain, wetGain, scopeAnalyser, inputAnalyser, outputAnalyser } (live, only while playing)
   const meterValuesRef = useRef(new Map()); // `${trackId}:${regionId}:${key}` -> { [address]: value }
+  const sendIdRef = useRef(0); // per-session unique id counter for sends (see addSend)
+  const sendRuntimeRef = useRef(new Map()); // `${trackId}:${sendId}` -> { sendPanner, sendGain } (live, only while playing — see playFrom's Aux/Sends pass)
   const eqRuntimeRef = useRef(new Map()); // `${trackId}:${regionId}` -> { outputGainNode, analyser, dryAnalyser } (EQ's extra nodes, live, only while playing)
   const eqAnalyserRef = useRef(null); // pointed at whichever portion's EQ analyser is currently open in the popup
   const eqDryAnalyserRef = useRef(null);
@@ -1593,6 +615,16 @@ function DawWorkstationScreen({ open, onClose }) {
           });
         });
 
+        // Dry/direct path to master — scaled down by however much of this
+        // track's signal its own post-fader Sends are currently diverting
+        // (see computeDryScale), so a send crossfades its portion away from
+        // here instead of just adding a copy on top of an unchanged direct
+        // signal. Live-nudged by updateSend whenever a send's level/mute
+        // changes without a full rebuild — see applyDryGain.
+        const dryGain = ctx.createGain();
+        dryGain.gain.value = computeDryScale(track);
+        extraNodes.push(dryGain);
+
         // Pan (a channel-strip property, set from the Mixer view's Knob) and
         // a small per-track analyser (the Mixer view's own meter) both sit
         // after the volume fader, same position a real channel strip puts
@@ -1601,10 +633,84 @@ function DawWorkstationScreen({ open, onClose }) {
         pannerNode.pan.value = track.pan ?? 0;
         const trackAnalyser = ctx.createAnalyser();
         trackAnalyser.fftSize = 256;
-        trackGain.connect(pannerNode);
+        trackGain.connect(dryGain);
+        dryGain.connect(pannerNode);
         pannerNode.connect(masterGain);
         pannerNode.connect(trackAnalyser);
-        trackNodes.set(track.id, { sources: [source], extraNodes, trackGain, pannerNode, trackAnalyser });
+        trackNodes.set(track.id, { sources: [source], extraNodes, trackGain, dryGain, pannerNode, trackAnalyser, trackChainOut });
+      });
+
+      // ── Aux buses + Sends ────────────────────────────────────────────────
+      // Every Aux track (see addEmptyTrack's `kind: "aux"`) gets its own
+      // summing input — a plain GainNode nothing but this track's own Sends
+      // feed into — created up front so the loop above's Sends have
+      // somewhere to connect to regardless of tracklist order (an Aux can
+      // sit above or below the tracks that feed it). A track with no buffer
+      // never entered `list`/`trackNodes` above, so Aux tracks are wired in
+      // this second pass instead, reusing the exact same
+      // chain → volume/mute → pan → masterGain pipeline as a real track,
+      // just fed from its input gain instead of an AudioBufferSourceNode.
+      const auxTracks = tracksRef.current.filter((t) => t.kind === "aux");
+      const auxInputGains = new Map();
+      auxTracks.forEach((auxTrack) => auxInputGains.set(auxTrack.id, ctx.createGain()));
+
+      list.forEach((track) => {
+        const nodes = trackNodes.get(track.id);
+        if (!nodes) return; // this track's clip hadn't started/hasn't finished this pass — see the early `return` above
+        (track.sends || []).forEach((send) => {
+          const targetInput = auxInputGains.get(send.busId);
+          if (!targetInput) return; // its target Aux was removed, or hasn't loaded yet
+          const tap = send.prePost === "pre" ? nodes.trackChainOut : nodes.trackGain;
+          const sendPanner = ctx.createStereoPanner();
+          // FMP ("Follow Main Pan") — this send's pan mirrors the track's
+          // own Pan knob live instead of holding an independent value (see
+          // the send-window's FMP toggle, and setTrackPan's own nudge of
+          // any fmp sends when the track's pan itself moves).
+          sendPanner.pan.value = send.fmp ? (track.pan ?? 0) : (send.pan ?? 0);
+          const sendGain = ctx.createGain();
+          // Muted still gets a real node graph (gain just parked at 0)
+          // rather than being skipped outright — same "keep the plumbing,
+          // zero the gain" treatment insert Bypass gets (see wireLiveChain's
+          // bypassGain/wetGain) — so un-muting later (see updateSend) can
+          // just ramp this same node back up instead of needing a full
+          // playFrom rebuild to even have a node to ramp.
+          sendGain.gain.value = send.muted ? 0 : (send.level ?? 1);
+          // Post-fader tap for the send window's own level meter (see
+          // getSendMeterLevel below) — a small analyser of the actual
+          // signal reaching the bus, the same "tap the node, read it in a
+          // poll" trick trackAnalyser/meterAnalyser already use elsewhere.
+          const sendAnalyser = ctx.createAnalyser();
+          sendAnalyser.fftSize = 256;
+          tap.connect(sendPanner);
+          sendPanner.connect(sendGain);
+          sendGain.connect(targetInput);
+          sendGain.connect(sendAnalyser);
+          nodes.extraNodes.push(sendPanner, sendGain, sendAnalyser);
+          sendRuntimeRef.current.set(`${track.id}:${send.id}`, { sendPanner, sendGain, sendAnalyser });
+        });
+      });
+
+      auxTracks.forEach((auxTrack) => {
+        const auxInput = auxInputGains.get(auxTrack.id);
+        const { chainOut: auxChainOut, extraNodes: auxExtra } = wireLiveChain(ctx, auxInput, auxTrack.chain, auxTrack.id, TRACK_CHAIN_SCOPE, refs);
+        const auxGain = ctx.createGain();
+        auxGain.gain.value = trackIsAudible(auxTrack, tracksRef.current) ? (auxTrack.volume ?? 1) : 0;
+        auxChainOut.connect(auxGain);
+        const auxPanner = ctx.createStereoPanner();
+        auxPanner.pan.value = auxTrack.pan ?? 0;
+        const auxAnalyser = ctx.createAnalyser();
+        auxAnalyser.fftSize = 256;
+        auxGain.connect(auxPanner);
+        auxPanner.connect(masterGain);
+        auxPanner.connect(auxAnalyser);
+        trackNodes.set(auxTrack.id, {
+          sources: [],
+          extraNodes: [auxInput, ...auxExtra],
+          trackGain: auxGain,
+          pannerNode: auxPanner,
+          trackAnalyser: auxAnalyser,
+          trackChainOut: auxChainOut,
+        });
       });
 
       graphRef.current = {
@@ -1742,15 +848,23 @@ function DawWorkstationScreen({ open, onClose }) {
   // this component's own `if (!isOpen) return null;`.)
 
   // ── Track management (add / remove / upload / demo / volume) ───────────
+  // `fixedColor` lets a caller pin a specific swatch (e.g. the default demo
+  // seed below, via DEMO_CLIPS' own `color`) instead of falling back to the
+  // "cycle TRACK_COLORS by running track number" rule — that rule is right
+  // for freshly-added tracks, but trackIdRef's count keeps climbing across a
+  // session as tracks are added/removed, so without a fixed color the three
+  // default tracks would get reassigned different colors any time they're
+  // reseeded after other tracks came and went, instead of always matching
+  // the same teal/amber/blue.
   const addTrackWithBuffer = useCallback(
-    (buffer, name) => {
+    (buffer, name, fixedColor) => {
       const n = ++trackIdRef.current;
       const id = `t${n}`;
-      const color = TRACK_COLORS[(n - 1) % TRACK_COLORS.length];
+      const color = fixedColor || TRACK_COLORS[(n - 1) % TRACK_COLORS.length];
       const peaks = computePeaks(buffer);
       const track = {
-        id, name, color, icon: "audio", buffer, peaks, duration: buffer.duration, loadError: "",
-        chain: [], regions: [], volume: 1, pan: 0, muted: false, solo: false, startAt: 0,
+        id, name, color, icon: "audio", kind: "audio", buffer, peaks, duration: buffer.duration, loadError: "",
+        chain: [], regions: [], sends: [], volume: 1, pan: 0, muted: false, solo: false, startAt: 0,
       };
       const next = [...tracksRef.current, track];
       tracksRef.current = next;
@@ -1768,12 +882,13 @@ function DawWorkstationScreen({ open, onClose }) {
   const addEmptyTrack = useCallback((opts) => {
     const n = ++trackIdRef.current;
     const id = `t${n}`;
+    const kind = opts?.kind === "aux" ? "aux" : "audio";
     const color = opts?.color || TRACK_COLORS[(n - 1) % TRACK_COLORS.length];
-    const name = opts?.name?.trim() || `Track ${n}`;
-    const icon = opts?.icon || "audio";
+    const name = opts?.name?.trim() || (kind === "aux" ? `Aux ${n}` : `Track ${n}`);
+    const icon = kind === "aux" ? "aux" : opts?.icon || "audio";
     const track = {
-      id, name, color, icon, buffer: null, peaks: null, duration: 0, loadError: "",
-      chain: [], regions: [], volume: 1, pan: 0, muted: false, solo: false, startAt: 0,
+      id, name, color, icon, kind, buffer: null, peaks: null, duration: 0, loadError: "",
+      chain: [], regions: [], sends: [], volume: 1, pan: 0, muted: false, solo: false, startAt: 0,
     };
     const next = [...tracksRef.current, track];
     tracksRef.current = next;
@@ -1792,7 +907,12 @@ function DawWorkstationScreen({ open, onClose }) {
   const removeTrack = useCallback(
     (id) => {
       const track = tracksRef.current.find((t) => t.id === id);
-      const next = tracksRef.current.filter((t) => t.id !== id);
+      // Dropping a track (an Aux bus, most commonly) also has to drop every
+      // OTHER track's send that was routed at it — otherwise those sends
+      // would silently point at a bus id nothing owns any more.
+      const next = tracksRef.current
+        .filter((t) => t.id !== id)
+        .map((t) => (t.sends?.some((s) => s.busId === id) ? { ...t, sends: t.sends.filter((s) => s.busId !== id) } : t));
       tracksRef.current = next;
       setTracks(next);
       if (activeEditorRef.current?.trackId === id) setActiveEditor(null);
@@ -1967,9 +1087,22 @@ function DawWorkstationScreen({ open, onClose }) {
     const next = tracksRef.current.map((t) => (t.id === id ? { ...t, pan } : t));
     tracksRef.current = next;
     setTracks(next);
-    const nodes = graphRef.current?.trackNodes.get(id);
-    if (nodes?.pannerNode && graphRef.current) {
-      nodes.pannerNode.pan.setTargetAtTime(pan, graphRef.current.ctx.currentTime, 0.01);
+    const g = graphRef.current;
+    const nodes = g?.trackNodes.get(id);
+    if (nodes?.pannerNode && g) {
+      nodes.pannerNode.pan.setTargetAtTime(pan, g.ctx.currentTime, 0.01);
+    }
+    // Any of this track's sends with FMP ("Follow Main Pan") on mirror this
+    // same pan value instead of an independent one — see the send-window's
+    // FMP toggle. Nudge their already-wired panners the same way, rather
+    // than waiting on a full playFrom rebuild to pick the new value up.
+    if (g) {
+      const track = next.find((t) => t.id === id);
+      (track?.sends || []).forEach((s) => {
+        if (!s.fmp) return;
+        const rt = sendRuntimeRef.current.get(`${id}:${s.id}`);
+        if (rt) rt.sendPanner.pan.setTargetAtTime(pan, g.ctx.currentTime, 0.01);
+      });
     }
   }, []);
 
@@ -2264,14 +1397,19 @@ function DawWorkstationScreen({ open, onClose }) {
   // mixdown (offline) and downloads it as a WAV — the topbar's "Download
   // Mix" button.
   const handleDownloadMix = useCallback(async () => {
-    const list = tracksRef.current.filter((t) => t.buffer);
-    if (list.length === 0) return;
+    // renderMixOffline does its own filtering (audio tracks with a buffer,
+    // plus every Aux bus any of them sends to) — it needs the FULL track
+    // list, not pre-filtered down to just the buffered ones, or every Aux's
+    // own inserts (e.g. a shared Reverb) would silently drop out of the
+    // download even though they're audible live.
+    const all = tracksRef.current;
+    if (!all.some((t) => t.buffer)) return;
     const ctx = await ensureContext();
     if (!ctx) return;
     setDownloadError("");
     setDownloadingMix(true);
     try {
-      const rendered = await renderMixOffline(engineCacheRef.current, list, ctx.sampleRate);
+      const rendered = await renderMixOffline(engineCacheRef.current, all, ctx.sampleRate);
       if (rendered) downloadAudioBufferAsWav(rendered, "studio-vr-mix.wav");
     } catch (err) {
       console.error("[DawWorkstationScreen] failed to render mix for download", err);
@@ -2328,7 +1466,7 @@ function DawWorkstationScreen({ open, onClose }) {
           buffer = demoBufferRef.current;
           name = "Demo Loop";
         }
-        const id = addTrackWithBuffer(buffer, name);
+        const id = addTrackWithBuffer(buffer, name, clip.color);
         if (firstId === null) firstId = id;
       });
       if (firstId !== null) setSelectedTrackId(firstId);
@@ -2672,6 +1810,111 @@ function DawWorkstationScreen({ open, onClose }) {
     [forkOuterChainIfNeeded],
   );
 
+  // ── Sends — each send routes a copy of a track's signal (post- or
+  // pre-fader, per that send's own PRE toggle) at an adjustable level/pan
+  // into an Aux track's own input, exactly like a real console's Aux Sends
+  // section: the Aux itself is just another track (see addEmptyTrack's
+  // `kind: "aux"`) with its own inserts, volume and pan, so "sending" to one
+  // means routing INTO its chain rather than in series with the sending
+  // track's own. Unlike the insert chain, sends have no meaningful order (each
+  // is an independent path to a different bus), so there's no move/reorder
+  // here — just add, remove, and per-send level/pan/pre-post/mute (see
+  // sendRuntimeRef/playFrom for how these become live nodes, and
+  // buildOfflineTrackOutput/renderMixOffline for the offline-render
+  // counterpart). See sendIdRef/sendRuntimeRef, declared earlier alongside
+  // this screen's other per-plugin runtime refs. ─────────────────────────
+
+  const addSend = useCallback(
+    (trackId, busId) => {
+      const next = tracksRef.current.map((t) => {
+        if (t.id !== trackId) return t;
+        if ((t.sends || []).some((s) => s.busId === busId)) return t; // already sending to this bus
+        const send = { id: `snd${++sendIdRef.current}`, busId, level: 1, pan: 0, prePost: "post", muted: false, fmp: false };
+        return { ...t, sends: [...(t.sends || []), send] };
+      });
+      tracksRef.current = next;
+      setTracks(next);
+      if (isPlayingRef.current) playFrom(currentOffset());
+    },
+    [currentOffset, playFrom],
+  );
+
+  const removeSend = useCallback(
+    (trackId, sendId) => {
+      const next = tracksRef.current.map((t) => (t.id === trackId ? { ...t, sends: (t.sends || []).filter((s) => s.id !== sendId) } : t));
+      tracksRef.current = next;
+      setTracks(next);
+      sendRuntimeRef.current.delete(`${trackId}:${sendId}`);
+      if (isPlayingRef.current) playFrom(currentOffset());
+    },
+    [currentOffset, playFrom],
+  );
+
+  // Patches a send's fields in state. `live` (default true) additionally
+  // nudges the already-wired send nodes directly — same "don't tear down the
+  // whole graph for a fader drag" treatment setTrackVolume/setTrackPan give
+  // the channel-strip controls — for level/pan/mute, which don't change the
+  // graph's topology; changing `prePost` DOES (it moves which node the send
+  // taps from), so that one always goes through the full playFrom rebuild
+  // instead.
+  const updateSend = useCallback((trackId, sendId, patch, { live = true } = {}) => {
+    const next = tracksRef.current.map((t) =>
+      t.id === trackId ? { ...t, sends: (t.sends || []).map((s) => (s.id === sendId ? { ...s, ...(typeof patch === "function" ? patch(s) : patch) } : s)) } : t,
+    );
+    tracksRef.current = next;
+    setTracks(next);
+    const g = graphRef.current;
+    const track = next.find((t) => t.id === trackId);
+    // The dry/direct path's own gain crossfades against however much this
+    // track's post-fader sends now add up to (see computeDryScale) — nudge
+    // it live any time a send's level/mute/prePost changes, same as the
+    // send's own gain/pan just below, so a fader drag doesn't need a full
+    // playFrom rebuild to be heard at the main output.
+    const trackNodes = g?.trackNodes.get(trackId);
+    if (g && track && trackNodes?.dryGain) {
+      trackNodes.dryGain.gain.setTargetAtTime(computeDryScale(track), g.ctx.currentTime, 0.01);
+    }
+    const rt = sendRuntimeRef.current.get(`${trackId}:${sendId}`);
+    if (live && g && rt) {
+      const updated = track?.sends.find((s) => s.id === sendId);
+      if (updated) {
+        rt.sendGain.gain.setTargetAtTime(updated.muted ? 0 : updated.level, g.ctx.currentTime, 0.01);
+        // FMP sends track the channel's own pan, not their own `pan` field
+        // — see the send-window's FMP toggle and setTrackPan's own nudge.
+        const effectivePan = updated.fmp ? (track.pan ?? 0) : (updated.pan ?? 0);
+        rt.sendPanner.pan.setTargetAtTime(effectivePan, g.ctx.currentTime, 0.01);
+      }
+    }
+  }, []);
+
+  const setSendPrePost = useCallback(
+    (trackId, sendId, prePost) => {
+      updateSend(trackId, sendId, { prePost }, { live: false });
+      if (isPlayingRef.current) playFrom(currentOffset());
+    },
+    [updateSend, currentOffset, playFrom],
+  );
+
+  // Send-window level meter — reads the send's own post-sendGain analyser
+  // (see the sendAnalyser tapped in playFrom's sends pass) the same
+  // "grab a Uint8Array off an AnalyserNode, RMS it" way the Mixer view's
+  // own per-track meter and the master meter already do, just on demand
+  // (called from SendRack's own poll while a send window is open) rather
+  // than folded into the always-on trackLevels interval, since only one
+  // send window can be open at a time and it's usually none.
+  const getSendMeterLevel = useCallback((trackId, sendId) => {
+    const rt = sendRuntimeRef.current.get(`${trackId}:${sendId}`);
+    if (!rt?.sendAnalyser) return 0;
+    const data = new Uint8Array(rt.sendAnalyser.fftSize);
+    rt.sendAnalyser.getByteTimeDomainData(data);
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) {
+      const v = (data[i] - 128) / 128;
+      sum += v * v;
+    }
+    return Math.sqrt(sum / data.length);
+  }, []);
+
   // Push every chain's (the track's own, and every one of its portions')
   // per-slot typed params onto its live Faust node, via each plugin's own
   // pushFaustParams (the same functions the standalone chapter labs use) —
@@ -2862,7 +2105,30 @@ function DawWorkstationScreen({ open, onClose }) {
     if (!trackId) return undefined;
     const prevSolo = new Map(tracksRef.current.map((t) => [t.id, t.solo]));
     preIsolateSoloRef.current = prevSolo;
-    const isolated = tracksRef.current.map((t) => (t.solo === (t.id === trackId) ? t : { ...t, solo: t.id === trackId }));
+    // An Aux bus has no audio of its own — every sample it ever plays comes
+    // from some OTHER track's Send. Isolating it the same way as a real
+    // track (solo just this one, un-solo everything else) starves it of
+    // every one of those feeds, so its own insert editor's scope/waveform
+    // and Process preview would always show silence. A PRE-fader send taps
+    // its track's chain before trackGain (see playFrom's `tap` — same node
+    // solo/mute silence to isolate everything else), so it keeps reaching
+    // the bus either way and needs no help here; only POST-fader feeders
+    // (the default) actually go quiet when un-soloed, so only those need
+    // forcing back on — soloing a pre-only feeder too would just add its
+    // own dry signal straight to master, on top of the Aux preview.
+    const target = tracksRef.current.find((t) => t.id === trackId);
+    const feederIds =
+      target?.kind === "aux"
+        ? new Set(
+            tracksRef.current
+              .filter((t) => (t.sends || []).some((s) => s.busId === trackId && !s.muted && s.prePost !== "pre"))
+              .map((t) => t.id),
+          )
+        : null;
+    const isolated = tracksRef.current.map((t) => {
+      const shouldSolo = t.id === trackId || !!feederIds?.has(t.id);
+      return t.solo === shouldSolo ? t : { ...t, solo: shouldSolo };
+    });
     tracksRef.current = isolated;
     setTracks(isolated);
     if (isPlayingRef.current) playFrom(currentOffset());
@@ -2983,829 +2249,194 @@ function DawWorkstationScreen({ open, onClose }) {
     (_, i) => i * rulerStep,
   );
 
+  // ── Shared prop bundles for the presentational subcomponents below (see
+  // src/panorama/daw/) — TrackList, MixerView and EditorDock all wire the
+  // same InsertRack, and TrackList/MixerView both wire the same SendRack, so
+  // the underlying chain/send-management functions are grouped here once
+  // instead of being re-listed as a dozen individual props in each.
+  const chainActions = {
+    addOrSelectPlugin,
+    setActiveEditor,
+    toggleBypass,
+    movePlugin,
+    removePlugin,
+    reorderPlugin,
+    draggingKey,
+    setDraggingKey,
+  };
+  const sendActions = {
+    addSend,
+    createAux: addEmptyTrack,
+    removeSend,
+    updateSend,
+    setSendPrePost,
+    getSendMeterLevel,
+  };
+  const meters = {
+    getGateLevels,
+    getDeEsserInputDb,
+    getDeEsserGainReductionDb,
+    getCompLevels,
+    getLimiterLevels,
+    getDelayInputPeak,
+    getDelayOutputPeak,
+    getReverbInputPeak,
+    getReverbOutputPeak,
+    getNow,
+  };
+
   return (
     <div className="chapter-lab daw-root">
       <div className="daw-overlay is-open">
         <div className="daw-overlay-backdrop" />
         <div className="monitor-frame">
           <div className="daw-app">
-            {/* Top bar: transport */}
-            <div className="daw-topbar">
-              <button className="exit-btn" onClick={onClose}>
-                ‹ Exit to Studio
-              </button>
-              <div className="topbar-divider" />
-              <div className="app-id">
-                <div className="name">STUDIO VR — SESSION</div>
-                <div className="daw-crumb">
-                  STUDIO&nbsp;/&nbsp;CONTROL ROOM&nbsp;/&nbsp;<b>MIX WORKSTATION</b>
-                </div>
-              </div>
-              <div className="topbar-divider" />
-              <div className="view-switch" role="tablist" aria-label="View">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={viewMode === "arrange"}
-                  className={"view-switch__btn" + (viewMode === "arrange" ? " is-active" : "")}
-                  onClick={() => setViewMode("arrange")}
-                  title="Arrange view"
-                >
-                  Arrange
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={viewMode === "mixer"}
-                  className={"view-switch__btn" + (viewMode === "mixer" ? " is-active" : "")}
-                  onClick={() => setViewMode("mixer")}
-                  title="Mixer view (X)"
-                >
-                  Mixer
-                </button>
-              </div>
-              <div className="topbar-divider" />
-              <div className="transport">
-                <button className="transport-btn" onClick={rewind} disabled={tracks.length === 0} title="Return to start">
-                  ⏮
-                </button>
-                <button
-                  className={"transport-btn play" + (isPlaying ? " is-playing" : "")}
-                  onClick={togglePlay}
-                  disabled={tracks.length === 0}
-                  title="Play / Pause"
-                >
-                  {isPlaying ? "❚❚" : "▶"}
-                </button>
-                <button className="transport-btn" onClick={stop} disabled={tracks.length === 0} title="Stop">
-                  ■
-                </button>
-                <button
-                  className={"transport-btn loop" + (loopOn || selectedRegionObj ? " is-on" : "")}
-                  onClick={toggleLoop}
-                  disabled={!!selectedRegionObj}
-                  title={selectedRegionObj ? "Loop is on automatically while previewing a portion" : "Loop the whole mix"}
-                >
-                  ⟲
-                </button>
-              </div>
-              <div className="timecode">
-                <span className="big">{fmtTime(playhead)}</span>
-                <span className="bars">/ {fmtTime(arrangementDuration)}</span>
-              </div>
-              {selectedRegionObj && (
-                <div className="preview-pill" title="Play is scoped to this portion — Exit to play the whole arrangement again">
-                  Previewing {fmtTime(selectedRegionObj.start)}–{fmtTime(selectedRegionObj.end)}
-                  <button onClick={exitSelection}>✕ Exit</button>
-                </div>
-              )}
-              <div className="daw-topbar-right">
-                <button
-                  className="daw-btn small"
-                  onClick={() => {
-                    void handleDownloadMix();
-                  }}
-                  disabled={!tracks.some((t) => t.buffer) || downloadingMix}
-                  title="Render every track's own portions + volume + mute, summed together, and download the mix as one WAV"
-                >
-                  {downloadingMix ? "Rendering…" : "Download Mix"}
-                </button>
-                <div>
-                  <div className="master-meter">
-                    {[0.5, 0.8, 1.05, 0.7].map((mul, i) => (
-                      <i key={i} style={{ height: `${clamp(meterLevel * mul * 220, 8, 100)}%` }} />
-                    ))}
-                  </div>
-                  <div className="master-label mono">MASTER</div>
-                </div>
-              </div>
-            </div>
+            <TopBar
+              onClose={onClose}
+              viewMode={viewMode}
+              setViewMode={setViewMode}
+              tracks={tracks}
+              isPlaying={isPlaying}
+              onRewind={rewind}
+              onTogglePlay={togglePlay}
+              onStop={stop}
+              loopOn={loopOn}
+              onToggleLoop={toggleLoop}
+              selectedRegionObj={selectedRegionObj}
+              onExitSelection={exitSelection}
+              playhead={playhead}
+              arrangementDuration={arrangementDuration}
+              downloadingMix={downloadingMix}
+              onDownloadMix={handleDownloadMix}
+              meterLevel={meterLevel}
+            />
 
             {viewMode === "arrange" ? (
               <>
-            {/* Body: tracklist (left) + arrangement/waveforms (right) —
-                same layout as design/daw-workstation-screen-ui.html, just
-                driven by the real multi-track state instead of mock data. */}
-            <div className="daw-body">
-              <div className="tracklist" ref={tracklistRef} onScroll={onTracklistScroll}>
-                {tracks.map((track, trackIndex) => (
-                  <div
-                    key={track.id}
-                    className={
-                      "track-row" +
-                      (track.id === selectedTrackId ? " is-selected" : "") +
-                      (track.solo ? " is-soloed" : "") +
-                      (anySoloed && !track.solo ? " is-dimmed" : "")
-                    }
-                    style={{ "--track-color": `var(--${track.color})` }}
-                    onClick={() => {
-                      setSelectedTrackId(track.id);
-                      if (selectedRegion && selectedRegion.trackId !== track.id) exitSelection();
-                    }}
-                  >
-                    <div className="track-row__head">
-                      <span className="track-num mono">{trackIndex + 1}</span>
-                      <div className="track-swatch">
-                        <TrackIcon ikey={track.icon} />
-                      </div>
-                      <div className="track-meta">
-                        <div className="track-name">{track.name}</div>
-                        <div className="track-sub mono">
-                          {track.loadError ? (
-                            <span className="track-sub-error">{track.loadError}</span>
-                          ) : track.buffer ? (
-                            `${track.startAt ? `@${fmtTime(track.startAt)} · ` : ""}${fmtTime(track.duration)} · ${track.chain.length} on track · ${track.regions.length} portion${track.regions.length === 1 ? "" : "s"}${track.muted ? " · Muted" : ""}${track.solo ? " · Solo" : ""}`
-                          ) : (
-                            "No audio"
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="track-row__controls">
-                      <input
-                        type="range"
-                        className="track-vol"
-                        min="0"
-                        max="1.5"
-                        step="0.01"
-                        value={track.volume}
-                        title="Volume"
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => setTrackVolume(track.id, parseFloat(e.target.value))}
-                      />
-                      <div className="track-btns">
-                        <input
-                          type="file"
-                          accept="audio/*"
-                          id={`daw-file-${track.id}`}
-                          className="daw-file-input"
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => handleTrackFile(track.id, e)}
-                        />
-                        <label htmlFor={`daw-file-${track.id}`} className="tbtn" title="Upload audio" onClick={(e) => e.stopPropagation()}>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M12 15V4M7.5 8.5 12 4l4.5 4.5" strokeLinecap="round" strokeLinejoin="round" />
-                            <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        </label>
-                        <div className="tbtn-select-wrap" onClick={(e) => e.stopPropagation()}>
-                          <span className="tbtn" aria-hidden="true">
-                            D
-                          </span>
-                          <select
-                            className="tbtn-select"
-                            value=""
-                            title="Load a Hungarian Dance No. 5 stem onto this track"
-                            aria-label="Load a demo clip onto this track"
-                            onChange={(e) => {
-                              const clip = DEMO_CLIPS.find((c) => c.id === e.target.value);
-                              if (clip) loadDemoForTrack(track.id, clip);
-                              e.target.value = "";
-                            }}
-                          >
-                            <option value="" disabled>
-                              Demo…
-                            </option>
-                            {DEMO_CLIPS.map((clip) => (
-                              <option key={clip.id} value={clip.id}>
-                                {clip.name.replace("Hungarian Dance No. 5 — ", "")}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <button
-                          className={"tbtn s" + (track.solo ? " is-on" : "")}
-                          title={track.solo ? "Unsolo track" : "Solo track — silences every other track (S)"}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleTrackSolo(track.id);
-                          }}
-                        >
-                          S
-                        </button>
-                        <button
-                          className={"tbtn m" + (track.muted ? " is-on" : "")}
-                          title={track.muted ? "Unmute track" : "Mute track (M)"}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleTrackMute(track.id);
-                          }}
-                        >
-                          M
-                        </button>
-                        <button
-                          className="tbtn"
-                          title={track.buffer ? "Download this track (its own portions + volume) as a WAV" : "Add audio to this track first"}
-                          disabled={!track.buffer || downloadingTrackId === track.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void handleDownloadTrack(track.id);
-                          }}
-                        >
-                          {downloadingTrackId === track.id ? (
-                            "…"
-                          ) : (
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M12 4v11M7.5 11.5 12 16l4.5-4.5" strokeLinecap="round" strokeLinejoin="round" />
-                              <path d="M4 17v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          )}
-                        </button>
-                        <button
-                          className="tbtn danger"
-                          title="Remove track"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeTrack(track.id);
-                          }}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                <div className="track-row add-track-row" onClick={openAddTrackDialog} title="New Track…">
-                  <span className="add-track-plus">+</span>
-                  <span>Add Track</span>
-                </div>
-              </div>
-
-              <div className="arrangement" ref={arrangementRef} onScroll={onArrangementScroll}>
-                <div className="ruler">
-                  {rulerMarks.map((s) => (
-                    <span key={s} className="ruler-mark" style={{ left: `${(s / Math.max(arrangementDuration, 1)) * 100}%` }}>
-                      {fmtRulerMark(s)}
-                    </span>
-                  ))}
-                </div>
-                <div className="arr-rows">
-                  {tracks.map((track) => (
-                    <div key={track.id} className="arr-row">
-                      {track.peaks ? (
-                        <div
-                          className="clip"
-                          style={{
-                            "--track-color": `var(--${track.color})`,
-                            left: `${clamp(((track.startAt ?? 0) / Math.max(arrangementDuration, 0.001)) * 100, 0, 100)}%`,
-                            width: `${clamp((track.duration / Math.max(arrangementDuration, 0.001)) * 100, 0, 100)}%`,
-                          }}
-                        >
-                          <div
-                            className="clip-header"
-                            title="Drag to move this track's start position — double-click to reset to 0:00"
-                            onPointerDown={(e) => beginClipDrag(e, track)}
-                            onPointerMove={onClipPointerMove}
-                            onPointerUp={endClipDrag}
-                            onPointerCancel={endClipDrag}
-                            onDoubleClick={(e) => {
-                              e.stopPropagation();
-                              setTrackStartAt(track.id, 0);
-                              if (isPlayingRef.current) playFrom(currentOffset());
-                            }}
-                          />
-                          <div
-                            className="clip-body"
-                            title="Drag on the waveform to select a portion, then add a signal chain to it"
-                            onPointerDown={(e) => beginRegionDrag(e, track)}
-                            onPointerMove={onRegionPointerMove}
-                            onPointerUp={endRegionDrag}
-                            onPointerCancel={endRegionDrag}
-                          >
-                            <svg viewBox={`0 0 ${track.peaks.length} 100`} preserveAspectRatio="none" className="wave-svg">
-                              {track.peaks.map(([min, max], i) => {
-                                const y1 = 50 - max * 48;
-                                const y2 = 50 - min * 48;
-                                return <line key={i} x1={i} x2={i} y1={y1} y2={Math.max(y2, y1 + 0.6)} />;
-                              })}
-                            </svg>
-                            {track.regions.map((region) => {
-                              const isSelected = selectedRegion?.trackId === track.id && selectedRegion?.regionId === region.id;
-                              // Before this portion's outer chain has been
-                              // customized, it's just reading through to the
-                              // track's own chain (see getChainArray) — show
-                              // that real, currently-applied count here too
-                              // instead of a misleading 0.
-                              const outerCount = region.outerCustomized ? region.outerChain?.length || 0 : track.chain.length;
-                              const totalCount = region.chain.length + outerCount;
-                              return (
-                                <div
-                                  key={region.id}
-                                  className={"clip-region" + (isSelected ? " is-selected" : "")}
-                                  style={{
-                                    left: `${clamp((region.start / Math.max(track.duration, 0.001)) * 100, 0, 100)}%`,
-                                    width: `${clamp(((region.end - region.start) / Math.max(track.duration, 0.001)) * 100, 0, 100)}%`,
-                                  }}
-                                  title={`Portion ${fmtTime(region.start)}–${fmtTime(region.end)} · ${region.chain.length} plugin${region.chain.length === 1 ? "" : "s"}${outerCount ? ` + ${outerCount} outer${region.outerCustomized ? "" : " (inherited)"}` : ""} — click to edit its chain`}
-                                  onPointerDown={(e) => e.stopPropagation()}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    selectRegion(track.id, region.id);
-                                  }}
-                                >
-                                  <button
-                                    className="clip-region__remove"
-                                    title="Delete this portion"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      removeRegion(track.id, region.id);
-                                    }}
-                                  >
-                                    ×
-                                  </button>
-                                  {totalCount > 0 && <span className="clip-region__count mono">{totalCount}</span>}
-                                </div>
-                              );
-                            })}
-                            {draftRegion && draftRegion.trackId === track.id && (
-                              <div
-                                className="clip-region is-draft"
-                                style={{
-                                  left: `${clamp((draftRegion.start / Math.max(track.duration, 0.001)) * 100, 0, 100)}%`,
-                                  width: `${clamp(((draftRegion.end - draftRegion.start) / Math.max(track.duration, 0.001)) * 100, 0, 100)}%`,
-                                }}
-                              />
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="arr-row-empty">Upload or use demo</div>
-                      )}
-                    </div>
-                  ))}
-                  <div className="arr-row add-track-row-spacer" />
-                </div>
-                {arrangementDuration > 0 && (
-                  <div
-                    className="playhead"
-                    title="Drag to seek to any position"
-                    style={{ left: `${clamp((playhead / arrangementDuration) * 100, 0, 100)}%` }}
-                    onPointerDown={beginPlayheadDrag}
-                    onPointerMove={onPlayheadPointerMove}
-                    onPointerUp={endPlayheadDrag}
-                    onPointerCancel={endPlayheadDrag}
+                {/* Body: tracklist (left) + arrangement/waveforms (right) —
+                    same layout as design/daw-workstation-screen-ui.html, just
+                    driven by the real multi-track state instead of mock data. */}
+                <div className="daw-body">
+                  <TrackList
+                    tracklistRef={tracklistRef}
+                    onTracklistScroll={onTracklistScroll}
+                    trackRowRefs={trackRowRefs}
+                    tracks={tracks}
+                    selectedTrackId={selectedTrackId}
+                    setSelectedTrackId={setSelectedTrackId}
+                    selectedRegion={selectedRegion}
+                    exitSelection={exitSelection}
+                    anySoloed={anySoloed}
+                    setTrackVolume={setTrackVolume}
+                    handleTrackFile={handleTrackFile}
+                    loadDemoForTrack={loadDemoForTrack}
+                    toggleTrackSolo={toggleTrackSolo}
+                    toggleTrackMute={toggleTrackMute}
+                    downloadingTrackId={downloadingTrackId}
+                    handleDownloadTrack={handleDownloadTrack}
+                    removeTrack={removeTrack}
+                    chainActions={chainActions}
+                    sendActions={sendActions}
+                    openAddTrackDialog={openAddTrackDialog}
                   />
-                )}
-                {tracks.length === 0 && <div className="mixer-empty-hint">No tracks yet — click + Add Track on the left to get started.</div>}
-              </div>
-            </div>
 
-            {/* Dock: signal chain for whichever scope is selected. With a
-                portion selected, the Outer/This-portion tabs flip between
-                that portion's own private outer chain and its own chain
-                (both scoped ONLY to that portion — see playFrom); with no
-                portion selected, the selected track's real whole-track
-                chain, heard everywhere on the track. */}
-            <div className="dock">
-              <div className="dock-head">
-                <div className="dock-title">
-                  SIGNAL CHAIN{" "}
-                  {selectedRegionObj ? (
-                    <>
-                      — <b style={{ color: `var(--${selectedRegionTrack.color})` }}>{selectedRegionTrack.name.toUpperCase()}</b>{" "}
-                      <span className="mono">
-                        [{fmtTime(selectedRegionObj.start)}–{fmtTime(selectedRegionObj.end)}]
-                      </span>
-                      {dockOnPortionOuterScope &&
-                        (selectedRegionObj.outerCustomized ? " · outer (this portion only)" : " · outer (inherited from track — not yet customized)")}
-                    </>
-                  ) : selectedTrack ? (
-                    <>
-                      — <b style={{ color: `var(--${selectedTrack.color})` }}>{selectedTrack.name.toUpperCase()}</b> · whole track
-                    </>
-                  ) : (
-                    <>— NO TRACK SELECTED</>
-                  )}
+                  <Arrangement
+                    arrangementRef={arrangementRef}
+                    onArrangementScroll={onArrangementScroll}
+                    rulerMarks={rulerMarks}
+                    arrangementDuration={arrangementDuration}
+                    tracks={tracks}
+                    rowSlotHeights={rowSlotHeights}
+                    beginClipDrag={beginClipDrag}
+                    onClipPointerMove={onClipPointerMove}
+                    endClipDrag={endClipDrag}
+                    setTrackStartAt={setTrackStartAt}
+                    isPlayingRef={isPlayingRef}
+                    playFrom={playFrom}
+                    currentOffset={currentOffset}
+                    beginRegionDrag={beginRegionDrag}
+                    onRegionPointerMove={onRegionPointerMove}
+                    endRegionDrag={endRegionDrag}
+                    selectedRegion={selectedRegion}
+                    selectRegion={selectRegion}
+                    removeRegion={removeRegion}
+                    draftRegion={draftRegion}
+                    beginPlayheadDrag={beginPlayheadDrag}
+                    onPlayheadPointerMove={onPlayheadPointerMove}
+                    endPlayheadDrag={endPlayheadDrag}
+                    playhead={playhead}
+                  />
                 </div>
-                {selectedRegionObj && (
-                  <div className="dock-scope-tabs" role="tablist" aria-label="Chain scope">
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={dockScope === "track"}
-                      className={"dock-scope-tab" + (dockScope === "track" ? " is-active" : "")}
-                      onClick={() => setDockScope("track")}
-                      title="Starts out showing the track's own chain, applied here same as everywhere else — edit, reorder, bypass, or remove a plugin to fork a private copy for only this portion, or leave it alone to keep following the track chain"
-                    >
-                      Outer (this portion)
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={dockScope === "portion"}
-                      className={"dock-scope-tab" + (dockScope === "portion" ? " is-active" : "")}
-                      onClick={() => setDockScope("portion")}
-                      title="Edit this portion's own chain — runs after its outer chain, only within the selected range"
-                    >
-                      This portion
-                    </button>
-                  </div>
-                )}
-                <div className="dock-head-right">
-                  <div className="dock-hint">
-                    {downloadError ? (
-                      <span className="daw-error">{downloadError}</span>
-                    ) : dockOnPortionOuterScope ? (
-                      selectedRegionObj.outerCustomized ? (
-                        "A pre-chain private to this portion — runs before its own chain below, and is never heard in gaps or other portions (edit the real whole-track chain by exiting selection first)"
-                      ) : (
-                        "Currently just following the track's own chain (shown below, nothing private yet) — edit, reorder, bypass, or remove a plugin here to fork a private copy for only this portion, or leave it as-is to keep inheriting the track chain"
-                      )
-                    ) : selectedRegionObj ? (
-                      "Runs after this portion's own outer chain (see the Outer tab), only within this portion — click a plugin to add it, a chip to edit it"
-                    ) : selectedTrack ? (
-                      "Applies to the whole track — drag on the waveform to layer extra processing on top of a portion"
-                    ) : (
-                      "Select a track on the left"
-                    )}
-                  </div>
-                  {selectedRegionObj && (
-                    <button
-                      className="daw-btn small"
-                      onClick={exitSelection}
-                      title="Deselect this portion — Play returns to the whole arrangement"
-                    >
-                      ✕ Exit Selection
-                    </button>
-                  )}
-                </div>
-              </div>
 
-              {dockTrack && dockChain && (
-                <InsertRack
-                  chain={dockChain}
-                  onAddPlugin={(def) => addOrSelectPlugin(dockTrack.id, dockRegionId, def)}
-                  onOpenSlot={(key) => setActiveEditor({ trackId: dockTrack.id, regionId: dockRegionId, key })}
-                  onToggleBypass={(key) => toggleBypass(dockTrack.id, dockRegionId, key)}
-                  onMove={(key, dir) => movePlugin(dockTrack.id, dockRegionId, key, dir)}
-                  onRemove={(key) => removePlugin(dockTrack.id, dockRegionId, key)}
-                  onReorder={(fromKey, toKey) => reorderPlugin(dockTrack.id, dockRegionId, fromKey, toKey)}
-                  draggingKey={draggingKey}
-                  setDraggingKey={setDraggingKey}
+                <EditorDock
+                  selectedRegionObj={selectedRegionObj}
+                  selectedRegionTrack={selectedRegionTrack}
+                  dockScope={dockScope}
+                  setDockScope={setDockScope}
+                  dockOnPortionOuterScope={dockOnPortionOuterScope}
+                  downloadError={downloadError}
+                  exitSelection={exitSelection}
+                  dockTrack={dockTrack}
+                  dockChain={dockChain}
+                  dockRegionId={dockRegionId}
+                  chainActions={chainActions}
                 />
-              )}
-            </div>
               </>
             ) : (
-              /* Mixer view — Logic-style vertical channel strips: one per
-                 track, each with its own insert rack (the same InsertRack
-                 as the dock above, just bound to that track's whole-track
-                 chain), pan knob, volume fader + meter, and solo/mute —
-                 everything the dock+tracklist expose already, laid out the
-                 way a real mixing console groups it. */
-              <div className="mixer-view">
-                {tracks.length === 0 ? (
-                  <div className="mixer-empty-hint">No tracks yet — switch to Arrange and click + Add Track to get started.</div>
-                ) : (
-                  tracks.map((track, trackIndex) => {
-                    const level = trackLevels[track.id] ?? 0;
-                    return (
-                      <div
-                        key={track.id}
-                        className={
-                          "mixer-strip" +
-                          (track.id === selectedTrackId ? " is-selected" : "") +
-                          (track.solo ? " is-soloed" : "") +
-                          (anySoloed && !track.solo ? " is-dimmed" : "")
-                        }
-                        style={{ "--track-color": `var(--${track.color})` }}
-                        onClick={() => setSelectedTrackId(track.id)}
-                      >
-                        <div className="mixer-strip__head">
-                          <span className="track-num mono">{trackIndex + 1}</span>
-                          <div className="track-swatch">
-                            <TrackIcon ikey={track.icon} />
-                          </div>
-                        </div>
-                        <div className="mixer-strip__name" title={track.name}>
-                          {track.name}
-                        </div>
-
-                        <InsertRack
-                          compact
-                          chain={track.chain}
-                          onAddPlugin={(def) => addOrSelectPlugin(track.id, TRACK_CHAIN_SCOPE, def)}
-                          onOpenSlot={(key) => setActiveEditor({ trackId: track.id, regionId: TRACK_CHAIN_SCOPE, key })}
-                          onToggleBypass={(key) => toggleBypass(track.id, TRACK_CHAIN_SCOPE, key)}
-                          onMove={(key, dir) => movePlugin(track.id, TRACK_CHAIN_SCOPE, key, dir)}
-                          onRemove={(key) => removePlugin(track.id, TRACK_CHAIN_SCOPE, key)}
-                          onReorder={(fromKey, toKey) => reorderPlugin(track.id, TRACK_CHAIN_SCOPE, fromKey, toKey)}
-                          draggingKey={draggingKey}
-                          setDraggingKey={setDraggingKey}
-                        />
-
-                        <div className="mixer-strip__pan" onClick={(e) => e.stopPropagation()}>
-                          <Knob spec={PAN_KNOB_SPEC} value={track.pan ?? 0} onChange={(v) => setTrackPan(track.id, v)} size={40} />
-                        </div>
-
-                        <div className="mixer-strip__fader-row" onClick={(e) => e.stopPropagation()}>
-                          <div className="mixer-strip__meter" title="Post-fader level">
-                            <i style={{ height: `${clamp(level * 260, 2, 100)}%` }} />
-                          </div>
-                          <Fader spec={VOLUME_FADER_SPEC} value={track.volume} onChange={(v) => setTrackVolume(track.id, v)} height={120} />
-                        </div>
-
-                        <div className="mixer-strip__btns" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            className={"tbtn s" + (track.solo ? " is-on" : "")}
-                            title={track.solo ? "Unsolo track" : "Solo track (S)"}
-                            onClick={() => toggleTrackSolo(track.id)}
-                          >
-                            S
-                          </button>
-                          <button
-                            className={"tbtn m" + (track.muted ? " is-on" : "")}
-                            title={track.muted ? "Unmute track" : "Mute track (M)"}
-                            onClick={() => toggleTrackMute(track.id)}
-                          >
-                            M
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
+              <MixerView
+                tracks={tracks}
+                selectedTrackId={selectedTrackId}
+                setSelectedTrackId={setSelectedTrackId}
+                anySoloed={anySoloed}
+                trackLevels={trackLevels}
+                chainActions={chainActions}
+                sendActions={sendActions}
+                setTrackPan={setTrackPan}
+                setTrackVolume={setTrackVolume}
+                toggleTrackSolo={toggleTrackSolo}
+                toggleTrackMute={toggleTrackMute}
+              />
             )}
           </div>
         </div>
 
-        {/* "New Track" dialog — Logic-style: pick a name, color and source
-            icon before the track is created (see openAddTrackDialog/
-            confirmAddTrack above). Upload/demo still happen from the track
-            row afterwards, same as they always did. */}
-        {addTrackDialogOpen && (
-          <div className="daw-modal-overlay" onClick={() => setAddTrackDialogOpen(false)}>
-            <div className="daw-modal new-track-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="daw-modal__head">
-                <div className="daw-modal__title">New Track</div>
-                <button className="plugin-popup__close" onClick={() => setAddTrackDialogOpen(false)} aria-label="Close">
-                  ×
-                </button>
-              </div>
-              <div className="daw-modal__body">
-                <label className="daw-field">
-                  <span className="daw-field__label mono">NAME</span>
-                  <input
-                    type="text"
-                    className="daw-field__input"
-                    value={newTrackDraft.name}
-                    autoFocus
-                    onChange={(e) => setNewTrackDraft((d) => ({ ...d, name: e.target.value }))}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") confirmAddTrack();
-                    }}
-                  />
-                </label>
+        <AddTrackDialog
+          open={addTrackDialogOpen}
+          onClose={() => setAddTrackDialogOpen(false)}
+          draft={newTrackDraft}
+          setDraft={setNewTrackDraft}
+          nextTrackNumber={trackIdRef.current + 1}
+          onConfirm={confirmAddTrack}
+        />
 
-                <div className="daw-field">
-                  <span className="daw-field__label mono">COLOR</span>
-                  <div className="swatch-grid">
-                    {TRACK_COLORS.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        className={"swatch-btn" + (newTrackDraft.color === c ? " is-selected" : "")}
-                        style={{ "--sw": `var(--${c})` }}
-                        title={c}
-                        aria-label={c}
-                        onClick={() => setNewTrackDraft((d) => ({ ...d, color: c }))}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="daw-field">
-                  <span className="daw-field__label mono">ICON</span>
-                  <div className="icon-grid">
-                    {TRACK_ICON_KEYS.map((ikey) => (
-                      <button
-                        key={ikey}
-                        type="button"
-                        className={"icon-btn" + (newTrackDraft.icon === ikey ? " is-selected" : "")}
-                        style={{ "--sw": `var(--${newTrackDraft.color})` }}
-                        title={ikey}
-                        aria-label={ikey}
-                        onClick={() => setNewTrackDraft((d) => ({ ...d, icon: ikey }))}
-                      >
-                        <TrackIcon ikey={ikey} />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="daw-modal__foot">
-                <button className="daw-btn small" onClick={() => setAddTrackDialogOpen(false)}>
-                  Cancel
-                </button>
-                <button className="daw-btn small primary" onClick={confirmAddTrack}>
-                  Create Track
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Plugin editor — a popup over everything else, per track/portion + plugin */}
-        {activeSlot && activeTrack && (
-          <div className="plugin-popup-overlay" onClick={handleCancel}>
-            <div className="plugin-popup" style={{ "--pc": `var(--${activeSlot.color})` }} onClick={(e) => e.stopPropagation()}>
-              <div className="plugin-popup__head">
-                <PluginIcon pkey={activeSlot.key} />
-                <div className="plugin-popup__titles">
-                  <div className="plugin-popup__name">
-                    {activeTrack.name} · {activeSlot.name}
-                  </div>
-                  <div className="plugin-popup__tag mono">
-                    {activeSlot.tag} ·{" "}
-                    {activeRegion
-                      ? activeIsPortionOuter
-                        ? `applied to ${fmtTime(activeRegion.start)}–${fmtTime(activeRegion.end)} only, before that portion's own chain${
-                            activeRegion.outerCustomized ? "" : " (inherited from track — editing forks a private copy)"
-                          }`
-                        : `applied to ${fmtTime(activeRegion.start)}–${fmtTime(activeRegion.end)}, after the track's own chain`
-                      : "applied to the whole track"}
-                    {activeSlot.key === "gate" && activeSlot.status === "ready" && (
-                      <> · {isPlaying ? (gateIsOpen ? "● OPEN" : "● CLOSED") : "○ IDLE"}</>
-                    )}
-                  </div>
-                </div>
-                <button
-                  className="daw-btn small"
-                  onClick={handleProcess}
-                  title="Start/restart the preview loop so you can hear this track"
-                >
-                  {isPlaying ? "Processing…" : "▶ Process"}
-                </button>
-                <button
-                  className="daw-btn small primary"
-                  onClick={handleApply}
-                  title="Keep this plugin in the chain, push it into the playing mix, and close"
-                >
-                  Apply
-                </button>
-                <button
-                  className="daw-btn small"
-                  onClick={handleCancel}
-                  title="Close without changes"
-                >
-                  Cancel
-                </button>
-                <label className="daw-pill-toggle">
-                  <input
-                    type="checkbox"
-                    checked={activeSlot.bypassed}
-                    onChange={() => toggleBypass(activeTrack.id, activeEditor.regionId, activeSlot.key)}
-                  />
-                  Bypass
-                </label>
-                <button className="daw-btn small danger" onClick={() => removePlugin(activeTrack.id, activeEditor.regionId, activeSlot.key)}>
-                  Remove
-                </button>
-                <button className="plugin-popup__close" onClick={handleCancel} aria-label="Close">
-                  ×
-                </button>
-              </div>
-
-              <div className="plugin-popup__body">
-                {activeSlot.status === "loading" && <div className="daw-status">Loading Faust engine…</div>}
-                {activeSlot.status === "error" && <div className="daw-error">Failed to load this plugin.</div>}
-                {activeSlot.status === "ready" && activeSlot.key === "gate" && (
-                  <GateEditorPanel
-                    params={activeSlot.params}
-                    setParams={(updater) =>
-                      updateSlot(activeTrack.id, activeEditor.regionId, "gate", (s) => ({ params: typeof updater === "function" ? updater(s.params) : updater }))
-                    }
-                    sidechain={activeSlot.sidechain}
-                    setSidechain={(updater) =>
-                      updateSlot(activeTrack.id, activeEditor.regionId, "gate", (s) => ({ sidechain: typeof updater === "function" ? updater(s.sidechain) : updater }))
-                    }
-                    bypass={activeSlot.bypassed}
-                    isPlaying={isPlaying}
-                    getLevels={getGateLevels}
-                    getNow={getNow}
-                    onOpenChange={setGateIsOpen}
-                  />
-                )}
-                {activeSlot.status === "ready" && activeSlot.key === "deess" && (
-                  <DeEsserEditorPanel
-                    params={activeSlot.params}
-                    setParams={(updater) =>
-                      updateSlot(activeTrack.id, activeEditor.regionId, "deess", (s) => ({ params: typeof updater === "function" ? updater(s.params) : updater }))
-                    }
-                    bypass={activeSlot.bypassed}
-                    isPlaying={isPlaying}
-                    getInputDb={getDeEsserInputDb}
-                    getGainReductionDb={getDeEsserGainReductionDb}
-                    getNow={getNow}
-                  />
-                )}
-                {activeSlot.status === "ready" && activeSlot.key === "comp" && (
-                  <CompressorEditorPanel
-                    bands={activeSlot.bands}
-                    setBands={(updater) =>
-                      updateSlot(activeTrack.id, activeEditor.regionId, "comp", (s) => ({ bands: typeof updater === "function" ? updater(s.bands) : updater }))
-                    }
-                    crossover={activeSlot.crossover}
-                    setCrossover={(updater) =>
-                      updateSlot(activeTrack.id, activeEditor.regionId, "comp", (s) => ({ crossover: typeof updater === "function" ? updater(s.crossover) : updater }))
-                    }
-                    sidechain={activeSlot.sidechain}
-                    setSidechain={(updater) =>
-                      updateSlot(activeTrack.id, activeEditor.regionId, "comp", (s) => ({ sidechain: typeof updater === "function" ? updater(s.sidechain) : updater }))
-                    }
-                    outputGainDb={activeSlot.outputGainDb}
-                    setOutputGainDb={(updater) =>
-                      updateSlot(activeTrack.id, activeEditor.regionId, "comp", (s) => ({
-                        outputGainDb: typeof updater === "function" ? updater(s.outputGainDb) : updater,
-                      }))
-                    }
-                    selectedBand={compSelectedBand}
-                    setSelectedBand={setCompSelectedBand}
-                    multibandEnabled={activeSlot.multiband}
-                    setMultibandEnabled={(updater) =>
-                      updateSlot(activeTrack.id, activeEditor.regionId, "comp", (s) => ({ multiband: typeof updater === "function" ? updater(s.multiband) : updater }))
-                    }
-                    bypass={activeSlot.bypassed}
-                    isPlaying={isPlaying}
-                    getLevels={getCompLevels}
-                    getNow={getNow}
-                  />
-                )}
-                {activeSlot.status === "ready" && activeSlot.key === "limiter" && (
-                  <LimiterEditorPanel
-                    params={activeSlot.params}
-                    setParams={(updater) =>
-                      updateSlot(activeTrack.id, activeEditor.regionId, "limiter", (s) => ({ params: typeof updater === "function" ? updater(s.params) : updater }))
-                    }
-                    bypass={activeSlot.bypassed}
-                    isPlaying={isPlaying}
-                    getLevels={getLimiterLevels}
-                    getNow={getNow}
-                    onGainReductionChange={setLimiterGainReduction}
-                  />
-                )}
-                {activeSlot.status === "ready" && activeSlot.key === "delay" && (
-                  <DelayEditorPanel
-                    params={activeSlot.params}
-                    setParams={(updater) =>
-                      updateSlot(activeTrack.id, activeEditor.regionId, "delay", (s) => ({ params: typeof updater === "function" ? updater(s.params) : updater }))
-                    }
-                    sync={activeSlot.sync}
-                    setSync={(updater) =>
-                      updateSlot(activeTrack.id, activeEditor.regionId, "delay", (s) => ({ sync: typeof updater === "function" ? updater(s.sync) : updater }))
-                    }
-                    link={delayLink}
-                    setLink={setDelayLink}
-                    isPlaying={isPlaying}
-                    getInputPeak={getDelayInputPeak}
-                    getOutputPeak={getDelayOutputPeak}
-                    getNow={getNow}
-                  />
-                )}
-                {activeSlot.status === "ready" && activeSlot.key === "reverb" && (
-                  <ReverbEditorPanel
-                    params={activeSlot.params}
-                    setParams={(updater) =>
-                      updateSlot(activeTrack.id, activeEditor.regionId, "reverb", (s) => ({ params: typeof updater === "function" ? updater(s.params) : updater }))
-                    }
-                    preset={activeSlot.preset}
-                    setPreset={(updater) =>
-                      updateSlot(activeTrack.id, activeEditor.regionId, "reverb", (s) => ({ preset: typeof updater === "function" ? updater(s.preset) : updater }))
-                    }
-                    isPlaying={isPlaying}
-                    getInputPeak={getReverbInputPeak}
-                    getOutputPeak={getReverbOutputPeak}
-                    getNow={getNow}
-                  />
-                )}
-                {activeSlot.status === "ready" && activeSlot.key === "eq" && (
-                  <EqualizerEditorPanel
-                    bands={activeSlot.bands}
-                    setBands={(updater) =>
-                      updateSlot(activeTrack.id, activeEditor.regionId, "eq", (s) => ({ bands: typeof updater === "function" ? updater(s.bands) : updater }))
-                    }
-                    selectedBandId={eqSelectedBandId}
-                    setSelectedBandId={setEqSelectedBandId}
-                    outputGainDb={activeSlot.outputGainDb}
-                    setOutputGainDb={(updater) =>
-                      updateSlot(activeTrack.id, activeEditor.regionId, "eq", (s) => ({
-                        outputGainDb: typeof updater === "function" ? updater(s.outputGainDb) : updater,
-                      }))
-                    }
-                    analyserRef={eqAnalyserRef}
-                    dryAnalyserRef={eqDryAnalyserRef}
-                    analyserActive={isPlaying}
-                    sampleRate={eqSampleRate}
-                    liveDynGainRef={eqLiveDynGainRef}
-                    liveDynGainActive={isPlaying}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        <PluginEditorPopup
+          activeSlot={activeSlot}
+          activeTrack={activeTrack}
+          activeRegion={activeRegion}
+          activeIsPortionOuter={activeIsPortionOuter}
+          activeEditor={activeEditor}
+          isPlaying={isPlaying}
+          gateIsOpen={gateIsOpen}
+          setGateIsOpen={setGateIsOpen}
+          onProcess={handleProcess}
+          onApply={handleApply}
+          onCancel={handleCancel}
+          toggleBypass={toggleBypass}
+          removePlugin={removePlugin}
+          updateSlot={updateSlot}
+          compSelectedBand={compSelectedBand}
+          setCompSelectedBand={setCompSelectedBand}
+          setLimiterGainReduction={setLimiterGainReduction}
+          delayLink={delayLink}
+          setDelayLink={setDelayLink}
+          eqSelectedBandId={eqSelectedBandId}
+          setEqSelectedBandId={setEqSelectedBandId}
+          eqAnalyserRef={eqAnalyserRef}
+          eqDryAnalyserRef={eqDryAnalyserRef}
+          eqSampleRate={eqSampleRate}
+          eqLiveDynGainRef={eqLiveDynGainRef}
+          meters={meters}
+        />
       </div>
     </div>
   );

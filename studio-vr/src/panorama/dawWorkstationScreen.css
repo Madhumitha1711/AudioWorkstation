@@ -25,6 +25,23 @@
   --lime: #a3e635;
   --lime-dim: rgba(163, 230, 53, 0.15);
   --lime-glow: rgba(163, 230, 53, 0.4);
+  /* Single source of truth for a tracklist row's height, shared by
+     .track-row (left pane) and .arr-row (right pane, its waveform lane) —
+     see the long comment on .track-row below for why these two MUST stay
+     numerically identical. Changing this one variable is now the only thing
+     that needs to happen to resize a row; the two panes can't drift apart
+     from each other the way two separately-hand-tuned pixel values could.
+     136px was sized for the old vertically-stacked Inserts/Sends racks; 100px
+     fit the volume slider's own full-width row below the head (see
+     .track-row__btn-col — it used to be .track-row__vol-col, with the slider
+     stacked above the transport buttons). The slider now sits inline next to
+     the subtitle line instead (see .track-sub-row/.track-vol--inline), so
+     that whole row's worth of height is gone — 84px is this fallback's best
+     guess at the new real height; this is only a first-paint estimate (the
+     real height comes from actually measuring .track-row — see
+     rowSlotHeights), so nudge it if fonts/line-heights on your build render
+     shorter or taller than this. */
+  --track-row-h: 84px;
 }
 
 /* Light theme: same treatment chapters.css gives the other module accents
@@ -334,12 +351,41 @@
 }
 
 .tracklist {
-  width: 236px;
+  width: 346px;
   flex-shrink: 0;
   background: var(--panel);
   border-right: 1px solid var(--border);
   overflow-y: auto;
-  padding: 6px;
+  overflow-x: hidden;
+  /* No top padding — .tracklist-head (below) supplies track 1's whole
+     top offset itself, matching .ruler's own height on the arrangement
+     side exactly. A top padding here on top of that header would push
+     every row down further than its waveform lane, right back into the
+     same kind of row-for-row mismatch fixing this header was for. */
+  padding: 0 6px 6px;
+}
+/* Mirrors .ruler exactly (same height/background/border/sticky behavior) so
+   track 1's row starts at the same offset its waveform lane does — see the
+   comment above this element in DawWorkstationScreen.jsx for why that
+   offset has to match, not just each row's own height (.track-row/.arr-row,
+   both driven off measurement now — see rowSlotHeights there). Sticky, like
+   .ruler, purely so the two panes still visually mirror each other while
+   scrolled — the alignment itself only depends on the space this reserves
+   in normal flow, not on whether it stays pinned. */
+.tracklist-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  padding-left: 4px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
 }
 .track-row {
   --track-color: var(--teal);
@@ -352,21 +398,88 @@
   border: 1px solid transparent;
   margin-bottom: 2px;
   transition: background 0.15s ease, border-color 0.15s ease;
+  /* border-box so this row's actual measured height (border + padding
+     included) is exactly what DawWorkstationScreen.jsx reads via
+     getBoundingClientRect and hands to the matching .arr-row — see
+     rowSlotHeights/trackRowRefs there. Content-box here would leave the
+     border/padding sitting outside that measurement, undercounting it. */
+  box-sizing: border-box;
+  /* --track-row-h (see .daw-root above) is only the FIRST-PAINT fallback,
+     before the JS row-height-sync effect (rowSlotHeights, in
+     DawWorkstationScreen.jsx) has measured anything — it also drives
+     .arr-row's own fallback height so the two panes don't visibly mismatch
+     for that first frame. Once mounted, each .arr-row's real height comes
+     from actually measuring its own .track-row, not this constant — a
+     track row's true height can vary a little (aux vs audio tracks have a
+     different button count, an error message can wrap to two lines, fonts
+     differ slightly across machines), which a single shared constant can't
+     account for. Resize the general row height by editing --track-row-h;
+     don't expect it alone to guarantee row-for-row alignment any more. */
+  min-height: var(--track-row-h);
 }
-/* Two stacked rows inside a track — head (number/icon/name) and controls
-   (volume + the button strip) — rather than cramming everything onto one
-   line, which left almost no room for the track name once the icon swatch
-   and Solo button were added. Closer to a real Logic track header's own
-   proportions besides. */
+/* Head (number/icon/name, plus the subtitle line — see .track-sub-row —
+   which now also carries the volume slider) on top, full width; below it a
+   row with the transport buttons on the left and this track's own
+   Inserts/Sends racks (see .track-row__racks) to the right — the same
+   information a Pro Tools Edit-window track header packs into one row, just
+   reflowed for a narrower column. */
 .track-row__head {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.track-row__controls {
+.track-row__body {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+/* Was .track-row__vol-col — it used to stack the volume slider above the
+   transport buttons in its own 60px column (see .track-sub-row for where
+   the slider moved to). Only the buttons live here now, but this still
+   needs flex-direction: column (even with .track-btns as its one remaining
+   child): a row-direction flex parent only stretches children along the
+   CROSS axis (height), not the main axis (width), so .track-btns would size
+   to its own natural content width instead of being held to 60px — letting
+   its 6 buttons sit in one un-wrapped row that overflows straight across
+   into .track-row__racks instead of wrapping 3-per-row within this column. */
+.track-row__btn-col {
+  width: 60px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* Inserts + Sends, each its own full-width horizontal strip of lettered
+   slots (see .insert-rack.is-dense/.send-rack.is-dense) stacked INSERTS
+   above SENDS, instead of the old side-by-side columns that each stacked
+   their 5 slots vertically — that vertical stacking was what made every
+   track row so tall. Sharing the row's remaining width (flex: 1) instead of
+   a fixed column width also gives each lettered slot more room to show a
+   sliver of its plugin/bus name instead of just a bare letter. */
+.track-row__racks {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  justify-content: center;
+}
+.track-row__rack-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.track-row__rack-row .insert-rack,
+.track-row__rack-row .send-rack {
+  flex: 1;
+  min-width: 0;
+}
+.track-row__rack-label {
+  width: 28px;
+  flex-shrink: 0;
+  font-size: 7.5px;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  text-align: right;
 }
 .track-row:hover {
   background: var(--shell-panel-hover, rgba(255, 255, 255, 0.08));
@@ -383,6 +496,12 @@
 }
 .track-row.is-soloed {
   box-shadow: inset 0 0 0 1px var(--amber);
+}
+/* Aux bus rows — a dashed left edge instead of the solid one every audio
+   track's swatch implies, since there's no clip/waveform underneath this
+   one, just inserts fed by other tracks' Sends. */
+.track-row.is-aux {
+  border-left: 2px dashed var(--track-color);
 }
 .track-num {
   width: 14px;
@@ -420,6 +539,21 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Subtitle line (duration/portions/sends text) plus the volume slider,
+   side by side — this used to be volume's own full-width row underneath
+   the whole head (see --track-row-h/.track-row__btn-col above); putting it
+   here instead is what let that row's height go away. */
+.track-sub-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+.track-sub-row .track-sub {
+  margin-top: 0;
+  flex: 1;
+  min-width: 0;
+}
 .track-sub {
   font-size: 9px;
   color: var(--text-faint);
@@ -431,17 +565,38 @@
 .track-sub-error {
   color: var(--red);
 }
+/* Slimmed down from its old 10px/full-width self (it used to be the only
+   thing in its own row — see .track-sub-row above) to a short, narrow
+   slider that fits inline next to the subtitle text instead. */
 .track-vol {
   display: block;
-  width: 100%;
-  height: 10px;
   accent-color: var(--track-color);
   cursor: pointer;
+}
+.track-vol--inline {
+  width: 74px;
+  height: 6px;
+  flex-shrink: 0;
 }
 .track-btns {
   display: flex;
   gap: 3px;
   flex-shrink: 0;
+  flex-wrap: wrap;
+}
+/* The button strip used to be the only thing in its row, with the full
+   tracklist row's width to spread across; now that it shares that row with
+   this track's own Inserts/Sends (see .track-row__btn-col/.track-row__body
+   above), it wraps into a tighter 3-per-row grid at a slightly smaller icon
+   size instead. */
+.track-row__btn-col .tbtn,
+.track-row__btn-col .tbtn-select-wrap {
+  width: 18px;
+  height: 18px;
+}
+.track-row__btn-col .tbtn svg {
+  width: 11px;
+  height: 11px;
 }
 .tbtn {
   width: 20px;
@@ -626,7 +781,28 @@
 }
 .arr-row {
   --track-color: var(--teal);
-  height: 44px;
+  /* border-box for the same reason as .track-row above: so an inline
+     height (see next) renders as EXACTLY that many px, border included,
+     instead of border-box's own border/padding pushing the rendered box a
+     little taller than the number DawWorkstationScreen.jsx asked for. */
+  box-sizing: border-box;
+  /* This is only the fallback for the very first paint, before the JS
+     row-height-sync effect in DawWorkstationScreen.jsx (rowSlotHeights) has
+     measured anything — derived from the SAME --track-row-h .track-row
+     uses (see .daw-root), plus .track-row's own 2px margin-bottom (.arr-row
+     has no margin of its own — its 1px border-bottom is the visual
+     separator instead), so that first frame doesn't visibly mismatch either.
+     After mount, DawWorkstationScreen.jsx sets each row's real height
+     inline from actually measuring its matching .track-row (see
+     trackRowRefs/rowSlotHeights there) — a track row's true height can
+     vary a little row to row (aux vs audio tracks, a wrapped error message,
+     font rendering differences), which this single constant can't capture
+     on its own. The two panes are independently-scrolled elements kept in
+     lockstep by copying scrollTop 1:1 (onTracklistScroll/
+     onArrangementScroll), which only lines up visually if a row in one is
+     exactly as tall as the matching row in the other — that's what the JS
+     measurement (not this CSS) now actually guarantees. */
+  height: calc(var(--track-row-h) + 2px);
   border-bottom: 1px solid var(--border);
   position: relative;
   background-image: repeating-linear-gradient(90deg, var(--border) 0 1px, transparent 1px 60px);
@@ -646,6 +822,12 @@
   border: 1px dashed var(--border);
   border-radius: 5px;
   padding-left: 8px;
+}
+.arr-row-empty--aux {
+  border-style: solid;
+  border-color: var(--track-color, var(--border));
+  color: var(--text-dim);
+  background: color-mix(in srgb, var(--track-color, var(--border)) 8%, transparent);
 }
 .clip {
   position: absolute;
@@ -792,7 +974,10 @@
   padding: 0 16px;
 }
 
-/* ── Bottom dock: signal chain for the selected track ── */
+/* ── Bottom dock: signal chain for the selected CLIP PORTION only — see the
+   comment on the .dock JSX block in DawWorkstationScreen.jsx. Only rendered
+   (mounted) while a portion is selected, so there's nothing here to hide
+   for the whole-track case any more. ── */
 .dock {
   flex-shrink: 0;
   /* Same theme bug as .daw-topbar above, mirrored at the bottom edge: was
@@ -1086,6 +1271,554 @@
   font-size: 9.5px;
 }
 
+/* Dense insert rack — the Arrange tracklist row's own inline Inserts strip
+   (see .track-row__rack-row and `fixedSlots`/`dense` on InsertRack). Every
+   letter A–E always renders a slot (occupied or not, via `fixedSlots`), laid
+   out in a single horizontal row (rather than stacked into 5 tall rows —
+   see --track-row-h) sharing the row's width equally via flex, so this
+   needs to be tight enough that five of them still read at ~40px each: no
+   icon, no bypass/move/remove buttons (those live in the plugin popup
+   instead — see onOpenSlot), just a letter and a sliver of name. */
+.insert-rack.is-dense {
+  flex-direction: row;
+  gap: 3px;
+}
+.insert-rack.is-dense .insert-slot,
+.insert-rack.is-dense .insert-slot--empty {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 3px;
+  min-height: 18px;
+}
+.insert-rack.is-dense .insert-slot {
+  padding: 1px 4px;
+  gap: 3px;
+}
+.insert-rack.is-dense .insert-slot__num {
+  width: auto;
+  flex-shrink: 0;
+  font-size: 7.5px;
+}
+.insert-rack.is-dense .insert-slot__name {
+  font-size: 8.5px;
+  font-weight: 500;
+}
+.insert-rack.is-dense .insert-add-btn {
+  padding: 1px 3px;
+  gap: 3px;
+  justify-content: center;
+  font-size: 8.5px;
+}
+
+/* ── Dock racks — just INSERTS now, for whichever clip portion is selected
+   (Sends moved to the tracklist row — see .track-row__racks — since a send
+   is a whole-track property with no per-portion equivalent; see the
+   .dock-racks wrapper in DawWorkstationScreen.jsx). Kept as a flex row
+   rather than collapsed into .dock-rack-col directly so a second rack could
+   still be added here later without another layout pass. ── */
+.dock-racks {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+.dock-rack-col {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.dock-rack-col + .dock-rack-col {
+  border-left: 1px solid var(--border);
+  padding-left: 20px;
+}
+.dock-rack-label {
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+  margin-bottom: 5px;
+}
+
+/* ── Send rack — Pro Tools-style lettered send slots (see SendRack in
+   DawWorkstationScreen.jsx): one flat row per Aux this track routes to,
+   showing its target bus + current level, plus a trailing "+ Send" that
+   opens a picker of the mix's own Aux tracks. Deliberately mirrors
+   .insert-rack/.insert-slot's own look (same row shape, same lettered
+   left-hand index) so Inserts and Sends read as one family, just addressed
+   a/b/c… instead of 1/2/3… like a real console's own send bank. ── */
+.send-rack {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.send-slot {
+  --pc: var(--teal);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 7px;
+  border-radius: 5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--pc);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.15s ease;
+}
+.send-slot:hover {
+  background: color-mix(in srgb, var(--pc) 12%, var(--surface));
+}
+.send-slot.is-open {
+  background: color-mix(in srgb, var(--pc) 18%, var(--surface));
+  border-color: var(--pc);
+}
+.send-slot.is-muted {
+  opacity: 0.55;
+}
+.send-slot__num {
+  width: 14px;
+  flex-shrink: 0;
+  font-size: 9px;
+  color: var(--text-faint);
+  text-align: right;
+}
+.send-slot__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.send-slot__level {
+  flex-shrink: 0;
+  font-size: 9px;
+  color: var(--pc);
+  min-width: 18px;
+  text-align: right;
+}
+.send-slot__remove {
+  flex-shrink: 0;
+  width: 17px;
+  height: 17px;
+  border-radius: 4px;
+  border: 1px solid var(--border-bright);
+  background: var(--console);
+  color: var(--text-faint);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.send-slot__remove:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+.send-slot--empty {
+  position: relative;
+  padding: 0;
+  background: transparent;
+  border: 1px dashed var(--border-bright);
+  border-left: 1px dashed var(--border-bright);
+  cursor: default;
+}
+.send-add-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 7px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 10.5px;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.send-add-btn:hover:not(:disabled) {
+  color: var(--teal);
+  background: var(--teal-dim);
+}
+.send-add-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Bus picker — opens off "+ Send", portaled to <body> for the same reason
+   as .insert-picker above. */
+.send-picker {
+  position: fixed;
+  z-index: 60;
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border-bright);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+.send-picker__empty {
+  padding: 8px 7px;
+  font-size: 10px;
+  color: var(--text-faint);
+  max-width: 180px;
+}
+.send-picker__item {
+  --pc: var(--teal);
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 7px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  font-size: 10.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.send-picker__item:hover {
+  background: color-mix(in srgb, var(--pc) 16%, transparent);
+}
+.send-picker__item svg {
+  width: 15px;
+  height: 15px;
+  color: var(--pc);
+  flex-shrink: 0;
+}
+.send-picker__item.c-amber { --pc: var(--amber); }
+.send-picker__item.c-green { --pc: var(--green); }
+.send-picker__item.c-blue { --pc: var(--blue); }
+.send-picker__item.c-red { --pc: var(--red); }
+.send-picker__item.c-purple { --pc: var(--purple); }
+.send-picker__item.c-teal { --pc: var(--teal); }
+.send-picker__item.c-cyan { --pc: var(--cyan); }
+.send-picker__item.c-pink { --pc: var(--pink, var(--red)); }
+.send-picker__item.c-lime { --pc: var(--lime, var(--green)); }
+
+/* "+ New Aux Bus" — always the first row in the picker (see SendRack's
+   onCreateAux), dashed-bordered so it reads as "make a new one" rather than
+   another bus in the list, with its own bottom margin standing in for a
+   divider before the real Aux options start. */
+.send-picker__create {
+  border: 1px dashed var(--border-bright);
+  margin-bottom: 4px;
+  color: var(--text-dim);
+}
+.send-picker__create:hover {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 12%, transparent);
+  color: var(--text);
+}
+.send-picker__create-plus {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--teal);
+}
+
+/* The inline name field "+ New Aux Bus" swaps to on click (see SendRack's
+   creatingAux) — a text input plus a small confirm button, same row height
+   and dark-field styling every other in-popup control here uses. */
+.send-picker__create-form {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 7px;
+  margin-bottom: 4px;
+}
+.send-picker__create-input {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 10.5px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border-bright);
+  background: var(--console);
+  color: var(--text);
+}
+.send-picker__create-input:focus {
+  outline: none;
+  border-color: var(--teal);
+}
+.send-picker__create-confirm {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  border: 1px solid var(--border-bright);
+  background: var(--console);
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.send-picker__create-confirm:hover {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 16%, transparent);
+}
+
+/* Send window — the floating level/pan/pre-post/mute popup that opens off a
+   send slot. Reworked to follow Pro Tools' own fuller send-fader window:
+   a SAFE/PRE/FMP toggle row, a pan control, a vertical level fader with a
+   real dB-tick scale plus its own level meter, Mute, then a TRACK section
+   (owning channel's name + Solo) and an AUTO section (automation-mode
+   display). Portaled to <body>, positioned in JS off the clicked slot's own
+   screen position (see openSendWindow in SendRack), same reasoning as
+   .insert-picker/.send-picker above. */
+.send-window {
+  --pc: var(--teal);
+  position: fixed;
+  z-index: 61;
+  width: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 12px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--pc);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+.send-window__head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.send-window__name {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--pc);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.send-window__close {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.send-window__close:hover {
+  color: var(--text);
+}
+
+/* SAFE / PRE / FMP row — three equal small toggle buttons, same shape Pro
+   Tools' own send window uses. PRE and FMP are fully wired (see SendRack);
+   SAFE is a real persisted per-send flag with no audio effect (its own
+   tooltip says so — there's no automation-write pass in this build for it
+   to protect). */
+.send-window__toggles {
+  width: 100%;
+  display: flex;
+  gap: 3px;
+}
+.send-window__toggle {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.04em;
+  padding: 3px 0;
+  border-radius: 4px;
+  border: 1px solid var(--border-bright);
+  background: var(--console);
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.send-window__toggle:hover {
+  color: var(--text);
+}
+.send-window__toggle.is-on {
+  background: var(--amber-dim, color-mix(in srgb, var(--amber) 25%, transparent));
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.send-window__pan {
+  display: flex;
+  justify-content: center;
+}
+.send-window__fader-row {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+}
+/* dB tick labels alongside the fader — each one's `top` is set inline from
+   dbTickPct(), so it lines up with where that dB value actually sits on
+   VOLUME_FADER_SPEC's own linear-gain range rather than just guessing at
+   even spacing. */
+.send-window__scale {
+  position: relative;
+  width: 20px;
+  flex-shrink: 0;
+  font-size: 7.5px;
+  color: var(--text-faint);
+}
+.send-window__scale span {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+.send-window__fader {
+  display: flex;
+  justify-content: center;
+}
+.send-window__meter {
+  width: 7px;
+  flex-shrink: 0;
+  border-radius: 3px;
+  background: var(--black);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+.send-window__meter i {
+  display: block;
+  width: 100%;
+  background: linear-gradient(180deg, var(--red), var(--amber) 45%, var(--green) 75%);
+  transition: height 0.08s linear;
+}
+.send-window__mute {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid var(--border-bright);
+  background: var(--console);
+  color: var(--text-faint);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.send-window__mute:hover {
+  color: var(--text);
+}
+.send-window__mute.is-on {
+  background: var(--red-dim, color-mix(in srgb, var(--red) 25%, transparent));
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/* TRACK / AUTO section labels — same small letter-spaced caption style
+   .dock-rack-label/.send-window__name-adjacent text already uses elsewhere,
+   just as a full-width divider line here since each heads its own row. */
+.send-window__section {
+  width: 100%;
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+  margin-top: 2px;
+}
+.send-window__track {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.send-window__track-name {
+  font-size: 10px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Only real way to remove a send once its slot's own inline "×" is hidden
+   (see .send-rack.is-dense below) — always present, not just in dense mode,
+   so there's one consistent place to look for it regardless of which rack
+   style opened this window. */
+.send-window__remove {
+  width: 100%;
+  font-family: inherit;
+  font-size: 9px;
+  padding: 4px 0;
+  border-radius: 4px;
+  border: 1px solid var(--border-bright);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.send-window__remove:hover {
+  color: var(--red);
+  border-color: var(--red);
+  background: var(--red-dim, color-mix(in srgb, var(--red) 12%, transparent));
+}
+
+/* Compact send rack (Mixer-view channel strips) — mirrors
+   .insert-rack.is-compact. */
+.send-rack.is-compact .send-slot__name {
+  font-size: 9.5px;
+}
+.send-rack.is-compact .send-slot,
+.send-rack.is-compact .send-add-btn {
+  padding: 4px 5px;
+  gap: 5px;
+}
+
+/* Dense send rack — the Arrange tracklist row's own inline Sends strip,
+   mirroring .insert-rack.is-dense right above: one horizontal row of
+   lettered slots (see --track-row-h) instead of stacked, sharing the row's
+   width equally via flex. No inline "×" — see .send-window__remove above
+   for where removal lives instead in this mode. The level readout is
+   dropped at this width (click a slot to open its fader window instead) so
+   the letter + a sliver of the target bus's name still fit. */
+.send-rack.is-dense {
+  flex-direction: row;
+  gap: 3px;
+}
+.send-rack.is-dense .send-slot,
+.send-rack.is-dense .send-slot--empty {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 3px;
+  min-height: 18px;
+}
+.send-rack.is-dense .send-slot {
+  padding: 1px 4px;
+  gap: 3px;
+}
+.send-rack.is-dense .send-slot__num {
+  width: auto;
+  flex-shrink: 0;
+  font-size: 7.5px;
+}
+.send-rack.is-dense .send-slot__name {
+  font-size: 8.5px;
+  font-weight: 500;
+}
+.send-rack.is-dense .send-slot__level {
+  display: none;
+}
+.send-rack.is-dense .send-add-btn {
+  padding: 1px 3px;
+  gap: 3px;
+  justify-content: center;
+  font-size: 8.5px;
+}
+.send-picker.is-compact {
+  font-size: 9.5px;
+}
+
 .daw-pill-toggle {
   display: flex;
   align-items: center;
@@ -1361,6 +2094,37 @@
   outline: none;
   border-color: var(--teal);
 }
+
+/* Audio Track / Aux Bus segmented control — New Track dialog (see
+   newTrackDraft.kind in DawWorkstationScreen.jsx). */
+.type-toggle {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--panel-recess, rgba(0, 0, 0, 0.25));
+  border: 1px solid var(--line-soft, rgba(255, 255, 255, 0.08));
+}
+.type-toggle__btn {
+  flex: 1;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.type-toggle__btn:hover {
+  color: var(--text);
+}
+.type-toggle__btn.is-selected {
+  background: var(--accent, #e0a458);
+  color: #1a140b;
+}
+
 .swatch-grid,
 .icon-grid {
   display: flex;
@@ -1470,7 +2234,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.mixer-strip .insert-rack {
+.mixer-strip .insert-rack,
+.mixer-strip .send-rack {
   width: 100%;
 }
 /* (The picker itself is portaled to <body> and positioned in JS off the
@@ -1508,9 +2273,24 @@
   gap: 4px;
 }
 
+/* Below this width there isn't room for the tracklist's own inline
+   Inserts/Sends strips next to the name/controls — hide them rather than
+   squeeze everything further; the Mixer view still reaches the exact same
+   racks (a selected clip portion's own chain is still reachable down in the
+   dock — see .dock/selectedRegionObj — but a track's whole-track chain only
+   lives inline here or in the Mixer view now). */
 @media (max-width: 1180px) {
   .tracklist {
     width: 180px;
+  }
+  .track-row {
+    min-height: 0;
+  }
+  .track-row__racks {
+    display: none;
+  }
+  .arr-row {
+    height: 44px;
   }
 }
 

@@ -77,6 +77,12 @@ export const TOPICS = [
         ],
       },
     ],
+    // These 5 questions power two places: the in-course "Knowledge Check"
+    // step (AssessmentSection.jsx, all 5 shown together) AND the optional
+    // "Test your knowledge" quiz offered from this hotspot's gear-info panel
+    // in the VR tour, one question at a time (see HotspotKnowledgeCheck,
+    // exported from panorama/HotspotPrecheck.jsx, wired up in
+    // PanoramaTour.jsx). Same bank, same score either way.
     assessment: {
       id: "speaker-assessment",
       title: "Knowledge Check",
