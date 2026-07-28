@@ -1,0 +1,1061 @@
+/* Left-docked "Studio Hotspots" panel (see StudioHotspotsPanel.jsx). Now the
+   full power-up challenge from design/studio-hotspots-panel.html — mute
+   button, Game/Classic mode switch, stats, hints, timer, best score, and
+   the confetti completion overlay — permanently docked instead of hidden
+   behind a separate launcher.
+
+   Colour and type now match the app's other floating chrome instead of
+   keeping a separate identity: same --shell-* glass tokens (see index.css)
+   as .svr-tour-gear-panel — the info card that opens when you click a
+   hotspot marker directly, in panoramaTour.css — same translucent
+   background + blur, same border/text colors, same plain sans-serif type
+   (var(--sans), no separate label font). --hsp-* custom property NAMES are
+   kept below purely so the ~700 lines of rules further down that already
+   read var(--hsp-*) didn't need touching one by one; their VALUES now
+   mostly just alias the --shell-* tokens. The one thing that doesn't come
+   from --shell-* is the on/tripped accent: the app doesn't theme its own
+   green accent (.svr-tour-gear-badge, .svr-tour-btn-primary etc. use the
+   same fixed green in both light and dark), so --hsp-on/--hsp-err are
+   fixed here too rather than swapped per theme.
+
+   Docked left, 30% of the viewer's width, full height. A collapse tab
+   (nested inside the panel, positioned just past its right edge — see
+   .svr-hotspot-panel__toggle) lets it slide out of the way since it
+   otherwise permanently covers part of the 360 view; sliding the panel via
+   `transform: translateX(-100%)` carries the tab along for the ride and
+   lands it flush against the left edge, so it stays reachable either way
+   without any JS measuring of the panel's (responsive) width. */
+
+.svr-hotspot-panel {
+  --hsp-void: var(--shell-bg);
+  --hsp-panel: var(--shell-bg);
+  --hsp-panel-2: var(--shell-bg);
+  --hsp-hair: var(--shell-border-soft);
+  --hsp-hair-strong: var(--shell-border);
+  --hsp-gold: #22c76a;
+  --hsp-gold-dim: #1a9c56;
+  --hsp-gold-glow: rgba(34, 199, 106, 0.35);
+  --hsp-text: var(--shell-text);
+  --hsp-text-dim: var(--shell-text-dim);
+  --hsp-text-faint: var(--shell-text-dimmer);
+  --hsp-on: #22c76a;
+  --hsp-on-glow: rgba(34, 199, 106, 0.35);
+  --hsp-off: var(--shell-text-dimmer);
+  --hsp-off-bg: var(--shell-panel);
+  --hsp-err: #ff6b6b;
+  --hsp-err-glow: rgba(255, 107, 107, 0.3);
+  --hsp-tint-rgb: 255, 255, 255;
+
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 40;
+  width: 30%;
+  min-width: 300px;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  background: var(--shell-bg);
+  backdrop-filter: blur(14px);
+  border-right: 1px solid var(--shell-border);
+  box-shadow: var(--shadow);
+  color: var(--hsp-text);
+  font-family: var(--sans);
+  transform: translateX(0);
+  transition: transform 0.25s ease;
+}
+
+.svr-hotspot-panel.is-collapsed {
+  transform: translateX(-100%);
+}
+
+/* Only --hsp-tint-rgb needs a light-theme override — every other token
+   above already reads a --shell-* variable, which flips value on its own
+   when ThemeContext.jsx sets data-theme="light" on <html> (see index.css).
+   This RGB triplet (no alpha) sits behind the panel's own faint
+   highlight-on-top-of-itself tints (mute button, mode row, stat cards,
+   hover states…) — those bake the alpha in per rule via
+   rgba(var(--hsp-tint-rgb), x), so flipping the base color from white to
+   black here is enough to keep them reading as a highlight instead of a
+   dark smudge once the backdrop goes light. */
+:root[data-theme='light'] .svr-hotspot-panel {
+  --hsp-tint-rgb: 0, 0, 0;
+}
+
+@keyframes svrHotspotShake {
+
+  10%,
+  90% {
+    transform: translateX(-1px);
+  }
+
+  20%,
+  80% {
+    transform: translateX(2px);
+  }
+
+  30%,
+  50%,
+  70% {
+    transform: translateX(-4px);
+  }
+
+  40%,
+  60% {
+    transform: translateX(4px);
+  }
+}
+
+.svr-hotspot-panel.shake {
+  animation: svrHotspotShake 0.45s;
+}
+
+.svr-hotspot-panel__toggle {
+  position: absolute;
+  top: 16px;
+  right: -26px;
+  width: 26px;
+  height: 44px;
+  border: 1px solid var(--hsp-hair);
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+  background: linear-gradient(180deg, var(--hsp-panel-2), var(--hsp-panel));
+  color: var(--hsp-gold);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  pointer-events: auto;
+}
+
+.svr-hotspot-panel__toggle:hover {
+  color: var(--hsp-text);
+  border-color: var(--hsp-hair-strong);
+}
+
+.svr-hotspot-panel__header {
+  position: relative;
+  padding: 22px 22px 16px;
+  border-bottom: 1px solid var(--hsp-hair);
+  flex-shrink: 0;
+}
+
+.svr-hotspot-panel__eyebrow {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  color: var(--hsp-gold);
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 34px;
+}
+
+.svr-hotspot-panel__eyebrow::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--hsp-on);
+  box-shadow: 0 0 8px var(--hsp-on-glow);
+  flex-shrink: 0;
+}
+
+.svr-hotspot-panel__eyebrow.fault::before {
+  background: var(--hsp-err);
+  box-shadow: 0 0 8px var(--hsp-err-glow);
+}
+
+.svr-hotspot-panel__eyebrow.complete::before {
+  background: var(--hsp-gold);
+  box-shadow: 0 0 8px var(--hsp-gold-glow);
+}
+
+.svr-hotspot-mute-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 26px;
+  height: 26px;
+  border-radius: 2px;
+  border: 1px solid var(--hsp-hair);
+  background: rgba(var(--hsp-tint-rgb), 0.02);
+  color: var(--hsp-text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.svr-hotspot-mute-btn:hover {
+  border-color: var(--hsp-hair-strong);
+  color: var(--hsp-text);
+}
+
+.svr-hotspot-mute-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.svr-hotspot-panel__title {
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--hsp-text);
+  margin: 8px 0 4px;
+  letter-spacing: -0.01em;
+}
+
+.svr-hotspot-panel__sub {
+  font-size: 12.5px;
+  color: var(--hsp-text-dim);
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+.svr-hotspot-mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 2px 0 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--hsp-hair);
+  border-radius: 2px;
+  background: rgba(var(--hsp-tint-rgb), 0.015);
+}
+
+.svr-hotspot-mode-label {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hsp-text-dim);
+}
+
+.svr-hotspot-mode-label b {
+  color: var(--hsp-text);
+  font-weight: 600;
+}
+
+.svr-hotspot-mode-switch {
+  width: 38px;
+  height: 20px;
+  border-radius: 20px;
+  background: var(--hsp-off-bg);
+  border: 1px solid var(--hsp-hair);
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.svr-hotspot-mode-switch:focus-visible {
+  outline: 2px solid var(--hsp-gold);
+  outline-offset: 2px;
+}
+
+.svr-hotspot-mode-switch__knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #9aa39c;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s ease;
+}
+
+.svr-hotspot-mode-switch.on {
+  background: rgba(201, 168, 110, 0.18);
+  border-color: var(--hsp-gold);
+}
+
+.svr-hotspot-mode-switch.on .svr-hotspot-mode-switch__knob {
+  transform: translateX(18px);
+  background: var(--hsp-gold);
+}
+
+.svr-hotspot-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.svr-hotspot-stat {
+  border: 1px solid var(--hsp-hair);
+  border-radius: 2px;
+  background: rgba(var(--hsp-tint-rgb), 0.015);
+  padding: 7px 8px;
+}
+
+.svr-hotspot-stat-label {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hsp-text-faint);
+  margin: 0 0 3px;
+}
+
+.svr-hotspot-stat-value {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--hsp-text);
+  margin: 0;
+}
+
+.svr-hotspot-stat-value.has-faults {
+  color: var(--hsp-err);
+}
+
+.svr-hotspot-best-line {
+  margin: 8px 0 0;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  color: var(--hsp-text-faint);
+  text-align: right;
+}
+
+.svr-hotspot-best-line b {
+  color: var(--hsp-gold-dim);
+  font-weight: 600;
+}
+
+.svr-hotspot-progress-track {
+  display: flex;
+  gap: 4px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--hsp-hair);
+  flex-shrink: 0;
+}
+
+.svr-hotspot-seg {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--hsp-off-bg);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.svr-hotspot-seg.filled {
+  background: var(--hsp-on);
+  box-shadow: 0 0 6px var(--hsp-on-glow);
+}
+
+.svr-hotspot-panel__actions {
+  display: flex;
+  gap: 8px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--hsp-hair);
+  flex-shrink: 0;
+}
+
+.svr-hotspot-qbtn {
+  flex: 1;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--hsp-text-dim);
+  background: rgba(var(--hsp-tint-rgb), 0.02);
+  border: 1px solid var(--hsp-hair);
+  border-radius: 2px;
+  padding: 9px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.svr-hotspot-qbtn:hover {
+  border-color: var(--hsp-hair-strong);
+  color: var(--hsp-text);
+  background: rgba(var(--hsp-tint-rgb), 0.04);
+}
+
+.svr-hotspot-qbtn--hint:hover {
+  color: var(--hsp-gold);
+  border-color: rgba(201, 168, 110, 0.4);
+}
+
+.svr-hotspot-qbtn--danger:hover {
+  color: var(--hsp-err);
+  border-color: rgba(240, 102, 92, 0.4);
+}
+
+.svr-hotspot-panel__legend {
+  display: flex;
+  gap: 16px;
+  padding: 12px 22px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  color: var(--hsp-text-dim);
+  border-bottom: 1px solid var(--hsp-hair);
+  flex-shrink: 0;
+}
+
+.svr-hotspot-panel__legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.svr-hotspot-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.svr-hotspot-dot--on {
+  background: var(--hsp-on);
+  box-shadow: 0 0 6px var(--hsp-on-glow);
+}
+
+.svr-hotspot-dot--off {
+  background: var(--hsp-off);
+}
+
+.svr-hotspot-dot--error {
+  background: var(--hsp-err);
+  box-shadow: 0 0 6px var(--hsp-err-glow);
+}
+
+.svr-hotspot-panel__list {
+  padding: 6px 10px 14px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Game mode: a fixed grid of box+switch tiles that all land on one screen,
+   instead of the tall rail list below (which Classic mode still uses). The
+   grid is sized to be dense — small icons, clamped titles, no per-row
+   dependency line — specifically so 6-10 devices fit without the panel
+   needing to scroll to see them all. overflow-y stays as a safety net for
+   very short windows rather than clipping content outright. */
+.svr-hotspot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
+  align-content: start;
+}
+
+.svr-hotspot-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 9px 9px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--hsp-hair);
+  background: rgba(var(--hsp-tint-rgb), 0.015);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.svr-hotspot-box:hover {
+  background: rgba(var(--hsp-tint-rgb), 0.035);
+}
+
+.svr-hotspot-box:focus-visible {
+  outline: 1px solid var(--hsp-gold);
+  outline-offset: -1px;
+}
+
+.svr-hotspot-box--current {
+  background: rgba(201, 168, 110, 0.08);
+  box-shadow: inset 0 0 0 1px var(--hsp-gold);
+}
+
+.svr-hotspot-box.hint-pulse {
+  animation: svrHotspotHintGlow 1.6s ease;
+}
+
+.svr-hotspot-box.success-pulse .svr-hotspot-icon {
+  animation: svrHotspotPulseRing 0.6s ease-out;
+}
+
+.svr-hotspot-box.error-flash {
+  animation: svrHotspotErrorFlash 0.5s ease-out;
+}
+
+.svr-hotspot-box[data-state="on"] {
+  border-color: rgba(63, 213, 131, 0.3);
+}
+
+.svr-hotspot-box[data-state="error"] {
+  border-color: rgba(240, 102, 92, 0.3);
+}
+
+.svr-hotspot-box__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.svr-hotspot-box .svr-hotspot-icon-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.svr-hotspot-box .svr-hotspot-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 3px;
+  border: 1px solid var(--hsp-hair);
+  background: rgba(var(--hsp-tint-rgb), 0.02);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--hsp-gold-dim);
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.svr-hotspot-box .svr-hotspot-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.svr-hotspot-box[data-state="on"] .svr-hotspot-icon {
+  color: var(--hsp-on);
+  border-color: rgba(63, 213, 131, 0.3);
+}
+
+.svr-hotspot-box[data-state="error"] .svr-hotspot-icon {
+  color: var(--hsp-err);
+  border-color: rgba(240, 102, 92, 0.3);
+}
+
+.svr-hotspot-box .svr-hotspot-switch {
+  margin-top: 0;
+  flex-shrink: 0;
+}
+
+.svr-hotspot-box__name {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--hsp-text);
+  margin: 0;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.svr-hotspot-box__status {
+  font-size: 9.5px;
+  font-family: "JetBrains Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--hsp-off);
+}
+
+.svr-hotspot-box[data-state="on"] .svr-hotspot-box__status {
+  color: var(--hsp-on);
+}
+
+.svr-hotspot-box[data-state="error"] .svr-hotspot-box__status {
+  color: var(--hsp-err);
+}
+
+.svr-hotspot-box__hint {
+  font-size: 9px;
+  font-family: "JetBrains Mono", monospace;
+  color: var(--hsp-text-faint);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.svr-hotspot-box__warn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  color: var(--hsp-err);
+  font-family: "JetBrains Mono", monospace;
+}
+
+.svr-hotspot-box__warn svg {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+}
+
+.svr-hotspot-row {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding: 12px 10px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.svr-hotspot-row:hover {
+  background: rgba(var(--hsp-tint-rgb), 0.025);
+}
+
+.svr-hotspot-row:focus-visible {
+  outline: 1px solid var(--hsp-gold);
+  outline-offset: -1px;
+}
+
+.svr-hotspot-row--current {
+  background: rgba(201, 168, 110, 0.08);
+  box-shadow: inset 2px 0 0 var(--hsp-gold);
+}
+
+@keyframes svrHotspotHintGlow {
+
+  0%,
+  100% {
+    box-shadow: none;
+    border-color: transparent;
+  }
+
+  50% {
+    box-shadow: 0 0 16px rgba(201, 168, 110, 0.35);
+    border-color: var(--hsp-gold);
+  }
+}
+
+.svr-hotspot-row.hint-pulse {
+  animation: svrHotspotHintGlow 1.6s ease;
+}
+
+@keyframes svrHotspotPulseRing {
+  0% {
+    box-shadow: 0 0 0 0 var(--hsp-on-glow);
+  }
+
+  70% {
+    box-shadow: 0 0 0 9px rgba(63, 213, 131, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(63, 213, 131, 0);
+  }
+}
+
+.svr-hotspot-row.success-pulse .svr-hotspot-rail__node {
+  animation: svrHotspotPulseRing 0.6s ease-out;
+}
+
+@keyframes svrHotspotErrorFlash {
+
+  0%,
+  100% {
+    background: transparent;
+  }
+
+  30% {
+    background: rgba(240, 102, 92, 0.1);
+  }
+}
+
+.svr-hotspot-row.error-flash {
+  animation: svrHotspotErrorFlash 0.5s ease-out;
+}
+
+.svr-hotspot-rail {
+  width: 26px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.svr-hotspot-rail__line {
+  width: 1.5px;
+  flex: 1;
+  background: var(--hsp-off-bg);
+  transition: background 0.3s ease;
+}
+
+.svr-hotspot-rail__line.is-hidden {
+  visibility: hidden;
+}
+
+.svr-hotspot-rail__node {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--hsp-text-faint);
+  background: var(--hsp-off-bg);
+  border: 1px solid var(--hsp-hair);
+  flex-shrink: 0;
+  transition: all 0.25s ease;
+  z-index: 1;
+}
+
+.svr-hotspot-rail__node.dot {
+  width: 14px;
+  height: 14px;
+  font-size: 0;
+}
+
+.svr-hotspot-row[data-state="on"] .svr-hotspot-rail__node {
+  color: #0b1a11;
+  background: var(--hsp-on);
+  border-color: var(--hsp-on);
+  box-shadow: 0 0 10px var(--hsp-on-glow);
+}
+
+.svr-hotspot-row[data-state="error"] .svr-hotspot-rail__node {
+  color: #2a0d0b;
+  background: var(--hsp-err);
+  border-color: var(--hsp-err);
+  box-shadow: 0 0 10px var(--hsp-err-glow);
+}
+
+.svr-hotspot-row[data-state="on"] .svr-hotspot-rail__line--bottom,
+.svr-hotspot-row[data-state="error"] .svr-hotspot-rail__line--bottom {
+  background: var(--hsp-hair-strong);
+}
+
+.svr-hotspot-icon-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.svr-hotspot-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 3px;
+  border: 1px solid var(--hsp-hair);
+  background: rgba(var(--hsp-tint-rgb), 0.02);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--hsp-gold-dim);
+  margin-top: 1px;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.svr-hotspot-row[data-state="on"] .svr-hotspot-icon {
+  color: var(--hsp-on);
+  border-color: rgba(63, 213, 131, 0.3);
+}
+
+.svr-hotspot-row[data-state="error"] .svr-hotspot-icon {
+  color: var(--hsp-err);
+  border-color: rgba(240, 102, 92, 0.3);
+}
+
+.svr-hotspot-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Tiny per-device power LED, docked to the icon's top-right corner like a
+   real gear front-panel indicator. Independent of (and in addition to) the
+   fuller status text + switch further along the row. */
+.svr-hotspot-led {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--hsp-panel);
+  background: var(--hsp-off-bg);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.svr-hotspot-led--off {
+  background: var(--hsp-off);
+}
+
+.svr-hotspot-led--on {
+  background: var(--hsp-on);
+  box-shadow: 0 0 6px var(--hsp-on-glow);
+}
+
+.svr-hotspot-led--error {
+  background: var(--hsp-err);
+  box-shadow: 0 0 6px var(--hsp-err-glow);
+}
+
+.svr-hotspot-info {
+  flex: 1;
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.svr-hotspot-name {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--hsp-text);
+  margin: 0 0 2px;
+}
+
+.svr-hotspot-req {
+  font-size: 11px;
+  color: var(--hsp-text-faint);
+  font-family: "JetBrains Mono", monospace;
+  margin: 2px 0 0;
+  display: none;
+}
+
+.svr-hotspot-row.hint-revealed .svr-hotspot-req {
+  display: block;
+}
+
+.svr-hotspot-status {
+  font-size: 10.5px;
+  font-family: "JetBrains Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 5px;
+  display: inline-block;
+  color: var(--hsp-off);
+}
+
+.svr-hotspot-row[data-state="on"] .svr-hotspot-status {
+  color: var(--hsp-on);
+}
+
+.svr-hotspot-row[data-state="error"] .svr-hotspot-status {
+  color: var(--hsp-err);
+}
+
+.svr-hotspot-warn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  font-size: 10.5px;
+  color: var(--hsp-err);
+  font-family: "JetBrains Mono", monospace;
+}
+
+.svr-hotspot-warn svg {
+  width: 11px;
+  height: 11px;
+}
+
+.svr-hotspot-switch {
+  width: 38px;
+  height: 20px;
+  border-radius: 20px;
+  background: var(--hsp-off-bg);
+  border: 1px solid var(--hsp-hair);
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 2px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.svr-hotspot-switch:focus-visible {
+  outline: 2px solid var(--hsp-gold);
+  outline-offset: 2px;
+}
+
+.svr-hotspot-switch__knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #9aa39c;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s ease;
+}
+
+.svr-hotspot-row[data-state="on"] .svr-hotspot-switch {
+  background: rgba(63, 213, 131, 0.18);
+  border-color: var(--hsp-on);
+}
+
+.svr-hotspot-row[data-state="on"] .svr-hotspot-switch__knob {
+  transform: translateX(18px);
+  background: var(--hsp-on);
+}
+
+.svr-hotspot-row[data-state="error"] .svr-hotspot-switch {
+  background: rgba(240, 102, 92, 0.18);
+  border-color: var(--hsp-err);
+}
+
+.svr-hotspot-row[data-state="error"] .svr-hotspot-switch__knob {
+  transform: translateX(18px);
+  background: var(--hsp-err);
+}
+
+.svr-hotspot-box[data-state="on"] .svr-hotspot-switch {
+  background: rgba(63, 213, 131, 0.18);
+  border-color: var(--hsp-on);
+}
+
+.svr-hotspot-box[data-state="on"] .svr-hotspot-switch__knob {
+  transform: translateX(18px);
+  background: var(--hsp-on);
+}
+
+.svr-hotspot-box[data-state="error"] .svr-hotspot-switch {
+  background: rgba(240, 102, 92, 0.18);
+  border-color: var(--hsp-err);
+}
+
+.svr-hotspot-box[data-state="error"] .svr-hotspot-switch__knob {
+  transform: translateX(18px);
+  background: var(--hsp-err);
+}
+
+.svr-hotspot-panel__footer {
+  padding: 12px 22px 18px;
+  font-size: 10.5px;
+  color: var(--hsp-text-faint);
+  border-top: 1px solid var(--hsp-hair);
+  font-family: "JetBrains Mono", monospace;
+  line-height: 1.6;
+  flex-shrink: 0;
+}
+
+.svr-hotspot-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 15, 10, 0.9);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 7;
+  overflow: hidden;
+}
+
+.svr-hotspot-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.svr-hotspot-confetti-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.svr-hotspot-confetti-piece {
+  position: absolute;
+  top: -10px;
+  width: 6px;
+  height: 10px;
+  opacity: 0.9;
+  animation-name: svrHotspotConfettiFall;
+  animation-timing-function: ease-in;
+  animation-fill-mode: forwards;
+}
+
+@keyframes svrHotspotConfettiFall {
+  to {
+    transform: translateY(420px) rotate(600deg);
+    opacity: 0;
+  }
+}
+
+.svr-hotspot-overlay-card {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 0 30px;
+}
+
+.svr-hotspot-overlay-eyebrow {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  color: var(--hsp-gold);
+  text-transform: uppercase;
+}
+
+.svr-hotspot-overlay-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--hsp-text);
+  margin: 8px 0 12px;
+}
+
+.svr-hotspot-stars {
+  font-size: 26px;
+  letter-spacing: 6px;
+  margin-bottom: 14px;
+  color: var(--hsp-off-bg);
+}
+
+.svr-hotspot-stars span.on {
+  color: var(--hsp-gold);
+  text-shadow: 0 0 12px var(--hsp-gold-glow);
+}
+
+.svr-hotspot-overlay-summary {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11.5px;
+  color: var(--hsp-text-dim);
+  line-height: 1.7;
+  margin-bottom: 20px;
+}
+
+.svr-hotspot-overlay-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.svr-hotspot-obtn {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 10px 18px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.svr-hotspot-obtn--primary {
+  background: var(--hsp-on);
+  border-color: var(--hsp-on);
+  color: #0b1a11;
+  font-weight: 600;
+}
+
+.svr-hotspot-obtn--primary:hover {
+  filter: brightness(1.1);
+}
+
+.svr-hotspot-obtn--secondary {
+  background: transparent;
+  border-color: var(--hsp-hair-strong);
+  color: var(--hsp-text-dim);
+}
+
+.svr-hotspot-obtn--secondary:hover {
+  color: var(--hsp-text);
+  border-color: var(--hsp-gold-dim);
+}
+
+@media (max-width: 720px) {
+  .svr-hotspot-panel {
+    width: 85%;
+    min-width: 0;
+  }
+}

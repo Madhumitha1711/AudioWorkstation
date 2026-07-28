@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studio VR — Power-Up Challenge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#0a0d0b;
+    --panel:#121613;
+    --panel-2:#161b17;
+    --hair:rgba(201,168,110,0.14);
+    --hair-strong:rgba(201,168,110,0.30);
+    --gold:#c9a468;
+    --gold-dim:#8a744c;
+    --gold-glow:rgba(201,168,110,0.35);
+    --text:#eef0ea;
+    --text-dim:#818a82;
+    --text-faint:#525a53;
+    --on:#3fd583;
+    --on-glow:rgba(63,213,131,0.35);
+    --off:#4b524c;
+    --off-bg:#2a2f2b;
+    --err:#f0665c;
+    --err-glow:rgba(240,102,92,0.35);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:#05130c;
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(63,213,131,0.05), transparent 40%),
+      radial-gradient(circle at 80% 90%, rgba(201,168,110,0.05), transparent 45%);
+    min-height:100vh;
+    display:flex;
+    align-items:flex-start;
+    justify-content:flex-end;
+    padding:32px;
+    font-family:'Inter',sans-serif;
+  }
+  .panel{
+    position:relative;
+    width:420px;
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--hair);
+    border-radius:2px;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.6);
+    overflow:hidden;
+  }
+  .panel::after{
+    content:'';
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    background:repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.012) 0px,
+      rgba(255,255,255,0.012) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    mix-blend-mode:overlay;
+    z-index:2;
+  }
+  @keyframes shake{
+    10%,90%{ transform:translateX(-1px); }
+    20%,80%{ transform:translateX(2px); }
+    30%,50%,70%{ transform:translateX(-4px); }
+    40%,60%{ transform:translateX(4px); }
+  }
+  .panel.shake{ animation:shake .45s; }
+
+  .panel-header{
+    position:relative;
+    padding:22px 22px 16px;
+    border-bottom:1px solid var(--hair);
+  }
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10.5px;
+    letter-spacing:0.16em;
+    color:var(--gold);
+    text-transform:uppercase;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .eyebrow::before{
+    content:'';
+    width:6px;height:6px;border-radius:50%;
+    background:var(--on);
+    box-shadow:0 0 8px var(--on-glow);
+  }
+  .eyebrow.fault::before{ background:var(--err); box-shadow:0 0 8px var(--err-glow); }
+  .eyebrow.complete::before{ background:var(--gold); box-shadow:0 0 8px var(--gold-glow); }
+
+  .mute-btn{
+    position:absolute;
+    top:20px; right:20px;
+    width:26px;height:26px;
+    border-radius:2px;
+    border:1px solid var(--hair);
+    background:rgba(255,255,255,0.02);
+    color:var(--text-dim);
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  .mute-btn:hover{ border-color:var(--hair-strong); color:var(--text); }
+  .mute-btn svg{ width:14px;height:14px; }
+
+  .mode-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin:2px 0 14px;
+    padding:8px 10px;
+    border:1px solid var(--hair);
+    border-radius:2px;
+    background:rgba(255,255,255,0.015);
+  }
+  .mode-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+  }
+  .mode-label b{ color:var(--text); font-weight:600; }
+  .mode-switch{
+    width:38px;height:20px;
+    border-radius:20px;
+    background:var(--off-bg);
+    border:1px solid var(--hair);
+    position:relative;
+    cursor:pointer;
+    flex-shrink:0;
+    transition:background .2s ease, border-color .2s ease;
+  }
+  .mode-switch:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+  .mode-switch .knob{
+    position:absolute;
+    top:2px;left:2px;
+    width:14px;height:14px;
+    border-radius:50%;
+    background:#9aa39c;
+    transition:transform .2s cubic-bezier(.4,0,.2,1), background .2s ease;
+  }
+  .mode-switch.on{ background:rgba(201,168,110,0.18); border-color:var(--gold); }
+  .mode-switch.on .knob{ transform:translateX(18px); background:var(--gold); }
+
+  .panel.classic .stats,
+  .panel.classic .best-line,
+  .panel.classic .progress-track,
+  .panel.classic #hintBtn,
+  .panel.classic #newRound{ display:none; }
+  .panel:not(.classic) #classicPowerUp{ display:none; }
+  .panel.classic .req{ display:block !important; }
+
+  .panel-title{
+    font-size:19px;
+    font-weight:600;
+    color:var(--text);
+    margin:8px 0 4px;
+    letter-spacing:-0.01em;
+  }
+  .panel-sub{
+    font-size:12.5px;
+    color:var(--text-dim);
+    line-height:1.5;
+    margin:0 0 14px;
+  }
+
+  .stats{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:8px;
+  }
+  .stat{
+    border:1px solid var(--hair);
+    border-radius:2px;
+    background:rgba(255,255,255,0.015);
+    padding:7px 8px;
+  }
+  .stat-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:9px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    margin:0 0 3px;
+  }
+  .stat-value{
+    font-family:'JetBrains Mono',monospace;
+    font-size:14px;
+    font-weight:600;
+    color:var(--text);
+  }
+  #statMistakes.stat-value.has-faults{ color:var(--err); }
+  .best-line{
+    margin:8px 0 0;
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;
+    color:var(--text-faint);
+    text-align:right;
+  }
+  .best-line b{ color:var(--gold-dim); font-weight:600; }
+
+  .progress-track{
+    display:flex;
+    gap:4px;
+    padding:14px 22px;
+    border-bottom:1px solid var(--hair);
+  }
+  .seg{
+    flex:1;
+    height:4px;
+    border-radius:2px;
+    background:var(--off-bg);
+    transition:background .3s ease, box-shadow .3s ease;
+  }
+  .seg.filled{ background:var(--on); box-shadow:0 0 6px var(--on-glow); }
+
+  .quick-actions{
+    display:flex;
+    gap:8px;
+    padding:14px 22px;
+    border-bottom:1px solid var(--hair);
+  }
+  .qbtn{
+    flex:1;
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;
+    letter-spacing:0.03em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    background:rgba(255,255,255,0.02);
+    border:1px solid var(--hair);
+    border-radius:2px;
+    padding:9px 4px;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  .qbtn:hover{ border-color:var(--hair-strong); color:var(--text); background:rgba(255,255,255,0.04); }
+  .qbtn.hint:hover{ color:var(--gold); border-color:rgba(201,168,110,0.4); }
+  .qbtn.danger:hover{ color:var(--err); border-color:rgba(240,102,92,0.4); }
+
+  .legend{
+    display:flex;
+    gap:16px;
+    padding:12px 22px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;
+    color:var(--text-dim);
+    border-bottom:1px solid var(--hair);
+  }
+  .legend span{ display:flex; align-items:center; gap:6px; }
+  .legend i{ width:7px;height:7px;border-radius:50%; display:inline-block; }
+
+  .list{ padding:6px 10px 14px; }
+  .row{
+    position:relative;
+    display:flex;
+    gap:12px;
+    padding:12px 10px;
+    border-radius:3px;
+    border:1px solid transparent;
+    transition:background .2s ease, border-color .2s ease;
+  }
+  .row:hover{ background:rgba(255,255,255,0.025); }
+
+  @keyframes hintGlow{
+    0%,100%{ box-shadow:none; border-color:transparent; }
+    50%{ box-shadow:0 0 16px rgba(201,168,110,0.35); border-color:var(--gold); }
+  }
+  .row.hint-pulse{ animation:hintGlow 1.6s ease; }
+
+  @keyframes pulseRing{
+    0%{ box-shadow:0 0 0 0 var(--on-glow); }
+    70%{ box-shadow:0 0 0 9px rgba(63,213,131,0); }
+    100%{ box-shadow:0 0 0 0 rgba(63,213,131,0); }
+  }
+  .row.success-pulse .node{ animation:pulseRing .6s ease-out; }
+
+  @keyframes errorFlash{
+    0%,100%{ background:transparent; }
+    30%{ background:rgba(240,102,92,0.10); }
+  }
+  .row.error-flash{ animation:errorFlash .5s ease-out; }
+
+  .rail{
+    width:20px;
+    flex-shrink:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    position:relative;
+  }
+  .rail .line{
+    width:1.5px;
+    flex:1;
+    background:var(--off-bg);
+    transition:background .3s ease;
+  }
+  .rail .line.top{ visibility:hidden; }
+  .row:first-child .rail .line.top{ visibility:visible; opacity:0; }
+  .rail .node{
+    width:22px;height:22px;
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;
+    font-size:9.5px;
+    font-weight:600;
+    color:var(--text-faint);
+    background:var(--off-bg);
+    border:1px solid var(--hair);
+    flex-shrink:0;
+    transition:all .25s ease;
+    z-index:1;
+  }
+  .rail .node.dot{ width:14px;height:14px; font-size:0; }
+  .row[data-state="on"] .rail .node{
+    color:#0b1a11;
+    background:var(--on);
+    border-color:var(--on);
+    box-shadow:0 0 10px var(--on-glow);
+  }
+  .row[data-state="error"] .rail .node{
+    color:#2a0d0b;
+    background:var(--err);
+    border-color:var(--err);
+    box-shadow:0 0 10px var(--err-glow);
+  }
+  .row[data-state="on"] .rail .line.bottom,
+  .row[data-state="error"] .rail .line.bottom{
+    background:var(--hair-strong);
+  }
+
+  .icon-box{
+    width:36px;height:36px;
+    border-radius:3px;
+    border:1px solid var(--hair);
+    background:rgba(255,255,255,0.02);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--gold-dim);
+    flex-shrink:0;
+    margin-top:1px;
+    transition:color .2s ease, border-color .2s ease;
+  }
+  .row[data-state="on"] .icon-box{ color:var(--on); border-color:rgba(63,213,131,0.3); }
+  .row[data-state="error"] .icon-box{ color:var(--err); border-color:rgba(240,102,92,0.3); }
+  .icon-box svg{ width:18px;height:18px; }
+
+  .info{ flex:1; min-width:0; padding-top:1px; }
+  .name{
+    font-size:13.5px;
+    font-weight:500;
+    color:var(--text);
+    margin:0 0 2px;
+  }
+  .req{
+    font-size:11px;
+    color:var(--text-faint);
+    font-family:'JetBrains Mono',monospace;
+    margin:2px 0 0;
+    display:none;
+  }
+  .row.hint-revealed .req{ display:block; }
+  .status{
+    font-size:10.5px;
+    font-family:'JetBrains Mono',monospace;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    margin-top:5px;
+    display:inline-block;
+    color:var(--off);
+  }
+  .row[data-state="on"] .status{ color:var(--on); }
+  .row[data-state="error"] .status{ color:var(--err); }
+
+  .switch{
+    width:38px;height:20px;
+    border-radius:20px;
+    background:var(--off-bg);
+    border:1px solid var(--hair);
+    position:relative;
+    cursor:pointer;
+    flex-shrink:0;
+    margin-top:2px;
+    transition:background .2s ease, border-color .2s ease;
+  }
+  .switch:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+  .switch .knob{
+    position:absolute;
+    top:2px;left:2px;
+    width:14px;height:14px;
+    border-radius:50%;
+    background:#9aa39c;
+    transition:transform .2s cubic-bezier(.4,0,.2,1), background .2s ease;
+  }
+  .row[data-state="on"] .switch{ background:rgba(63,213,131,0.18); border-color:var(--on); }
+  .row[data-state="on"] .switch .knob{ transform:translateX(18px); background:var(--on); }
+  .row[data-state="error"] .switch{ background:rgba(240,102,92,0.18); border-color:var(--err); }
+  .row[data-state="error"] .switch .knob{ transform:translateX(18px); background:var(--err); }
+
+  .warn-tag{
+    display:none;
+    align-items:center;
+    gap:5px;
+    margin-top:6px;
+    font-size:10.5px;
+    color:var(--err);
+    font-family:'JetBrains Mono',monospace;
+  }
+  .row[data-state="error"] .warn-tag{ display:flex; }
+  .warn-tag svg{ width:11px;height:11px; }
+
+  .footer{
+    padding:12px 22px 18px;
+    font-size:10.5px;
+    color:var(--text-faint);
+    border-top:1px solid var(--hair);
+    font-family:'JetBrains Mono',monospace;
+    line-height:1.6;
+  }
+
+  .overlay{
+    position:absolute;
+    inset:0;
+    background:rgba(5,15,10,0.90);
+    backdrop-filter:blur(2px);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .3s ease;
+    z-index:5;
+    overflow:hidden;
+  }
+  .overlay.visible{ opacity:1; pointer-events:auto; }
+  .confetti-piece{
+    position:absolute;
+    top:-10px;
+    width:6px;height:10px;
+    opacity:0.9;
+    animation-name:confettiFall;
+    animation-timing-function:ease-in;
+    animation-fill-mode:forwards;
+  }
+  @keyframes confettiFall{
+    to{ transform:translateY(420px) rotate(600deg); opacity:0; }
+  }
+  .overlay-card{
+    position:relative;
+    z-index:2;
+    text-align:center;
+    padding:0 30px;
+  }
+  .overlay-eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10.5px;
+    letter-spacing:0.18em;
+    color:var(--gold);
+    text-transform:uppercase;
+  }
+  .overlay-title{
+    font-size:22px;
+    font-weight:700;
+    color:var(--text);
+    margin:8px 0 12px;
+  }
+  .stars{
+    font-size:26px;
+    letter-spacing:6px;
+    margin-bottom:14px;
+    color:var(--off-bg);
+  }
+  .stars span.on{ color:var(--gold); text-shadow:0 0 12px var(--gold-glow); }
+  .overlay-summary{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11.5px;
+    color:var(--text-dim);
+    line-height:1.7;
+    margin-bottom:20px;
+  }
+  .overlay-actions{
+    display:flex;
+    gap:8px;
+    justify-content:center;
+  }
+  .obtn{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    padding:10px 18px;
+    border-radius:2px;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  .obtn.primary{
+    background:var(--on);
+    border:1px solid var(--on);
+    color:#0b1a11;
+    font-weight:600;
+  }
+  .obtn.primary:hover{ filter:brightness(1.1); }
+  .obtn.secondary{
+    background:transparent;
+    border:1px solid var(--hair-strong);
+    color:var(--text-dim);
+  }
+  .obtn.secondary:hover{ color:var(--text); border-color:var(--gold-dim); }
+</style>
+</head>
+<body>
+
+<div class="panel" id="panel">
+  <div class="panel-header">
+    <div class="eyebrow" id="eyebrow">Studio VR · Power-up challenge</div>
+    <button class="mute-btn" id="muteBtn" aria-label="Toggle sound" title="Toggle sound">
+      <svg id="muteIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8a5 5 0 0 1 0 8"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+    </button>
+    <h1 class="panel-title" id="panelTitle">Bring the rig online</h1>
+    <p class="panel-sub" id="panelSub">Work out the correct signal order and switch on all seven stations. Guess wrong and the breaker trips.</p>
+
+    <div class="mode-row">
+      <span class="mode-label" id="modeLabel">Game mode: <b>On</b></span>
+      <div class="mode-switch" id="modeSwitch" tabindex="0" role="switch" aria-checked="true" aria-label="Toggle game mode">
+        <div class="knob"></div>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><p class="stat-label">Attempts</p><p class="stat-value" id="statAttempts">0</p></div>
+      <div class="stat"><p class="stat-label">Faults</p><p class="stat-value" id="statMistakes">0</p></div>
+      <div class="stat"><p class="stat-label">Hints</p><p class="stat-value" id="statHints">0</p></div>
+      <div class="stat"><p class="stat-label">Time</p><p class="stat-value" id="statTime">00:00</p></div>
+    </div>
+    <p class="best-line" id="bestLine">No clear yet — power it up once</p>
+  </div>
+
+  <div class="progress-track" id="progressTrack"></div>
+
+  <div class="quick-actions">
+    <button class="qbtn hint" id="hintBtn">Hint</button>
+    <button class="qbtn" id="newRound">New round</button>
+    <button class="qbtn" id="classicPowerUp">Power up in order</button>
+    <button class="qbtn danger" id="powerDown">Power down</button>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:var(--on);box-shadow:0 0 6px var(--on-glow)"></i>On</span>
+    <span><i style="background:var(--off)"></i>Off</span>
+    <span><i style="background:var(--err);box-shadow:0 0 6px var(--err-glow)"></i>Tripped</span>
+  </div>
+
+  <div class="list" id="list"></div>
+
+  <div class="footer" id="footer">
+    Seven stations, one correct order. Two wrong guesses on the same station will reveal a clue.
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="confetti-layer" id="confettiLayer"></div>
+    <div class="overlay-card">
+      <div class="overlay-eyebrow">Signal restored</div>
+      <div class="overlay-title">Sequence complete</div>
+      <div class="stars" id="stars">★ ★ ★</div>
+      <div class="overlay-summary" id="overlaySummary"></div>
+      <div class="overlay-actions">
+        <button class="obtn primary" id="playAgain">Play again</button>
+        <button class="obtn secondary" id="closeOverlay">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const icons = {
+  patchbay: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="6" width="18" height="12" rx="1"/><circle cx="7" cy="10" r="1"/><circle cx="12" cy="10" r="1"/><circle cx="17" cy="10" r="1"/><circle cx="7" cy="14" r="1"/><circle cx="12" cy="14" r="1"/><circle cx="17" cy="14" r="1"/></svg>',
+  preamp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="1"/><circle cx="8" cy="9" r="1.8"/><circle cx="16" cy="9" r="1.8"/><line x1="6" y1="15" x2="18" y2="15"/><line x1="6" y1="18" x2="18" y2="18"/></svg>',
+  soundcard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="16" rx="1"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="2" x2="9" y2="4"/><line x1="15" y1="2" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="22"/><line x1="15" y1="20" x2="15" y2="22"/><line x1="2" y1="9" x2="4" y2="9"/><line x1="2" y1="15" x2="4" y2="15"/><line x1="20" y1="9" x2="22" y2="9"/><line x1="20" y1="15" x2="22" y2="15"/></svg>',
+  daw: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M6 10l2 -3 2 5 2 -6 2 4 2 -2"/><line x1="9" y1="19" x2="15" y2="19"/><line x1="12" y1="16" x2="12" y2="19"/></svg>',
+  mixer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="6" y1="4" x2="6" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/><rect x="4" y="8" width="4" height="3"/><rect x="10" y="13" width="4" height="3"/><rect x="16" y="6" width="4" height="3"/></svg>',
+  diffuser: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="9"/><line x1="15" y1="9" x2="15" y2="15"/><line x1="9" y1="15" x2="9" y2="21"/></svg>',
+  speaker: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="2" width="14" height="20" rx="1.5"/><circle cx="12" cy="8" r="2.5"/><circle cx="12" cy="16" r="4"/></svg>'
+};
+const warnIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 16H3z"/><line x1="12" y1="10" x2="12" y2="14"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg>';
+
+// Canonical correct power-on order. Never rendered in this order — it's the puzzle.
+const devices = [
+  { key:'patchbay',  name:'Patch bay',        icon:'patchbay',  req:'Clue: no dependency — this powers first.' },
+  { key:'preamp',    name:'Preamp rack',      icon:'preamp',    req:'Clue: requires the patch bay.' },
+  { key:'soundcard', name:'Soundcard',        icon:'soundcard', req:'Clue: requires the preamp rack.' },
+  { key:'daw',       name:'DAW workstation',  icon:'daw',       req:'Clue: requires the soundcard.' },
+  { key:'mixer',     name:'Mixing panel',     icon:'mixer',     req:'Clue: requires the DAW workstation.' },
+  { key:'diffuser',  name:'Diffusing panel',  icon:'diffuser',  req:'Clue: requires the mixing panel.' },
+  { key:'speaker',   name:'Speaker',          icon:'speaker',   req:'Clue: requires the diffusing panel — this powers last.' },
+];
+
+const list = document.getElementById('list');
+const progressTrack = document.getElementById('progressTrack');
+const eyebrow = document.getElementById('eyebrow');
+const panelEl = document.getElementById('panel');
+const overlay = document.getElementById('overlay');
+const confettiLayer = document.getElementById('confettiLayer');
+
+let order = [];
+let state = {};
+let consecutiveMiss = {};
+let revealedHints = new Set();
+let mistakes = 0, attempts = 0, hintsUsed = 0;
+let roundOver = false;
+let startTime = null, timerInterval = null;
+let muted = false;
+let audioCtx = null;
+
+function loadGameMode(){
+  try {
+    const v = localStorage.getItem('studioHotspotGameMode');
+    return v === null ? true : v === 'true';
+  } catch(e){ return true; }
+}
+function saveGameMode(v){
+  try { localStorage.setItem('studioHotspotGameMode', String(v)); }
+  catch(e){ /* storage unavailable */ }
+}
+let gameMode = loadGameMode();
+
+function shuffle(arr){
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ---------- audio ----------
+function getCtx(){
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function beep(freq, duration, type, delay, gainVal){
+  if (muted) return;
+  try{
+    const ac = getCtx();
+    const t0 = ac.currentTime + (delay || 0);
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freq, t0);
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(gainVal || 0.05, t0 + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+    osc.connect(gain); gain.connect(ac.destination);
+    osc.start(t0); osc.stop(t0 + duration + 0.02);
+  } catch(e){ /* audio unavailable, fail silently */ }
+}
+function soundOn(){ if (!gameMode) return; beep(520, 0.09, 'sine'); beep(780, 0.12, 'sine', 0.06); }
+function soundOff(){ if (!gameMode) return; beep(280, 0.08, 'sine'); }
+function soundError(){ if (!gameMode) return; beep(160, 0.25, 'sawtooth', 0, 0.06); beep(110, 0.3, 'sawtooth', 0.05, 0.05); }
+function soundHint(){ if (!gameMode) return; beep(880, 0.15, 'triangle'); }
+function soundComplete(){ if (!gameMode) return; [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => beep(f, 0.35, 'sine', i * 0.12, 0.06)); }
+
+document.getElementById('muteBtn').addEventListener('click', () => {
+  muted = !muted;
+  document.getElementById('muteIcon').style.opacity = muted ? 0.35 : 1;
+});
+
+// ---------- timer ----------
+function mmss(sec){
+  const m = Math.floor(sec / 60).toString().padStart(2, '0');
+  const s = Math.floor(sec % 60).toString().padStart(2, '0');
+  return m + ':' + s;
+}
+function startTimer(){
+  startTime = Date.now();
+  timerInterval = setInterval(() => {
+    document.getElementById('statTime').textContent = mmss((Date.now() - startTime) / 1000);
+  }, 250);
+}
+function stopTimer(){
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = null;
+}
+function resetTimerDisplay(){
+  startTime = null;
+  document.getElementById('statTime').textContent = '00:00';
+}
+
+// ---------- best score persistence ----------
+function loadBest(){
+  try { return JSON.parse(localStorage.getItem('studioHotspotBest') || 'null'); }
+  catch(e){ return null; }
+}
+function saveBest(rec){
+  try { localStorage.setItem('studioHotspotBest', JSON.stringify(rec)); }
+  catch(e){ /* storage unavailable */ }
+}
+function refreshBestLine(){
+  const best = loadBest();
+  const el = document.getElementById('bestLine');
+  el.innerHTML = best
+    ? `Best clear: <b>${best.mistakes} faults</b> · <b>${mmss(best.time)}</b>`
+    : 'No clear yet — power it up once';
+}
+
+// ---------- build / render ----------
+function buildList(){
+  list.innerHTML = '';
+  order.forEach((d, i) => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.dataset.key = d.key;
+    row.dataset.state = 'off';
+    // In game mode the station order is the puzzle, so the node stays a blank
+    // dot. In classic mode it shows the real fixed step number for reference.
+    const canonicalIdx = devices.findIndex(dv => dv.key === d.key);
+    const nodeLabel = gameMode ? '' : String(canonicalIdx + 1).padStart(2, '0');
+    const nodeClass = gameMode ? 'node dot' : 'node';
+    row.innerHTML = `
+      <div class="rail">
+        <div class="line top"></div>
+        <div class="${nodeClass}">${nodeLabel}</div>
+        <div class="line bottom" style="${i === order.length - 1 ? 'visibility:hidden' : ''}"></div>
+      </div>
+      <div class="icon-box">${icons[d.icon]}</div>
+      <div class="info">
+        <p class="name">${d.name}</p>
+        <p class="req">${d.req}</p>
+        <span class="status">Off</span>
+        <div class="warn-tag">${warnIcon}<span>Breaker tripped</span></div>
+      </div>
+      <div class="switch" tabindex="0" role="switch" aria-checked="false" aria-label="Power ${d.name}">
+        <div class="knob"></div>
+      </div>
+    `;
+    const sw = row.querySelector('.switch');
+    sw.addEventListener('click', () => toggle(d.key));
+    sw.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(d.key); }
+    });
+    list.appendChild(row);
+  });
+
+  progressTrack.innerHTML = '';
+  devices.forEach(() => {
+    const seg = document.createElement('div');
+    seg.className = 'seg';
+    progressTrack.appendChild(seg);
+  });
+}
+
+function toggle(key){
+  if (roundOver) return;
+  const idx = devices.findIndex(d => d.key === key);
+  const predKey = idx > 0 ? devices[idx - 1].key : null;
+  const row = list.querySelector(`[data-key="${key}"]`);
+
+  if (state[key] === 'off' || state[key] === 'error'){
+    if (!startTime) startTimer();
+    attempts++;
+    const isCorrect = !predKey || state[predKey] === 'on';
+    if (isCorrect){
+      state[key] = 'on';
+      consecutiveMiss[key] = 0;
+      soundOn();
+      row.classList.add('success-pulse');
+      setTimeout(() => row.classList.remove('success-pulse'), 650);
+    } else {
+      state[key] = 'error';
+      mistakes++;
+      consecutiveMiss[key] = (consecutiveMiss[key] || 0) + 1;
+      if (consecutiveMiss[key] >= 2) revealedHints.add(key);
+      soundError();
+      panelEl.classList.remove('shake'); void panelEl.offsetWidth; panelEl.classList.add('shake');
+      row.classList.remove('error-flash'); void row.offsetWidth; row.classList.add('error-flash');
+    }
+  } else {
+    state[key] = 'off';
+    soundOff();
+    for (let j = idx + 1; j < devices.length; j++){
+      if (state[devices[j].key] !== 'off') state[devices[j].key] = 'off';
+    }
+  }
+  render();
+}
+
+function render(){
+  let onCount = 0;
+  devices.forEach(d => {
+    const row = list.querySelector(`[data-key="${d.key}"]`);
+    row.dataset.state = state[d.key];
+    row.classList.toggle('hint-revealed', revealedHints.has(d.key));
+    const label = { off:'Off', on:'Active', error:'Tripped' }[state[d.key]];
+    row.querySelector('.status').textContent = label;
+    row.querySelector('.switch').setAttribute('aria-checked', state[d.key] === 'on');
+    if (state[d.key] === 'on') onCount++;
+  });
+
+  const segs = progressTrack.querySelectorAll('.seg');
+  segs.forEach((seg, i) => seg.classList.toggle('filled', i < onCount));
+
+  document.getElementById('statAttempts').textContent = attempts;
+  const mistakesEl = document.getElementById('statMistakes');
+  mistakesEl.textContent = mistakes;
+  mistakesEl.classList.toggle('has-faults', mistakes > 0);
+  document.getElementById('statHints').textContent = hintsUsed;
+
+  const anyError = devices.some(d => state[d.key] === 'error');
+  const baseLabel = gameMode ? 'Studio VR · Power-up challenge' : 'Studio VR · Live signal path';
+  eyebrow.className = 'eyebrow' + (anyError ? ' fault' : '');
+  eyebrow.textContent = anyError ? 'Studio VR · Breaker tripped' : baseLabel;
+
+  if (gameMode && onCount === devices.length && !roundOver){
+    roundOver = true;
+    stopTimer();
+    const elapsed = startTime ? (Date.now() - startTime) / 1000 : 0;
+    finishRound(elapsed);
+  }
+}
+
+function finishRound(elapsed){
+  eyebrow.className = 'eyebrow complete';
+  eyebrow.textContent = 'Studio VR · Sequence complete';
+  soundComplete();
+
+  const best = loadBest();
+  if (!best || mistakes < best.mistakes || (mistakes === best.mistakes && elapsed < best.time)){
+    saveBest({ mistakes, time: elapsed, hints: hintsUsed });
+  }
+  refreshBestLine();
+
+  const penalty = mistakes + hintsUsed;
+  const starCount = penalty === 0 ? 3 : (penalty <= 2 ? 2 : 1);
+  const starsEl = document.getElementById('stars');
+  starsEl.innerHTML = [1,2,3].map(n => `<span class="${n <= starCount ? 'on' : ''}">★</span>`).join(' ');
+
+  document.getElementById('overlaySummary').innerHTML =
+    `Signal restored in <b>${mmss(elapsed)}</b> · ${mistakes} fault${mistakes === 1 ? '' : 's'} · ${hintsUsed} hint${hintsUsed === 1 ? '' : 's'} used`;
+
+  launchConfetti();
+  overlay.classList.add('visible');
+}
+
+function launchConfetti(){
+  confettiLayer.innerHTML = '';
+  const colors = ['#c9a468', '#3fd583', '#eef0ea', '#8a744c'];
+  for (let i = 0; i < 40; i++){
+    const el = document.createElement('span');
+    el.className = 'confetti-piece';
+    el.style.left = (Math.random() * 100) + '%';
+    el.style.background = colors[Math.floor(Math.random() * colors.length)];
+    el.style.animationDuration = (1.6 + Math.random() * 1.2) + 's';
+    el.style.animationDelay = (Math.random() * 0.4) + 's';
+    el.style.transform = `rotate(${Math.random() * 360}deg)`;
+    confettiLayer.appendChild(el);
+  }
+}
+
+function hint(){
+  if (roundOver) return;
+  const target = devices.find(d => state[d.key] !== 'on');
+  if (!target) return;
+  hintsUsed++;
+  revealedHints.add(target.key);
+  soundHint();
+  const row = list.querySelector(`[data-key="${target.key}"]`);
+  row.classList.remove('hint-pulse'); void row.offsetWidth; row.classList.add('hint-pulse');
+  setTimeout(() => row.classList.remove('hint-pulse'), 1600);
+  render();
+}
+
+function newRound(){
+  order = shuffle(devices);
+  devices.forEach(d => { state[d.key] = 'off'; consecutiveMiss[d.key] = 0; });
+  mistakes = 0; attempts = 0; hintsUsed = 0;
+  revealedHints = new Set();
+  roundOver = false;
+  stopTimer();
+  resetTimerDisplay();
+  overlay.classList.remove('visible');
+  confettiLayer.innerHTML = '';
+  buildList();
+  render();
+  refreshBestLine();
+}
+
+function powerDownAll(){
+  devices.forEach(d => state[d.key] = 'off');
+  render();
+}
+
+function classicPowerUpInOrder(){
+  devices.forEach(d => state[d.key] = 'on');
+  render();
+}
+
+// ---------- mode switching ----------
+const modeSwitchEl = document.getElementById('modeSwitch');
+const modeLabelEl = document.getElementById('modeLabel');
+const panelSubEl = document.getElementById('panelSub');
+const footerEl = document.getElementById('footer');
+
+const GAME_SUB = 'Work out the correct signal order and switch on all seven stations. Guess wrong and the breaker trips.';
+const CLASSIC_SUB = 'Power devices in signal order. Skipping a stage flags it out of sequence.';
+const GAME_FOOTER = 'Seven stations, one correct order. Two wrong guesses on the same station will reveal a clue.';
+const CLASSIC_FOOTER = 'Steps 01–07 reflect the recommended power-on sequence, patch level first, transducers last, to protect the monitors from switch-on transients.';
+
+function applyMode(){
+  panelEl.classList.toggle('classic', !gameMode);
+  modeSwitchEl.classList.toggle('on', gameMode);
+  modeSwitchEl.setAttribute('aria-checked', String(gameMode));
+  modeLabelEl.innerHTML = 'Game mode: <b>' + (gameMode ? 'On' : 'Off') + '</b>';
+  panelSubEl.textContent = gameMode ? GAME_SUB : CLASSIC_SUB;
+  footerEl.textContent = gameMode ? GAME_FOOTER : CLASSIC_FOOTER;
+
+  order = gameMode ? shuffle(devices) : devices.slice();
+  devices.forEach(d => { state[d.key] = 'off'; consecutiveMiss[d.key] = 0; });
+  mistakes = 0; attempts = 0; hintsUsed = 0;
+  revealedHints = new Set();
+  roundOver = false;
+  stopTimer();
+  resetTimerDisplay();
+  overlay.classList.remove('visible');
+  confettiLayer.innerHTML = '';
+
+  buildList();
+  render();
+  refreshBestLine();
+}
+
+function toggleGameMode(){
+  gameMode = !gameMode;
+  saveGameMode(gameMode);
+  applyMode();
+}
+
+modeSwitchEl.addEventListener('click', toggleGameMode);
+modeSwitchEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggleGameMode(); }
+});
+
+document.getElementById('hintBtn').addEventListener('click', hint);
+document.getElementById('newRound').addEventListener('click', newRound);
+document.getElementById('classicPowerUp').addEventListener('click', classicPowerUpInOrder);
+document.getElementById('powerDown').addEventListener('click', powerDownAll);
+document.getElementById('playAgain').addEventListener('click', newRound);
+document.getElementById('closeOverlay').addEventListener('click', () => overlay.classList.remove('visible'));
+
+applyMode();
+</script>
+</body>
+</html>

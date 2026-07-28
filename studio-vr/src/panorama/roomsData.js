@@ -237,6 +237,34 @@ export const ROOMS = [
           ],
         },
       },
+      // 8th gear hotspot — up at the monitors themselves (same spot the DAW
+      // hotspot originally used before it briefly moved to a purely
+      // interactive marker). Behaves exactly like every hotspot above: a
+      // numbered badge (8, since it's declared last in this array) that
+      // opens the standard svr-tour-gear-panel with description + course/quiz
+      // choice. `course.id: "daw-screens"` matches the existing ready-to-go
+      // topic in course/courseData.js (full lessons + a 5-question
+      // "daw-assessment" quiz), so "Test your knowledge" and "Start course"
+      // both work already, same as any other numbered hotspot. The separate
+      // `daw-desk` interactive marker below is what actually opens the live
+      // DawWorkstationScreen — this one is read-only info, on purpose.
+      {
+        id: "daw-screens",
+        yaw: 62.2,
+        pitch: 14.8,
+        title: "DAW Workstation",
+        description:
+          "The dual displays run the software brain of the studio — a Digital Audio Workstation (DAW) that records, edits, arranges, and mixes audio once it's been converted to digital form. It's the modern equivalent of a multitrack tape machine, a mixing console, and a full rack of outboard effects, all represented as tracks, faders, and plugins on screen.",
+        course: {
+          id: "daw-screens",
+          objectives: [
+            "What a DAW actually does: recording, editing, arranging, processing, and mixing audio in one program",
+            "Recall — instantly returning a session to an exact prior state, something an analog console can't do on its own",
+            "Comping: assembling one ideal take by combining the best parts of multiple recorded takes",
+            "Non-destructive editing and plugin processing vs. a one-way, destructive print through outboard hardware",
+          ],
+        },
+      },
     ],
     // Functional processing hotspots — distinct from the descriptive `markers`
     // above: instead of opening a read-only info panel, these open a live
@@ -253,12 +281,27 @@ export const ROOMS = [
     // genuine binaural "sitting between the speakers" feel that pans as you
     // look around, instead of playing dead-center.
     interactiveMarkers: [
+      // Desk/keyboard-height entry point — separate from the "daw-screens"
+      // numbered gear hotspot above (same monitors, but that one just opens
+      // an info panel). This is the one that actually opens the live DAW UI.
+      // Kept its own `icon` (keyboard, not the default screen glyph) since
+      // it's the only interactive marker left here, but the override still
+      // reads correctly either way (see interactiveMarkerHtml in
+      // PanoramaTour.jsx).
       {
-        id: "daw-screens",
+        id: "daw-desk",
         type: "daw",
-        yaw: 62.2,
-        pitch: 14.8,
+        yaw: 62.0,
+        pitch: 4.1,
         title: "DAW Workstation",
+        icon: "⌨️",
+        // Kept out of the left-docked StudioHotspotsPanel device list /
+        // power-up game (see buildDeviceList in hotspotDevices.js) — the
+        // numbered "daw-screens" gear hotspot above is what represents this
+        // spot in that list (and in SIGNAL_ORDER's signal chain); this is
+        // just an extra way to reach the live module from the scene, not a
+        // second real device to power up.
+        secondaryEntry: true,
       },
     ],
   },

@@ -26,6 +26,11 @@ import {
   isRoomBleedMuted,
 } from "../audio/spatialAudioEngine";
 import DawWorkstationScreen from "./DawWorkstationScreen";
+import StudioHotspotsPanel from "./StudioHotspotsPanel";
+// Component is HotspotKnowledgeCheck; the file itself is still named
+// HotspotPrecheck.jsx — see the note at the top of that file.
+import HotspotKnowledgeCheck from "./HotspotPrecheck";
+import { TOPICS } from "../course/courseData";
 import "./panoramaTour.css";
 
 const DEFAULT_AMBIENCE = { filterFreq: 500, gain: 0.03, gustDepth: 0.015 };
@@ -63,10 +68,13 @@ const doorMarkerHtml = () => `
 // Icon badge (no number) for functional processing hotspots — instead of
 // the numbered/lettered treatment gear markers get. The icon itself is what
 // signals "this opens a live, interactive module" rather than "read more
-// about this piece of gear"; unlike gear/door markers there's currently
-// only one of these (the DAW workstation) so it just uses the same green
-// ring/dot as the plain gear hotspots below — pass `variant` if a future
-// interactive marker needs a distinct color.
+// about this piece of gear". Two of these can now point at the same module
+// (e.g. the DAW's monitor-height and desk-height hotspots) so each carries
+// its own icon (see the `icon` field on roomsData.js interactiveMarkers
+// entries) rather than always sharing one glyph per `type` — that's what
+// keeps two hotspots for the same device from rendering as visually
+// identical, unlabeled duplicates. Pass `variant` if a future interactive
+// marker needs a distinct ring/dot color too, not just a different icon.
 const interactiveMarkerHtml = (icon, variant) => `
   <div class="hotspot-marker${variant ? ` hotspot-marker--${variant}` : ""}">
     <span class="hotspot-marker__ring${variant ? ` hotspot-marker__ring--${variant}` : ""}"></span>
@@ -155,7 +163,9 @@ function buildNodes() {
       ...(room.interactiveMarkers || []).map((marker) => ({
         id: marker.id,
         position: { yaw: deg(marker.yaw), pitch: deg(marker.pitch) },
-        html: interactiveMarkerHtml(marker.type === "daw" ? "🖥" : "⚡"),
+        html: interactiveMarkerHtml(
+          marker.icon ?? (marker.type === "daw" ? "🖥" : "⚡"),
+        ),
         size: { width: 34, height: 34 },
         anchor: "center center",
         zoomLvl: marker.zoomLvl ?? 60,
@@ -203,6 +213,10 @@ function PanoramaTour() {
   const markersRef = useRef(null);
   const virtualTourRef = useRef(null);
   const goToMarkerRef = useRef(null);
+  // Same purpose as goToMarkerRef, for interactive hotspots (e.g. the DAW
+  // workstation) — exposed so the left-docked StudioHotspotsPanel can drive
+  // real navigation for those too, not just plain gear hotspots.
+  const goToInteractiveMarkerRef = useRef(null);
   const hasArrivedRef = useRef(false);
   // Tracks whichever hotspot was requested most recently, so that if a
   // second hotspot is clicked before the first one's arrival animation
@@ -227,6 +241,14 @@ function PanoramaTour() {
   const [currentRoomName, setCurrentRoomName] = useState("");
   const [currentRoomId, setCurrentRoomId] = useState(START_NODE_ID);
   const [activeGear, setActiveGear] = useState(null);
+  // Whether the currently-open gear panel (activeGear) is showing the
+  // optional 5-question "Test your knowledge" quiz (HotspotKnowledgeCheck,
+  // exported from HotspotPrecheck.jsx) instead of its "choose how to start"
+  // view. Selecting a hotspot always opens straight to the choice screen
+  // first — this only flips true once the student clicks "Test your
+  // knowledge" there, and flips back on skip/close/picking a different
+  // hotspot. See the gear-panel body below for where it's set.
+  const [quizActive, setQuizActive] = useState(false);
   // Whichever EQ/Compressor interactive hotspot is currently open, or null.
   // Kept separate from activeGear (rather than folded into one "active
   // panel" union) since gear hotspots and interactive hotspots are opened by
@@ -350,6 +372,7 @@ function PanoramaTour() {
       setCurrentRoomName(e.node.name || e.node.id);
       setCurrentRoomId(e.node.id);
       setActiveGear(null);
+      setQuizActive(false);
       setActiveModule(null);
       setActiveVolumeControl(null);
       latestRequestRef.current = null;
@@ -420,7 +443,12 @@ function PanoramaTour() {
         if (latestRequestRef.current !== markerId) return;
         setActiveModule(null);
         setActiveVolumeControl(null);
+        // Selecting a hotspot always opens straight to its "choose how to
+        // start" panel (Test your knowledge / Start course) — the optional
+        // quiz is a detour the student opts into from there, not something
+        // that gates anything. See the gear-panel body below.
         setActiveGear(marker.data);
+        setQuizActive(false);
         setSelectedMarkerEl(markerId);
         // Narration audio is intentionally not played here — selecting a
         // hotspot only reveals its text panel (title/description below).
@@ -446,11 +474,13 @@ function PanoramaTour() {
         if (latestRequestRef.current !== markerId) return;
         stopHotspotNarration();
         setActiveGear(null);
+        setQuizActive(false);
         setActiveVolumeControl(null);
         setActiveModule(data);
         setSelectedMarkerEl(markerId);
       });
     };
+    goToInteractiveMarkerRef.current = goToInteractiveMarker;
 
     // Unlike goToMarker/goToInteractiveMarker above, a `kind: "volume"`
     // hotspot (see roomsData.js `volumeControls`) does NOT walk the camera
@@ -469,6 +499,7 @@ function PanoramaTour() {
       }
       latestRequestRef.current = markerId;
       setActiveGear(null);
+      setQuizActive(false);
       setActiveModule(null);
       setActiveVolumeControl(data);
       setSelectedMarkerEl(markerId);
@@ -554,9 +585,12 @@ function PanoramaTour() {
 
   // Closes the panel and eases the camera back out to the wide resting
   // view instead of leaving it parked at the hotspot's zoomed-in position.
+  // Works the same whether the choice screen or the quiz is showing —
+  // either way, from the student's point of view this hotspot is closing.
   const closeGearPanel = () => {
     stopHotspotNarration();
     setActiveGear(null);
+    setQuizActive(false);
     clearSelectedMarkerEl();
     viewerRef.current?.animate({ zoom: REST_ZOOM_LVL, speed: "10rpm" });
   };
@@ -623,6 +657,7 @@ function PanoramaTour() {
   const goToRoom = (nodeId) => {
     stopHotspotNarration();
     setActiveGear(null);
+    setQuizActive(false);
     setActiveModule(null);
     setActiveVolumeControl(null);
     clearSelectedMarkerEl();
@@ -664,6 +699,28 @@ function PanoramaTour() {
     console.log("[next-hotspot] advancing to:", next.id);
     goToMarkerRef.current?.(next.id);
   };
+
+  // Wired into StudioHotspotsPanel (the left-docked "Hotspots" panel) below
+  // — clicking a device row there should behave exactly like clicking its
+  // marker directly in the scene, just routed through the same
+  // goToMarker/goToInteractiveMarker paths instead of a marker click event.
+  const handlePanelSelectDevice = (kind, id) => {
+    if (kind === "interactive") {
+      const marker = markersRef.current?.getMarker(id);
+      if (marker) goToInteractiveMarkerRef.current?.(id, marker.data);
+    } else {
+      goToMarkerRef.current?.(id);
+    }
+  };
+
+  const currentRoom = ROOMS.find((room) => room.id === currentRoomId);
+  // The topic behind the currently-open gear hotspot, if any — used to look
+  // up this topic's 5-question assessment bank for the optional "Test your
+  // knowledge" quiz. Only ready topics have an assessment; everything else
+  // (locked/"coming soon" gear) simply won't show the quiz option, and the
+  // choice panel below falls back to "Start course" alone.
+  const activeTopic = activeGear ? TOPICS.find((t) => t.id === activeGear.id) : null;
+  const quizQuestions = activeTopic?.assessment?.questions ?? [];
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
@@ -757,7 +814,16 @@ function PanoramaTour() {
         </div>
       )}
 
-      {activeGear && (
+      {status === "ready" && (
+        <StudioHotspotsPanel
+          room={currentRoom}
+          activeGear={activeGear}
+          activeModule={activeModule}
+          onSelectDevice={handlePanelSelectDevice}
+        />
+      )}
+
+      {activeGear && !quizActive && (
         <div className="svr-tour-gear-panel">
           <div className="svr-tour-gear-panel__head">
             <span className="svr-tour-gear-badge">{activeGear.number}</span>
@@ -765,7 +831,7 @@ function PanoramaTour() {
               <div className="svr-tour-gear-panel__title">
                 {activeGear.title}
               </div>
-              <div className="svr-tour-gear-panel__kicker">Gear info</div>
+              <div className="svr-tour-gear-panel__kicker">Choose how to start</div>
             </div>
             <button
               onClick={closeGearPanel}
@@ -776,22 +842,51 @@ function PanoramaTour() {
             </button>
           </div>
 
-          <div className="svr-tour-gear-panel__body">
-            <div className="svr-tour-gear-panel__desc">
-              {activeGear.description}
-            </div>
+          <div className="svr-tour-gear-panel__body svr-tour-choice-body">
+            {quizQuestions.length === 0 && !activeGear.course?.id && (
+              // Neither a quiz nor a course exists yet for this hotspot —
+              // every gear marker in roomsData.js currently ships a
+              // course.id, so this is only a defensive fallback for future
+              // hotspots added without one, not something students see today.
+              <p className="svr-tour-choice-empty">
+                Course content for {activeGear.title} is coming soon.
+              </p>
+            )}
 
-            {activeGear.course?.objectives?.length > 0 && (
-              <>
-                <div className="svr-tour-section-label">
-                  What you'll learn
-                </div>
-                <ul className="svr-tour-checklist">
-                  {activeGear.course.objectives.map((point, i) => (
-                    <li key={i}>{point}</li>
-                  ))}
-                </ul>
-              </>
+            {quizQuestions.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setQuizActive(true)}
+                className="svr-tour-choice-card svr-tour-choice-card--quiz"
+              >
+                <span className="svr-tour-choice-card-icon" aria-hidden="true">🧠</span>
+                <span className="svr-tour-choice-card-text">
+                  <span className="svr-tour-choice-card-title">Test your knowledge</span>
+                  <span className="svr-tour-choice-card-sub">
+                    {quizQuestions.length} quick questions on {activeGear.title.toLowerCase()} — optional
+                  </span>
+                </span>
+              </button>
+            )}
+
+            {activeGear.course?.id && (
+              <button
+                type="button"
+                onClick={() => {
+                  // activeGear.id is the hotspot's marker id (e.g. "speaker"),
+                  // which is also the topic id in src/course/courseData.js —
+                  // CoursePage reads this route state to open directly on
+                  // the right topic instead of the default one.
+                  navigate("/course", { state: { topicId: activeGear.id } });
+                }}
+                className="svr-tour-choice-card svr-tour-choice-card--course"
+              >
+                <span className="svr-tour-choice-card-icon" aria-hidden="true">▶</span>
+                <span className="svr-tour-choice-card-text">
+                  <span className="svr-tour-choice-card-title">Start course</span>
+                  <span className="svr-tour-choice-card-sub">Jump straight into the lesson</span>
+                </span>
+              </button>
             )}
           </div>
 
@@ -802,23 +897,20 @@ function PanoramaTour() {
             >
               Next →
             </button>
-            {activeGear.course?.id && (
-              <button
-                onClick={() => {
-                  // activeGear.id is the hotspot's marker id (e.g. "speaker",
-                  // "daw-screens"), which is also the topic id in
-                  // src/course/courseData.js — CoursePage reads this route
-                  // state to open directly on the right topic instead of the
-                  // default one.
-                  navigate("/course", { state: { topicId: activeGear.id } });
-                }}
-                className="svr-tour-btn svr-tour-btn-primary"
-              >
-                Start course
-              </button>
-            )}
           </div>
         </div>
+      )}
+
+      {activeGear && quizActive && (
+        <HotspotKnowledgeCheck
+          key={activeGear.id}
+          gear={activeGear}
+          questions={quizQuestions}
+          onSkip={() => setQuizActive(false)}
+          onBackToOverview={() => setQuizActive(false)}
+          onStartCourse={() => navigate("/course", { state: { topicId: activeGear.id } })}
+          onClose={closeGearPanel}
+        />
       )}
 
       {activeVolumeControl && (

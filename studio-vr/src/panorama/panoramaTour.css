@@ -183,7 +183,17 @@
   box-shadow: var(--shadow);
   max-width: calc(100vw - 32px);
   font-family: sans-serif;
-  z-index: 5;
+  /* Photo Sphere Viewer's own hotspot markers (.psv-marker--normal) render
+     at z-index: 30 with no stacking context isolating them from the rest of
+     the page (.psv-container never sets its own z-index), so anything here
+     under ~30 can get painted underneath a marker whose current screen
+     position happens to land inside this panel's box. Every floating panel
+     in this file (toolbar/hint-chip/gear-panel/volume-panel, plus the
+     precheck panel which reuses .svr-tour-gear-panel) is bumped to 60 for
+     that reason — comfortably above the highest marker-related z-index
+     (30) without reaching into the viewer's own navbar/notification layers
+     (90+), which this UI never needs to sit above anyway. */
+  z-index: 60;
 }
 .svr-tour-room-block {
   display: flex;
@@ -273,10 +283,13 @@
 }
 
 /* ---------- Collapsible hint chip ---------- */
+/* Anchored bottom-right rather than bottom-left so it doesn't sit under the
+   left-docked StudioHotspotsPanel (see studioHotspotsPanel.css), which
+   spans the full height of the left 30% of the screen. */
 .svr-tour-hint-chip {
   position: absolute;
   bottom: 16px;
-  left: 16px;
+  right: 16px;
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -288,7 +301,7 @@
   max-width: 320px;
   cursor: pointer;
   font-family: sans-serif;
-  z-index: 5;
+  z-index: 60;
 }
 .svr-tour-hint-chip.open {
   padding: 8px 12px 10px 8px;
@@ -328,7 +341,7 @@
   font-family: sans-serif;
   color: var(--shell-text);
   animation: svr-tour-slide-in 0.2s ease-out;
-  z-index: 5;
+  z-index: 60;
 }
 @keyframes svr-tour-slide-in {
   from {
@@ -396,11 +409,6 @@
   padding: 14px 16px;
   overflow-y: auto;
 }
-.svr-tour-gear-panel__desc {
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--shell-text-dim);
-}
 .svr-tour-section-label {
   font-size: 10.5px;
   text-transform: uppercase;
@@ -408,41 +416,116 @@
   color: var(--shell-text-dimmer);
   margin: 16px 0 8px;
 }
-.svr-tour-checklist {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+
+/* ---------- "Choose how to start" body (PanoramaTour.jsx's activeGear
+   panel, quiz-inactive view) ------
+   Replaces what used to be a description + "what you'll learn" checklist:
+   selecting a hotspot no longer shows any read-only content screen at
+   all — just two big equally-weighted choices, "Test your knowledge" and
+   "Start course". Both go straight for the decision instead of easing into
+   it with copy first. */
+.svr-tour-choice-body {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 10px;
 }
-.svr-tour-checklist li {
-  display: flex;
-  gap: 8px;
+.svr-tour-choice-empty {
   font-size: 12.5px;
   line-height: 1.5;
-  color: var(--shell-text);
+  color: var(--shell-text-dimmer);
+  margin: 4px 0;
 }
-.svr-tour-checklist li::before {
-  content: "\2713";
+.svr-tour-choice-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+.svr-tour-choice-card:active {
+  transform: scale(0.99);
+}
+.svr-tour-choice-card-icon {
   flex-shrink: 0;
-  width: 16px;
-  height: 16px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  background: rgba(34, 255, 130, 0.15);
-  color: #22c76a;
-  font-size: 10px;
-  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 2px;
+  font-size: 15px;
 }
+.svr-tour-choice-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.svr-tour-choice-card-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--shell-text);
+}
+.svr-tour-choice-card-sub {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--shell-text-dimmer);
+}
+/* "Test your knowledge" — the optional detour. Quieter dashed treatment so
+   it reads as inviting-but-optional next to the solid "Start course" card
+   below, same intent as the old svr-tour-btn-quiz footer button this
+   replaced. */
+.svr-tour-choice-card--quiz {
+  background: rgba(34, 255, 85, 0.06);
+  border: 1px dashed rgba(34, 255, 85, 0.35);
+}
+.svr-tour-choice-card--quiz:hover {
+  background: rgba(34, 255, 85, 0.12);
+  border-color: rgba(34, 255, 85, 0.55);
+}
+.svr-tour-choice-card--quiz .svr-tour-choice-card-icon {
+  background: rgba(34, 255, 85, 0.14);
+}
+/* "Start course" — the direct/default path, solid green to match
+   svr-tour-btn-primary's weight elsewhere in this file. */
+.svr-tour-choice-card--course {
+  background: #22ff55;
+  border: 1px solid transparent;
+}
+.svr-tour-choice-card--course:hover {
+  opacity: 0.92;
+}
+.svr-tour-choice-card--course .svr-tour-choice-card-icon {
+  background: rgba(10, 10, 10, 0.12);
+  color: #0a0a0a;
+}
+.svr-tour-choice-card--course .svr-tour-choice-card-title,
+.svr-tour-choice-card--course .svr-tour-choice-card-sub {
+  color: #0a0a0a;
+}
+.svr-tour-choice-card--course .svr-tour-choice-card-sub {
+  opacity: 0.75;
+}
+
 .svr-tour-gear-panel__footer {
   display: flex;
+  flex-direction: column;
   gap: 8px;
   padding: 12px 16px 14px;
   border-top: 1px solid var(--shell-border-soft);
+}
+/* Wraps a row of buttons within the footer (e.g. the knowledge-check
+   results screen's "Back" / "Start course" pair below) — the footer itself
+   stacks rows top to bottom, each row lays its own buttons out side by
+   side. */
+.svr-tour-gear-panel__footer-row {
+  display: flex;
+  gap: 8px;
 }
 .svr-tour-btn {
   flex: 1;
@@ -452,7 +535,7 @@
   font-weight: 700;
   cursor: pointer;
   text-align: center;
-  transition: opacity 0.15s ease, background 0.15s ease;
+  transition: opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 .svr-tour-btn-primary {
   background: #22ff55;
@@ -469,6 +552,192 @@
 }
 .svr-tour-btn-secondary:hover {
   background: var(--shell-panel-hover);
+}
+.svr-tour-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ---------- Hotspot "Test your knowledge" quiz (HotspotKnowledgeCheck,
+   exported from panorama/HotspotPrecheck.jsx — see the note at the top of
+   that file) ------
+   Reuses the .svr-tour-gear-panel shell (same head/body/footer/close).
+   Launched from the "choose how to start" body above rather than gating
+   it — that view always opens first and always offers "Start course"
+   directly, with no read-only content in between. Walks through
+   courseData.js's topic.assessment.questions (the same 5-question bank
+   AssessmentSection.jsx shows all at once inside the actual course) one
+   question per screen, with a segmented progress row up top and a
+   "Skip questions" escape hatch in the footer at every step. Loosely
+   mirrors AssessmentSection.css's choose/submit states, restyled to fit
+   the compact floating panel. */
+.svr-tour-precheck-progress {
+  display: flex;
+  gap: 4px;
+  padding: 0 16px 12px;
+}
+.svr-tour-precheck-progress-seg {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--shell-border);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+.svr-tour-precheck-progress-seg.filled {
+  background: #22ff55;
+  box-shadow: 0 0 6px rgba(34, 255, 85, 0.4);
+}
+.svr-tour-precheck-progress-seg.current:not(.filled) {
+  background: var(--shell-text-dimmer);
+}
+.svr-tour-precheck-skip {
+  align-self: center;
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  font-size: 11.5px;
+  color: var(--shell-text-dimmer);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.svr-tour-precheck-skip:hover {
+  color: var(--shell-text-dim);
+}
+.svr-tour-precheck-score {
+  text-align: center;
+  padding: 10px 12px 16px;
+  border-bottom: 1px solid var(--shell-border-soft);
+  margin-bottom: 14px;
+}
+.svr-tour-precheck-score-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--shell-text);
+}
+.svr-tour-precheck-score-note {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--shell-text-dimmer);
+}
+.svr-tour-precheck-recap {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.svr-tour-precheck-recap li {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--shell-text-dim);
+}
+.svr-tour-precheck-recap-mark {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+.svr-tour-precheck-recap li.good .svr-tour-precheck-recap-mark {
+  background: rgba(34, 199, 106, 0.15);
+  color: #22c76a;
+}
+.svr-tour-precheck-recap li.bad .svr-tour-precheck-recap-mark {
+  background: rgba(255, 92, 92, 0.15);
+  color: #ff5c5c;
+}
+.svr-tour-precheck-lede {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--shell-text-dimmer);
+}
+.svr-tour-precheck-question {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  margin-bottom: 12px;
+}
+.svr-tour-precheck-options {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.svr-tour-precheck-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--shell-border);
+  background: var(--shell-panel);
+  color: var(--shell-text);
+  font-size: 12.5px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.svr-tour-precheck-option:hover:not(:disabled) {
+  background: var(--shell-panel-hover);
+}
+.svr-tour-precheck-option:disabled {
+  cursor: default;
+}
+.svr-tour-precheck-option-mark {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--shell-border);
+}
+.svr-tour-precheck-option.selected {
+  border-color: #22ff55;
+}
+.svr-tour-precheck-option.selected .svr-tour-precheck-option-mark {
+  border-color: #22ff55;
+  background: #22ff55;
+}
+.svr-tour-precheck-option.correct {
+  border-color: #22c76a;
+  background: rgba(34, 199, 106, 0.12);
+}
+.svr-tour-precheck-option.correct .svr-tour-precheck-option-mark {
+  border-color: #22c76a;
+  background: #22c76a;
+}
+.svr-tour-precheck-option.incorrect {
+  border-color: #ff5c5c;
+  background: rgba(255, 92, 92, 0.1);
+}
+.svr-tour-precheck-option.incorrect .svr-tour-precheck-option-mark {
+  border-color: #ff5c5c;
+  background: #ff5c5c;
+}
+.svr-tour-precheck-feedback {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.svr-tour-precheck-feedback.good {
+  background: rgba(34, 199, 106, 0.12);
+  color: #7dffb8;
+}
+.svr-tour-precheck-feedback.bad {
+  background: rgba(255, 92, 92, 0.1);
+  color: #ff9d9d;
 }
 
 /* ---------- Volume-control panel (roomsData.js volumeControls) ------
@@ -488,7 +757,7 @@
   font-family: sans-serif;
   color: var(--shell-text);
   animation: svr-tour-slide-in 0.2s ease-out;
-  z-index: 5;
+  z-index: 60;
 }
 .svr-tour-volume-panel__head {
   display: flex;
