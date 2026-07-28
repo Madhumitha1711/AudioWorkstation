@@ -151,6 +151,12 @@
     }
   }
 
+  .land-greeting {
+    font-size: 13px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
   .theme-toggle-btn {
     width: 34px;
     height: 34px;

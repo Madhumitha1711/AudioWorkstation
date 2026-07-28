@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { ThemeToggle } from "../theme/ThemeToggle";
+import { logOff } from "../store/sessionSlice";
 import "./LandingPage.css";
 
 const TOPICS = [
@@ -22,13 +24,32 @@ const HOW_STEPS = [
 
 function LandingPage() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [videoOpen, setVideoOpen] = useState(false);
   const rootRef = useRef(null);
+
+  // A signed-in student still lands here (this is "/"), so the header/hero
+  // need to reflect that instead of always offering Sign in / Sign up —
+  // see RequireAuth.jsx and Header.jsx for how the rest of the app reads
+  // this same session state.
+  const studentName = useSelector((state) => state.session.studentName);
+  const token = useSelector((state) => state.session.token);
+  const hasPaid = useSelector((state) => state.session.hasPaid);
+  const isSignedIn = Boolean(token);
 
   // Sign up now opens the studio door (a short account-creation moment)
   // before handing off to checkout, instead of jumping straight to payment.
   const goToSignUp = () => navigate("/signup");
   const goToSignIn = () => navigate("/login");
+
+  // A signed-in student's primary CTA should pick up wherever they left
+  // off: straight into the studio if they've paid, otherwise back to
+  // checkout (mirrors RequireAuth's own redirect logic).
+  const goToStudio = () => navigate(hasPaid ? "/studio" : "/payment");
+
+  const handleLogOff = () => {
+    dispatch(logOff());
+  };
 
   const scrollToCurriculum = () => {
     document.getElementById("curriculum")?.scrollIntoView({ behavior: "smooth" });
@@ -65,12 +86,26 @@ function LandingPage() {
           <button className="btn-ghost" onClick={scrollToCurriculum}>
             Curriculum
           </button>
-          <button className="btn-ghost" onClick={goToSignIn}>
-            Sign in
-          </button>
-          <button className="btn-primary" onClick={goToSignUp}>
-            Sign up
-          </button>
+          {isSignedIn ? (
+            <>
+              <span className="land-greeting">Hi, {studentName}</span>
+              <button className="btn-ghost" onClick={handleLogOff}>
+                Log off
+              </button>
+              <button className="btn-primary" onClick={goToStudio}>
+                {hasPaid ? "Enter the studio" : "Finish checkout"}
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn-ghost" onClick={goToSignIn}>
+                Sign in
+              </button>
+              <button className="btn-primary" onClick={goToSignUp}>
+                Sign up
+              </button>
+            </>
+          )}
           <ThemeToggle className="theme-toggle-btn" />
         </div>
       </header>
@@ -92,12 +127,20 @@ function LandingPage() {
             in the room.
           </p>
           <div className="hero-ctas">
-            <button className="btn-primary" onClick={goToSignUp}>
-              Sign up — get access →
-            </button>
-            <button className="btn-secondary" onClick={goToSignIn}>
-              Sign in
-            </button>
+            {isSignedIn ? (
+              <button className="btn-primary" onClick={goToStudio}>
+                {hasPaid ? "Enter the studio →" : "Finish checkout →"}
+              </button>
+            ) : (
+              <>
+                <button className="btn-primary" onClick={goToSignUp}>
+                  Sign up — get access →
+                </button>
+                <button className="btn-secondary" onClick={goToSignIn}>
+                  Sign in
+                </button>
+              </>
+            )}
           </div>
           <div className="hero-meta">
             <span>
@@ -171,11 +214,27 @@ function LandingPage() {
       </section>
 
       <div className="cta-band reveal">
-        <h2>Ready to step into the studio?</h2>
-        <p>Full curriculum, narrated lessons, and the 360° tour — all in one sign up.</p>
-        <button className="btn-primary" onClick={goToSignUp}>
-          Sign up — get access →
-        </button>
+        {isSignedIn ? (
+          <>
+            <h2>Ready to step into the studio?</h2>
+            <p>
+              {hasPaid
+                ? "Pick up right where you left off, in the full 360° tour."
+                : "Finish checkout to unlock every lesson and the full 360° tour."}
+            </p>
+            <button className="btn-primary" onClick={goToStudio}>
+              {hasPaid ? "Enter the studio →" : "Finish checkout →"}
+            </button>
+          </>
+        ) : (
+          <>
+            <h2>Ready to step into the studio?</h2>
+            <p>Full curriculum, narrated lessons, and the 360° tour — all in one sign up.</p>
+            <button className="btn-primary" onClick={goToSignUp}>
+              Sign up — get access →
+            </button>
+          </>
+        )}
       </div>
 
       <div className="land-footer">© 2026 Studio VR. An interactive audio engineering course.</div>
