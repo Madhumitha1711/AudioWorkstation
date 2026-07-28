@@ -68,13 +68,15 @@ const doorMarkerHtml = () => `
 // Icon badge (no number) for functional processing hotspots — instead of
 // the numbered/lettered treatment gear markers get. The icon itself is what
 // signals "this opens a live, interactive module" rather than "read more
-// about this piece of gear". Two of these can now point at the same module
-// (e.g. the DAW's monitor-height and desk-height hotspots) so each carries
-// its own icon (see the `icon` field on roomsData.js interactiveMarkers
-// entries) rather than always sharing one glyph per `type` — that's what
-// keeps two hotspots for the same device from rendering as visually
-// identical, unlabeled duplicates. Pass `variant` if a future interactive
-// marker needs a distinct ring/dot color too, not just a different icon.
+// about this piece of gear", and the "interactive" variant passed below
+// (orange ring/dot, see panoramaTour.css) reinforces the same distinction
+// visually against the green numbered gear badges. A room can carry more
+// than one of these pointing at the same module (e.g. the DAW's
+// monitor-height and desk-height hotspots), so each also carries its own
+// `icon` (see that field on roomsData.js interactiveMarkers entries) rather
+// than always sharing one glyph per `type` — that's what keeps two hotspots
+// for the same device from rendering as visually identical, unlabeled
+// duplicates.
 const interactiveMarkerHtml = (icon, variant) => `
   <div class="hotspot-marker${variant ? ` hotspot-marker--${variant}` : ""}">
     <span class="hotspot-marker__ring${variant ? ` hotspot-marker__ring--${variant}` : ""}"></span>
@@ -117,7 +119,7 @@ function buildNodes() {
           id: marker.id,
           position: { yaw: deg(marker.yaw), pitch: deg(marker.pitch) },
           html: markerHtml(hotspotNumber),
-          size: { width: 34, height: 34 },
+          size: { width: 26, height: 26 },
           anchor: "center center",
           // Zoom level applied by markers.gotoMarker() so selecting a hotspot
           // feels like walking up to it rather than just glancing over.
@@ -151,7 +153,7 @@ function buildNodes() {
           id: `door-${room.id}-${link.nodeId}`,
           position: { yaw: deg(link.yaw), pitch: deg(link.pitch) },
           html: doorMarkerHtml(),
-          size: { width: 34, height: 34 },
+          size: { width: 26, height: 26 },
           anchor: "center center",
           tooltip: {
             content: `Go to ${destRoom?.name || "next room"}`,
@@ -165,8 +167,9 @@ function buildNodes() {
         position: { yaw: deg(marker.yaw), pitch: deg(marker.pitch) },
         html: interactiveMarkerHtml(
           marker.icon ?? (marker.type === "daw" ? "🖥" : "⚡"),
+          "interactive",
         ),
-        size: { width: 34, height: 34 },
+        size: { width: 26, height: 26 },
         anchor: "center center",
         zoomLvl: marker.zoomLvl ?? 60,
         tooltip: {
@@ -186,7 +189,7 @@ function buildNodes() {
         id: control.id,
         position: { yaw: deg(control.yaw), pitch: deg(control.pitch) },
         html: volumeMarkerHtml(),
-        size: { width: 34, height: 34 },
+        size: { width: 26, height: 26 },
         anchor: "center center",
         tooltip: {
           content: control.title || "Volume",

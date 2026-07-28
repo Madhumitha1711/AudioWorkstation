@@ -141,6 +141,21 @@
     0 0 10px rgba(255, 176, 59, 0.75),
     inset 0 0 5px rgba(255, 255, 255, 0.5);
 }
+/* Interactive-module hotspots (roomsData.js interactiveMarkers, e.g. the
+   daw-desk hotspot that opens the live DawWorkstationScreen): orange, so a
+   hotspot that opens a live functional module reads as visually distinct
+   from the green numbered gear badges (info panel), blue doors (go to
+   another room), and amber volume controls (adjust audio) at a glance. See
+   interactiveMarkerHtml's `variant` param in PanoramaTour.jsx. */
+.hotspot-marker__ring--interactive {
+  border-color: rgba(255, 130, 40, 0.85);
+}
+.hotspot-marker__dot--interactive {
+  background: radial-gradient(circle at 32% 28%, #ffb877, #e0631e 70%);
+  box-shadow:
+    0 0 10px rgba(255, 130, 40, 0.75),
+    inset 0 0 5px rgba(255, 255, 255, 0.5);
+}
 
 /* ---------- Shared chrome (glass) ---------- */
 .svr-tour-icon-btn {

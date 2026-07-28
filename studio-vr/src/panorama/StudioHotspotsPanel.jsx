@@ -115,6 +115,10 @@ function freshRoundState(devices, gameMode) {
 
 function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice }) {
   const [collapsed, setCollapsed] = useState(false);
+  // Tracks whether the panel was auto-collapsed by the effect below (as
+  // opposed to the visitor manually clicking the toggle), so closing the DAW
+  // module knows whether it's responsible for bringing the panel back.
+  const wasAutoCollapsedRef = useRef(false);
   const devices = useMemo(() => buildDeviceList(room), [room]);
   const roomKey = room?.id || "default";
 
@@ -178,6 +182,22 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
     saveAttempts(key, next);
     setGamesPlayed(next);
   }
+
+  // Opening the DAW workstation (or any future interactive module) takes
+  // over the full screen, so the left-docked panel just gets in the way —
+  // collapse it automatically the moment activeModule is set. Closing that
+  // module (activeModule going back to null) reverses it, but only if this
+  // effect was the one that collapsed it in the first place, so a manual
+  // collapse the visitor did before opening the module isn't force-reopened.
+  useEffect(() => {
+    if (activeModule) {
+      wasAutoCollapsedRef.current = true;
+      setCollapsed(true);
+    } else if (wasAutoCollapsedRef.current) {
+      wasAutoCollapsedRef.current = false;
+      setCollapsed(false);
+    }
+  }, [activeModule]);
 
   // Re-derive the round whenever the room (and therefore its device list)
   // changes — e.g. the visitor walks into a different room.
