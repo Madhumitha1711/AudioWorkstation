@@ -29,7 +29,6 @@ function HotspotKnowledgeCheck({ gear, questions, onSkip, onBackToOverview, onSt
 
   const total = questions.length;
   const finished = step >= total;
-  const answeredCount = responses.filter((r) => r.submitted).length;
 
   const choose = (optionIndex) => {
     const current = responses[step];
@@ -134,14 +133,20 @@ function HotspotKnowledgeCheck({ gear, questions, onSkip, onBackToOverview, onSt
       </div>
 
       <div className="svr-tour-precheck-progress">
-        {questions.map((q, i) => (
-          <span
-            key={q.id}
-            className={`svr-tour-precheck-progress-seg${i < answeredCount ? " filled" : ""}${
-              i === step ? " current" : ""
-            }`}
-          />
-        ))}
+        {questions.map((q, i) => {
+          const r = responses[i];
+          // Answered segments reflect whether that question was actually
+          // answered correctly or not, rather than just "filled" — a wrong
+          // answer should read as a red line here, not the same green as a
+          // right one.
+          const answerState = r.submitted ? (r.selected === q.correctIndex ? " correct" : " incorrect") : "";
+          return (
+            <span
+              key={q.id}
+              className={`svr-tour-precheck-progress-seg${answerState}${i === step ? " current" : ""}`}
+            />
+          );
+        })}
       </div>
 
       <div className="svr-tour-gear-panel__body">

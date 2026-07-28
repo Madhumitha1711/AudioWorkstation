@@ -598,11 +598,15 @@
   background: var(--shell-border);
   transition: background 0.2s ease, box-shadow 0.2s ease;
 }
-.svr-tour-precheck-progress-seg.filled {
-  background: #22ff55;
-  box-shadow: 0 0 6px rgba(34, 255, 85, 0.4);
+.svr-tour-precheck-progress-seg.correct {
+  background: #22c76a;
+  box-shadow: 0 0 6px rgba(34, 199, 106, 0.4);
 }
-.svr-tour-precheck-progress-seg.current:not(.filled) {
+.svr-tour-precheck-progress-seg.incorrect {
+  background: #ff5c5c;
+  box-shadow: 0 0 6px rgba(255, 92, 92, 0.4);
+}
+.svr-tour-precheck-progress-seg.current:not(.correct):not(.incorrect) {
   background: var(--shell-text-dimmer);
 }
 .svr-tour-precheck-skip {
