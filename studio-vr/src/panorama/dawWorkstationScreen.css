@@ -62,7 +62,7 @@
 .daw-overlay {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 70;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -71,10 +71,12 @@
   pointer-events: none;
   transition: opacity 0.35s ease;
 }
+
 .daw-overlay.is-open {
   opacity: 1;
   pointer-events: auto;
 }
+
 .daw-overlay-backdrop {
   position: absolute;
   inset: 0;
@@ -94,9 +96,11 @@
   transform: scale(0.96) translateY(8px);
   transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+
 .daw-overlay.is-open .monitor-frame {
   transform: scale(1) translateY(0);
 }
+
 .monitor-frame::before {
   content: "";
   position: absolute;
@@ -134,10 +138,12 @@
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
+
 .exit-btn:hover {
   background: var(--shell-panel-hover);
   color: var(--shell-text);
 }
+
 .daw-crumb {
   font-family: var(--mono);
   font-size: 9.5px;
@@ -145,6 +151,7 @@
   color: var(--text-faint);
   margin-top: 3px;
 }
+
 .daw-crumb b {
   color: var(--text-dim);
 }
@@ -166,12 +173,14 @@
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
+
 .topbar-divider {
   width: 1px;
   align-self: stretch;
   background: var(--border);
   flex-shrink: 0;
 }
+
 .app-id {
   display: flex;
   flex-direction: column;
@@ -179,6 +188,7 @@
   margin-right: 6px;
   min-width: 0;
 }
+
 .app-id .name {
   font-family: var(--display);
   font-weight: 700;
@@ -195,6 +205,7 @@
   background: var(--black);
   border: 1px solid var(--border);
 }
+
 .view-switch__btn {
   font-family: var(--mono);
   font-size: 10px;
@@ -207,9 +218,11 @@
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
+
 .view-switch__btn:hover {
   color: var(--text);
 }
+
 .view-switch__btn.is-active {
   background: var(--surface);
   color: var(--teal);
@@ -221,6 +234,7 @@
   align-items: center;
   gap: 6px;
 }
+
 .transport-btn {
   width: 32px;
   height: 32px;
@@ -235,23 +249,28 @@
   font-size: 12px;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
+
 .transport-btn:hover:not(:disabled) {
   color: var(--text);
   border-color: var(--text-dim);
 }
+
 .transport-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
 .transport-btn.play {
   background: var(--green-dim);
   border-color: var(--green);
   color: var(--green);
 }
+
 .transport-btn.play.is-playing {
   background: var(--green);
   color: #04160a;
 }
+
 .transport-btn.loop.is-on {
   background: var(--blue-dim);
   border-color: var(--blue);
@@ -277,6 +296,7 @@
   letter-spacing: 0.03em;
   white-space: nowrap;
 }
+
 .preview-pill button {
   font-family: inherit;
   font-size: 10px;
@@ -289,6 +309,7 @@
   cursor: pointer;
   transition: filter 0.15s ease;
 }
+
 .preview-pill button:hover {
   filter: brightness(1.1);
 }
@@ -303,11 +324,13 @@
   padding: 6px 14px;
   font-family: var(--mono);
 }
+
 .timecode .big {
   font-size: 15px;
   letter-spacing: 0.03em;
   color: var(--green);
 }
+
 .timecode .bars {
   font-size: 11px;
   color: var(--text-faint);
@@ -319,12 +342,14 @@
   align-items: center;
   gap: 16px;
 }
+
 .master-meter {
   display: flex;
   align-items: flex-end;
   gap: 2px;
   height: 26px;
 }
+
 .master-meter i {
   display: block;
   width: 4px;
@@ -333,6 +358,7 @@
   border: 1px solid var(--green);
   transition: height 0.08s linear;
 }
+
 .master-label {
   font-family: var(--mono);
   font-size: 9px;
@@ -364,6 +390,7 @@
      same kind of row-for-row mismatch fixing this header was for. */
   padding: 0 6px 6px;
 }
+
 /* Mirrors .ruler exactly (same height/background/border/sticky behavior) so
    track 1's row starts at the same offset its waveform lane does — see the
    comment above this element in DawWorkstationScreen.jsx for why that
@@ -387,6 +414,7 @@
   background: var(--panel);
   border-bottom: 1px solid var(--border);
 }
+
 .track-row {
   --track-color: var(--teal);
   display: flex;
@@ -417,6 +445,7 @@
      don't expect it alone to guarantee row-for-row alignment any more. */
   min-height: var(--track-row-h);
 }
+
 /* Head (number/icon/name, plus the subtitle line — see .track-sub-row —
    which now also carries the volume slider) on top, full width; below it a
    row with the transport buttons on the left and this track's own
@@ -428,11 +457,13 @@
   align-items: center;
   gap: 8px;
 }
+
 .track-row__body {
   display: flex;
   align-items: flex-start;
   gap: 8px;
 }
+
 /* Was .track-row__vol-col — it used to stack the volume slider above the
    transport buttons in its own 60px column (see .track-sub-row for where
    the slider moved to). Only the buttons live here now, but this still
@@ -448,6 +479,7 @@
   display: flex;
   flex-direction: column;
 }
+
 /* Inserts + Sends, each its own full-width horizontal strip of lettered
    slots (see .insert-rack.is-dense/.send-rack.is-dense) stacked INSERTS
    above SENDS, instead of the old side-by-side columns that each stacked
@@ -463,16 +495,19 @@
   gap: 4px;
   justify-content: center;
 }
+
 .track-row__rack-row {
   display: flex;
   align-items: center;
   gap: 6px;
 }
+
 .track-row__rack-row .insert-rack,
 .track-row__rack-row .send-rack {
   flex: 1;
   min-width: 0;
 }
+
 .track-row__rack-label {
   width: 28px;
   flex-shrink: 0;
@@ -481,28 +516,34 @@
   color: var(--text-faint);
   text-align: right;
 }
+
 .track-row:hover {
   background: var(--shell-panel-hover, rgba(255, 255, 255, 0.08));
 }
+
 .track-row.is-selected {
   background: var(--surface);
   border-color: var(--track-color);
 }
+
 /* Soloing any track dims every non-soloed one — same solo-in-place cue a
    real console gives (see anySoloed/trackIsAudible in
    DawWorkstationScreen.jsx). */
 .track-row.is-dimmed {
   opacity: 0.45;
 }
+
 .track-row.is-soloed {
   box-shadow: inset 0 0 0 1px var(--amber);
 }
+
 /* Aux bus rows — a dashed left edge instead of the solid one every audio
    track's swatch implies, since there's no clip/waveform underneath this
    one, just inserts fed by other tracks' Sends. */
 .track-row.is-aux {
   border-left: 2px dashed var(--track-color);
 }
+
 .track-num {
   width: 14px;
   flex-shrink: 0;
@@ -510,6 +551,7 @@
   color: var(--text-faint);
   text-align: right;
 }
+
 .track-swatch {
   width: 26px;
   height: 26px;
@@ -522,15 +564,18 @@
   justify-content: center;
   flex-shrink: 0;
 }
+
 .track-swatch .track-ico,
 .track-ico {
   width: 15px;
   height: 15px;
 }
+
 .track-meta {
   flex: 1;
   min-width: 0;
 }
+
 .track-name {
   font-size: 11.5px;
   font-weight: 600;
@@ -539,6 +584,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 /* Subtitle line (duration/portions/sends text) plus the volume slider,
    side by side — this used to be volume's own full-width row underneath
    the whole head (see --track-row-h/.track-row__btn-col above); putting it
@@ -549,11 +595,13 @@
   gap: 8px;
   margin-top: 2px;
 }
+
 .track-sub-row .track-sub {
   margin-top: 0;
   flex: 1;
   min-width: 0;
 }
+
 .track-sub {
   font-size: 9px;
   color: var(--text-faint);
@@ -562,9 +610,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .track-sub-error {
   color: var(--red);
 }
+
 /* Slimmed down from its old 10px/full-width self (it used to be the only
    thing in its own row — see .track-sub-row above) to a short, narrow
    slider that fits inline next to the subtitle text instead. */
@@ -573,17 +623,20 @@
   accent-color: var(--track-color);
   cursor: pointer;
 }
+
 .track-vol--inline {
   width: 74px;
   height: 6px;
   flex-shrink: 0;
 }
+
 .track-btns {
   display: flex;
   gap: 3px;
   flex-shrink: 0;
   flex-wrap: wrap;
 }
+
 /* The button strip used to be the only thing in its row, with the full
    tracklist row's width to spread across; now that it shares that row with
    this track's own Inserts/Sends (see .track-row__btn-col/.track-row__body
@@ -594,10 +647,12 @@
   width: 18px;
   height: 18px;
 }
+
 .track-row__btn-col .tbtn svg {
   width: 11px;
   height: 11px;
 }
+
 .tbtn {
   width: 20px;
   height: 20px;
@@ -614,24 +669,29 @@
   line-height: 1;
   transition: color 0.15s ease, border-color 0.15s ease;
 }
+
 .tbtn:hover {
   color: var(--text);
   border-color: var(--text-dim);
 }
+
 .tbtn.danger:hover {
   color: var(--red);
   border-color: var(--red);
 }
+
 .tbtn svg {
   width: 13px;
   height: 13px;
   flex-shrink: 0;
 }
+
 .tbtn.m.is-on {
   background: var(--amber-dim);
   border-color: var(--amber);
   color: var(--amber);
 }
+
 .tbtn.s.is-on {
   background: var(--green-dim);
   border-color: var(--green);
@@ -648,9 +708,11 @@
   height: 20px;
   flex-shrink: 0;
 }
+
 .tbtn-select-wrap .tbtn {
   pointer-events: none;
 }
+
 .tbtn-select {
   position: absolute;
   inset: 0;
@@ -669,6 +731,7 @@
   overflow: hidden;
   clip: rect(0 0 0 0);
 }
+
 .daw-btn {
   font-family: inherit;
   font-size: 10px;
@@ -683,30 +746,37 @@
   text-align: center;
   transition: border-color 0.15s ease, color 0.15s ease;
 }
+
 .daw-btn:hover:not(:disabled) {
   border-color: var(--text-dim);
   color: var(--text);
 }
+
 .daw-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
+
 .daw-btn.small {
   flex: none;
   padding: 5px 8px;
   font-size: 9.5px;
 }
+
 .daw-btn.danger {
   color: var(--red);
   border-color: var(--red);
 }
+
 .daw-btn.danger:hover {
   background: var(--red-dim);
 }
+
 .daw-btn.primary {
   color: var(--green);
   border-color: var(--green);
 }
+
 .daw-btn.primary:hover:not(:disabled) {
   background: var(--green-dim);
   color: var(--green);
@@ -717,6 +787,7 @@
   color: var(--red);
   line-height: 1.4;
 }
+
 .daw-status {
   font-family: var(--mono);
   font-size: 10.5px;
@@ -737,11 +808,13 @@
   height: 36px;
   transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
+
 .add-track-row:hover {
   border-color: var(--teal);
   color: var(--teal);
   background: var(--teal-dim);
 }
+
 .add-track-plus {
   font-size: 16px;
   line-height: 1;
@@ -755,6 +828,7 @@
   position: relative;
   background: var(--console);
 }
+
 .ruler {
   position: sticky;
   top: 0;
@@ -763,6 +837,7 @@
   background: var(--panel);
   border-bottom: 1px solid var(--border);
 }
+
 .ruler-mark {
   position: absolute;
   top: 0;
@@ -776,9 +851,11 @@
   color: var(--text-faint);
   white-space: nowrap;
 }
+
 .arr-rows {
   position: relative;
 }
+
 .arr-row {
   --track-color: var(--teal);
   /* border-box for the same reason as .track-row above: so an inline
@@ -807,11 +884,13 @@
   position: relative;
   background-image: repeating-linear-gradient(90deg, var(--border) 0 1px, transparent 1px 60px);
 }
+
 .add-track-row-spacer {
   height: 36px;
   background-image: none;
   border-bottom: none;
 }
+
 .arr-row-empty {
   position: absolute;
   inset: 4px 8px;
@@ -823,12 +902,14 @@
   border-radius: 5px;
   padding-left: 8px;
 }
+
 .arr-row-empty--aux {
   border-style: solid;
   border-color: var(--track-color, var(--border));
   color: var(--text-dim);
   background: color-mix(in srgb, var(--track-color, var(--border)) 8%, transparent);
 }
+
 .clip {
   position: absolute;
   top: 4px;
@@ -842,9 +923,11 @@
   overflow: hidden;
   transition: border-color 0.15s ease;
 }
+
 .clip:has(.clip-header:active) {
   border-color: var(--track-color);
 }
+
 /* Thin drag handle at the top of the clip — see beginClipDrag/
    onClipPointerMove/endClipDrag in DawWorkstationScreen.jsx. Dragging
    anywhere in .clip-body below it draws a portion instead (see
@@ -857,9 +940,11 @@
   cursor: grab;
   touch-action: none;
 }
+
 .clip-header:active {
   cursor: grabbing;
 }
+
 /* The rest of the clip — dragging here marks a new portion (see
    beginRegionDrag/onRegionPointerMove/endRegionDrag in
    DawWorkstationScreen.jsx). touch-action: none so a touch-drag draws a
@@ -871,6 +956,7 @@
   cursor: crosshair;
   touch-action: none;
 }
+
 .wave-svg {
   position: absolute;
   inset: 0;
@@ -895,19 +981,23 @@
   touch-action: none;
   transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
+
 .clip-region:hover {
   background: color-mix(in srgb, var(--amber) 45%, transparent);
 }
+
 .clip-region.is-selected {
   background: color-mix(in srgb, var(--amber) 58%, transparent);
   border-color: var(--amber);
   box-shadow: 0 0 0 1px var(--amber), 0 0 10px var(--amber-glow, rgba(255, 176, 32, 0.5));
 }
+
 .clip-region.is-draft {
   pointer-events: none;
   background: color-mix(in srgb, var(--amber) 25%, transparent);
   border-style: dashed;
 }
+
 .clip-region__remove {
   width: 13px;
   height: 13px;
@@ -925,10 +1015,12 @@
   opacity: 0;
   transition: opacity 0.12s ease;
 }
+
 .clip-region:hover .clip-region__remove,
 .clip-region.is-selected .clip-region__remove {
   opacity: 1;
 }
+
 .clip-region__count {
   position: absolute;
   left: 3px;
@@ -937,6 +1029,7 @@
   color: var(--text-faint);
   pointer-events: none;
 }
+
 .playhead {
   position: absolute;
   top: 0;
@@ -951,6 +1044,7 @@
   cursor: ew-resize;
   touch-action: none;
 }
+
 .playhead::before {
   /* The visible line is only 2px wide — too thin to reliably grab — so the
      actual hit area is this wider transparent strip centered on it,
@@ -962,6 +1056,7 @@
   left: -6px;
   right: -6px;
 }
+
 .mixer-empty-hint {
   position: absolute;
   inset: 22px 0 0;
@@ -990,6 +1085,7 @@
   max-height: 46%;
   overflow-y: auto;
 }
+
 .dock-head {
   display: flex;
   flex-wrap: wrap;
@@ -998,6 +1094,7 @@
   margin-bottom: 10px;
   gap: 6px 10px;
 }
+
 .dock-title {
   font-family: var(--mono);
   font-size: 10px;
@@ -1005,10 +1102,12 @@
   color: var(--text-faint);
   min-width: 0;
 }
+
 .dock-hint {
   font-size: 10.5px;
   color: var(--text-faint);
 }
+
 .dock-head-right {
   display: flex;
   flex-wrap: wrap;
@@ -1029,6 +1128,7 @@
   border: 1px solid var(--line-soft, rgba(255, 255, 255, 0.08));
   flex-shrink: 0;
 }
+
 .dock-scope-tab {
   font-family: var(--mono);
   font-size: 9.5px;
@@ -1041,9 +1141,11 @@
   color: var(--text-faint);
   cursor: pointer;
 }
+
 .dock-scope-tab:hover {
   color: var(--text);
 }
+
 .dock-scope-tab.is-active {
   background: var(--accent, #e0a458);
   color: #1a140b;
@@ -1062,6 +1164,7 @@
   flex-direction: column;
   gap: 3px;
 }
+
 .insert-slot {
   --pc: var(--teal);
   position: relative;
@@ -1076,18 +1179,23 @@
   cursor: pointer;
   transition: background 0.12s ease, border-color 0.15s ease;
 }
+
 .insert-slot:hover {
   background: color-mix(in srgb, var(--pc) 12%, var(--surface));
 }
+
 .insert-slot.is-dragging {
   opacity: 0.4;
 }
+
 .insert-slot.is-bypassed {
   opacity: 0.55;
 }
+
 .insert-slot.is-error {
   border-left-color: var(--red);
 }
+
 .insert-slot__num {
   width: 14px;
   flex-shrink: 0;
@@ -1095,12 +1203,14 @@
   color: var(--text-faint);
   text-align: right;
 }
+
 .insert-slot .plugin-ico {
   width: 15px;
   height: 15px;
   color: var(--pc);
   flex-shrink: 0;
 }
+
 .insert-slot__name {
   flex: 1;
   min-width: 0;
@@ -1111,15 +1221,18 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .insert-slot__status {
   font-size: 9px;
   color: var(--text-faint);
 }
+
 .insert-slot__btns {
   display: flex;
   gap: 2px;
   flex-shrink: 0;
 }
+
 .insert-slot__btns button {
   width: 17px;
   height: 17px;
@@ -1134,19 +1247,23 @@
   align-items: center;
   justify-content: center;
 }
+
 .insert-slot__btns button:hover:not(:disabled) {
   color: var(--text);
   border-color: var(--text-dim);
 }
+
 .insert-slot__btns button:disabled {
   opacity: 0.3;
   cursor: not-allowed;
 }
+
 .insert-slot__btns button.power svg {
   width: 9px;
   height: 9px;
   color: currentColor;
 }
+
 .insert-slot__btns button.power.is-on {
   background: var(--green-dim);
   border-color: var(--green);
@@ -1161,6 +1278,7 @@
   border-left: 1px dashed var(--border-bright);
   cursor: default;
 }
+
 .insert-add-btn {
   width: 100%;
   display: flex;
@@ -1175,6 +1293,7 @@
   border-radius: 5px;
   transition: color 0.15s ease, background 0.15s ease;
 }
+
 .insert-add-btn:hover {
   color: var(--teal);
   background: var(--teal-dim);
@@ -1200,15 +1319,18 @@
   border: 1px solid var(--border-bright);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
 }
-.insert-picker__group + .insert-picker__group {
+
+.insert-picker__group+.insert-picker__group {
   margin-top: 6px;
 }
+
 .insert-picker__group-label {
   font-size: 8.5px;
   letter-spacing: 0.1em;
   color: var(--text-faint);
   padding: 3px 6px;
 }
+
 .insert-picker__item {
   --pc: var(--teal);
   width: 100%;
@@ -1224,18 +1346,22 @@
   text-align: left;
   cursor: pointer;
 }
+
 .insert-picker__item:hover {
   background: color-mix(in srgb, var(--pc) 16%, transparent);
 }
+
 .insert-picker__item .plugin-ico {
   width: 15px;
   height: 15px;
   color: var(--pc);
   flex-shrink: 0;
 }
+
 .insert-picker__item span {
   flex: 1;
 }
+
 .insert-picker__led {
   flex: none !important;
   width: 6px;
@@ -1244,13 +1370,34 @@
   background: var(--pc);
   box-shadow: 0 0 6px var(--pc);
 }
-.insert-picker__item.c-amber { --pc: var(--amber); }
-.insert-picker__item.c-green { --pc: var(--green); }
-.insert-picker__item.c-blue { --pc: var(--blue); }
-.insert-picker__item.c-red { --pc: var(--red); }
-.insert-picker__item.c-purple { --pc: var(--purple); }
-.insert-picker__item.c-teal { --pc: var(--teal); }
-.insert-picker__item.c-cyan { --pc: var(--cyan); }
+
+.insert-picker__item.c-amber {
+  --pc: var(--amber);
+}
+
+.insert-picker__item.c-green {
+  --pc: var(--green);
+}
+
+.insert-picker__item.c-blue {
+  --pc: var(--blue);
+}
+
+.insert-picker__item.c-red {
+  --pc: var(--red);
+}
+
+.insert-picker__item.c-purple {
+  --pc: var(--purple);
+}
+
+.insert-picker__item.c-teal {
+  --pc: var(--teal);
+}
+
+.insert-picker__item.c-cyan {
+  --pc: var(--cyan);
+}
 
 /* Compact insert rack (Mixer-view channel strips) — smaller text, no
    move-earlier/move-later buttons (still draggable to reorder), just
@@ -1258,11 +1405,13 @@
 .insert-rack.is-compact .insert-slot__name {
   font-size: 9.5px;
 }
+
 .insert-rack.is-compact .insert-slot,
 .insert-rack.is-compact .insert-add-btn {
   padding: 4px 5px;
   gap: 5px;
 }
+
 /* The picker is portaled to <body> (see above), so it's no longer a DOM
    descendant of .insert-rack.is-compact by the time this would need to
    match — InsertRack puts `is-compact` directly on the picker's own
@@ -1283,6 +1432,7 @@
   flex-direction: row;
   gap: 3px;
 }
+
 .insert-rack.is-dense .insert-slot,
 .insert-rack.is-dense .insert-slot--empty {
   flex: 1 1 0;
@@ -1290,19 +1440,23 @@
   border-radius: 3px;
   min-height: 18px;
 }
+
 .insert-rack.is-dense .insert-slot {
   padding: 1px 4px;
   gap: 3px;
 }
+
 .insert-rack.is-dense .insert-slot__num {
   width: auto;
   flex-shrink: 0;
   font-size: 7.5px;
 }
+
 .insert-rack.is-dense .insert-slot__name {
   font-size: 8.5px;
   font-weight: 500;
 }
+
 .insert-rack.is-dense .insert-add-btn {
   padding: 1px 3px;
   gap: 3px;
@@ -1321,14 +1475,17 @@
   align-items: flex-start;
   gap: 20px;
 }
+
 .dock-rack-col {
   flex: 1 1 0;
   min-width: 0;
 }
-.dock-rack-col + .dock-rack-col {
+
+.dock-rack-col+.dock-rack-col {
   border-left: 1px solid var(--border);
   padding-left: 20px;
 }
+
 .dock-rack-label {
   font-size: 8.5px;
   letter-spacing: 0.14em;
@@ -1348,6 +1505,7 @@
   flex-direction: column;
   gap: 3px;
 }
+
 .send-slot {
   --pc: var(--teal);
   position: relative;
@@ -1362,16 +1520,20 @@
   cursor: pointer;
   transition: background 0.12s ease, border-color 0.15s ease;
 }
+
 .send-slot:hover {
   background: color-mix(in srgb, var(--pc) 12%, var(--surface));
 }
+
 .send-slot.is-open {
   background: color-mix(in srgb, var(--pc) 18%, var(--surface));
   border-color: var(--pc);
 }
+
 .send-slot.is-muted {
   opacity: 0.55;
 }
+
 .send-slot__num {
   width: 14px;
   flex-shrink: 0;
@@ -1379,6 +1541,7 @@
   color: var(--text-faint);
   text-align: right;
 }
+
 .send-slot__name {
   flex: 1;
   min-width: 0;
@@ -1389,6 +1552,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .send-slot__level {
   flex-shrink: 0;
   font-size: 9px;
@@ -1396,6 +1560,7 @@
   min-width: 18px;
   text-align: right;
 }
+
 .send-slot__remove {
   flex-shrink: 0;
   width: 17px;
@@ -1411,10 +1576,12 @@
   align-items: center;
   justify-content: center;
 }
+
 .send-slot__remove:hover {
   color: var(--text);
   border-color: var(--text-dim);
 }
+
 .send-slot--empty {
   position: relative;
   padding: 0;
@@ -1423,6 +1590,7 @@
   border-left: 1px dashed var(--border-bright);
   cursor: default;
 }
+
 .send-add-btn {
   width: 100%;
   display: flex;
@@ -1437,10 +1605,12 @@
   border-radius: 5px;
   transition: color 0.15s ease, background 0.15s ease;
 }
+
 .send-add-btn:hover:not(:disabled) {
   color: var(--teal);
   background: var(--teal-dim);
 }
+
 .send-add-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -1458,12 +1628,14 @@
   border: 1px solid var(--border-bright);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
 }
+
 .send-picker__empty {
   padding: 8px 7px;
   font-size: 10px;
   color: var(--text-faint);
   max-width: 180px;
 }
+
 .send-picker__item {
   --pc: var(--teal);
   width: 100%;
@@ -1479,24 +1651,53 @@
   text-align: left;
   cursor: pointer;
 }
+
 .send-picker__item:hover {
   background: color-mix(in srgb, var(--pc) 16%, transparent);
 }
+
 .send-picker__item svg {
   width: 15px;
   height: 15px;
   color: var(--pc);
   flex-shrink: 0;
 }
-.send-picker__item.c-amber { --pc: var(--amber); }
-.send-picker__item.c-green { --pc: var(--green); }
-.send-picker__item.c-blue { --pc: var(--blue); }
-.send-picker__item.c-red { --pc: var(--red); }
-.send-picker__item.c-purple { --pc: var(--purple); }
-.send-picker__item.c-teal { --pc: var(--teal); }
-.send-picker__item.c-cyan { --pc: var(--cyan); }
-.send-picker__item.c-pink { --pc: var(--pink, var(--red)); }
-.send-picker__item.c-lime { --pc: var(--lime, var(--green)); }
+
+.send-picker__item.c-amber {
+  --pc: var(--amber);
+}
+
+.send-picker__item.c-green {
+  --pc: var(--green);
+}
+
+.send-picker__item.c-blue {
+  --pc: var(--blue);
+}
+
+.send-picker__item.c-red {
+  --pc: var(--red);
+}
+
+.send-picker__item.c-purple {
+  --pc: var(--purple);
+}
+
+.send-picker__item.c-teal {
+  --pc: var(--teal);
+}
+
+.send-picker__item.c-cyan {
+  --pc: var(--cyan);
+}
+
+.send-picker__item.c-pink {
+  --pc: var(--pink, var(--red));
+}
+
+.send-picker__item.c-lime {
+  --pc: var(--lime, var(--green));
+}
 
 /* "+ New Aux Bus" — always the first row in the picker (see SendRack's
    onCreateAux), dashed-bordered so it reads as "make a new one" rather than
@@ -1507,11 +1708,13 @@
   margin-bottom: 4px;
   color: var(--text-dim);
 }
+
 .send-picker__create:hover {
   border-color: var(--teal);
   background: color-mix(in srgb, var(--teal) 12%, transparent);
   color: var(--text);
 }
+
 .send-picker__create-plus {
   width: 15px;
   height: 15px;
@@ -1534,6 +1737,7 @@
   padding: 6px 7px;
   margin-bottom: 4px;
 }
+
 .send-picker__create-input {
   flex: 1;
   min-width: 0;
@@ -1545,10 +1749,12 @@
   background: var(--console);
   color: var(--text);
 }
+
 .send-picker__create-input:focus {
   outline: none;
   border-color: var(--teal);
 }
+
 .send-picker__create-confirm {
   flex-shrink: 0;
   width: 24px;
@@ -1561,6 +1767,7 @@
   font-weight: 700;
   cursor: pointer;
 }
+
 .send-picker__create-confirm:hover {
   border-color: var(--teal);
   background: color-mix(in srgb, var(--teal) 16%, transparent);
@@ -1589,6 +1796,7 @@
   border: 1px solid var(--pc);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
 }
+
 .send-window__head {
   width: 100%;
   display: flex;
@@ -1596,6 +1804,7 @@
   justify-content: space-between;
   gap: 6px;
 }
+
 .send-window__name {
   font-size: 10px;
   font-weight: 700;
@@ -1604,6 +1813,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .send-window__close {
   flex-shrink: 0;
   width: 16px;
@@ -1615,6 +1825,7 @@
   line-height: 1;
   cursor: pointer;
 }
+
 .send-window__close:hover {
   color: var(--text);
 }
@@ -1629,6 +1840,7 @@
   display: flex;
   gap: 3px;
 }
+
 .send-window__toggle {
   flex: 1;
   font-family: var(--mono);
@@ -1641,18 +1853,22 @@
   color: var(--text-faint);
   cursor: pointer;
 }
+
 .send-window__toggle:hover {
   color: var(--text);
 }
+
 .send-window__toggle.is-on {
   background: var(--amber-dim, color-mix(in srgb, var(--amber) 25%, transparent));
   border-color: var(--amber);
   color: var(--amber);
 }
+
 .send-window__pan {
   display: flex;
   justify-content: center;
 }
+
 .send-window__fader-row {
   width: 100%;
   display: flex;
@@ -1660,6 +1876,7 @@
   justify-content: center;
   gap: 6px;
 }
+
 /* dB tick labels alongside the fader — each one's `top` is set inline from
    dbTickPct(), so it lines up with where that dB value actually sits on
    VOLUME_FADER_SPEC's own linear-gain range rather than just guessing at
@@ -1671,16 +1888,19 @@
   font-size: 7.5px;
   color: var(--text-faint);
 }
+
 .send-window__scale span {
   position: absolute;
   right: 0;
   transform: translateY(-50%);
   white-space: nowrap;
 }
+
 .send-window__fader {
   display: flex;
   justify-content: center;
 }
+
 .send-window__meter {
   width: 7px;
   flex-shrink: 0;
@@ -1691,12 +1911,14 @@
   align-items: flex-end;
   overflow: hidden;
 }
+
 .send-window__meter i {
   display: block;
   width: 100%;
   background: linear-gradient(180deg, var(--red), var(--amber) 45%, var(--green) 75%);
   transition: height 0.08s linear;
 }
+
 .send-window__mute {
   width: 22px;
   height: 22px;
@@ -1708,9 +1930,11 @@
   font-weight: 700;
   cursor: pointer;
 }
+
 .send-window__mute:hover {
   color: var(--text);
 }
+
 .send-window__mute.is-on {
   background: var(--red-dim, color-mix(in srgb, var(--red) 25%, transparent));
   border-color: var(--red);
@@ -1729,6 +1953,7 @@
   padding-top: 6px;
   margin-top: 2px;
 }
+
 .send-window__track {
   width: 100%;
   display: flex;
@@ -1736,6 +1961,7 @@
   justify-content: space-between;
   gap: 6px;
 }
+
 .send-window__track-name {
   font-size: 10px;
   color: var(--text);
@@ -1743,6 +1969,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 /* Only real way to remove a send once its slot's own inline "×" is hidden
    (see .send-rack.is-dense below) — always present, not just in dense mode,
    so there's one consistent place to look for it regardless of which rack
@@ -1758,6 +1985,7 @@
   color: var(--text-faint);
   cursor: pointer;
 }
+
 .send-window__remove:hover {
   color: var(--red);
   border-color: var(--red);
@@ -1769,6 +1997,7 @@
 .send-rack.is-compact .send-slot__name {
   font-size: 9.5px;
 }
+
 .send-rack.is-compact .send-slot,
 .send-rack.is-compact .send-add-btn {
   padding: 4px 5px;
@@ -1786,6 +2015,7 @@
   flex-direction: row;
   gap: 3px;
 }
+
 .send-rack.is-dense .send-slot,
 .send-rack.is-dense .send-slot--empty {
   flex: 1 1 0;
@@ -1793,28 +2023,34 @@
   border-radius: 3px;
   min-height: 18px;
 }
+
 .send-rack.is-dense .send-slot {
   padding: 1px 4px;
   gap: 3px;
 }
+
 .send-rack.is-dense .send-slot__num {
   width: auto;
   flex-shrink: 0;
   font-size: 7.5px;
 }
+
 .send-rack.is-dense .send-slot__name {
   font-size: 8.5px;
   font-weight: 500;
 }
+
 .send-rack.is-dense .send-slot__level {
   display: none;
 }
+
 .send-rack.is-dense .send-add-btn {
   padding: 1px 3px;
   gap: 3px;
   justify-content: center;
   font-size: 8.5px;
 }
+
 .send-picker.is-compact {
   font-size: 9.5px;
 }
@@ -1842,10 +2078,17 @@
   backdrop-filter: blur(3px);
   animation: daw-popup-fade 0.18s ease;
 }
+
 @keyframes daw-popup-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
+
 .plugin-popup {
   --pc: var(--teal);
   width: min(760px, 100%);
@@ -1858,6 +2101,7 @@
   display: flex;
   flex-direction: column;
 }
+
 .plugin-popup__head {
   display: flex;
   align-items: center;
@@ -1873,27 +2117,32 @@
   background: linear-gradient(180deg, var(--console), var(--panel));
   z-index: 1;
 }
+
 .plugin-popup__head svg {
   width: 22px;
   height: 22px;
   color: var(--pc);
   flex-shrink: 0;
 }
+
 .plugin-popup__titles {
   min-width: 0;
   flex: 1;
 }
+
 .plugin-popup__name {
   font-size: 14px;
   font-weight: 700;
   color: var(--text);
 }
+
 .plugin-popup__tag {
   font-size: 9.5px;
   letter-spacing: 0.06em;
   color: var(--text-faint);
   margin-top: 2px;
 }
+
 .plugin-popup__close {
   width: 26px;
   height: 26px;
@@ -1910,16 +2159,19 @@
   justify-content: center;
   transition: color 0.15s ease, border-color 0.15s ease;
 }
+
 .plugin-popup__close:hover {
   color: var(--text);
   border-color: var(--text-dim);
 }
+
 .plugin-popup__body {
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
+
 .editor-controls {
   display: flex;
   flex-direction: column;
@@ -1932,12 +2184,14 @@
   flex-direction: column;
   gap: 12px;
 }
+
 .viz-screen {
   background: var(--black);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px 10px 6px;
 }
+
 .viz-screen-label {
   font-family: var(--mono);
   font-size: 9px;
@@ -1949,25 +2203,30 @@
   justify-content: space-between;
   gap: 8px;
 }
+
 .viz-svg {
   width: 100%;
   height: auto;
   display: block;
   overflow: visible;
 }
+
 .viz-axis {
   stroke: var(--border-bright);
   stroke-width: 1;
 }
+
 .viz-axis.zero {
   stroke: var(--text-faint);
   stroke-dasharray: 2 3;
 }
+
 .viz-tick {
   fill: var(--text-faint);
   font-family: var(--mono);
   font-size: 8px;
 }
+
 .viz-note {
   font-size: 9.5px;
   color: var(--text-faint);
@@ -1982,6 +2241,7 @@
   flex-wrap: wrap;
   padding: 10px 4px 2px;
 }
+
 .meter-col {
   display: flex;
   flex-direction: column;
@@ -1989,6 +2249,7 @@
   gap: 4px;
   width: 34px;
 }
+
 .meter-track {
   width: 10px;
   height: 64px;
@@ -1999,16 +2260,19 @@
   align-items: flex-end;
   overflow: hidden;
 }
+
 .meter-fill {
   width: 100%;
   background: linear-gradient(180deg, var(--red), var(--amber) 45%, var(--green) 75%);
   transition: height 0.08s linear;
 }
+
 .meter-val {
   font-family: var(--mono);
   font-size: 8.5px;
   color: var(--text-dim);
 }
+
 .meter-label {
   font-size: 8px;
   color: var(--text-faint);
@@ -2037,6 +2301,7 @@
   backdrop-filter: blur(3px);
   animation: daw-popup-fade 0.18s ease;
 }
+
 .daw-modal {
   width: min(380px, 100%);
   background: linear-gradient(165deg, var(--panel), var(--console));
@@ -2046,6 +2311,7 @@
   display: flex;
   flex-direction: column;
 }
+
 .daw-modal__head {
   display: flex;
   align-items: center;
@@ -2053,17 +2319,20 @@
   padding: 14px 16px;
   border-bottom: 1px solid var(--border);
 }
+
 .daw-modal__title {
   font-size: 14px;
   font-weight: 700;
   color: var(--text);
 }
+
 .daw-modal__body {
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
+
 .daw-modal__foot {
   display: flex;
   justify-content: flex-end;
@@ -2071,16 +2340,19 @@
   padding: 12px 16px;
   border-top: 1px solid var(--border);
 }
+
 .daw-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
+
 .daw-field__label {
   font-size: 9px;
   letter-spacing: 0.12em;
   color: var(--text-faint);
 }
+
 .daw-field__input {
   font-family: inherit;
   font-size: 12.5px;
@@ -2090,6 +2362,7 @@
   border-radius: 7px;
   padding: 8px 10px;
 }
+
 .daw-field__input:focus {
   outline: none;
   border-color: var(--teal);
@@ -2105,6 +2378,7 @@
   background: var(--panel-recess, rgba(0, 0, 0, 0.25));
   border: 1px solid var(--line-soft, rgba(255, 255, 255, 0.08));
 }
+
 .type-toggle__btn {
   flex: 1;
   font-family: inherit;
@@ -2117,9 +2391,11 @@
   color: var(--text-faint);
   cursor: pointer;
 }
+
 .type-toggle__btn:hover {
   color: var(--text);
 }
+
 .type-toggle__btn.is-selected {
   background: var(--accent, #e0a458);
   color: #1a140b;
@@ -2131,6 +2407,7 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+
 .swatch-btn {
   --sw: var(--teal);
   width: 26px;
@@ -2141,13 +2418,16 @@
   cursor: pointer;
   transition: transform 0.12s ease, border-color 0.12s ease;
 }
+
 .swatch-btn:hover {
   transform: scale(1.08);
 }
+
 .swatch-btn.is-selected {
   border-color: var(--text);
   box-shadow: 0 0 0 2px var(--sw);
 }
+
 .icon-btn {
   --sw: var(--teal);
   width: 34px;
@@ -2162,13 +2442,16 @@
   justify-content: center;
   transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
 }
+
 .icon-btn svg {
   width: 17px;
   height: 17px;
 }
+
 .icon-btn:hover {
   color: var(--sw);
 }
+
 .icon-btn.is-selected {
   border-color: var(--sw);
   color: var(--sw);
@@ -2191,6 +2474,7 @@
   background: var(--border);
   padding-bottom: 0;
 }
+
 .mixer-strip {
   --track-color: var(--teal);
   width: 128px;
@@ -2205,25 +2489,31 @@
   cursor: pointer;
   transition: opacity 0.15s ease, background 0.15s ease;
 }
+
 .mixer-strip:hover {
   background: var(--panel);
 }
+
 .mixer-strip.is-selected {
   background: var(--panel);
   box-shadow: inset 0 0 0 1px var(--track-color);
 }
+
 .mixer-strip.is-dimmed {
   opacity: 0.45;
 }
+
 .mixer-strip.is-soloed {
   box-shadow: inset 0 0 0 1px var(--amber);
 }
+
 .mixer-strip__head {
   display: flex;
   align-items: center;
   gap: 6px;
   align-self: flex-start;
 }
+
 .mixer-strip__name {
   width: 100%;
   font-size: 10.5px;
@@ -2234,10 +2524,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .mixer-strip .insert-rack,
 .mixer-strip .send-rack {
   width: 100%;
 }
+
 /* (The picker itself is portaled to <body> and positioned in JS off the
    button's own screen position — see .insert-picker above — so it no
    longer needs, or can be reached by, a rule scoped under .mixer-strip.) */
@@ -2245,6 +2537,7 @@
   display: flex;
   justify-content: center;
 }
+
 .mixer-strip__fader-row {
   display: flex;
   align-items: flex-end;
@@ -2252,6 +2545,7 @@
   margin-top: auto;
   padding-top: 8px;
 }
+
 .mixer-strip__meter {
   width: 8px;
   height: 120px;
@@ -2262,12 +2556,14 @@
   align-items: flex-end;
   overflow: hidden;
 }
+
 .mixer-strip__meter i {
   display: block;
   width: 100%;
   background: linear-gradient(180deg, var(--red), var(--amber) 45%, var(--green) 75%);
   transition: height 0.08s linear;
 }
+
 .mixer-strip__btns {
   display: flex;
   gap: 4px;
@@ -2283,12 +2579,15 @@
   .tracklist {
     width: 180px;
   }
+
   .track-row {
     min-height: 0;
   }
+
   .track-row__racks {
     display: none;
   }
+
   .arr-row {
     height: 44px;
   }
@@ -2298,6 +2597,7 @@
   .daw-body {
     flex-direction: column;
   }
+
   .tracklist {
     width: 100%;
     max-height: 40%;
