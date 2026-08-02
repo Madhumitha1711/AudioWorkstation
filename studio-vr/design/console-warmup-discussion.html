@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Before You Touch a Fader — Studio VR</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    /* Glass "3D-space chrome" tokens — matches src/index.css --shell-* so this
+       overlay drops straight into PanoramaTour.jsx alongside the other
+       hotspot mockups in this folder. */
+    --shell-bg: rgba(8,9,12,0.94);
+    --shell-panel: rgba(255,255,255,0.04);
+    --shell-panel-hover: rgba(255,255,255,0.08);
+    --shell-border: rgba(255,255,255,0.12);
+    --shell-border-soft: rgba(255,255,255,0.08);
+    --shell-text: #ffffff;
+    --shell-text-dim: rgba(255,255,255,0.65);
+    --shell-text-dimmer: rgba(255,255,255,0.45);
+    --shell-page-bg: radial-gradient(ellipse at center, #16181d 0%, #08090b 100%);
+    --shadow: rgba(0,0,0,0.5) 0 30px 60px -15px, rgba(0,0,0,0.3) 0 10px 20px -8px;
+
+    /* Hardware-module tokens — matches src/chapters/chapters.css .chapter-lab
+       and the eq/compressor hotspot mockup, so this reads as the same rack
+       gear family, not a different product. */
+    --black:        #0D0D0F;
+    --console:      #141418;
+    --panel:        #1A1A22;
+    --surface:      #22222E;
+    --border:       #2E2E3D;
+    --border-bright:#3D3D52;
+
+    --amber:        #F5A623;
+    --green:        #00FF87;
+    --green-dim:    rgba(0,255,135,0.12);
+    --blue:         #4D9EFF;
+    --teal:         #2DD4BF;
+
+    /* New: the "host" accent for this narrator hotspot specifically, kept
+       distinct from EQ-blue / Comp-amber / Power-green so it reads as its
+       own voice in the signal chain of colors already used across the app. */
+    --violet:       #9B7EF5;
+    --violet-dim:   rgba(155,126,245,0.14);
+    --violet-glow:  rgba(155,126,245,0.45);
+
+    --text:         #E8E8EC;
+    --text-dim:     #8A8A9A;
+    --text-faint:   #4A4A5A;
+
+    --mono:    'JetBrains Mono', monospace;
+    --display: 'Space Grotesk', sans-serif;
+    --body:    'Inter', sans-serif;
+  }
+
+  *,*::before,*::after{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+  body{
+    background: var(--shell-page-bg);
+    color: var(--text);
+    font-family: var(--body);
+    min-height:100vh;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{ font-family: var(--mono); }
+
+  /* ───────────────────────── stage ───────────────────────── */
+
+  .stage{ position:relative; width:100vw; height:100vh; overflow:hidden;
+    display:flex; align-items:center; justify-content:center; }
+
+  .stage-vignette{
+    position:absolute; inset:0;
+    background:
+      radial-gradient(ellipse 60% 45% at 50% 30%, rgba(90,110,140,0.10), transparent 60%),
+      radial-gradient(ellipse 90% 70% at 50% 100%, rgba(0,0,0,0.65), transparent 60%);
+    pointer-events:none;
+  }
+
+  .hud-crumb{
+    position:absolute; top:24px; left:28px; z-index:2;
+    font-size:11px; letter-spacing:0.18em; color: var(--shell-text-dimmer);
+  }
+  .hud-crumb b{ color: var(--shell-text-dim); font-weight:500; }
+  .hud-crumb .opt-tag{
+    margin-left:10px; font-family:var(--mono); font-size:9px; letter-spacing:0.1em;
+    color:var(--violet); background:var(--violet-dim); border:1px solid rgba(155,126,245,0.35);
+    padding:2px 7px; border-radius:999px; text-transform:uppercase;
+  }
+
+  .stage-backdrop-dim{
+    position:absolute; inset:0; background:rgba(4,5,7,0.55); z-index:1;
+    opacity:1; transition:opacity .5s ease;
+  }
+  .stage.revealed .stage-backdrop-dim{ opacity:0; pointer-events:none; }
+
+  /* Stand-in console geometry behind the modal, same channel-strip visual
+     used in the eq/compressor mockup so this section visibly precedes it —
+     dimmed + blurred while the warm-up is open, sharpens once dismissed. */
+  .console-wrap{
+    position:relative; z-index:0;
+    transform: perspective(1400px) rotateX(6deg) scale(0.96);
+    filter: blur(3px) brightness(0.55);
+    transition: filter .6s ease, transform .6s ease;
+  }
+  .stage.revealed .console-wrap{ filter:blur(0) brightness(1); transform:perspective(1400px) rotateX(6deg) scale(1); }
+
+  .channel-strip{
+    width:236px;
+    background: linear-gradient(180deg, #1c1c22, var(--console));
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:16px;
+    display:flex; flex-direction:column; gap:12px;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.55);
+  }
+  .strip-head{ display:flex; align-items:baseline; justify-content:space-between; padding-bottom:10px; border-bottom:1px solid var(--border); }
+  .strip-name{ font-family:var(--display); font-weight:600; font-size:15px; }
+  .strip-sub{ font-size:9.5px; letter-spacing:0.1em; color:var(--text-faint); }
+  .strip-module{ background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px; }
+  .module-label{ font-size:9px; letter-spacing:0.14em; color:var(--text-faint); margin-bottom:9px; }
+  .module-deco{ display:flex; gap:8px; }
+  .deco-dot{ width:22px; height:22px; border-radius:50%; background: radial-gradient(circle at 35% 35%, #2E2E40, var(--console)); border:1.5px solid var(--border-bright); }
+  .strip-fader-row{ display:flex; align-items:center; justify-content:space-between; padding-top:2px; }
+  .mini-pan{ width:20px; height:20px; border-radius:50%; background:radial-gradient(circle at 35% 35%, #2E2E40, var(--console)); border:1.5px solid var(--border-bright); }
+  .mini-fader-track{ width:6px; height:54px; background:var(--surface); border:1px solid var(--border); border-radius:3px; position:relative; }
+  .mini-fader-thumb{ position:absolute; left:50%; top:30%; width:16px; height:6px; border-radius:2px; background:var(--text-dim); transform:translate(-50%,-50%); }
+
+  /* ───────────────────────── warm-up modal ───────────────────────── */
+
+  .warmup-modal{
+    position:absolute; z-index:3;
+    width:460px; max-width:calc(100vw - 32px);
+    max-height:calc(100vh - 56px);
+    background: var(--shell-bg);
+    border:1px solid var(--shell-border);
+    border-radius:18px;
+    backdrop-filter: blur(18px);
+    box-shadow: var(--shadow);
+    display:flex; flex-direction:column; overflow:hidden;
+    animation: modal-in .22s cubic-bezier(.2,.8,.2,1);
+    transition: opacity .35s ease, transform .35s ease;
+  }
+  .warmup-modal.dismissed{ opacity:0; transform:translateY(-10px) scale(0.98); pointer-events:none; }
+  @keyframes modal-in{ from{ opacity:0; transform:translateY(10px) scale(0.98);} to{ opacity:1; transform:translateY(0) scale(1);} }
+
+  .panel-head{ display:flex; align-items:flex-start; gap:12px; padding:16px 16px 14px; border-bottom:1px solid var(--shell-border-soft); }
+
+  /* Host badge — reuses the app's hotspot-marker language (pulse rings +
+     glowing dot) but as a static portrait badge instead of a scene marker,
+     so the "speaker" reads as the same interactive language elsewhere. */
+  .host-badge{ position:relative; width:38px; height:38px; flex-shrink:0; }
+  .host-badge__ring{ position:absolute; inset:-4px; border-radius:50%; border:2px solid rgba(155,126,245,0.6); opacity:0; }
+  .host-badge.speaking .host-badge__ring{ animation: host-pulse 1.6s ease-out infinite; }
+  @keyframes host-pulse{ 0%{ transform:scale(0.85); opacity:.9; } 100%{ transform:scale(1.7); opacity:0; } }
+  .host-badge__dot{
+    position:absolute; inset:0; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background: radial-gradient(circle at 32% 28%, #c8b6ff, var(--violet) 70%);
+    box-shadow: 0 0 10px var(--violet-glow), inset 0 0 5px rgba(255,255,255,0.4);
+  }
+  .host-badge__dot svg{ width:18px; height:18px; color:#1c1030; }
+
+  .panel-titles{ flex:1; min-width:0; }
+  .panel-title{ font-family:var(--display); font-size:15.5px; font-weight:600; color:var(--shell-text); line-height:1.3; }
+  .panel-kicker{ font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--shell-text-dimmer); margin-top:3px; display:flex; align-items:center; gap:6px; }
+  .panel-kicker .sep{ opacity:.5; }
+  .panel-kicker .opt{ color:var(--violet); }
+
+  .panel-close{
+    width:26px; height:26px; border-radius:50%; border:none; background:transparent;
+    color:var(--shell-text-dim); font-size:17px; cursor:pointer; flex-shrink:0; line-height:1;
+  }
+  .panel-close:hover{ background:var(--shell-panel-hover); color:var(--shell-text); }
+
+  .panel-intro{
+    padding:12px 16px 0; font-size:12px; line-height:1.55; color:var(--shell-text-dim);
+  }
+  .panel-intro b{ color:var(--shell-text); font-weight:600; }
+
+  /* progress dots — same visual family as .progress-track/.seg in the
+     power-up hotspot mockup, five segments for five questions */
+  .progress-row{ display:flex; align-items:center; gap:10px; padding:14px 16px 4px; }
+  .progress-track{ display:flex; gap:5px; flex:1; }
+  .seg{ flex:1; height:4px; border-radius:2px; background:var(--surface); transition:background .3s ease, box-shadow .3s ease; }
+  .seg.filled{ background:var(--violet); box-shadow:0 0 6px var(--violet-glow); }
+  .seg.current{ background:var(--violet); opacity:.55; }
+  .progress-count{ font-family:var(--mono); font-size:10px; color:var(--text-faint); white-space:nowrap; }
+
+  .panel-body{ padding:14px 16px 18px; overflow-y:auto; }
+
+  .q-card{ display:flex; flex-direction:column; gap:12px; }
+
+  .q-eyebrow{ font-family:var(--mono); font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--violet); }
+
+  .q-row{ display:flex; align-items:flex-start; gap:12px; }
+  .q-text{ flex:1; font-family:var(--display); font-size:16px; font-weight:500; line-height:1.45; color:var(--shell-text); }
+  .q-text::before{ content:'\201C'; color:var(--violet); font-size:20px; margin-right:2px; }
+  .q-text::after{ content:'\201D'; color:var(--violet); font-size:20px; margin-left:1px; }
+
+  /* speaker / narration control — literal "hotspot speaker": play triggers
+     the browser's speech synthesis to read the question aloud */
+  .speak-btn{
+    flex-shrink:0; width:34px; height:34px; border-radius:50%;
+    border:1px solid var(--border-bright); background:var(--surface);
+    color:var(--text-dim); cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition:background .15s ease, border-color .15s ease, color .15s ease;
+  }
+  .speak-btn:hover{ border-color:var(--violet); color:var(--violet); }
+  .speak-btn.playing{ background:var(--violet-dim); border-color:var(--violet); color:var(--violet); }
+  .speak-btn svg{ width:15px; height:15px; }
+
+  .wave{ display:flex; align-items:center; gap:2px; height:14px; margin-left:2px; }
+  .wave span{ width:2.5px; height:4px; border-radius:2px; background:var(--text-faint); transition:background .2s ease; }
+  .host-badge.speaking ~ .wave span,
+  .speaking .wave span{ background:var(--violet); animation:wave-bounce 0.9s ease-in-out infinite; }
+  .wave span:nth-child(1){ animation-delay:0s; }
+  .wave span:nth-child(2){ animation-delay:.12s; }
+  .wave span:nth-child(3){ animation-delay:.24s; }
+  .wave span:nth-child(4){ animation-delay:.36s; }
+  @keyframes wave-bounce{ 0%,100%{ height:4px; } 50%{ height:14px; } }
+
+  .divider{ height:1px; background:var(--shell-border-soft); margin:2px 0; }
+
+  .why-block{ font-size:12px; line-height:1.6; color:var(--text-dim); }
+  .why-block .lbl{ font-family:var(--mono); font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-faint); display:block; margin-bottom:4px; }
+
+  .bridge-block .lbl{ font-family:var(--mono); font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-faint); display:block; margin-bottom:7px; }
+  .chip-row{ display:flex; flex-wrap:wrap; gap:6px; }
+  .chip{
+    font-family:var(--mono); font-size:10px; letter-spacing:0.02em;
+    color:var(--teal); background:rgba(45,212,191,0.10); border:1px solid rgba(45,212,191,0.3);
+    padding:4px 9px; border-radius:999px;
+  }
+
+  .q-card{ animation: q-in .28s ease; }
+  @keyframes q-in{ from{ opacity:0; transform:translateY(4px);} to{ opacity:1; transform:translateY(0);} }
+
+  /* nav */
+  .nav-row{ display:flex; align-items:center; gap:8px; padding:14px 16px 0; }
+  .nav-btn{
+    font-family:var(--mono); font-size:11px; letter-spacing:0.03em;
+    padding:9px 14px; border-radius:8px; border:1px solid var(--shell-border);
+    background:var(--shell-panel); color:var(--shell-text-dim); cursor:pointer;
+    transition:background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .nav-btn:hover{ background:var(--shell-panel-hover); color:var(--shell-text); }
+  .nav-btn:disabled{ opacity:.35; cursor:not-allowed; }
+  .nav-btn.primary{
+    flex:1; background:linear-gradient(180deg, var(--violet), #7c5de0); border-color:transparent;
+    color:#1c1030; font-weight:600; text-align:center;
+  }
+  .nav-btn.primary:hover{ filter:brightness(1.08); }
+
+  .dot-nav{ display:flex; gap:6px; }
+  .dot-nav button{
+    width:7px; height:7px; border-radius:50%; padding:0; border:none; cursor:pointer;
+    background:var(--surface); transition:background .2s ease, transform .2s ease;
+  }
+  .dot-nav button.active{ background:var(--violet); transform:scale(1.3); box-shadow:0 0 6px var(--violet-glow); }
+  .dot-nav button.done{ background:var(--border-bright); }
+
+  .panel-footer{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:12px 16px 14px; border-top:1px solid var(--shell-border-soft); margin-top:12px;
+  }
+  .pill-toggle{
+    display:flex; align-items:center; gap:7px; font-family:var(--mono); font-size:10px;
+    letter-spacing:0.04em; color:var(--shell-text-dim); cursor:pointer; user-select:none;
+  }
+  .pill-toggle .track{ width:28px; height:15px; border-radius:999px; background:var(--surface); border:1px solid var(--border-bright); position:relative; transition:background .15s ease; }
+  .pill-toggle .thumb{ position:absolute; top:1px; left:1px; width:11px; height:11px; border-radius:50%; background:var(--text-dim); transition:transform .15s ease, background .15s ease; }
+  .pill-toggle.on .track{ background:var(--violet-dim); border-color:var(--violet); }
+  .pill-toggle.on .thumb{ transform:translateX(13px); background:var(--violet); }
+
+  .skip-link{ font-family:var(--mono); font-size:10.5px; letter-spacing:0.03em; color:var(--shell-text-dimmer); background:none; border:none; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+  .skip-link:hover{ color:var(--shell-text-dim); }
+
+  /* completion toast, shown briefly after finishing/skipping */
+  .toast{
+    position:absolute; z-index:4; bottom:36px; left:50%; transform:translateX(-50%) translateY(8px);
+    background:var(--shell-bg); border:1px solid var(--shell-border); border-radius:999px;
+    padding:9px 16px; font-family:var(--mono); font-size:11px; color:var(--shell-text-dim);
+    display:flex; align-items:center; gap:8px; opacity:0; pointer-events:none; transition:opacity .3s ease, transform .3s ease;
+    backdrop-filter:blur(12px);
+  }
+  .toast.visible{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast .dot{ width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 6px rgba(0,255,135,0.5); }
+
+  @media (max-width:520px){
+    .warmup-modal{ width:calc(100vw - 24px); }
+    .q-text{ font-size:14.5px; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="stage" id="stage">
+    <div class="stage-vignette"></div>
+    <div class="hud-crumb mono">STUDIO&nbsp;/&nbsp;<b>MIXING CONSOLE</b><span class="opt-tag">optional warm-up</span></div>
+    <div class="stage-backdrop-dim" id="dim"></div>
+
+    <div class="console-wrap" id="console">
+      <div class="channel-strip">
+        <div class="strip-head">
+          <div class="strip-name">CH 03</div>
+          <div class="strip-sub mono">LEAD&nbsp;VOX</div>
+        </div>
+        <div class="strip-module">
+          <div class="module-label mono">GAIN / EQ / DYNAMICS</div>
+          <div class="module-deco">
+            <span class="deco-dot"></span><span class="deco-dot"></span><span class="deco-dot"></span><span class="deco-dot"></span>
+          </div>
+        </div>
+        <div class="strip-fader-row">
+          <div class="mini-pan"></div>
+          <div class="mini-fader-track"><div class="mini-fader-thumb"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ WARM-UP MODAL ═══════════════════════ -->
+    <div class="warmup-modal" id="modal">
+      <div class="panel-head">
+        <div class="host-badge" id="hostBadge">
+          <span class="host-badge__ring"></span>
+          <span class="host-badge__dot">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8a5 5 0 0 1 0 8"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+          </span>
+        </div>
+        <div class="panel-titles">
+          <div class="panel-title">Before You Touch a Fader</div>
+          <div class="panel-kicker">Studio guide <span class="sep">·</span> <span class="opt">optional — 5 questions</span></div>
+        </div>
+        <button class="panel-close" id="closeBtn" aria-label="Skip to lesson">×</button>
+      </div>
+
+      <div class="panel-intro">
+        Five quick questions to build the <b>instinct</b> before the terminology. Nothing here is graded — jump straight into the console tour whenever you like.
+      </div>
+
+      <div class="progress-row">
+        <div class="progress-track" id="progressTrack"></div>
+        <div class="progress-count mono" id="progressCount">1 / 5</div>
+      </div>
+
+      <div class="panel-body">
+        <div class="q-card" id="qCard">
+          <div class="q-eyebrow" id="qEyebrow"></div>
+
+          <div class="q-row">
+            <div class="q-text" id="qText"></div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; margin-top:-4px;">
+            <button class="speak-btn" id="speakBtn" aria-label="Play narration">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="speakIcon"><path d="M5 9v6h3.5l4.5 3.6V5.4L8.5 9H5z"/></svg>
+            </button>
+            <span class="mono" style="font-size:9.5px; letter-spacing:.08em; color:var(--text-faint); text-transform:uppercase;" id="speakLabel">Hear the question</span>
+            <div class="wave" id="wave"><span></span><span></span><span></span><span></span></div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="why-block">
+            <span class="lbl">Why everyone connects</span>
+            <div id="qWhy"></div>
+          </div>
+
+          <div class="bridge-block">
+            <span class="lbl">Console bridge →</span>
+            <div class="chip-row" id="qChips"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-row">
+        <button class="nav-btn" id="prevBtn">← Back</button>
+        <div class="dot-nav" id="dotNav"></div>
+        <button class="nav-btn primary" id="nextBtn">Next question →</button>
+      </div>
+
+      <div class="panel-footer">
+        <label class="pill-toggle" id="autoplayToggle">
+          <span class="track"><span class="thumb"></span></span>
+          Auto-narrate
+        </label>
+        <button class="skip-link" id="skipBtn">Skip — go straight to the console</button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"><span class="dot"></span><span id="toastText">Warm-up complete — opening the console tour…</span></div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  const questions = [
+    {
+      eyebrow: 'Q1 · The balance problem',
+      text: "Imagine a band playing live where the drummer is naturally 5 times louder than the singer. If the mixing console didn't exist, how would a sound engineer fix that balance without telling the drummer to hit softer?",
+      why: "Frames the console as a tool for control, balance, and problem-solving — not just a complex box of knobs.",
+      chips: ['Preamps', 'Faders', 'Gain staging', 'Level summing']
+    },
+    {
+      eyebrow: 'Q2 · The wall of knobs',
+      text: "When you look at a massive mixing console with 64 channels and hundreds of knobs, do you think every single knob does a completely unique thing — or is it mostly just one set of controls, repeated 64 times?",
+      why: "Demystifies the intimidating “wall of knobs” that overwhelms anyone new to a large board.",
+      chips: ['Channel strip structure', 'Signal flow architecture', 'Modular board design']
+    },
+    {
+      eyebrow: 'Q3 · Sound as plumbing',
+      text: "If a singer plugs their microphone into channel 1 on a console, how many different places can that singer's voice be sent at the exact same time before it reaches the main speakers?",
+      why: "Reframes sound not as a static line but as something fluid, splitting into different paths at once — like plumbing.",
+      chips: ['Aux sends', 'Monitors', 'Sub-groups', 'Matrix outputs', 'Direct outs']
+    },
+    {
+      eyebrow: 'Q4 · Gain vs. fader',
+      text: "If an instrument sounds too quiet in the main speakers, there are two main controls that can make it louder: the Gain knob at the top of the channel strip, or the Fader at the bottom. What happens if you crank the top Gain knob all the way up instead of using the fader?",
+      why: "Everyone has felt the wince of unpleasant distortion, static, or feedback — this taps that shared memory.",
+      chips: ['Preamp headroom', 'Gain staging', 'Clipping', 'Fader resolution']
+    },
+    {
+      eyebrow: 'Q5 · Hands vs. screen',
+      text: "If you were mixing a high-stress live show, would you feel more comfortable grabbing physical tactile knobs by muscle memory, or navigating a clean touchscreen surface like an iPad — and why?",
+      why: "Everyone has opinions on physical buttons vs. touchscreens, shaped by modern cars, phones, and devices.",
+      chips: ['Analog vs. digital desks', 'Recallability', 'Workflows', 'Layers']
+    }
+  ];
+
+  let idx = 0;
+  let autoplay = false;
+  let dismissed = false;
+  let advanceTimer = null;
+
+  const qEyebrow = document.getElementById('qEyebrow');
+  const qText = document.getElementById('qText');
+  const qWhy = document.getElementById('qWhy');
+  const qChips = document.getElementById('qChips');
+  const qCard = document.getElementById('qCard');
+  const progressTrack = document.getElementById('progressTrack');
+  const progressCount = document.getElementById('progressCount');
+  const dotNav = document.getElementById('dotNav');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const speakBtn = document.getElementById('speakBtn');
+  const speakLabel = document.getElementById('speakLabel');
+  const hostBadge = document.getElementById('hostBadge');
+  const wave = document.getElementById('wave');
+  const modal = document.getElementById('modal');
+  const stage = document.getElementById('stage');
+  const toast = document.getElementById('toast');
+  const toastText = document.getElementById('toastText');
+
+  // build progress segments + dot nav once
+  questions.forEach((_, i) => {
+    const seg = document.createElement('div');
+    seg.className = 'seg';
+    progressTrack.appendChild(seg);
+
+    const dot = document.createElement('button');
+    dot.setAttribute('aria-label', 'Go to question ' + (i + 1));
+    dot.addEventListener('click', () => goTo(i));
+    dotNav.appendChild(dot);
+  });
+
+  function render(){
+    const q = questions[idx];
+    qEyebrow.textContent = q.eyebrow;
+    qText.textContent = q.text;
+    qWhy.textContent = q.why;
+    qChips.innerHTML = q.chips.map(c => `<span class="chip">${c}</span>`).join('');
+
+    qCard.classList.remove('q-in');
+    void qCard.offsetWidth;
+    qCard.style.animation = 'none';
+    void qCard.offsetWidth;
+    qCard.style.animation = '';
+
+    [...progressTrack.children].forEach((seg, i) => {
+      seg.classList.toggle('filled', i < idx);
+      seg.classList.toggle('current', i === idx);
+    });
+    [...dotNav.children].forEach((dot, i) => {
+      dot.classList.toggle('active', i === idx);
+      dot.classList.toggle('done', i < idx);
+    });
+    progressCount.textContent = (idx + 1) + ' / ' + questions.length;
+
+    prevBtn.disabled = idx === 0;
+    nextBtn.textContent = idx === questions.length - 1 ? 'Start the console tour →' : 'Next question →';
+
+    stopSpeaking();
+  }
+
+  function goTo(i){
+    idx = Math.max(0, Math.min(questions.length - 1, i));
+    render();
+    if (autoplay) speak();
+  }
+
+  prevBtn.addEventListener('click', () => goTo(idx - 1));
+  nextBtn.addEventListener('click', () => {
+    if (idx === questions.length - 1) { finish('Nice work — warm-up complete. Opening the console tour…'); }
+    else goTo(idx + 1);
+  });
+  document.getElementById('skipBtn').addEventListener('click', () => finish('Skipped — heading straight into the console tour…'));
+  document.getElementById('closeBtn').addEventListener('click', () => finish('Skipped — heading straight into the console tour…'));
+
+  /* ── narration: literal "hotspot speaker" — the host reads each question
+     aloud using the browser's built-in speech synthesis. Falls back
+     gracefully (button just does nothing but the waveform still cues
+     visually) on browsers without SpeechSynthesis support. ── */
+  const hasTTS = 'speechSynthesis' in window;
+  let utter = null;
+
+  function setSpeakingUI(on){
+    hostBadge.classList.toggle('speaking', on);
+    wave.parentElement.classList.toggle('speaking', on);
+    speakBtn.classList.toggle('playing', on);
+    speakLabel.textContent = on ? 'Reading aloud…' : 'Hear the question';
+  }
+
+  function speak(){
+    if (!hasTTS) return;
+    window.speechSynthesis.cancel();
+    utter = new SpeechSynthesisUtterance(questions[idx].text);
+    utter.rate = 0.98;
+    utter.pitch = 1.0;
+    utter.onstart = () => setSpeakingUI(true);
+    utter.onend = () => {
+      setSpeakingUI(false);
+      if (autoplay && !dismissed) {
+        clearTimeout(advanceTimer);
+        advanceTimer = setTimeout(() => {
+          if (idx < questions.length - 1) goTo(idx + 1);
+          else finish('Nice work — warm-up complete. Opening the console tour…');
+        }, 1400);
+      }
+    };
+    utter.onerror = () => setSpeakingUI(false);
+    window.speechSynthesis.speak(utter);
+  }
+  function stopSpeaking(){
+    if (hasTTS) window.speechSynthesis.cancel();
+    clearTimeout(advanceTimer);
+    setSpeakingUI(false);
+  }
+
+  speakBtn.addEventListener('click', () => {
+    if (hostBadge.classList.contains('speaking')) stopSpeaking();
+    else speak();
+  });
+
+  const autoplayToggle = document.getElementById('autoplayToggle');
+  autoplayToggle.addEventListener('click', () => {
+    autoplay = !autoplay;
+    autoplayToggle.classList.toggle('on', autoplay);
+    if (autoplay) speak(); else stopSpeaking();
+  });
+
+  function finish(message){
+    dismissed = true;
+    stopSpeaking();
+    modal.classList.add('dismissed');
+    stage.classList.add('revealed');
+    toastText.textContent = message;
+    toast.classList.add('visible');
+    setTimeout(() => toast.classList.remove('visible'), 3200);
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>

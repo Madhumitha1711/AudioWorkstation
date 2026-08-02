@@ -279,6 +279,31 @@ function PanoramaTour() {
     Math.round(getRoomBleedVolume() * 100),
   );
   const [bleedMuted, setBleedMutedState] = useState(() => isRoomBleedMuted());
+  // Gates the entire scene (viewer, doors, gear/interactive/volume hotspots
+  // and their panels) behind the Studio's power-up game, which lives in the
+  // side panel — see StudioHotspotsPanel's onPoweredChange. Starts locked;
+  // StudioHotspotsPanel flips this true live once every device in the
+  // Studio's chain is "on" (Game or Classic mode, either way — see that
+  // component), and false again the moment a device gets switched back off.
+  // Only the Studio room has a chain/panel today, so this is only ever
+  // driven from there — it simply carries over unchanged while the visitor
+  // is elsewhere (e.g. the Recording Room), and gets reset to locked below
+  // every time the Studio is (re-)entered, fresh load included.
+  const [poweredOn, setPoweredOn] = useState(false);
+
+  // Forces the master output off for as long as the scene is locked, on top
+  // of whatever the visitor's own mute preference (audioMuted) is — the
+  // ambient bed and any room bleed both auto-start on room entry via
+  // activateRoomAudio() below regardless of lock state, so without this
+  // they'd stay audible even though everything is grayed out and silent to
+  // interaction. setMuted() drives a single output-stage gain shared by the
+  // ambient bed, room bleed, hotspot narration, and the DAW's speaker bus
+  // (see spatialAudioEngine.js), so this one call covers all of them.
+  // Restores to the visitor's actual preference the moment the scene
+  // unlocks — this never touches audioMuted itself, only the engine.
+  useEffect(() => {
+    setMuted(audioMuted || !poweredOn);
+  }, [audioMuted, poweredOn]);
 
   useEffect(() => {
     activeModuleRef.current = activeModule;
@@ -381,6 +406,15 @@ function PanoramaTour() {
       latestRequestRef.current = null;
       clearSelectedMarkerEl();
       setStatus("ready");
+
+      // Every (re-)arrival at the Studio — the fresh page load included,
+      // since the virtual-tour plugin fires node-changed for the initial
+      // node too — re-locks the scene, so powering up isn't a one-time
+      // unlock for the whole session. Walking to the Recording Room and
+      // back is exactly how a visitor would trigger this mid-session.
+      if (e.node.id === START_NODE_ID) {
+        setPoweredOn(false);
+      }
 
       // Walking through a doorway should land the student facing into the
       // new room with the door they just came through behind them, not
@@ -620,10 +654,15 @@ function PanoramaTour() {
   // Master mute — silences everything (ambient bed + narration, spatial or
   // not) via the single output stage in spatialAudioEngine. Fully
   // independent of the binaural toggle below.
+  //
+  // Only flips the visitor's own preference — the effect above is what
+  // actually calls setMuted(), combining this with the scene's lock state,
+  // so this can't be read via isMuted() here (that may currently be true
+  // just because the scene is locked, not because the visitor chose mute).
+  // The toolbar button itself is unreachable while locked anyway (see
+  // svr-tour-locked), so this only ever fires while poweredOn is true.
   const toggleMasterMute = () => {
-    const next = !isMuted();
-    setMuted(next);
-    setAudioMuted(next);
+    setAudioMuted((prev) => !prev);
   };
 
   // Binaural/spatial toggle — does NOT mute or unmute anything. It only
@@ -707,7 +746,15 @@ function PanoramaTour() {
   // — clicking a device row there should behave exactly like clicking its
   // marker directly in the scene, just routed through the same
   // goToMarker/goToInteractiveMarker paths instead of a marker click event.
+  //
+  // Guarded on poweredOn: this drives the camera and opens gear/interactive
+  // panels via direct function calls, not a real DOM click on the (CSS
+  // pointer-events: none, see svr-tour-locked) viewer — so without this
+  // check, a visitor could still "walk over" to a hotspot and pop its panel
+  // open from the panel while the rest of the scene reads as locked, which
+  // would defeat the point of gating it behind the power-up game.
   const handlePanelSelectDevice = (kind, id) => {
+    if (!poweredOn) return;
     if (kind === "interactive") {
       const marker = markersRef.current?.getMarker(id);
       if (marker) goToInteractiveMarkerRef.current?.(id, marker.data);
@@ -724,253 +771,299 @@ function PanoramaTour() {
   // choice panel below falls back to "Start course" alone.
   const activeTopic = activeGear ? TOPICS.find((t) => t.id === activeGear.id) : null;
   const quizQuestions = activeTopic?.assessment?.questions ?? [];
+  // What the mute button should actually show — audioMuted is only the
+  // visitor's own preference, but the room reads as (and is) silent
+  // whenever it's locked too (see the setMuted effect above), so the icon
+  // should reflect that combined, real state rather than just the
+  // preference alone.
+  const effectiveAudioMuted = audioMuted || !poweredOn;
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
-      <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+      {/* Everything below except StudioHotspotsPanel lives inside this
+          wrapper, which is what actually gets grayed out / locked down —
+          the panorama viewer itself (drag-to-look, scroll-to-zoom, all
+          markers) plus every panel it can open. `pointer-events: none` when
+          locked (see panoramaTour.css) blocks clicks, drags, and wheel
+          input on everything inside, including the photo-sphere-viewer's
+          own internal handlers, since CSS pointer-events on an ancestor
+          suppresses hit-testing for its descendants too unless a descendant
+          explicitly opts back in — nothing here does. The side panel stays
+          outside this wrapper on purpose: it's the one thing that has to
+          stay interactive so the visitor can actually power the rig up in
+          the first place. */}
+      <div
+        className={"svr-tour-lockable" + (poweredOn ? "" : " svr-tour-locked")}
+      >
+        <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
 
-      {status === "loading" && (
-        <div className="svr-tour-loading">
-          <div className="svr-tour-spinner" />
-          <div className="svr-tour-loading-text">Loading studio tour…</div>
-        </div>
-      )}
-
-      {status === "error" && (
-        <div className="svr-tour-loading">
-          <div className="svr-tour-loading-text svr-tour-error-text">
-            {errorMsg}
+        {status === "loading" && (
+          <div className="svr-tour-loading">
+            <div className="svr-tour-spinner" />
+            <div className="svr-tour-loading-text">Loading studio tour…</div>
           </div>
-        </div>
-      )}
+        )}
 
-      {status === "ready" && (
-        <div className="svr-tour-toolbar">
-          <div className="svr-tour-room-block">
-            <div className="svr-tour-room-name">{currentRoomName}</div>
-            {ROOMS.length > 1 && (
-              <div className="svr-tour-room-dots">
-                {ROOMS.map((room) => (
-                  <button
-                    key={room.id}
-                    className={
-                      "svr-tour-room-dot" +
-                      (room.id === currentRoomId ? " current" : "")
-                    }
-                    onClick={() => goToRoom(room.id)}
-                    aria-label={`Go to ${room.name}`}
-                    title={room.name}
-                  />
-                ))}
+        {status === "error" && (
+          <div className="svr-tour-loading">
+            <div className="svr-tour-loading-text svr-tour-error-text">
+              {errorMsg}
+            </div>
+          </div>
+        )}
+
+        {status === "ready" && (
+          <div className="svr-tour-toolbar">
+            <div className="svr-tour-room-block">
+              {/* With more than one room, this labeled segmented toggle
+                  replaces both the plain room-name text and the old
+                  unlabeled 6px dots (svr-tour-room-dot) — those were hard
+                  to actually aim at and gave no clue what clicking one did
+                  until you tried. Each segment is a full-size button
+                  showing the room's own name, so the current room and
+                  where a click lands are both obvious at a glance. Falls
+                  back to plain text for a single-room tour, where there's
+                  nothing to switch between anyway. */}
+              {ROOMS.length > 1 ? (
+                <div className="svr-tour-room-toggle" role="group" aria-label="Choose room">
+                  {ROOMS.map((room) => (
+                    <button
+                      key={room.id}
+                      type="button"
+                      className={
+                        "svr-tour-room-toggle__opt" +
+                        (room.id === currentRoomId ? " current" : "")
+                      }
+                      onClick={() => goToRoom(room.id)}
+                      aria-pressed={room.id === currentRoomId}
+                      title={`Go to ${room.name}`}
+                    >
+                      {room.name}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="svr-tour-room-name">{currentRoomName}</div>
+              )}
+            </div>
+            <div className="svr-tour-divider" />
+            <button
+              onClick={toggleBinaural}
+              className={"svr-tour-binaural-btn" + (binauralOn ? " on" : " off")}
+              aria-pressed={binauralOn}
+              aria-label={binauralOn ? "Turn off binaural audio" : "Turn on binaural audio"}
+              title={binauralOn ? "Binaural: on — click to turn off" : "Binaural: off — click to turn on"}
+            >
+              <span className="svr-tour-binaural-icon" aria-hidden="true">🎧</span>
+              <span className="svr-tour-binaural-label">
+                Binaural {binauralOn ? "on" : "off"}
+              </span>
+            </button>
+            <button
+              onClick={toggleMasterMute}
+              className="svr-tour-icon-btn"
+              aria-label={effectiveAudioMuted ? "Unmute audio" : "Mute audio"}
+              title={effectiveAudioMuted ? "Unmute" : "Mute"}
+            >
+              {effectiveAudioMuted ? "🔇" : "🔊"}
+            </button>
+          </div>
+        )}
+
+        {status === "ready" && (
+          <div
+            className={"svr-tour-hint-chip" + (hintOpen ? " open" : "")}
+            onClick={() => setHintOpen((v) => !v)}
+          >
+            <button
+              className="svr-tour-icon-btn active"
+              style={{ pointerEvents: "none" }}
+              aria-hidden="true"
+              tabIndex={-1}
+            >
+              ?
+            </button>
+            <div className="svr-tour-hint-text">
+              Press "P" to toggle hotspot placement mode, then click a doorway
+              or piece of gear to read its yaw/pitch (also logged to the
+              console).
+              {placementMode && (
+                <div className="svr-tour-hint-placement">
+                  Placement mode ON
+                  {lastPlacement &&
+                    ` — last click: yaw ${lastPlacement.yaw}deg, pitch ${lastPlacement.pitch}deg`}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeGear && !quizActive && (
+          <div className="svr-tour-gear-panel">
+            <div className="svr-tour-gear-panel__head">
+              <span className="svr-tour-gear-badge">{activeGear.number}</span>
+              <div className="svr-tour-gear-panel__titles">
+                <div className="svr-tour-gear-panel__title">
+                  {activeGear.title}
+                </div>
+                <div className="svr-tour-gear-panel__kicker">Choose how to start</div>
               </div>
-            )}
-          </div>
-          <div className="svr-tour-divider" />
-          <button
-            onClick={toggleBinaural}
-            className={"svr-tour-binaural-btn" + (binauralOn ? " on" : " off")}
-            aria-pressed={binauralOn}
-            aria-label={binauralOn ? "Turn off binaural audio" : "Turn on binaural audio"}
-            title={binauralOn ? "Binaural: on — click to turn off" : "Binaural: off — click to turn on"}
-          >
-            <span className="svr-tour-binaural-icon" aria-hidden="true">🎧</span>
-            <span className="svr-tour-binaural-label">
-              Binaural {binauralOn ? "on" : "off"}
-            </span>
-          </button>
-          <button
-            onClick={toggleMasterMute}
-            className="svr-tour-icon-btn"
-            aria-label={audioMuted ? "Unmute audio" : "Mute audio"}
-            title={audioMuted ? "Unmute" : "Mute"}
-          >
-            {audioMuted ? "🔇" : "🔊"}
-          </button>
-        </div>
-      )}
+              <button
+                onClick={closeGearPanel}
+                className="svr-tour-gear-panel__close"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
 
-      {status === "ready" && (
-        <div
-          className={"svr-tour-hint-chip" + (hintOpen ? " open" : "")}
-          onClick={() => setHintOpen((v) => !v)}
-        >
-          <button
-            className="svr-tour-icon-btn active"
-            style={{ pointerEvents: "none" }}
-            aria-hidden="true"
-            tabIndex={-1}
-          >
-            ?
-          </button>
-          <div className="svr-tour-hint-text">
-            Press "P" to toggle hotspot placement mode, then click a doorway
-            or piece of gear to read its yaw/pitch (also logged to the
-            console).
-            {placementMode && (
-              <div className="svr-tour-hint-placement">
-                Placement mode ON
-                {lastPlacement &&
-                  ` — last click: yaw ${lastPlacement.yaw}deg, pitch ${lastPlacement.pitch}deg`}
+            <div className="svr-tour-gear-panel__body svr-tour-choice-body">
+              {quizQuestions.length === 0 && !activeGear.course?.id && (
+                // Neither a quiz nor a course exists yet for this hotspot —
+                // every gear marker in roomsData.js currently ships a
+                // course.id, so this is only a defensive fallback for future
+                // hotspots added without one, not something students see today.
+                <p className="svr-tour-choice-empty">
+                  Course content for {activeGear.title} is coming soon.
+                </p>
+              )}
+
+              {quizQuestions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setQuizActive(true)}
+                  className="svr-tour-choice-card svr-tour-choice-card--quiz"
+                >
+                  <span className="svr-tour-choice-card-icon" aria-hidden="true">🧠</span>
+                  <span className="svr-tour-choice-card-text">
+                    <span className="svr-tour-choice-card-title">Test your knowledge</span>
+                    <span className="svr-tour-choice-card-sub">
+                      {quizQuestions.length} quick questions on {activeGear.title.toLowerCase()} — optional
+                    </span>
+                  </span>
+                </button>
+              )}
+
+              {activeGear.course?.id && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    // activeGear.id is the hotspot's marker id (e.g. "speaker"),
+                    // which is also the topic id in src/course/courseData.js —
+                    // CoursePage reads this route state to open directly on
+                    // the right topic instead of the default one.
+                    navigate("/course", { state: { topicId: activeGear.id } });
+                  }}
+                  className="svr-tour-choice-card svr-tour-choice-card--course"
+                >
+                  <span className="svr-tour-choice-card-icon" aria-hidden="true">▶</span>
+                  <span className="svr-tour-choice-card-text">
+                    <span className="svr-tour-choice-card-title">Start course</span>
+                    <span className="svr-tour-choice-card-sub">Jump straight into the lesson</span>
+                  </span>
+                </button>
+              )}
+            </div>
+
+            <div className="svr-tour-gear-panel__footer">
+              <button
+                onClick={goToNextMarker}
+                className="svr-tour-btn svr-tour-btn-secondary"
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeGear && quizActive && (
+          <HotspotKnowledgeCheck
+            key={activeGear.id}
+            gear={activeGear}
+            questions={quizQuestions}
+            onSkip={() => setQuizActive(false)}
+            onBackToOverview={() => setQuizActive(false)}
+            onStartCourse={() => navigate("/course", { state: { topicId: activeGear.id } })}
+            onClose={closeGearPanel}
+          />
+        )}
+
+        {activeVolumeControl && (
+          <div className="svr-tour-volume-panel">
+            <div className="svr-tour-volume-panel__head">
+              <span className="svr-tour-volume-panel__icon" aria-hidden="true">
+                🔊
+              </span>
+              <div className="svr-tour-volume-panel__title">
+                {activeVolumeControl.title || "Volume"}
               </div>
-            )}
-          </div>
-        </div>
-      )}
+              <button
+                onClick={closeVolumePanel}
+                className="svr-tour-gear-panel__close"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
 
+            <div className="svr-tour-volume-panel__body">
+              <div className="svr-tour-volume-panel__desc">
+                Faint audio bleeding through from a session in the recording
+                room. This slider only adjusts how audible it is
+                here.
+              </div>
+
+              <div className="svr-tour-volume-row">
+                <button
+                  onClick={toggleBleedMute}
+                  className="svr-tour-icon-btn active"
+                  aria-pressed={bleedMuted}
+                  aria-label={bleedMuted ? "Unmute recording room bleed" : "Mute recording room bleed"}
+                  title={bleedMuted ? "Unmute" : "Mute"}
+                >
+                  {bleedMuted ? "🔇" : "🔊"}
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={bleedVolume}
+                  onChange={handleBleedVolumeChange}
+                  disabled={bleedMuted}
+                  className="svr-tour-volume-slider"
+                  aria-label="Recording room bleed volume"
+                />
+                <div className="svr-tour-volume-val">
+                  {bleedMuted ? "Muted" : `${bleedVolume}%`}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <DawWorkstationScreen open={activeModule} onClose={closeModulePanel} />
+      </div>
+
+      {/* Deliberately outside the lockable wrapper above — this is the one
+          control surface that must stay usable while everything else is
+          grayed out, since it's the only way to power the rig up in the
+          first place. */}
       {status === "ready" && (
         <StudioHotspotsPanel
           room={currentRoom}
           activeGear={activeGear}
           activeModule={activeModule}
           onSelectDevice={handlePanelSelectDevice}
+          onPoweredChange={setPoweredOn}
         />
       )}
 
-      {activeGear && !quizActive && (
-        <div className="svr-tour-gear-panel">
-          <div className="svr-tour-gear-panel__head">
-            <span className="svr-tour-gear-badge">{activeGear.number}</span>
-            <div className="svr-tour-gear-panel__titles">
-              <div className="svr-tour-gear-panel__title">
-                {activeGear.title}
-              </div>
-              <div className="svr-tour-gear-panel__kicker">Choose how to start</div>
-            </div>
-            <button
-              onClick={closeGearPanel}
-              className="svr-tour-gear-panel__close"
-              aria-label="Close"
-            >
-              ×
-            </button>
-          </div>
-
-          <div className="svr-tour-gear-panel__body svr-tour-choice-body">
-            {quizQuestions.length === 0 && !activeGear.course?.id && (
-              // Neither a quiz nor a course exists yet for this hotspot —
-              // every gear marker in roomsData.js currently ships a
-              // course.id, so this is only a defensive fallback for future
-              // hotspots added without one, not something students see today.
-              <p className="svr-tour-choice-empty">
-                Course content for {activeGear.title} is coming soon.
-              </p>
-            )}
-
-            {quizQuestions.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setQuizActive(true)}
-                className="svr-tour-choice-card svr-tour-choice-card--quiz"
-              >
-                <span className="svr-tour-choice-card-icon" aria-hidden="true">🧠</span>
-                <span className="svr-tour-choice-card-text">
-                  <span className="svr-tour-choice-card-title">Test your knowledge</span>
-                  <span className="svr-tour-choice-card-sub">
-                    {quizQuestions.length} quick questions on {activeGear.title.toLowerCase()} — optional
-                  </span>
-                </span>
-              </button>
-            )}
-
-            {activeGear.course?.id && (
-              <button
-                type="button"
-                onClick={() => {
-                  // activeGear.id is the hotspot's marker id (e.g. "speaker"),
-                  // which is also the topic id in src/course/courseData.js —
-                  // CoursePage reads this route state to open directly on
-                  // the right topic instead of the default one.
-                  navigate("/course", { state: { topicId: activeGear.id } });
-                }}
-                className="svr-tour-choice-card svr-tour-choice-card--course"
-              >
-                <span className="svr-tour-choice-card-icon" aria-hidden="true">▶</span>
-                <span className="svr-tour-choice-card-text">
-                  <span className="svr-tour-choice-card-title">Start course</span>
-                  <span className="svr-tour-choice-card-sub">Jump straight into the lesson</span>
-                </span>
-              </button>
-            )}
-          </div>
-
-          <div className="svr-tour-gear-panel__footer">
-            <button
-              onClick={goToNextMarker}
-              className="svr-tour-btn svr-tour-btn-secondary"
-            >
-              Next →
-            </button>
-          </div>
+      {status === "ready" && !poweredOn && (
+        <div className="svr-tour-locked-banner">
+          Power up the studio rig in the panel to explore →
         </div>
       )}
-
-      {activeGear && quizActive && (
-        <HotspotKnowledgeCheck
-          key={activeGear.id}
-          gear={activeGear}
-          questions={quizQuestions}
-          onSkip={() => setQuizActive(false)}
-          onBackToOverview={() => setQuizActive(false)}
-          onStartCourse={() => navigate("/course", { state: { topicId: activeGear.id } })}
-          onClose={closeGearPanel}
-        />
-      )}
-
-      {activeVolumeControl && (
-        <div className="svr-tour-volume-panel">
-          <div className="svr-tour-volume-panel__head">
-            <span className="svr-tour-volume-panel__icon" aria-hidden="true">
-              🔊
-            </span>
-            <div className="svr-tour-volume-panel__title">
-              {activeVolumeControl.title || "Volume"}
-            </div>
-            <button
-              onClick={closeVolumePanel}
-              className="svr-tour-gear-panel__close"
-              aria-label="Close"
-            >
-              ×
-            </button>
-          </div>
-
-          <div className="svr-tour-volume-panel__body">
-            <div className="svr-tour-volume-panel__desc">
-              Faint audio bleeding through from a session in the recording
-              room. This slider only adjusts how audible it is
-              here.
-            </div>
-
-            <div className="svr-tour-volume-row">
-              <button
-                onClick={toggleBleedMute}
-                className="svr-tour-icon-btn active"
-                aria-pressed={bleedMuted}
-                aria-label={bleedMuted ? "Unmute recording room bleed" : "Mute recording room bleed"}
-                title={bleedMuted ? "Unmute" : "Mute"}
-              >
-                {bleedMuted ? "🔇" : "🔊"}
-              </button>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={1}
-                value={bleedVolume}
-                onChange={handleBleedVolumeChange}
-                disabled={bleedMuted}
-                className="svr-tour-volume-slider"
-                aria-label="Recording room bleed volume"
-              />
-              <div className="svr-tour-volume-val">
-                {bleedMuted ? "Muted" : `${bleedVolume}%`}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <DawWorkstationScreen open={activeModule} onClose={closeModulePanel} />
     </div>
   );
 }

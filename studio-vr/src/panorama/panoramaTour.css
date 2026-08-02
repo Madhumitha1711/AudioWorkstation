@@ -214,7 +214,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0 8px;
+  padding: 0 4px;
   min-width: 0;
 }
 .svr-tour-room-name {
@@ -223,28 +223,45 @@
   font-weight: 600;
   letter-spacing: 0.01em;
   white-space: nowrap;
+  padding: 0 4px;
 }
-.svr-tour-room-dots {
+
+/* Segmented room switcher — replaces the old unlabeled svr-tour-room-dot
+   (6px circles, easy to miss and gave no clue what clicking one did). Each
+   segment is a full text button naming its room, so both the current room
+   and the click target are obvious at a glance instead of relying on a
+   tiny highlighted dot. */
+.svr-tour-room-toggle {
   display: flex;
-  gap: 5px;
-  margin-top: 4px;
+  align-items: center;
+  gap: 2px;
+  background: var(--shell-panel-hover);
+  border: 1px solid var(--shell-border);
+  border-radius: 999px;
+  padding: 3px;
 }
-.svr-tour-room-dot {
-  width: 6px;
-  height: 6px;
-  padding: 0;
-  border-radius: 50%;
+.svr-tour-room-toggle__opt {
   border: none;
-  background: var(--shell-border);
+  background: transparent;
+  color: var(--shell-text-dimmer);
+  font-family: sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  padding: 7px 14px;
+  border-radius: 999px;
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
-.svr-tour-room-dot:hover {
-  background: var(--shell-text-dim);
+.svr-tour-room-toggle__opt:hover {
+  color: var(--shell-text-dim);
 }
-.svr-tour-room-dot.current {
+.svr-tour-room-toggle__opt.current {
   background: #22ff88;
-  transform: scale(1.3);
+  color: #0a0a0a;
+}
+.svr-tour-room-toggle__opt.current:hover {
+  opacity: 0.9;
 }
 .svr-tour-divider {
   width: 1px;
@@ -884,4 +901,60 @@
 }
 .svr-tour-error-text {
   color: #f66;
+}
+
+/* Gates the whole scene — the panorama viewer (drag-to-look, scroll-to-zoom)
+   plus every marker and panel it can open — behind the Studio's power-up
+   game in the left-docked side panel (StudioHotspotsPanel), which is
+   deliberately rendered as a sibling *outside* .svr-tour-lockable so it
+   stays usable while everything else here is locked. See the onPoweredChange
+   wiring in PanoramaTour.jsx. */
+.svr-tour-lockable {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  /* Smoothly desaturate/dim in and out rather than snapping, so powering up
+     reads as the rig visibly coming back to life instead of a hard cut. */
+  transition: filter 0.5s ease;
+}
+.svr-tour-locked {
+  filter: grayscale(1) brightness(0.5) contrast(0.95);
+  /* Blocks clicks, drags, and wheel/scroll input on everything inside,
+     including the photo-sphere-viewer's own internal drag-to-look and
+     scroll-to-zoom handlers — pointer-events: none on an ancestor removes
+     its entire subtree from hit-testing unless a descendant explicitly
+     opts back in (nothing here does), so this alone is enough to freeze
+     the whole viewer, not just the React-rendered panels layered on top
+     of it. */
+  pointer-events: none;
+}
+/* Small pill telling the visitor why the scene is dimmed and where to go
+   fix that — sits outside .svr-tour-lockable (see PanoramaTour.jsx) so it
+   stays fully legible instead of getting grayscaled along with everything
+   it's explaining. Bottom-center, out of the way of the toolbar/hint chip
+   (top) and the docked panel (left). */
+.svr-tour-locked-banner {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--shell-bg);
+  border: 1px solid var(--shell-border);
+  border-radius: 999px;
+  padding: 8px 16px;
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow);
+  font-family: sans-serif;
+  font-size: 13px;
+  color: var(--shell-text);
+  max-width: calc(100vw - 32px);
+  text-align: center;
+  pointer-events: none;
+  /* Same reasoning as the floating panels above (see the z-index: 60 note
+     near .svr-tour-toolbar) — comfortably above Photo Sphere Viewer's own
+     marker layer. */
+  z-index: 60;
 }

@@ -2,11 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "./studioHotspotsPanel.css";
 import { ICONS, WARN_ICON, buildDeviceList } from "./hotspotDevices";
 
-// The left-docked "Studio Hotspots" panel — now *is* the power-up challenge
-// from design/studio-hotspots-panel.html, ported in full: mute button,
-// Game/Classic mode switch, attempts/faults/hints/time stats, hint system,
-// timer, best-score persistence, and the confetti completion overlay all
-// live permanently in the docked rail instead of behind a separate button.
+// The left-docked "Studio Hotspots" panel — *is* the power-up challenge from
+// design/studio-hotspots-panel.html, ported in full: mute button, Game/
+// Classic mode switch, attempts/faults/hints/time stats, hint system, timer,
+// and best-score persistence all live permanently in the docked rail instead
+// of behind a separate button. Deliberately dropped from that original
+// design: the confetti/stars completion overlay — finishing the sequence
+// unlocks the rest of the scene (see PanoramaTour's onPoweredChange), and
+// that un-graying is the reward, so a separate celebration screen on top of
+// it would be redundant.
 //
 // One deliberate departure from the design: clicking a row (anywhere except
 // the power switch) still drives real navigation — it walks the camera up
@@ -113,7 +117,21 @@ function freshRoundState(devices, gameMode) {
   };
 }
 
-function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice }) {
+function StudioHotspotsPanel({
+  room,
+  activeGear,
+  activeModule,
+  onSelectDevice,
+  // Called with `true` once every device in this room's chain is "on" —
+  // regardless of Game mode (round.roundOver, gated to Game mode only, see
+  // finishRound below) or Classic mode (classicPowerUpSequence never sets
+  // roundOver at all). PanoramaTour uses this to unlock the rest of the
+  // scene (see the svr-tour-locked wrapper there) once the visitor has
+  // actually powered the rig up, and re-locks it if a device gets switched
+  // back off (e.g. Power down) — the lock state simply mirrors "are all
+  // devices currently on" live, in either mode.
+  onPoweredChange,
+}) {
   const [collapsed, setCollapsed] = useState(false);
   // Tracks whether the panel was auto-collapsed by the effect below (as
   // opposed to the visitor manually clicking the toggle), so closing the DAW
@@ -134,8 +152,6 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
   const [now, setNow] = useState(Date.now());
   const [shaking, setShaking] = useState(false);
   const [rowFx, setRowFx] = useState({}); // { [deviceId]: "success" | "error" | "hint" }
-  const [confetti, setConfetti] = useState([]);
-  const [overlayHidden, setOverlayHidden] = useState(false);
   // True while the Classic-mode "Power up in order" animation is stepping
   // through devices — used to disable the trigger button mid-run and to
   // let a room change / power-down interrupt it cleanly.
@@ -212,9 +228,7 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
       lastRecordedRoomKeyRef.current = roomKey;
       recordGamePlayed(roomKey, mode);
     }
-    setConfetti([]);
     setRowFx({});
-    setOverlayHidden(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room]);
 
@@ -232,6 +246,19 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
     },
     []
   );
+
+  // Reports "fully powered" to the parent tour. Guarded on devices.length so
+  // a room with no chain at all (e.g. the Recording Room, which renders no
+  // panel — see the early return just below) never reports back and can't
+  // clobber whatever power state the Studio last set; only a room that
+  // actually has a panel/game gets a say here.
+  const allDevicesOn =
+    devices.length > 0 && devices.every((d) => round.status[d.id] === "on");
+  useEffect(() => {
+    if (devices.length === 0) return;
+    onPoweredChange?.(allDevicesOn);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allDevicesOn, devices.length]);
 
   if (devices.length === 0) return null;
 
@@ -288,19 +315,10 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
     }, duration);
   }
 
-  function launchConfetti() {
-    const colors = ["#22c76a", "#7dffb8", "#ffffff", "#17c76a"];
-    const pieces = Array.from({ length: 40 }, (_, i) => ({
-      id: i,
-      left: Math.random() * 100,
-      color: colors[Math.floor(Math.random() * colors.length)],
-      duration: 1.6 + Math.random() * 1.2,
-      delay: Math.random() * 0.4,
-      rotate: Math.random() * 360,
-    }));
-    setConfetti(pieces);
-  }
-
+  // Records the completed round's score. No celebration screen here on
+  // purpose — the studio itself un-graying (see PanoramaTour's
+  // onPoweredChange) is the reward for finishing the sequence, so this only
+  // needs to handle the score bookkeeping + a completion chime.
   function finishRound(mistakes, hintsUsed, startedAt) {
     const finishedAt = Date.now();
     const elapsedSec = startedAt ? (finishedAt - startedAt) / 1000 : 0;
@@ -317,8 +335,6 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
       saveBest(roomKey, nextBest);
     }
     setBest(nextBest);
-    setOverlayHidden(false);
-    launchConfetti();
     return finishedAt;
   }
 
@@ -395,8 +411,6 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
   }
 
   function newRound() {
-    setConfetti([]);
-    setOverlayHidden(false);
     setRound(freshRoundState(devices, gameMode));
     recordGamePlayed(roomKey, gameMode);
   }
@@ -453,10 +467,22 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
     const next = !gameMode;
     setGameMode(next);
     saveGameMode(roomKey, next);
-    setConfetti([]);
-    setOverlayHidden(false);
-    setRound(freshRoundState(devices, next));
     setBest(loadBest(roomKey));
+    if (next) {
+      // Switching INTO Game mode always starts a fresh, shuffled round —
+      // working out the order from scratch is the whole point of Game
+      // mode, so this is the one direction that's allowed to power
+      // everything back down.
+      setRound(freshRoundState(devices, next));
+    } else {
+      // Switching INTO Classic mode only changes how the list is
+      // displayed (canonical signal order instead of shuffled) and clears
+      // the now-irrelevant Game-mode "roundOver" flag — it does NOT power
+      // anything down. A visitor who already brought the rig online
+      // shouldn't have that undone just by flipping the mode switch; if it
+      // wasn't powered on, this is a no-op on the status either way.
+      setRound((prev) => ({ ...prev, order: devices.slice(), roundOver: false }));
+    }
     recordGamePlayed(roomKey, next);
   }
 
@@ -469,9 +495,6 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
       : baseLabel;
   const eyebrowClass =
     "svr-hotspot-panel__eyebrow" + (round.roundOver ? " complete" : anyError ? " fault" : "");
-
-  const penalty = round.mistakes + round.hintsUsed;
-  const starCount = penalty === 0 ? 3 : penalty <= 2 ? 2 : 1;
 
   const handleRowActivate = (device) => onSelectDevice(device.kind, device.id);
 
@@ -811,54 +834,6 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
       >
         {collapsed ? "›" : "‹"}
       </button>
-
-      <div
-        className={"svr-hotspot-overlay" + (round.roundOver && !overlayHidden ? " visible" : "")}
-      >
-        <div className="svr-hotspot-confetti-layer">
-          {confetti.map((p) => (
-            <span
-              key={p.id}
-              className="svr-hotspot-confetti-piece"
-              style={{
-                left: `${p.left}%`,
-                background: p.color,
-                animationDuration: `${p.duration}s`,
-                animationDelay: `${p.delay}s`,
-                transform: `rotate(${p.rotate}deg)`,
-              }}
-            />
-          ))}
-        </div>
-        <div className="svr-hotspot-overlay-card">
-          <div className="svr-hotspot-overlay-eyebrow">Signal restored</div>
-          <div className="svr-hotspot-overlay-title">Sequence complete</div>
-          <div className="svr-hotspot-stars">
-            {[1, 2, 3].map((n) => (
-              <span key={n} className={n <= starCount ? "on" : ""}>
-                ★
-              </span>
-            ))}
-          </div>
-          <div className="svr-hotspot-overlay-summary">
-            Signal restored in <b>{mmss(elapsed / 1000)}</b> · {round.mistakes} fault
-            {round.mistakes === 1 ? "" : "s"} · {round.hintsUsed} hint
-            {round.hintsUsed === 1 ? "" : "s"} used
-          </div>
-          <div className="svr-hotspot-overlay-actions">
-            <button className="svr-hotspot-obtn svr-hotspot-obtn--primary" onClick={newRound} type="button">
-              Play again
-            </button>
-            <button
-              className="svr-hotspot-obtn svr-hotspot-obtn--secondary"
-              onClick={() => setOverlayHidden(true)}
-              type="button"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
