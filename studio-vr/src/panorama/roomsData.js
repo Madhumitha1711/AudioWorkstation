@@ -59,7 +59,7 @@
 export const ROOMS = [
   {
     id: "studio-room",
-    name: "Studio",
+    name: "Control Room",
     panorama: "/paranoma.png",
     // Ambient bed profile for this room — see startAmbientBed() /
     // setRoomAmbience() in spatialAudioEngine.js. Filtered down to a duller,

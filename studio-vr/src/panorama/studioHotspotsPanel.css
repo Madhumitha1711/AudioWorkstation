@@ -279,6 +279,15 @@
   background: var(--hsp-gold);
 }
 
+/* Locked for the onboarding tour's "power up the rig" step (see
+   tourForceClassicMode in StudioHotspotsPanel.jsx) — reads as dimmed/
+   unclickable rather than a normal live switch, since the click handler is
+   a no-op while this class is present. */
+.svr-hotspot-mode-switch.is-locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .svr-hotspot-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -376,6 +385,11 @@
   background: rgba(var(--hsp-tint-rgb), 0.04);
 }
 
+.svr-hotspot-qbtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .svr-hotspot-qbtn--hint:hover {
   color: var(--hsp-gold);
   border-color: rgba(201, 168, 110, 0.4);
@@ -384,6 +398,50 @@
 .svr-hotspot-qbtn--danger:hover {
   color: var(--hsp-err);
   border-color: rgba(240, 102, 92, 0.4);
+}
+
+/* Primary call-to-action treatment for "Power up in order" (Classic mode)
+   while the rig is still off — see the !allDevicesOn check in
+   StudioHotspotsPanel.jsx. Without this it looked exactly like the neutral
+   Hint/New round/Power down utility buttons next to it, so a first-time
+   visitor had no visual cue that *this* is the one control that actually
+   brings the studio online. Filled + glowing + a slow pulse make it read
+   as "click me" at a glance; cleared the instant every device is on, or
+   while the power-up animation is already mid-run (see the .svr-hotspot-
+   qbtn:disabled rule above for that state instead). */
+.svr-hotspot-qbtn--power-cta {
+  color: #06120b;
+  font-weight: 700;
+  background: var(--hsp-on);
+  border-color: var(--hsp-on);
+  box-shadow: 0 0 0 0 var(--hsp-on-glow);
+  animation: svrHotspotPowerCta 2.2s ease-in-out infinite;
+}
+
+.svr-hotspot-qbtn--power-cta:hover {
+  color: #06120b;
+  background: var(--hsp-on);
+  border-color: var(--hsp-on);
+  filter: brightness(1.1);
+}
+
+@keyframes svrHotspotPowerCta {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--hsp-on-glow);
+  }
+
+  50% {
+    box-shadow: 0 0 16px 3px var(--hsp-on-glow);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .svr-hotspot-qbtn--power-cta {
+    animation: none;
+    box-shadow: 0 0 12px 2px var(--hsp-on-glow);
+  }
 }
 
 .svr-hotspot-panel__legend {

@@ -19,7 +19,37 @@ import { useState } from "react";
 // offers "Start course" directly without it, and this panel offers
 // "Skip questions" at every step plus a full results recap with its own
 // "Start course" button once all 5 are answered.
-function HotspotKnowledgeCheck({ gear, questions, onSkip, onBackToOverview, onStartCourse, onClose }) {
+function HotspotKnowledgeCheck({
+  gear,
+  questions,
+  onSkip,
+  onBackToOverview,
+  onStartCourse,
+  onClose,
+  // True while the onboarding tour's "Start the course" step is pointing at
+  // this quiz's results screen — see src/tour/OnboardingTour.jsx, wired up
+  // from PanoramaTour.jsx. Only relevant here because this results screen's
+  // own "Start course →" button is one of two places that action can live
+  // (the other being the gear panel's "choose how to start" view, which
+  // PanoramaTour highlights directly since it renders that view itself).
+  tourHighlightStartCourse,
+  // True while the onboarding tour's "Test your knowledge" step is current.
+  // That step's actual mandatory action (opening this quiz) is already done
+  // by the time this component is even mounted — there's nothing further in
+  // here for the visitor to click for the tour's sake — so this isn't a
+  // "click here" glow like tourHighlightStartCourse above. It's purely a
+  // stable anchor for OnboardingTour's own position tracking: without a
+  // `.svr-tour-glow` element to measure against, the guide card falls back
+  // to resting in the viewport's bottom-right corner (see
+  // OnboardingTour.jsx's own comment on that fallback) — which is exactly
+  // where this panel itself sits (top: 74px, right: 16px, and tall enough
+  // to reach the bottom on shorter viewports — see .svr-tour-gear-panel in
+  // panoramaTour.css), so the two would overlap. Glowing the header bar
+  // instead (full panel width, so "place the card to its left" clears the
+  // whole panel, not just this strip) gives the card something real to
+  // rest beside on both the question view and the results view below.
+  tourAnchorPanel,
+}) {
   const [step, setStep] = useState(0);
   const [responses, setResponses] = useState(() =>
     (questions ?? []).map(() => ({ selected: null, submitted: false }))
@@ -65,7 +95,9 @@ function HotspotKnowledgeCheck({ gear, questions, onSkip, onBackToOverview, onSt
 
     return (
       <div className="svr-tour-gear-panel svr-tour-precheck-panel">
-        <div className="svr-tour-gear-panel__head">
+        <div
+          className={"svr-tour-gear-panel__head" + (tourAnchorPanel ? " svr-tour-glow" : "")}
+        >
           <span className="svr-tour-gear-badge">{gear.number}</span>
           <div className="svr-tour-gear-panel__titles">
             <div className="svr-tour-gear-panel__title">{gear.title}</div>
@@ -104,7 +136,13 @@ function HotspotKnowledgeCheck({ gear, questions, onSkip, onBackToOverview, onSt
             <button onClick={onBackToOverview} className="svr-tour-btn svr-tour-btn-secondary">
               ← Back
             </button>
-            <button onClick={onStartCourse} className="svr-tour-btn svr-tour-btn-primary">
+            <button
+              onClick={onStartCourse}
+              className={
+                "svr-tour-btn svr-tour-btn-primary" +
+                (tourHighlightStartCourse ? " svr-tour-glow" : "")
+              }
+            >
               Start course →
             </button>
           </div>
@@ -119,7 +157,9 @@ function HotspotKnowledgeCheck({ gear, questions, onSkip, onBackToOverview, onSt
 
   return (
     <div className="svr-tour-gear-panel svr-tour-precheck-panel">
-      <div className="svr-tour-gear-panel__head">
+      <div
+        className={"svr-tour-gear-panel__head" + (tourAnchorPanel ? " svr-tour-glow" : "")}
+      >
         <span className="svr-tour-gear-badge">{gear.number}</span>
         <div className="svr-tour-gear-panel__titles">
           <div className="svr-tour-gear-panel__title">{gear.title}</div>
