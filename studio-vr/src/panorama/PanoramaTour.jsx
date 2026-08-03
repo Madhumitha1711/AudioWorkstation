@@ -29,6 +29,10 @@ import DawWorkstationScreen from "./DawWorkstationScreen";
 import SpeakerListeningLab from "./SpeakerListeningLab";
 import MixingConsoleLab from "./MixingConsoleLab";
 import SoundCardLab from "./SoundCardLab";
+import PatchbayLab from "./PatchbayLab";
+import PreampRackLab from "./PreampRackLab";
+import LfEmitterLab from "./LfEmitterLab";
+import DiffuserPanelLab from "./DiffuserPanelLab";
 import StudioHotspotsPanel from "./StudioHotspotsPanel";
 // Only used here to build the "Try Game mode" tour step's correct-order
 // hint (see tourStepsForCard below) — StudioHotspotsPanel already imports
@@ -314,6 +318,17 @@ function PanoramaTour() {
   // listeningLabOpen already gets reset, for the same reason.
   const [mixingConsoleLabOpen, setMixingConsoleLabOpen] = useState(false);
   const [soundCardLabOpen, setSoundCardLabOpen] = useState(false);
+  // Same idea again, for the Patch Bay, Preamp Rack, LF Emitter, and
+  // Diffuser Panel hotspots' own labs (PatchbayLab.jsx / PreampRackLab.jsx /
+  // LfEmitterLab.jsx / DiffuserPanelLab.jsx, ported from
+  // design/patchbay-lab.html, design/preamp-rack-lab.html,
+  // design/lf-emitter-lab.html, and design/diffuser-panel-lab.html
+  // respectively). Reset everywhere every other *LabOpen flag is reset, for
+  // the same reason.
+  const [patchbayLabOpen, setPatchbayLabOpen] = useState(false);
+  const [preampRackLabOpen, setPreampRackLabOpen] = useState(false);
+  const [lfEmitterLabOpen, setLfEmitterLabOpen] = useState(false);
+  const [diffuserPanelLabOpen, setDiffuserPanelLabOpen] = useState(false);
   // Whichever EQ/Compressor interactive hotspot is currently open, or null.
   // Kept separate from activeGear (rather than folded into one "active
   // panel" union) since gear hotspots and interactive hotspots are opened by
@@ -508,6 +523,10 @@ function PanoramaTour() {
       setListeningLabOpen(false);
       setMixingConsoleLabOpen(false);
       setSoundCardLabOpen(false);
+      setPatchbayLabOpen(false);
+      setPreampRackLabOpen(false);
+      setLfEmitterLabOpen(false);
+      setDiffuserPanelLabOpen(false);
       setActiveModule(null);
       setActiveVolumeControl(null);
       latestRequestRef.current = null;
@@ -607,6 +626,10 @@ function PanoramaTour() {
         setListeningLabOpen(false);
         setMixingConsoleLabOpen(false);
         setSoundCardLabOpen(false);
+        setPatchbayLabOpen(false);
+        setPreampRackLabOpen(false);
+        setLfEmitterLabOpen(false);
+        setDiffuserPanelLabOpen(false);
         setSelectedMarkerEl(markerId);
         // Narration audio is intentionally not played here — selecting a
         // hotspot only reveals its text panel (title/description below).
@@ -636,6 +659,10 @@ function PanoramaTour() {
         setListeningLabOpen(false);
         setMixingConsoleLabOpen(false);
         setSoundCardLabOpen(false);
+        setPatchbayLabOpen(false);
+        setPreampRackLabOpen(false);
+        setLfEmitterLabOpen(false);
+        setDiffuserPanelLabOpen(false);
         setActiveVolumeControl(null);
         setActiveModule(data);
         setSelectedMarkerEl(markerId);
@@ -664,6 +691,10 @@ function PanoramaTour() {
       setListeningLabOpen(false);
       setMixingConsoleLabOpen(false);
       setSoundCardLabOpen(false);
+      setPatchbayLabOpen(false);
+      setPreampRackLabOpen(false);
+      setLfEmitterLabOpen(false);
+      setDiffuserPanelLabOpen(false);
       setActiveModule(null);
       setActiveVolumeControl(data);
       setSelectedMarkerEl(markerId);
@@ -772,6 +803,10 @@ function PanoramaTour() {
     setListeningLabOpen(false);
     setMixingConsoleLabOpen(false);
     setSoundCardLabOpen(false);
+    setPatchbayLabOpen(false);
+    setPreampRackLabOpen(false);
+    setLfEmitterLabOpen(false);
+    setDiffuserPanelLabOpen(false);
     clearSelectedMarkerEl();
     viewerRef.current?.animate({ zoom: REST_ZOOM_LVL, speed: "10rpm" });
   };
@@ -847,6 +882,10 @@ function PanoramaTour() {
     setListeningLabOpen(false);
     setMixingConsoleLabOpen(false);
     setSoundCardLabOpen(false);
+    setPatchbayLabOpen(false);
+    setPreampRackLabOpen(false);
+    setLfEmitterLabOpen(false);
+    setDiffuserPanelLabOpen(false);
     setActiveModule(null);
     setActiveVolumeControl(null);
     clearSelectedMarkerEl();
@@ -1022,6 +1061,30 @@ function PanoramaTour() {
       title: "Sound Card Lab",
       subtitle: "Two quick conversion experiments — optional",
       onOpen: () => setSoundCardLabOpen(true),
+    },
+    "patch-bay": {
+      icon: "🔀",
+      title: "Patchbay Lab",
+      subtitle: "Two quick routing experiments — optional",
+      onOpen: () => setPatchbayLabOpen(true),
+    },
+    "preamp-rack": {
+      icon: "🎙️",
+      title: "Preamp Rack Lab",
+      subtitle: "Two quick gain-staging experiments — optional",
+      onOpen: () => setPreampRackLabOpen(true),
+    },
+    "lf-emitter": {
+      icon: "🔊",
+      title: "LF Emitter Lab",
+      subtitle: "Two quick low-end experiments — optional",
+      onOpen: () => setLfEmitterLabOpen(true),
+    },
+    "diffuser-panel": {
+      icon: "🪩",
+      title: "Diffuser Panel Lab",
+      subtitle: "Two quick echo experiments — optional",
+      onOpen: () => setDiffuserPanelLabOpen(true),
     },
   };
   // What the mute button should actually show — audioMuted is only the
@@ -1322,7 +1385,11 @@ function PanoramaTour() {
           !quizActive &&
           !listeningLabOpen &&
           !mixingConsoleLabOpen &&
-          !soundCardLabOpen && (
+          !soundCardLabOpen &&
+          !patchbayLabOpen &&
+          !preampRackLabOpen &&
+          !lfEmitterLabOpen &&
+          !diffuserPanelLabOpen && (
           <div className="svr-tour-gear-panel">
             <div className="svr-tour-gear-panel__head">
               <span className="svr-tour-gear-badge">{activeGear.number}</span>
@@ -1342,6 +1409,20 @@ function PanoramaTour() {
             </div>
 
             <div className="svr-tour-gear-panel__body svr-tour-choice-body">
+              {/* Brief "what you'll learn" line for this hotspot's topic —
+                  reuses TOPICS[].intro (courseData.js), the same one-line
+                  tagline the course page's own hero already shows for this
+                  topic, so this doesn't fork into a second, separately
+                  maintained blurb. Shown above both choice cards, before
+                  either is picked — see the .svr-tour-choice-body comment in
+                  panoramaTour.css for why the fuller checklist this used to
+                  be got trimmed down to just this one line instead. */}
+              {activeTopic?.intro && (
+                <p className="svr-tour-choice-intro">
+                  <b>What you&apos;ll learn:</b> {activeTopic.intro}
+                </p>
+              )}
+
               {quizQuestions.length === 0 && !activeGear.course?.id && (
                 // Neither a quiz nor a course exists yet for this hotspot —
                 // every gear marker in roomsData.js currently ships a
@@ -1352,17 +1433,21 @@ function PanoramaTour() {
                 </p>
               )}
 
-              {/* Three hotspots swap the generic "Test your knowledge" quiz
+              {/* Seven hotspots swap the generic "Test your knowledge" quiz
                   for their own hands-on lab instead — Speakers get the
                   three-experiment Listening Lab (SpeakerListeningLab.jsx,
-                  ported from design/speakek-listening-lab.html), Mixing
-                  Console and Sound Card each get their own two-experiment
-                  lab (MixingConsoleLab.jsx / SoundCardLab.jsx, ported from
-                  design/mixing-console-lab.html and
-                  design/sound-card-lab.html). GEAR_LAB below maps each of
-                  those hotspot ids to the emoji/title/subtitle/opener for
-                  its choice card; every other hotspot keeps the ordinary
-                  quiz below, unchanged. */}
+                  ported from design/speakek-listening-lab.html); Mixing
+                  Console, Sound Card, Patch Bay, Preamp Rack, LF Emitter,
+                  and Diffuser Panel each get their own two-experiment lab
+                  (MixingConsoleLab.jsx / SoundCardLab.jsx / PatchbayLab.jsx /
+                  PreampRackLab.jsx / LfEmitterLab.jsx / DiffuserPanelLab.jsx,
+                  ported from design/mixing-console-lab.html,
+                  design/sound-card-lab.html, design/patchbay-lab.html,
+                  design/preamp-rack-lab.html, design/lf-emitter-lab.html,
+                  and design/diffuser-panel-lab.html respectively). GEAR_LAB
+                  below maps each of those hotspot ids to the
+                  emoji/title/subtitle/opener for its choice card; every
+                  other hotspot keeps the ordinary quiz below, unchanged. */}
               {GEAR_LAB[activeGear.id] ? (
                 <button
                   type="button"
@@ -1490,6 +1575,43 @@ function PanoramaTour() {
         />
         <SoundCardLab
           open={Boolean(activeGear && soundCardLabOpen)}
+          onClose={closeGearPanel}
+          onStartCourse={() => {
+            finishTourIfActive();
+            navigate("/course", { state: { topicId: activeGear?.id } });
+          }}
+        />
+
+        {/* Patch Bay, Preamp Rack, LF Emitter, and Diffuser Panel hotspots'
+            own labs — same pattern as the Speakers' Listening Lab above,
+            just a different component per hotspot (see GEAR_LAB and each
+            state's own comment). */}
+        <PatchbayLab
+          open={Boolean(activeGear && patchbayLabOpen)}
+          onClose={closeGearPanel}
+          onStartCourse={() => {
+            finishTourIfActive();
+            navigate("/course", { state: { topicId: activeGear?.id } });
+          }}
+        />
+        <PreampRackLab
+          open={Boolean(activeGear && preampRackLabOpen)}
+          onClose={closeGearPanel}
+          onStartCourse={() => {
+            finishTourIfActive();
+            navigate("/course", { state: { topicId: activeGear?.id } });
+          }}
+        />
+        <LfEmitterLab
+          open={Boolean(activeGear && lfEmitterLabOpen)}
+          onClose={closeGearPanel}
+          onStartCourse={() => {
+            finishTourIfActive();
+            navigate("/course", { state: { topicId: activeGear?.id } });
+          }}
+        />
+        <DiffuserPanelLab
+          open={Boolean(activeGear && diffuserPanelLabOpen)}
           onClose={closeGearPanel}
           onStartCourse={() => {
             finishTourIfActive();

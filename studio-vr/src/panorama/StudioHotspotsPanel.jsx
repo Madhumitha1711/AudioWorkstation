@@ -738,6 +738,17 @@ function StudioHotspotsPanel({
         </button>
 
         <h2 className="svr-hotspot-panel__title">Bring the Control Room online</h2>
+        {/* Brief, static topic intro — what the room as a whole teaches —
+            shown above the mechanics line and the device list/options below
+            it, so a visitor knows what they're about to learn before they
+            pick a device or touch the power switches. Unlike the mechanics
+            line right after it, this doesn't change with Game/Classic mode:
+            it's about the subject matter, not how to operate the panel. */}
+        <p className="svr-hotspot-panel__intro">
+          <b>What you&apos;ll learn:</b> the studio&apos;s full signal chain —
+          how a source gets patched in, gain-staged, converted, mixed, treated
+          by the room, and finally reproduced through the monitors.
+        </p>
         <p className="svr-hotspot-panel__sub">
           {gameMode
             ? "Work out the correct signal order and switch on every station, or click a device to walk over and read about it. Guess wrong and the breaker trips."

@@ -1,0 +1,225 @@
+/* Styles for LfEmitterLab.jsx — ported from design/lf-emitter-lab.html.
+   Reuses the shared `.llab-*` base (panel shell width/height, tabs, card,
+   seg toggle, trigger row, take-away chip/pop, audio note) from
+   speakerListeningLab.css — see that file's own header comment. Only the
+   two visuals unique to this lab — the 8-bin spectrum + chest-rumble
+   indicator (module 1) and the source→obstacle→listener wave diagram
+   (module 2) — get their own `lfelab-` prefixed rules below, scaled down
+   from the original mockup's 760px layout to fit the ~352px docked panel.
+*/
+
+/* ---------- module 1 — feeling the thunder (spectrum + chest rumble) ---------- */
+.lfelab-spectrum-box {
+  margin-top: 14px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--llab-border);
+  border-radius: 8px;
+  padding: 14px 10px 10px;
+}
+.lfelab-spectrum-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--llab-text-muted);
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+}
+.lfelab-spectrum {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 4px;
+  height: 76px;
+}
+.lfelab-bin {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+}
+.lfelab-bin-track {
+  position: relative;
+  width: 100%;
+  max-width: 16px;
+  flex: 1;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--llab-border);
+  border-radius: 2px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+.lfelab-bin-fill {
+  width: 100%;
+  transition: height 0.5s cubic-bezier(0.4, 0, 0.2, 1), background 0.5s;
+}
+.lfelab-bin-name {
+  margin-top: 5px;
+  font-size: 7.5px;
+  color: var(--llab-text-muted);
+  letter-spacing: 0.01em;
+}
+
+.lfelab-rumble-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--shell-border-soft);
+}
+.lfelab-rumble-dot {
+  position: relative;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--llab-panel-alt);
+  border: 1px solid var(--llab-border);
+  flex-shrink: 0;
+  display: inline-block;
+}
+.lfelab-rumble-dot::before,
+.lfelab-rumble-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid #a78bfa;
+  opacity: 0;
+}
+.lfelab-rumble-row.on .lfelab-rumble-dot {
+  background: #a78bfa;
+  border-color: #a78bfa;
+  box-shadow: 0 0 8px #a78bfa;
+}
+.lfelab-rumble-row.on .lfelab-rumble-dot::before {
+  animation: lfelab-rumble-ring 1.4s ease-out infinite;
+}
+.lfelab-rumble-row.on .lfelab-rumble-dot::after {
+  animation: lfelab-rumble-ring 1.4s ease-out 0.7s infinite;
+}
+@keyframes lfelab-rumble-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+.lfelab-rumble-text {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--llab-text-muted);
+}
+.lfelab-rumble-row.on .lfelab-rumble-text {
+  color: #a78bfa;
+}
+.lfelab-rumble-status {
+  font-size: 9.5px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  border: 1px solid var(--llab-border);
+  color: var(--llab-text-muted);
+}
+.lfelab-rumble-row.on .lfelab-rumble-status {
+  color: #a78bfa;
+  border-color: #4a3a6b;
+  background: rgba(167, 139, 250, 0.1);
+}
+
+.lfelab-spectrum-caption {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--llab-text-muted);
+  text-align: center;
+  margin-top: 12px;
+  letter-spacing: 0.02em;
+  line-height: 1.45;
+}
+
+/* ---------- module 2 — the ripple tank (wavelength) ---------- */
+.lfelab-wave-box {
+  margin-top: 14px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--llab-border);
+  border-radius: 8px;
+  padding: 10px 10px 8px;
+}
+.lfelab-wave-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 8.5px;
+  color: var(--llab-text-muted);
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+.lfelab-wave-stage {
+  position: relative;
+  height: 72px;
+}
+.lfelab-wave-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.lfelab-wave-icon {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  z-index: 2;
+}
+.lfelab-wave-icon.source {
+  left: 6%;
+  color: var(--llab-amber);
+}
+.lfelab-wave-icon.ear {
+  left: 94%;
+  color: var(--shell-text);
+}
+.lfelab-wave-icon.obstacle {
+  left: 50%;
+  color: var(--llab-text-muted);
+  width: 24px;
+  height: 24px;
+}
+.lfelab-wave-caption {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--llab-text-muted);
+  text-align: center;
+  margin-top: 6px;
+  letter-spacing: 0.02em;
+  line-height: 1.45;
+}
+
+.lfelab-wavelength-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.lfelab-wavelength-val {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--shell-text);
+}
+.lfelab-wavelength-tag {
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 20px;
+  border: 1px solid var(--llab-border);
+}

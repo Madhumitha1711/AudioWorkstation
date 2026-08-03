@@ -419,7 +419,34 @@
   right: 16px;
   width: 320px;
   max-width: calc(100vw - 32px);
-  max-height: calc(100vh - 110px);
+  /* Sized against the *positioned ancestor's* own height (the root
+     `<div style={{height:"100%"}}>` PanoramaTour renders into — see
+     PanoramaTour.jsx's return statement), not against 100vh. That root div
+     already sits below the app's 60px Header (see App.jsx/Header.css) and
+     is exactly as tall as the room view, so `calc(100vh - Npx)` was quietly
+     assuming the panel's own container was the full browser window — on a
+     short window the panel's max-height came out taller than the room view
+     actually had room for below `top: 74px`, and since html/body/#root are
+     all `overflow: hidden` (see index.css) that overflow wasn't just
+     scrollable, it was genuinely unreachable (the footer's Back/Start
+     course buttons rendered off the bottom edge with no way to get to
+     them). `calc(100% - ...)` tracks the real available height instead —
+     it shrinks automatically on short windows (the panel's own
+     `overflow-y: auto` body, below, scrolls its content so the header/tabs/
+     footer stay put and visible) and keeps working even if the Header's
+     height or this panel's `top` offset ever changes, without needing a
+     second constant kept in sync here.
+
+     The 130px reserve is `top` (74px) + Photo Sphere Viewer's own bottom
+     navbar (zoom/caption/fullscreen — see the `navbar:` option passed to
+     `new Viewer(...)` in PanoramaTour.jsx) + a 16px gap. That navbar is a
+     PSV-owned absolutely-positioned bar pinned to the *same* container's
+     bottom edge at a fixed 40px height and z-index 90 — above this panel's
+     z-index 60 (see the z-index comment on .svr-tour-toolbar below) — so
+     without reserving its height here too, a tall panel's footer buttons
+     would sit right under it, half-covered and unclickable, exactly like
+     the viewport-overflow bug above just 40px higher up. */
+  max-height: calc(100% - 130px);
   background: var(--shell-bg);
   border: 1px solid var(--shell-border);
   border-radius: 14px;
@@ -520,15 +547,28 @@
 
 /* ---------- "Choose how to start" body (PanoramaTour.jsx's activeGear
    panel, quiz-inactive view) ------
-   Replaces what used to be a description + "what you'll learn" checklist:
-   selecting a hotspot no longer shows any read-only content screen at
-   all — just two big equally-weighted choices, "Test your knowledge" and
-   "Start course". Both go straight for the decision instead of easing into
-   it with copy first. */
+   Used to be a description + "what you'll learn" checklist, trimmed down to
+   just two big equally-weighted choices ("Test your knowledge"/the gear's
+   own lab, and "Start course") so the decision wasn't buried under copy.
+   .svr-tour-choice-intro below brings back one line of that — the topic's
+   existing TOPICS[].intro tagline — just above the two cards, so a visitor
+   still gets a one-line "what this teaches" before picking, without
+   reintroducing the fuller checklist this section deliberately dropped. */
 .svr-tour-choice-body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.svr-tour-choice-intro {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--shell-text-dim);
+  margin: 2px 0 2px;
+}
+
+.svr-tour-choice-intro b {
+  color: var(--shell-text);
 }
 
 .svr-tour-choice-empty {
