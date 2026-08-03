@@ -1,0 +1,149 @@
+/* Styles for MixingConsoleLab.jsx — ported from
+   design/mixing-console-lab.html. Reuses the shared `.llab-*` base (panel
+   shell width/height, tabs, card, seg toggle, playbar, take-away chip/pop,
+   audio note) from speakerListeningLab.css — see that file's own header
+   comment, which built those classes as a reusable "Listening Lab" system
+   rather than something speaker-specific, and listeningLabShared.jsx for the
+   matching PlayIcon/PauseIcon/LevelMeter/AhaBox/AudioNote components. Only
+   the two visuals unique to this lab — the ingredient level bars (module 1)
+   and the stereo highway/cars (module 2) — get their own `mclab-` prefixed
+   rules below, scaled down from the original mockup's 760px layout to fit
+   the ~352px docked panel.
+*/
+
+/* ---------- module 1 — ingredient level bars ("The Audio Kitchen") ---------- */
+.mclab-kitchen-box {
+  margin-top: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--llab-border);
+  border-radius: 8px;
+  padding: 14px 10px 10px;
+}
+.mclab-kitchen-label {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--llab-text-muted);
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+}
+.mclab-ingredients {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  height: 88px;
+}
+.mclab-ingredient {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+}
+.mclab-ing-track {
+  position: relative;
+  width: 100%;
+  max-width: 26px;
+  flex: 1;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--llab-border);
+  border-radius: 4px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+.mclab-ing-fill {
+  width: 100%;
+  border-radius: 0;
+  transition: height 0.5s cubic-bezier(0.4, 0, 0.2, 1), background 0.5s;
+}
+.mclab-ing-name {
+  margin-top: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8.5px;
+  color: var(--llab-text-muted);
+  letter-spacing: 0.02em;
+}
+.mclab-ing-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--shell-text);
+  margin-top: 1px;
+}
+.mclab-kitchen-caption {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--llab-text-muted);
+  text-align: center;
+  margin-top: 12px;
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+}
+
+/* ---------- module 2 — stereo highway/cars ("The Sound Highway") ---------- */
+.mclab-highway {
+  position: relative;
+  height: 74px;
+  margin-bottom: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--llab-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.mclab-highway .mclab-lane {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--llab-border) 0 8px,
+    transparent 8px 16px
+  );
+}
+.mclab-highway .mclab-lane.l1 {
+  top: 20%;
+}
+.mclab-highway .mclab-lane.l2 {
+  top: 50%;
+}
+.mclab-highway .mclab-lane.l3 {
+  top: 80%;
+}
+.mclab-car {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: left 1s cubic-bezier(0.4, 0, 0.2, 1), top 1s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s;
+}
+.mclab-car::after {
+  content: attr(data-tag);
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 7px;
+  color: var(--llab-text-muted);
+  white-space: nowrap;
+}
+.mclab-car.crowded {
+  box-shadow: 0 0 8px 2px rgba(232, 97, 95, 0.55);
+}
+
+.mclab-clash-label {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--llab-text-muted);
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}

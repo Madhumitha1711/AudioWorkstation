@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "./speakerListeningLab.css";
+import { PlayIcon, PauseIcon, LevelMeter, AhaBox, AudioNote } from "./listeningLabShared";
 
 // Speakers hotspot's "Listening Lab" — replaces the generic "Test your
 // knowledge" quiz for the speaker gear panel only (see PanoramaTour.jsx,
@@ -14,6 +15,13 @@ import "./speakerListeningLab.css";
 // the visitor was already looking at, just showing a different "activity"
 // inside it, not a separate takeover surface like the DAW workstation.
 // Every module's own visuals are scaled down to fit that width.
+//
+// The transport button, level meter, and take-away chip/overlay
+// (PlayIcon/PauseIcon/LevelMeter/AhaBox/AudioNote) live in
+// ./listeningLabShared.jsx — this was the first lab built, but those bits
+// are generic and now shared with MixingConsoleLab.jsx and SoundCardLab.jsx
+// too, so every gear hotspot's lab gets identical panel height/width and
+// take-away behavior instead of three copies slowly drifting apart.
 //
 // AUDIO IS UI-ONLY FOR NOW. Every module below wires up a real <audio>
 // element pointed at a `public/audio/listening-lab/...` path (see the
@@ -128,69 +136,10 @@ const TABS = [
 // Shared bits
 // ============================================================
 
-function PlayIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M8 5v14l11-7z" />
-    </svg>
-  );
-}
-function PauseIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <rect x="6" y="5" width="4" height="14" />
-      <rect x="14" y="5" width="4" height="14" />
-    </svg>
-  );
-}
-function LevelMeter({ playing }) {
-  return (
-    <div className={"llab-levels" + (playing ? " playing" : "")}>
-      {Array.from({ length: 10 }).map((_, i) => (
-        <span key={i} style={{ animationDelay: `${i * 0.08}s` }} />
-      ))}
-    </div>
-  );
-}
-// The take-away shows as a small persistent chip once revealed (constant,
-// tiny height — added once, never changes) rather than an inline paragraph
-// block: tapping the chip opens the full text as an absolutely-positioned
-// overlay on top of the card (see .llab-aha-pop in speakerListeningLab.css),
-// so reading it never grows the panel or shifts the footer — closing it
-// just removes the overlay, the chip stays put underneath.
-function AhaBox({ show, children }) {
-  const [open, setOpen] = useState(false);
-  if (!show) return null;
-  return (
-    <>
-      <button
-        type="button"
-        className="llab-aha-chip"
-        onClick={() => setOpen(true)}
-        aria-haspopup="dialog"
-      >
-        💡 The take-away
-      </button>
-      {open && (
-        <div className="llab-aha-pop" role="note">
-          <button
-            type="button"
-            className="llab-aha-pop__close"
-            onClick={() => setOpen(false)}
-            aria-label="Close take-away"
-          >
-            ×
-          </button>
-          <div className="llab-aha-pop__label">The take-away</div>
-          <p>{children}</p>
-        </div>
-      )}
-    </>
-  );
-}
-function AudioNote({ children }) {
-  return <div className="llab-audio-note mono">Audio placeholder — {children}</div>;
-}
+// PlayIcon, PauseIcon, LevelMeter, AhaBox, and AudioNote now live in
+// ./listeningLabShared.jsx (imported above) so MixingConsoleLab.jsx and
+// SoundCardLab.jsx can reuse the exact same transport button, level meter,
+// and take-away chip/overlay interaction instead of redefining them.
 
 function PhoneIcon() {
   return (
@@ -302,7 +251,7 @@ function SpeakerTestModule() {
     const audio = audioRef.current;
     if (audio) {
       audio.src = AUDIO_SOURCES_1[m];
-      audio.play().catch(() => {});
+      audio.play().catch(() => { });
     }
   };
 
@@ -312,7 +261,7 @@ function SpeakerTestModule() {
     setPlaying((prev) => {
       const next = !prev;
       if (audio) {
-        if (next) audio.play().catch(() => {});
+        if (next) audio.play().catch(() => { });
         else audio.pause();
       }
       return next;
@@ -366,7 +315,7 @@ function SpeakerTestModule() {
           </button>
           <LevelMeter playing={playing} />
         </div>
-        <AudioNote>module1-phone/car/studio.mp3</AudioNote>
+        {/* <AudioNote>module1-phone/car/studio.mp3</AudioNote> */}
 
         <AhaBox show={revealed}>
           Consumer speakers <em>lie</em> to you on purpose — they boost bass
@@ -421,7 +370,7 @@ function RoomAcousticsModule() {
     const audio = audioRef.current;
     if (!audio) return;
     audio.currentTime = 0;
-    audio.play().catch(() => {});
+    audio.play().catch(() => { });
   };
 
   const stopAuto = () => {
@@ -439,7 +388,7 @@ function RoomAcousticsModule() {
     if (audio) audio.src = AUDIO_SOURCES_2[key];
     if (autoRepeat) stopAuto();
     setRevealed(true);
-    audio?.play().catch(() => {});
+    audio?.play().catch(() => { });
   };
 
   const toggleAuto = () => {
@@ -493,7 +442,7 @@ function RoomAcousticsModule() {
             Repeat
           </label>
         </div>
-        <AudioNote>module2-bathroom/living/closet.mp3</AudioNote>
+        {/* <AudioNote>module2-bathroom/living/closet.mp3</AudioNote> */}
 
         <AhaBox show={revealed}>
           What you're hearing is the room bouncing sound back at you. Tile
@@ -540,7 +489,7 @@ function StereoImagingModule() {
     setPlaying((prev) => {
       const next = !prev;
       if (audio) {
-        if (next) audio.play().catch(() => {});
+        if (next) audio.play().catch(() => { });
         else audio.pause();
       }
       return next;
@@ -582,7 +531,7 @@ function StereoImagingModule() {
           </button>
           <LevelMeter playing={playing} />
         </div>
-        <AudioNote>module3-stereo-demo.mp3</AudioNote>
+        {/* <AudioNote>module3-stereo-demo.mp3</AudioNote> */}
 
         <AhaBox show={revealed}>
           Same file, same clip — the only thing that changes is the

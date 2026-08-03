@@ -1,0 +1,106 @@
+/* Styles for SoundCardLab.jsx — ported from design/sound-card-lab.html.
+   Reuses the shared `.llab-*` base (panel shell width/height, tabs, card,
+   seg toggle, playbar, curve visual, take-away chip/pop, audio note) from
+   speakerListeningLab.css — see that file's own header comment, which built
+   those classes as a reusable "Listening Lab" system rather than something
+   speaker-specific, and listeningLabShared.jsx for the matching
+   PlayIcon/PauseIcon/LevelMeter/AhaBox/AudioNote components. Module 1 (the
+   waveform curve) needs no new rules at all — it reuses .llab-curve* as-is.
+   Only module 2's echo-mirror visual (source/return bars + delay readout)
+   is unique to this lab, scaled down from the original mockup's 760px
+   layout to fit the ~352px docked panel.
+*/
+
+.sclab-echo-stage {
+  position: relative;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--llab-border);
+  border-radius: 8px;
+  padding: 12px 12px 10px;
+}
+.sclab-echo-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.sclab-echo-row:last-child {
+  margin-bottom: 0;
+}
+.sclab-echo-tag {
+  width: 72px;
+  flex-shrink: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--llab-text-muted);
+  letter-spacing: 0.03em;
+}
+.sclab-echo-track {
+  position: relative;
+  flex: 1;
+  height: 22px;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--llab-border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.sclab-echo-bars {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 5px;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+.sclab-echo-bars span {
+  width: 2px;
+  border-radius: 1px;
+}
+.sclab-echo-bars.source span {
+  background: var(--llab-green);
+}
+.sclab-echo-bars.return span {
+  background: var(--llab-amber);
+}
+
+.sclab-delay-readout {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+.sclab-delay-ms {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--shell-text);
+}
+.sclab-delay-status {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 20px;
+  border: 1px solid var(--llab-border);
+}
+.sclab-delay-status.seamless {
+  color: var(--llab-green);
+  border-color: var(--llab-green-dim);
+  background: rgba(95, 217, 160, 0.08);
+}
+.sclab-delay-status.noticeable {
+  color: var(--llab-amber);
+  border-color: var(--llab-amber-dim);
+  background: rgba(232, 147, 74, 0.08);
+}
+.sclab-delay-status.distracting {
+  color: #e8615f;
+  border-color: #6b2c2c;
+  background: rgba(232, 97, 95, 0.08);
+}

@@ -27,6 +27,8 @@ import {
 } from "../audio/spatialAudioEngine";
 import DawWorkstationScreen from "./DawWorkstationScreen";
 import SpeakerListeningLab from "./SpeakerListeningLab";
+import MixingConsoleLab from "./MixingConsoleLab";
+import SoundCardLab from "./SoundCardLab";
 import StudioHotspotsPanel from "./StudioHotspotsPanel";
 // Only used here to build the "Try Game mode" tour step's correct-order
 // hint (see tourStepsForCard below) — StudioHotspotsPanel already imports
@@ -302,6 +304,16 @@ function PanoramaTour() {
   // quizActive already gets reset (room changes, closing the panel,
   // selecting a different hotspot, etc.) so it can't stay open across those.
   const [listeningLabOpen, setListeningLabOpen] = useState(false);
+  // Same idea as listeningLabOpen just above, but for the Mixing Console and
+  // Sound Card hotspots' own labs (MixingConsoleLab.jsx / SoundCardLab.jsx,
+  // ported from design/mixing-console-lab.html and design/sound-card-lab.html
+  // respectively) instead of the Speakers' Listening Lab. Kept as their own
+  // flags rather than folded into listeningLabOpen since each renders a
+  // different component and only its own hotspot ever offers it — every
+  // other hotspot still keeps the ordinary quiz. Reset everywhere
+  // listeningLabOpen already gets reset, for the same reason.
+  const [mixingConsoleLabOpen, setMixingConsoleLabOpen] = useState(false);
+  const [soundCardLabOpen, setSoundCardLabOpen] = useState(false);
   // Whichever EQ/Compressor interactive hotspot is currently open, or null.
   // Kept separate from activeGear (rather than folded into one "active
   // panel" union) since gear hotspots and interactive hotspots are opened by
@@ -494,6 +506,8 @@ function PanoramaTour() {
       setActiveGear(null);
       setQuizActive(false);
       setListeningLabOpen(false);
+      setMixingConsoleLabOpen(false);
+      setSoundCardLabOpen(false);
       setActiveModule(null);
       setActiveVolumeControl(null);
       latestRequestRef.current = null;
@@ -591,6 +605,8 @@ function PanoramaTour() {
         setActiveGear(marker.data);
         setQuizActive(false);
         setListeningLabOpen(false);
+        setMixingConsoleLabOpen(false);
+        setSoundCardLabOpen(false);
         setSelectedMarkerEl(markerId);
         // Narration audio is intentionally not played here — selecting a
         // hotspot only reveals its text panel (title/description below).
@@ -618,6 +634,8 @@ function PanoramaTour() {
         setActiveGear(null);
         setQuizActive(false);
         setListeningLabOpen(false);
+        setMixingConsoleLabOpen(false);
+        setSoundCardLabOpen(false);
         setActiveVolumeControl(null);
         setActiveModule(data);
         setSelectedMarkerEl(markerId);
@@ -644,6 +662,8 @@ function PanoramaTour() {
       setActiveGear(null);
       setQuizActive(false);
       setListeningLabOpen(false);
+      setMixingConsoleLabOpen(false);
+      setSoundCardLabOpen(false);
       setActiveModule(null);
       setActiveVolumeControl(data);
       setSelectedMarkerEl(markerId);
@@ -750,6 +770,8 @@ function PanoramaTour() {
     setActiveGear(null);
     setQuizActive(false);
     setListeningLabOpen(false);
+    setMixingConsoleLabOpen(false);
+    setSoundCardLabOpen(false);
     clearSelectedMarkerEl();
     viewerRef.current?.animate({ zoom: REST_ZOOM_LVL, speed: "10rpm" });
   };
@@ -823,6 +845,8 @@ function PanoramaTour() {
     setActiveGear(null);
     setQuizActive(false);
     setListeningLabOpen(false);
+    setMixingConsoleLabOpen(false);
+    setSoundCardLabOpen(false);
     setActiveModule(null);
     setActiveVolumeControl(null);
     clearSelectedMarkerEl();
@@ -976,6 +1000,30 @@ function PanoramaTour() {
   // choice panel below falls back to "Start course" alone.
   const activeTopic = activeGear ? TOPICS.find((t) => t.id === activeGear.id) : null;
   const quizQuestions = activeTopic?.assessment?.questions ?? [];
+  // Maps a gear hotspot id to its own hands-on lab's choice-card content and
+  // opener, for the three hotspots that swap out the generic quiz (see the
+  // choice panel body below). Defined here (not at module scope) since each
+  // `onOpen` needs to close over this render's state setters.
+  const GEAR_LAB = {
+    speaker: {
+      icon: "🎧",
+      title: "Listening Lab",
+      subtitle: "Three quick ear-training experiments — optional",
+      onOpen: () => setListeningLabOpen(true),
+    },
+    "mixing-console": {
+      icon: "🎚️",
+      title: "Mixing Console Lab",
+      subtitle: "Two quick mixing experiments — optional",
+      onOpen: () => setMixingConsoleLabOpen(true),
+    },
+    "sound-card": {
+      icon: "🔌",
+      title: "Sound Card Lab",
+      subtitle: "Two quick conversion experiments — optional",
+      onOpen: () => setSoundCardLabOpen(true),
+    },
+  };
   // What the mute button should actually show — audioMuted is only the
   // visitor's own preference, but the room reads as (and is) silent
   // whenever it's locked too (see the setMuted effect above), so the icon
@@ -1270,7 +1318,11 @@ function PanoramaTour() {
           </div>
         )}
 
-        {activeGear && !quizActive && !listeningLabOpen && (
+        {activeGear &&
+          !quizActive &&
+          !listeningLabOpen &&
+          !mixingConsoleLabOpen &&
+          !soundCardLabOpen && (
           <div className="svr-tour-gear-panel">
             <div className="svr-tour-gear-panel__head">
               <span className="svr-tour-gear-badge">{activeGear.number}</span>
@@ -1300,26 +1352,35 @@ function PanoramaTour() {
                 </p>
               )}
 
-              {/* The Speakers hotspot swaps the generic "Test your
-                  knowledge" quiz for its own "Listening Lab" — three
-                  ear-training experiments (see SpeakerListeningLab.jsx,
-                  ported from design/speakek-listening-lab.html) instead of
-                  a 5-question quiz. Every other hotspot keeps the ordinary
+              {/* Three hotspots swap the generic "Test your knowledge" quiz
+                  for their own hands-on lab instead — Speakers get the
+                  three-experiment Listening Lab (SpeakerListeningLab.jsx,
+                  ported from design/speakek-listening-lab.html), Mixing
+                  Console and Sound Card each get their own two-experiment
+                  lab (MixingConsoleLab.jsx / SoundCardLab.jsx, ported from
+                  design/mixing-console-lab.html and
+                  design/sound-card-lab.html). GEAR_LAB below maps each of
+                  those hotspot ids to the emoji/title/subtitle/opener for
+                  its choice card; every other hotspot keeps the ordinary
                   quiz below, unchanged. */}
-              {activeGear.id === "speaker" ? (
+              {GEAR_LAB[activeGear.id] ? (
                 <button
                   type="button"
-                  onClick={() => setListeningLabOpen(true)}
+                  onClick={GEAR_LAB[activeGear.id].onOpen}
                   className={
                     "svr-tour-choice-card svr-tour-choice-card--quiz" +
                     (currentTourStep?.id === "test-knowledge" ? " svr-tour-glow" : "")
                   }
                 >
-                  <span className="svr-tour-choice-card-icon" aria-hidden="true">🎧</span>
+                  <span className="svr-tour-choice-card-icon" aria-hidden="true">
+                    {GEAR_LAB[activeGear.id].icon}
+                  </span>
                   <span className="svr-tour-choice-card-text">
-                    <span className="svr-tour-choice-card-title">Listening Lab</span>
+                    <span className="svr-tour-choice-card-title">
+                      {GEAR_LAB[activeGear.id].title}
+                    </span>
                     <span className="svr-tour-choice-card-sub">
-                      Three quick ear-training experiments — optional
+                      {GEAR_LAB[activeGear.id].subtitle}
                     </span>
                   </span>
                 </button>
@@ -1400,14 +1461,35 @@ function PanoramaTour() {
           />
         )}
 
-        {/* Speakers-only Listening Lab — see the "Listening Lab" choice
-            card above and the `listeningLabOpen` state's own comment.
-            Renders its own .svr-tour-gear-panel shell (same docked rail as
-            the choice panel and HotspotKnowledgeCheck above), just with a
-            tab bar and different content inside — not a full-screen
-            takeover like DawWorkstationScreen below. */}
+        {/* Speakers-only Listening Lab — see the GEAR_LAB choice card above
+            and the `listeningLabOpen` state's own comment. Renders its own
+            .svr-tour-gear-panel shell (same docked rail as the choice panel
+            and HotspotKnowledgeCheck above), just with a tab bar and
+            different content inside — not a full-screen takeover like
+            DawWorkstationScreen below. */}
         <SpeakerListeningLab
           open={Boolean(activeGear && listeningLabOpen)}
+          onClose={closeGearPanel}
+          onStartCourse={() => {
+            finishTourIfActive();
+            navigate("/course", { state: { topicId: activeGear?.id } });
+          }}
+        />
+
+        {/* Mixing Console and Sound Card hotspots' own labs — same pattern
+            as the Speakers' Listening Lab just above, just a different
+            component per hotspot (see GEAR_LAB and each state's own
+            comment). */}
+        <MixingConsoleLab
+          open={Boolean(activeGear && mixingConsoleLabOpen)}
+          onClose={closeGearPanel}
+          onStartCourse={() => {
+            finishTourIfActive();
+            navigate("/course", { state: { topicId: activeGear?.id } });
+          }}
+        />
+        <SoundCardLab
+          open={Boolean(activeGear && soundCardLabOpen)}
           onClose={closeGearPanel}
           onStartCourse={() => {
             finishTourIfActive();
