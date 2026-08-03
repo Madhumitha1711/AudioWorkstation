@@ -4,19 +4,17 @@
    the confetti completion overlay — permanently docked instead of hidden
    behind a separate launcher.
 
-   Colour and type now match the app's other floating chrome instead of
-   keeping a separate identity: same --shell-* glass tokens (see index.css)
-   as .svr-tour-gear-panel — the info card that opens when you click a
-   hotspot marker directly, in panoramaTour.css — same translucent
-   background + blur, same border/text colors, same plain sans-serif type
-   (var(--sans), no separate label font). --hsp-* custom property NAMES are
+   Colour and type match the app's other floating chrome in shape: same
+   glass look (translucent background + blur, same border/text treatment,
+   same plain sans-serif type via var(--sans), no separate label font) as
+   .svr-tour-gear-panel — the info card that opens when you click a hotspot
+   marker directly, in panoramaTour.css. --hsp-* custom property NAMES are
    kept below purely so the ~700 lines of rules further down that already
-   read var(--hsp-*) didn't need touching one by one; their VALUES now
-   mostly just alias the --shell-* tokens. The one thing that doesn't come
-   from --shell-* is the on/tripped accent: the app doesn't theme its own
-   green accent (.svr-tour-gear-badge, .svr-tour-btn-primary etc. use the
-   same fixed green in both light and dark), so --hsp-on/--hsp-err are
-   fixed here too rather than swapped per theme.
+   read var(--hsp-*) didn't need touching one by one; their VALUES are now
+   fixed dark literals (copied from --shell-*'s dark defaults in index.css)
+   rather than live references to --shell-*, so this panel deliberately
+   opts out of the site-wide light/dark theme toggle and always renders
+   dark — see the block below for why.
 
    Docked left, 30% of the viewer's width, full height. A collapse tab
    (nested inside the panel, positioned just past its right edge — see
@@ -27,21 +25,27 @@
    without any JS measuring of the panel's (responsive) width. */
 
 .svr-hotspot-panel {
-  --hsp-void: var(--shell-bg);
-  --hsp-panel: var(--shell-bg);
-  --hsp-panel-2: var(--shell-bg);
-  --hsp-hair: var(--shell-border-soft);
-  --hsp-hair-strong: var(--shell-border);
+  /* Fixed dark literals rather than var(--shell-*) — this panel doesn't
+     participate in the light theme (see the file header comment above),
+     so these are pinned to the dark palette's values (index.css) instead
+     of tracking whatever data-theme is set on <html>. --hsp-tint-rgb stays
+     white (its light-theme flip to black is what the old override below
+     did; with light theme removed here it's always white now). */
+  --hsp-void: rgba(8, 9, 12, 0.92);
+  --hsp-panel: rgba(8, 9, 12, 0.92);
+  --hsp-panel-2: rgba(8, 9, 12, 0.92);
+  --hsp-hair: rgba(255, 255, 255, 0.08);
+  --hsp-hair-strong: rgba(255, 255, 255, 0.12);
   --hsp-gold: #22c76a;
   --hsp-gold-dim: #1a9c56;
   --hsp-gold-glow: rgba(34, 199, 106, 0.35);
-  --hsp-text: var(--shell-text);
-  --hsp-text-dim: var(--shell-text-dim);
-  --hsp-text-faint: var(--shell-text-dimmer);
+  --hsp-text: #ffffff;
+  --hsp-text-dim: rgba(255, 255, 255, 0.65);
+  --hsp-text-faint: rgba(255, 255, 255, 0.45);
   --hsp-on: #22c76a;
   --hsp-on-glow: rgba(34, 199, 106, 0.35);
-  --hsp-off: var(--shell-text-dimmer);
-  --hsp-off-bg: var(--shell-panel);
+  --hsp-off: rgba(255, 255, 255, 0.45);
+  --hsp-off-bg: rgba(255, 255, 255, 0.04);
   --hsp-err: #ff6b6b;
   --hsp-err-glow: rgba(255, 107, 107, 0.3);
   --hsp-tint-rgb: 255, 255, 255;
@@ -56,10 +60,10 @@
   max-width: 460px;
   display: flex;
   flex-direction: column;
-  background: var(--shell-bg);
+  background: var(--hsp-panel);
   backdrop-filter: blur(14px);
-  border-right: 1px solid var(--shell-border);
-  box-shadow: var(--shadow);
+  border-right: 1px solid var(--hsp-hair-strong);
+  box-shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
   color: var(--hsp-text);
   font-family: var(--sans);
   transform: translateX(0);
@@ -68,19 +72,6 @@
 
 .svr-hotspot-panel.is-collapsed {
   transform: translateX(-100%);
-}
-
-/* Only --hsp-tint-rgb needs a light-theme override — every other token
-   above already reads a --shell-* variable, which flips value on its own
-   when ThemeContext.jsx sets data-theme="light" on <html> (see index.css).
-   This RGB triplet (no alpha) sits behind the panel's own faint
-   highlight-on-top-of-itself tints (mute button, mode row, stat cards,
-   hover states…) — those bake the alpha in per rule via
-   rgba(var(--hsp-tint-rgb), x), so flipping the base color from white to
-   black here is enough to keep them reading as a highlight instead of a
-   dark smudge once the backdrop goes light. */
-:root[data-theme='light'] .svr-hotspot-panel {
-  --hsp-tint-rgb: 0, 0, 0;
 }
 
 @keyframes svrHotspotShake {

@@ -73,10 +73,17 @@ export const TOUR_STEPS = [
     pendingHint: "Click a device in the control room scene to continue.",
     doneHint: "Hotspot selected.",
   },
+  // This step always lands on the Speakers hotspot (hotspot #1 — see
+  // "select-hotspot" above), which offers its own "Listening Lab" here
+  // instead of the ordinary "Test your knowledge" quiz every other hotspot
+  // shows (see PanoramaTour.jsx's gear-panel body and
+  // SpeakerListeningLab.jsx) — the copy below reflects that, even though
+  // the step id stays "test-knowledge" so the rest of the tour's wiring
+  // (glow targeting, etc.) doesn't need to change.
   {
     id: "test-knowledge",
-    title: "Test your knowledge",
-    body: "Try \"Test your knowledge\" for a quick, optional 5-question quiz before diving into the lesson.",
+    title: "Try the Listening Lab",
+    body: "Try the \"Listening Lab\" for three quick, optional ear-training experiments before diving into the lesson.",
     mandatory: false,
   },
   {

@@ -26,6 +26,7 @@ import {
   isRoomBleedMuted,
 } from "../audio/spatialAudioEngine";
 import DawWorkstationScreen from "./DawWorkstationScreen";
+import SpeakerListeningLab from "./SpeakerListeningLab";
 import StudioHotspotsPanel from "./StudioHotspotsPanel";
 // Only used here to build the "Try Game mode" tour step's correct-order
 // hint (see tourStepsForCard below) — StudioHotspotsPanel already imports
@@ -285,8 +286,22 @@ function PanoramaTour() {
   // view. Selecting a hotspot always opens straight to the choice screen
   // first — this only flips true once the student clicks "Test your
   // knowledge" there, and flips back on skip/close/picking a different
-  // hotspot. See the gear-panel body below for where it's set.
+  // hotspot. See the gear-panel body below for where it's set. Never used
+  // for the Speakers hotspot, which offers its own "Listening Lab" instead
+  // — see listeningLabOpen just below.
   const [quizActive, setQuizActive] = useState(false);
+  // Whether the Speakers hotspot's "Listening Lab" (SpeakerListeningLab,
+  // ./SpeakerListeningLab.jsx) is currently open — the speaker-specific
+  // replacement for the generic "Test your knowledge" quiz above (see the
+  // gear-panel body below, and the design/speakek-listening-lab.html this
+  // was ported from). Kept as its own flag rather than folded into
+  // quizActive since only the "speaker" hotspot ever offers this — every
+  // other hotspot keeps the ordinary quiz — and because the lab renders as
+  // its own full-screen overlay instead of swapping out the compact gear
+  // panel the way HotspotKnowledgeCheck does. Reset to false everywhere
+  // quizActive already gets reset (room changes, closing the panel,
+  // selecting a different hotspot, etc.) so it can't stay open across those.
+  const [listeningLabOpen, setListeningLabOpen] = useState(false);
   // Whichever EQ/Compressor interactive hotspot is currently open, or null.
   // Kept separate from activeGear (rather than folded into one "active
   // panel" union) since gear hotspots and interactive hotspots are opened by
@@ -478,6 +493,7 @@ function PanoramaTour() {
       setCurrentRoomId(e.node.id);
       setActiveGear(null);
       setQuizActive(false);
+      setListeningLabOpen(false);
       setActiveModule(null);
       setActiveVolumeControl(null);
       latestRequestRef.current = null;
@@ -574,6 +590,7 @@ function PanoramaTour() {
         // that gates anything. See the gear-panel body below.
         setActiveGear(marker.data);
         setQuizActive(false);
+        setListeningLabOpen(false);
         setSelectedMarkerEl(markerId);
         // Narration audio is intentionally not played here — selecting a
         // hotspot only reveals its text panel (title/description below).
@@ -600,6 +617,7 @@ function PanoramaTour() {
         stopHotspotNarration();
         setActiveGear(null);
         setQuizActive(false);
+        setListeningLabOpen(false);
         setActiveVolumeControl(null);
         setActiveModule(data);
         setSelectedMarkerEl(markerId);
@@ -625,6 +643,7 @@ function PanoramaTour() {
       latestRequestRef.current = markerId;
       setActiveGear(null);
       setQuizActive(false);
+      setListeningLabOpen(false);
       setActiveModule(null);
       setActiveVolumeControl(data);
       setSelectedMarkerEl(markerId);
@@ -723,12 +742,14 @@ function PanoramaTour() {
 
   // Closes the panel and eases the camera back out to the wide resting
   // view instead of leaving it parked at the hotspot's zoomed-in position.
-  // Works the same whether the choice screen or the quiz is showing —
-  // either way, from the student's point of view this hotspot is closing.
+  // Works the same whether the choice screen, the quiz, or the Listening
+  // Lab is showing — either way, from the student's point of view this
+  // hotspot is closing.
   const closeGearPanel = () => {
     stopHotspotNarration();
     setActiveGear(null);
     setQuizActive(false);
+    setListeningLabOpen(false);
     clearSelectedMarkerEl();
     viewerRef.current?.animate({ zoom: REST_ZOOM_LVL, speed: "10rpm" });
   };
@@ -801,6 +822,7 @@ function PanoramaTour() {
     stopHotspotNarration();
     setActiveGear(null);
     setQuizActive(false);
+    setListeningLabOpen(false);
     setActiveModule(null);
     setActiveVolumeControl(null);
     clearSelectedMarkerEl();
@@ -1248,7 +1270,7 @@ function PanoramaTour() {
           </div>
         )}
 
-        {activeGear && !quizActive && (
+        {activeGear && !quizActive && !listeningLabOpen && (
           <div className="svr-tour-gear-panel">
             <div className="svr-tour-gear-panel__head">
               <span className="svr-tour-gear-badge">{activeGear.number}</span>
@@ -1278,23 +1300,48 @@ function PanoramaTour() {
                 </p>
               )}
 
-              {quizQuestions.length > 0 && (
+              {/* The Speakers hotspot swaps the generic "Test your
+                  knowledge" quiz for its own "Listening Lab" — three
+                  ear-training experiments (see SpeakerListeningLab.jsx,
+                  ported from design/speakek-listening-lab.html) instead of
+                  a 5-question quiz. Every other hotspot keeps the ordinary
+                  quiz below, unchanged. */}
+              {activeGear.id === "speaker" ? (
                 <button
                   type="button"
-                  onClick={() => setQuizActive(true)}
+                  onClick={() => setListeningLabOpen(true)}
                   className={
                     "svr-tour-choice-card svr-tour-choice-card--quiz" +
                     (currentTourStep?.id === "test-knowledge" ? " svr-tour-glow" : "")
                   }
                 >
-                  <span className="svr-tour-choice-card-icon" aria-hidden="true">🧠</span>
+                  <span className="svr-tour-choice-card-icon" aria-hidden="true">🎧</span>
                   <span className="svr-tour-choice-card-text">
-                    <span className="svr-tour-choice-card-title">Test your knowledge</span>
+                    <span className="svr-tour-choice-card-title">Listening Lab</span>
                     <span className="svr-tour-choice-card-sub">
-                      {quizQuestions.length} quick questions on {activeGear.title.toLowerCase()} — optional
+                      Three quick ear-training experiments — optional
                     </span>
                   </span>
                 </button>
+              ) : (
+                quizQuestions.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setQuizActive(true)}
+                    className={
+                      "svr-tour-choice-card svr-tour-choice-card--quiz" +
+                      (currentTourStep?.id === "test-knowledge" ? " svr-tour-glow" : "")
+                    }
+                  >
+                    <span className="svr-tour-choice-card-icon" aria-hidden="true">🧠</span>
+                    <span className="svr-tour-choice-card-text">
+                      <span className="svr-tour-choice-card-title">Test your knowledge</span>
+                      <span className="svr-tour-choice-card-sub">
+                        {quizQuestions.length} quick questions on {activeGear.title.toLowerCase()} — optional
+                      </span>
+                    </span>
+                  </button>
+                )
               )}
 
               {activeGear.course?.id && (
@@ -1352,6 +1399,21 @@ function PanoramaTour() {
             tourAnchorPanel={currentTourStep?.id === "test-knowledge"}
           />
         )}
+
+        {/* Speakers-only Listening Lab — see the "Listening Lab" choice
+            card above and the `listeningLabOpen` state's own comment.
+            Renders its own .svr-tour-gear-panel shell (same docked rail as
+            the choice panel and HotspotKnowledgeCheck above), just with a
+            tab bar and different content inside — not a full-screen
+            takeover like DawWorkstationScreen below. */}
+        <SpeakerListeningLab
+          open={Boolean(activeGear && listeningLabOpen)}
+          onClose={closeGearPanel}
+          onStartCourse={() => {
+            finishTourIfActive();
+            navigate("/course", { state: { topicId: activeGear?.id } });
+          }}
+        />
 
         {activeVolumeControl && (
           <div className="svr-tour-volume-panel">

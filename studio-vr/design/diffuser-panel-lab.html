@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diffuser Panel Lab — Scatter, Don't Slam</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0b0d;
+    --panel:#16161a;
+    --panel-alt:#1c1c21;
+    --border:#2a2a30;
+    --border-soft:#232328;
+    --text:#ede9e3;
+    --text-muted:#8b8890;
+    --amber:#e8934a;
+    --amber-dim:#6b4a2c;
+    --green:#5fd9a0;
+    --green-dim:#2c5f49;
+    --red:#e8615f;
+    --red-dim:#6b2c2c;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;}
+  ::selection{background:var(--amber-dim);}
+  @media (prefers-reduced-motion: reduce){ *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;} }
+
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .display{font-family:'Space Grotesk',sans-serif;}
+
+  .wrap{max-width:760px;margin:0 auto;padding:0 20px 140px;}
+  .hero{padding:56px 0 40px;border-bottom:1px solid var(--border-soft);}
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--green); display:flex; align-items:center; gap:8px; margin-bottom:14px;
+  }
+  .eyebrow::before{content:''; width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green);}
+  h1.display{font-size:clamp(28px,5vw,40px); line-height:1.15; margin:0 0 14px; font-weight:600; letter-spacing:-.01em;}
+  .hero p{color:var(--text-muted); font-size:15px; line-height:1.6; max-width:52ch; margin:0 0 0;}
+
+  .module{padding:56px 0; border-bottom:1px solid var(--border-soft);}
+  .module:last-of-type{border-bottom:none;}
+  .m-eyebrow{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--text-muted); margin-bottom:10px; display:flex; align-items:center; gap:10px;
+  }
+  .m-eyebrow .n{color:var(--amber);}
+  .module h2.display{font-size:clamp(21px,3.6vw,26px); margin:0 0 10px; font-weight:600;}
+  .hook{color:var(--text-muted); font-size:14.5px; line-height:1.6; margin:0 0 26px; max-width:56ch;}
+
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:22px;}
+
+  /* segmented toggle */
+  .seg{display:flex; background:#0e0e11; border:1px solid var(--border); border-radius:8px; padding:4px; gap:4px;}
+  .seg button{
+    flex:1; background:transparent; border:none; color:var(--text-muted); padding:12px 8px; border-radius:6px;
+    font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.03em; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:6px; transition:background .15s, color .15s;
+  }
+  .seg button svg{width:20px;height:20px; opacity:.6; transition:opacity .15s;}
+  .seg button.active{background:var(--panel-alt); color:var(--text); box-shadow:inset 0 0 0 1px var(--border);}
+  .seg button.active svg{opacity:1;}
+  .seg button.active.flat{color:var(--red);}
+  .seg button.active.flat svg{stroke:var(--red);}
+  .seg button.active.diffuser{color:var(--green);}
+  .seg button.active.diffuser svg{stroke:var(--green);}
+
+  /* module 1 — scatter stage (source + listener share the room; the wall
+     is the back wall behind them, so sound travels DOWN to the wall and
+     BOUNCES BACK UP to the listener — not "through" a dividing wall) */
+  .scatter-box{margin-top:18px; background:#0e0e11; border:1px solid var(--border); border-radius:8px; padding:14px 14px 8px;}
+  .scatter-label{display:flex; justify-content:space-between; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-muted); letter-spacing:.06em; margin-bottom:4px;}
+  .scatter-stage{position:relative; height:150px;}
+  .scatter-stage svg.overlay{position:absolute; inset:0; width:100%; height:100%;}
+  .scatter-icon{position:absolute; top:22%; transform:translate(-50%,-50%); width:28px; height:28px; z-index:2;}
+  .scatter-icon.source{left:16%; color:var(--amber);}
+  .scatter-icon.ear{left:84%; color:var(--text);}
+  .room-label{position:absolute; top:2%; left:50%; transform:translateX(-50%); font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text-muted); opacity:.55; letter-spacing:.05em;}
+  .wall{position:absolute; left:8%; right:8%; bottom:8%; height:18px; display:flex; flex-direction:row; align-items:flex-end; z-index:2;}
+  .wall.flat{background:var(--panel-alt); border:1px solid var(--border); border-radius:2px;}
+  .wall.diffuser{background:transparent; gap:2px; height:38px;}
+  .wall.diffuser .block{background:var(--panel-alt); border:1px solid var(--border); border-radius:1px 1px 0 0; flex:1 1 0; align-self:flex-end;}
+  .flash{position:absolute; left:84%; top:22%; width:36px; height:36px; margin:-18px 0 0 -18px; border-radius:50%; border:2px solid var(--red); opacity:0; z-index:1;}
+  .flash.pulse{animation:flashPulse .6s ease-out;}
+  @keyframes flashPulse{0%{opacity:.9; transform:scale(.3);} 100%{opacity:0; transform:scale(2.2);}}
+  .scatter-caption{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-muted); text-align:center; margin-top:10px; letter-spacing:.03em; line-height:1.5;}
+
+  .spread-label{display:flex; justify-content:space-between; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-muted); letter-spacing:.06em; margin-top:18px;}
+  .spread-viz{display:flex; align-items:flex-end; gap:3px; height:34px; margin-top:8px;}
+  .spread-viz span{flex:1; border-radius:1px; opacity:.9; transition:height .3s ease, background .3s ease;}
+
+  .decay-label{display:flex; justify-content:space-between; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-muted); letter-spacing:.06em; margin-top:18px;}
+  .decay-viz{display:flex; align-items:flex-end; gap:3px; height:60px; margin-top:8px;}
+  .decay-viz span{flex:1; border-radius:1px; opacity:.9; transition:height .3s ease, background .3s ease;}
+
+  .playbar{display:flex; align-items:center; gap:14px; margin-top:18px;}
+  .play-btn{
+    width:42px;height:42px;border-radius:50%; border:1px solid var(--border); background:var(--panel-alt);
+    color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+    transition:border-color .15s;
+  }
+  .play-btn:hover{border-color:var(--amber);}
+  .play-btn svg{width:16px;height:16px;}
+  .level{flex:1; height:42px; background:#0e0e11; border:1px solid var(--border); border-radius:6px; display:flex; align-items:center; gap:3px; padding:0 10px;}
+  .level span{flex:1; height:6px; background:var(--border); border-radius:2px; transition:height .12s ease, background .12s ease;}
+  .level.playing span{animation:pulse 1.1s ease-in-out infinite;}
+  .level span:nth-child(1){animation-delay:0s;} .level span:nth-child(2){animation-delay:.08s;}
+  .level span:nth-child(3){animation-delay:.16s;} .level span:nth-child(4){animation-delay:.24s;}
+  .level span:nth-child(5){animation-delay:.32s;} .level span:nth-child(6){animation-delay:.4s;}
+  .level span:nth-child(7){animation-delay:.48s;} .level span:nth-child(8){animation-delay:.56s;}
+  .level span:nth-child(9){animation-delay:.64s;} .level span:nth-child(10){animation-delay:.72s;}
+  .level.playing span{background:var(--green);}
+  @keyframes pulse{0%,100%{height:6px;} 50%{height:26px;}}
+
+  .aha{
+    margin-top:20px; border:1px solid var(--green-dim); background:linear-gradient(180deg,rgba(95,217,160,.07),rgba(95,217,160,.02));
+    border-radius:8px; padding:16px 18px; opacity:0; transform:translateY(6px); pointer-events:none;
+    transition:opacity .4s ease, transform .4s ease;
+  }
+  .aha.show{opacity:1; transform:translateY(0); pointer-events:auto;}
+  .aha-label{font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--green); margin-bottom:6px;}
+  .aha p{margin:0; font-size:14px; line-height:1.55; color:#dcd9d3;}
+
+  .trigger-row{display:flex; align-items:center; gap:12px; margin-top:18px;}
+  .trigger-btn{
+    background:var(--panel-alt); border:1px solid var(--border); color:var(--text); padding:10px 16px;
+    border-radius:6px; font-family:'JetBrains Mono',monospace; font-size:12px; cursor:pointer; transition:border-color .15s;
+  }
+  .trigger-btn:hover{border-color:var(--green);}
+  .auto-toggle{display:flex; align-items:center; gap:8px; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-muted); cursor:pointer; user-select:none;}
+  .auto-toggle input{accent-color:var(--green); width:14px; height:14px;}
+
+  .footer{padding:52px 0 20px; text-align:center;}
+  .footer p{color:var(--text-muted); font-size:13.5px; margin:0 0 18px;}
+  .continue-btn{
+    background:transparent; border:1px solid var(--green); color:var(--green); padding:12px 26px; border-radius:6px;
+    font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:14px; cursor:pointer; transition:background .15s;
+  }
+  .continue-btn:hover{background:rgba(95,217,160,.08);}
+
+  .progress{position:fixed; right:22px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:14px; z-index:20;}
+  .progress .dot{width:8px;height:8px;border-radius:50%; background:var(--border); transition:background .3s, box-shadow .3s;}
+  .progress .dot.active{background:var(--amber); box-shadow:0 0 8px var(--amber);}
+  @media (max-width:820px){ .progress{display:none;} }
+
+  .hint{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-muted); margin-top:14px; opacity:.7;}
+
+  @media (max-width:520px){
+    .seg button{font-size:10.5px; padding:10px 4px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress">
+  <div class="dot" data-m="1"></div>
+  <div class="dot" data-m="2"></div>
+</div>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div class="eyebrow">Listening Lab · Before Lesson 1</div>
+    <h1 class="display">Hear the difference between an echo and a scatter.</h1>
+    <p>Two quick experiments — no theory yet, just listening and looking. Put in headphones or turn your speakers up, then tap play on either experiment below. Real recordings, nothing processed live.</p>
+  </div>
+
+  <!-- ========================= MODULE 1 — THE DISCO BALL EFFECT ========================= -->
+  <div class="module" id="mod1">
+    <div class="m-eyebrow"><span class="n">01</span> · Echo Scattering</div>
+    <h2 class="display">The Disco Ball Effect</h2>
+    <p class="hook">Shining a flashlight at a flat mirror reflects one blinding beam straight back into your eyes. Shining it at a disco ball scatters light gently all across the room. A drum clap does the exact same thing when it hits a wall — switch the wall type below and watch (and hear) where the sound goes.</p>
+
+    <div class="panel">
+      <div class="seg" role="group" aria-label="Choose a wall type">
+        <button class="flat active" data-mode="flat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="1"/></svg>
+          Flat Bare Wall
+        </button>
+        <button class="diffuser" data-mode="diffuser">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="9"/><line x1="15" y1="9" x2="15" y2="15"/><line x1="9" y1="15" x2="9" y2="21"/></svg>
+          Diffuser Panel
+        </button>
+      </div>
+
+      <div class="scatter-box">
+        <div class="scatter-label"><span>SOUND SOURCE</span><span id="scatterTitle" class="mono">FLAT WALL — DIRECT SLAP-BACK</span><span>LISTENER</span></div>
+        <div class="scatter-stage">
+          <div class="room-label">SAME ROOM — THE WALL IS BEHIND BOTH OF THEM</div>
+          <svg class="overlay" id="scatterSvg" viewBox="0 0 300 150" preserveAspectRatio="none"></svg>
+          <div class="scatter-icon source">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 10v4h3l5 4V6l-5 4H4z"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M19 6.5a8 8 0 0 1 0 11"/></svg>
+          </div>
+          <div class="wall flat" id="wall"><div class="block"></div><div class="block"></div><div class="block"></div><div class="block"></div><div class="block"></div></div>
+          <div class="flash" id="flash"></div>
+          <div class="scatter-icon ear">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 4a6 6 0 0 0-6 6c0 2 1 3 1 5a3 3 0 0 0 3 3"/><path d="M12 4a6 6 0 0 1 6 6c0 4-3 4-3 8"/></svg>
+          </div>
+        </div>
+        <div class="scatter-caption" id="scatterCaption">All the energy bounces straight back along one path — a single loud, harsh slap-back echo aimed right at the listener.</div>
+
+        <div class="spread-label"><span>REFLECTION SPREAD</span><span id="spreadReading" class="mono">CONCENTRATED</span></div>
+        <div class="spread-viz" id="spreadViz"></div>
+      </div>
+
+      <div class="playbar">
+        <button class="play-btn" id="play1" aria-label="Play">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <div class="level" id="level1">
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="hint">Audio: audio/discoball-flat.mp3 · audio/discoball-diffuser.mp3 (same drum clap, recorded off each wall)</div>
+
+      <div class="aha" id="aha1">
+        <div class="aha-label">The take-away</div>
+        <p>Diffusers don't destroy sound or trap it — they scatter echo energy in all directions, the same way a disco ball scatters a flashlight beam. That's why a treated room sounds open and natural instead of leaving your ears ringing.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================= MODULE 2 — THE SOUND WAVE BREAKER ========================= -->
+  <div class="module" id="mod2">
+    <div class="m-eyebrow"><span class="n">02</span> · Reflection Softening</div>
+    <h2 class="display">The Sound Wave Breaker</h2>
+    <p class="hook">Dropping a stone in a calm pool creates a sharp wave that bounces off a flat concrete wall in one clean ring. Ocean breakwaters use jagged rocks to break that wave into tiny, harmless ripples before it can crash back. A diffuser panel is a breakwater for a drum hit.</p>
+
+    <div class="panel">
+      <div class="seg" role="group" aria-label="Choose a wall surface">
+        <button class="flat active" data-mode="flat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="1"/></svg>
+          Smooth Wall
+        </button>
+        <button class="diffuser" data-mode="diffuser">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="9"/><line x1="15" y1="9" x2="15" y2="15"/><line x1="9" y1="15" x2="9" y2="21"/></svg>
+          Diffuser Wall
+        </button>
+      </div>
+
+      <div class="decay-label"><span>ECHO DECAY OVER TIME</span><span id="decayReading" class="mono">ONE HARSH SPIKE</span></div>
+      <div class="decay-viz" id="decayViz" aria-hidden="true"></div>
+
+      <div class="trigger-row">
+        <button class="trigger-btn" id="triggerNote">▶ Drop a stone</button>
+        <label class="auto-toggle"><input type="checkbox" id="autoRepeat"> Auto-repeat every 2s</label>
+      </div>
+      <div class="hint">Audio: audio/ripple-smooth.mp3 · audio/ripple-diffuser.mp3 (same clap, same room, only the wall surface changes)</div>
+
+      <div class="aha" id="aha2">
+        <div class="aha-label">The take-away</div>
+        <p>Diffusers keep the room's live energy while eliminating harsh, distracting echoes. The sound doesn't disappear — it just stops arriving back as one clean, loud ring and instead trickles back as a soft, natural decay.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>That's it — two experiments, zero jargon. Lesson 1 builds on exactly what you just heard.</p>
+    <button class="continue-btn" id="continueBtn">Continue to Lesson 1 →</button>
+  </div>
+
+</div>
+
+<script>
+/* ============================================================
+   AUDIO FILE MAP — swap these paths for your real recordings.
+   Everything below just loads and plays these files; no live
+   processing happens anywhere in this page.
+   ============================================================ */
+const AUDIO_FILES = {
+  mod1: { flat:'audio/discoball-flat.mp3', diffuser:'audio/discoball-diffuser.mp3' },
+  mod2: { flat:'audio/ripple-smooth.mp3', diffuser:'audio/ripple-diffuser.mp3' }
+};
+
+const stoppers = [];
+function stopOthers(except){ stoppers.forEach(fn=>{ if(fn!==except) fn(); }); }
+function playIcon(){ return '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>'; }
+function pauseIcon(){ return '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>'; }
+
+/* Simple looping clip player: swap src, keep playing if it already was */
+class ClipPlayer{
+  constructor(sources, {loop=true}={}){
+    this.sources = sources;
+    this.audio = new Audio();
+    this.audio.loop = loop;
+    this.audio.preload = 'auto';
+    this.current = null;
+  }
+  setClip(key){
+    if(this.current === key) return;
+    this.current = key;
+    const wasPlaying = !this.audio.paused;
+    this.audio.src = this.sources[key];
+    if(wasPlaying) this.play();
+  }
+  play(){ this.audio.currentTime = this.audio.currentTime || 0; this.audio.play().catch(()=>{}); }
+  restart(){ this.audio.currentTime = 0; this.audio.play().catch(()=>{}); }
+  pause(){ this.audio.pause(); }
+  get playing(){ return !this.audio.paused; }
+}
+
+/* ============================================================
+   MODULE 1 — The Disco Ball Effect (scattering)
+   ============================================================ */
+const Mod1 = (()=>{
+  const player = new ClipPlayer(AUDIO_FILES.mod1, {loop:true});
+  let revealed = false;
+
+  const modes = {
+    flat:     { title:'FLAT WALL — DIRECT SLAP-BACK', reading:'CONCENTRATED',
+                caption:'All the energy bounces straight back along one path — a single loud, harsh slap-back echo aimed right at the listener.',
+                spread:[3,3,4,5,96,5,4,3,3], spreadColor:'var(--red)', spikeColor:'var(--red)' },
+    diffuser: { title:'DIFFUSER PANEL — SCATTERED REFLECTIONS', reading:'SCATTERED',
+                caption:'The wooden blocks break the same energy apart and send it out in many directions at once — like a disco ball scattering light.',
+                spread:[34,40,37,44,46,42,38,41,35], spreadColor:'var(--green)', spikeColor:'var(--green)' }
+  };
+
+  function drawWall(mode){
+    const wall = document.getElementById('wall');
+    wall.className = 'wall ' + mode;
+    wall.innerHTML = mode === 'diffuser'
+      ? '<div class="block" style="height:14px"></div><div class="block" style="height:34px"></div><div class="block" style="height:20px"></div><div class="block" style="height:38px"></div><div class="block" style="height:26px"></div><div class="block" style="height:16px"></div>'
+      : '';
+  }
+
+  // Source and listener are both standing in the same room, facing the same
+  // back wall — sound travels DOWN from the source to the wall, then BOUNCES
+  // BACK UP to the listener (angle of incidence = angle of reflection), not
+  // "through" a dividing wall between two separate spaces.
+  function drawReflections(mode){
+    const svg = document.getElementById('scatterSvg');
+    const srcX=48, earX=252, topY=33;
+    if(mode === 'flat'){
+      const wallY = 120;
+      svg.innerHTML = `
+        <polyline points="${srcX},${topY} 150,${wallY} ${earX},${topY}" fill="none" stroke="var(--amber)" stroke-width="2" opacity="0.85" stroke-dasharray="0" />
+        <line x1="150" y1="${wallY}" x2="${earX}" y2="${topY}" stroke="var(--red)" stroke-width="3"/>`;
+    } else {
+      const wallY = 108;
+      const targets = [[earX,topY],[95,20],[195,14],[235,64],[70,64],[150,20]];
+      const rays = targets.map(([x,y],i)=>`<line x1="150" y1="${wallY}" x2="${x}" y2="${y}" stroke="var(--green)" stroke-width="${i===0?2:1.4}" opacity="${i===0?0.9:0.45}"/>`).join('');
+      svg.innerHTML = `
+        <line x1="${srcX}" y1="${topY}" x2="150" y2="${wallY}" stroke="var(--amber)" stroke-width="2" opacity="0.85"/>
+        ${rays}`;
+    }
+  }
+
+  function drawSpread(bars, color){
+    const viz = document.getElementById('spreadViz');
+    viz.innerHTML = '';
+    bars.forEach(h=>{
+      const el = document.createElement('span');
+      el.style.height = Math.max(2, h*0.34) + 'px';
+      el.style.background = color;
+      viz.appendChild(el);
+    });
+  }
+
+  function setMode(mode){
+    const m = modes[mode];
+    document.getElementById('scatterTitle').textContent = m.title;
+    document.getElementById('scatterCaption').textContent = m.caption;
+    document.getElementById('spreadReading').textContent = m.reading;
+    drawWall(mode);
+    drawReflections(mode);
+    drawSpread(m.spread, m.spreadColor);
+    player.setClip(mode);
+    reveal();
+
+    const flash = document.getElementById('flash');
+    flash.style.borderColor = mode === 'flat' ? 'var(--red)' : 'var(--green)';
+    flash.classList.remove('pulse');
+    void flash.offsetWidth;
+    flash.classList.add('pulse');
+  }
+  function reveal(){ if(revealed) return; revealed = true; document.getElementById('aha1').classList.add('show'); }
+
+  function updatePlayUI(){
+    document.getElementById('play1').innerHTML = player.playing ? pauseIcon() : playIcon();
+    document.getElementById('level1').classList.toggle('playing', player.playing);
+  }
+  function stop(){ player.pause(); updatePlayUI(); }
+  stoppers.push(stop);
+
+  function init(){
+    player.setClip('flat');
+    setMode('flat');
+    document.querySelectorAll('#mod1 .seg button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        document.querySelectorAll('#mod1 .seg button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        stopOthers(stop);
+        setMode(btn.dataset.mode);
+        if(!player.playing) player.play();
+        updatePlayUI();
+      });
+    });
+    document.getElementById('play1').addEventListener('click', ()=>{
+      if(player.playing){ player.pause(); }
+      else { stopOthers(stop); player.play(); }
+      updatePlayUI();
+    });
+  }
+  return {init};
+})();
+
+/* ============================================================
+   MODULE 2 — The Sound Wave Breaker (decay)
+   ============================================================ */
+const Mod2 = (()=>{
+  const player = new ClipPlayer(AUDIO_FILES.mod2, {loop:false});
+  let revealed = false, autoTimer = null;
+
+  const modes = {
+    flat:     { reading:'ONE HARSH SPIKE', bars:[98,8,6,5,4,3,3,2,2,1] },
+    diffuser: { reading:'SMOOTH NATURAL DECAY', bars:[45,42,38,35,30,26,22,18,14,10] }
+  };
+
+  function drawBars(bars){
+    const viz = document.getElementById('decayViz');
+    viz.innerHTML = '';
+    bars.forEach((h,i)=>{
+      const el = document.createElement('span');
+      el.style.height = Math.max(2, h*0.55) + 'px';
+      el.style.background = i===0 && h>90 ? 'var(--red)' : (h>40 ? 'var(--amber)' : 'var(--green)');
+      viz.appendChild(el);
+    });
+  }
+
+  function setMode(mode){
+    const m = modes[mode];
+    document.getElementById('decayReading').textContent = m.reading;
+    drawBars(m.bars);
+    player.setClip(mode);
+  }
+
+  function reveal(){ if(revealed) return; revealed = true; document.getElementById('aha2').classList.add('show'); }
+
+  function stopAuto(){
+    if(autoTimer){ clearInterval(autoTimer); autoTimer = null; }
+    document.getElementById('autoRepeat').checked = false;
+    player.pause();
+  }
+  stoppers.push(stopAuto);
+
+  function init(){
+    setMode('flat');
+    document.querySelectorAll('#mod2 .seg button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        document.querySelectorAll('#mod2 .seg button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        setMode(btn.dataset.mode);
+      });
+    });
+    document.getElementById('triggerNote').addEventListener('click', ()=>{
+      stopOthers(stopAuto);
+      player.restart();
+      reveal();
+    });
+    document.getElementById('autoRepeat').addEventListener('change', e=>{
+      if(e.target.checked){
+        stopOthers(stopAuto);
+        e.target.checked = true;
+        player.restart();
+        reveal();
+        autoTimer = setInterval(()=>player.restart(), 2000);
+      } else {
+        stopAuto();
+      }
+    });
+  }
+  return {init};
+})();
+
+/* ============================================================
+   PROGRESS DOTS (scroll spy)
+   ============================================================ */
+function initProgress(){
+  const dots = document.querySelectorAll('#progress .dot');
+  const sections = ['mod1','mod2'].map(id=>document.getElementById(id));
+  const io = new IntersectionObserver(entries=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){
+        const idx = sections.indexOf(entry.target);
+        dots.forEach((d,i)=>d.classList.toggle('active', i===idx));
+      }
+    });
+  }, {threshold:0.5});
+  sections.forEach(s=>io.observe(s));
+}
+
+document.getElementById('continueBtn').addEventListener('click', ()=>{ stoppers.forEach(fn=>fn()); });
+
+Mod1.init();
+Mod2.init();
+initProgress();
+</script>
+</body>
+</html>
