@@ -744,15 +744,27 @@ export function getAudioContext() {
  * built alongside the spatial one and crossfaded by the master binaural
  * toggle (see setBinauralEnabled()/registerBinauralRouting()), so switching
  * binaural off still gives a left/right sense of the two monitors instead of
- * collapsing to dead-center mono. Routes into masterGain, so setMuted()
- * silences this exactly like everything else in the room.
+ * collapsing to dead-center mono. By default routes into masterGain, so
+ * setMuted() silences this exactly like everything else in the room.
+ *
+ * Pass `{ independent: true }` (the DAW workstation's own call) to skip that
+ * shared masterGain/outputGain stage and land on a same-level (0.9) gain
+ * straight to audioCtx.destination instead. The DAW has its own transport
+ * and per-track mute/volume already — it's a focused work surface, not part
+ * of the ambient room mix — so the tour's own master mute button (see
+ * toggleMasterMute in PanoramaTour.jsx, which only ever meant to silence the
+ * ambient bed/room bleed/narration) shouldn't also reach in and silence
+ * whatever's on the DAW's own mix bus, including audio left playing from
+ * before the visitor even opened the DAW. Still fully HRTF/binaural-aware
+ * like every other caller — this only changes which final gain stage the
+ * signal lands on, not how it gets spatialized.
  *
  * Returns null if initAudio() hasn't run yet. Call the returned dispose()
  * when the source feeding this bus is torn down (e.g. the hotspot panel
  * rebuilds its audio graph, or the panorama unmounts) — otherwise the extra
  * nodes leak and keep responding to the binaural toggle forever.
  */
-export function createStudioSpeakerBus() {
+export function createStudioSpeakerBus({ independent = false } = {}) {
   if (!audioCtx || !masterGain) return null;
 
   const input = audioCtx.createGain();
@@ -796,8 +808,19 @@ export function createStudioSpeakerBus() {
     return panNode;
   });
 
-  spatialPathGain.connect(masterGain);
-  plainPathGain.connect(masterGain);
+  // `independent` skips the shared masterGain (and, transitively, the
+  // setMuted()-controlled outputGain sitting after it) — a dedicated gain
+  // node at the same 0.9 level takes its place, straight to
+  // audioCtx.destination, so the DAW's overall level still matches what
+  // routing through the shared bus would have sounded like, just without
+  // ever picking up its mute.
+  const finalStage = independent ? audioCtx.createGain() : masterGain;
+  if (independent) {
+    finalStage.gain.value = 0.9;
+    finalStage.connect(audioCtx.destination);
+  }
+  spatialPathGain.connect(finalStage);
+  plainPathGain.connect(finalStage);
 
   const routing = { spatialPathGain, plainPathGain };
   registerBinauralRouting(routing);
@@ -817,6 +840,9 @@ export function createStudioSpeakerBus() {
       try { spatialPathGain.disconnect(); } catch { /* already disconnected */ }
       try { plainPathGain.disconnect(); } catch { /* already disconnected */ }
       try { input.disconnect(); } catch { /* already disconnected */ }
+      if (independent) {
+        try { finalStage.disconnect(); } catch { /* already disconnected */ }
+      }
     },
   };
 }

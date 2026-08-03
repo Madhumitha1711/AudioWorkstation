@@ -353,8 +353,11 @@ function PanoramaTour() {
   // activateRoomAudio() below regardless of lock state, so without this
   // they'd stay audible even though everything is grayed out and silent to
   // interaction. setMuted() drives a single output-stage gain shared by the
-  // ambient bed, room bleed, hotspot narration, and the DAW's speaker bus
-  // (see spatialAudioEngine.js), so this one call covers all of them.
+  // ambient bed, room bleed, and hotspot narration (see spatialAudioEngine.js)
+  // — the DAW workstation deliberately opts OUT of this shared stage (see
+  // its own `independent: true` createStudioSpeakerBus() call) since it's a
+  // focused work surface with its own transport/mute controls, not part of
+  // this ambient mix, so this call never reaches in and silences it.
   // Restores to the visitor's actual preference the moment the scene
   // unlocks — this never touches audioMuted itself, only the engine.
   useEffect(() => {
