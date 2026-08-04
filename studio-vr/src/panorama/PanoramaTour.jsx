@@ -26,13 +26,13 @@ import {
   isRoomBleedMuted,
 } from "../audio/spatialAudioEngine";
 import DawWorkstationScreen from "./DawWorkstationScreen";
-import SpeakerListeningLab from "./SpeakerListeningLab";
-import MixingConsoleLab from "./MixingConsoleLab";
-import SoundCardLab from "./SoundCardLab";
-import PatchbayLab from "./PatchbayLab";
-import PreampRackLab from "./PreampRackLab";
-import LfEmitterLab from "./LfEmitterLab";
-import DiffuserPanelLab from "./DiffuserPanelLab";
+import SpeakerListeningLab from "./labs/SpeakerListeningLab";
+import MixingConsoleLab from "./labs/MixingConsoleLab";
+import SoundCardLab from "./labs/SoundCardLab";
+import PatchbayLab from "./labs/PatchbayLab";
+import PreampRackLab from "./labs/PreampRackLab";
+import LfEmitterLab from "./labs/LfEmitterLab";
+import DiffuserPanelLab from "./labs/DiffuserPanelLab";
 import StudioHotspotsPanel from "./StudioHotspotsPanel";
 // Only used here to build the "Try Game mode" tour step's correct-order
 // hint (see tourStepsForCard below) — StudioHotspotsPanel already imports
