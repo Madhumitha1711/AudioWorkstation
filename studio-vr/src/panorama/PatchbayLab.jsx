@@ -33,7 +33,7 @@ import { PlayIcon, PauseIcon, LevelMeter, AhaBox, AudioNote } from "./listeningL
 // `public/audio/listening-lab/...` path that doesn't exist yet, play()
 // failures are swallowed, and the "playing" look is driven by React state
 // rather than real playback events.
-function PatchbayLab({ open, onClose, onStartCourse }) {
+function PatchbayLab({ open, onClose, onBackToOverview, onStartCourse }) {
   const [activeTab, setActiveTab] = useState(0);
 
   // Every visit starts back on experiment one — a fresh "before the lesson"
@@ -102,7 +102,11 @@ function PatchbayLab({ open, onClose, onStartCourse }) {
 
       <div className="svr-tour-gear-panel__footer">
         <div className="svr-tour-gear-panel__footer-row">
-          <button type="button" className="svr-tour-btn svr-tour-btn-secondary" onClick={onClose}>
+          <button
+            type="button"
+            className="svr-tour-btn svr-tour-btn-secondary"
+            onClick={onBackToOverview}
+          >
             ← Back
           </button>
           {onStartCourse && (

@@ -811,6 +811,26 @@ function PanoramaTour() {
     viewerRef.current?.animate({ zoom: REST_ZOOM_LVL, speed: "10rpm" });
   };
 
+  // Steps back from whichever gear-hotspot lab is currently open (Listening
+  // Lab, Mixing Console Lab, Sound Card Lab, Patchbay Lab, Preamp Rack Lab,
+  // LF Emitter Lab, or Diffuser Panel Lab) to that hotspot's own "Choose how
+  // to start" overview screen, without closing the hotspot itself — same
+  // idea as HotspotKnowledgeCheck's onBackToOverview (setQuizActive(false))
+  // just below, shared across all seven *LabOpen flags since only one of
+  // them (or the quiz) is ever open at a time. activeGear/the camera/the
+  // selected marker are left alone; only closeGearPanel above tears those
+  // down, for the "×" close button and the "Next" hotspot flow.
+  const backToGearOverview = () => {
+    setQuizActive(false);
+    setListeningLabOpen(false);
+    setMixingConsoleLabOpen(false);
+    setSoundCardLabOpen(false);
+    setPatchbayLabOpen(false);
+    setPreampRackLabOpen(false);
+    setLfEmitterLabOpen(false);
+    setDiffuserPanelLabOpen(false);
+  };
+
   // Same camera-ease-out treatment for the DAW workstation panel.
   // DawWorkstationScreen tears its own audio graph down when it closes (see
   // its `isOpen` effect), so nothing further needs to happen to audio here.
@@ -1555,6 +1575,7 @@ function PanoramaTour() {
         <SpeakerListeningLab
           open={Boolean(activeGear && listeningLabOpen)}
           onClose={closeGearPanel}
+          onBackToOverview={backToGearOverview}
           onStartCourse={() => {
             finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });
@@ -1568,6 +1589,7 @@ function PanoramaTour() {
         <MixingConsoleLab
           open={Boolean(activeGear && mixingConsoleLabOpen)}
           onClose={closeGearPanel}
+          onBackToOverview={backToGearOverview}
           onStartCourse={() => {
             finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });
@@ -1576,6 +1598,7 @@ function PanoramaTour() {
         <SoundCardLab
           open={Boolean(activeGear && soundCardLabOpen)}
           onClose={closeGearPanel}
+          onBackToOverview={backToGearOverview}
           onStartCourse={() => {
             finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });
@@ -1589,6 +1612,7 @@ function PanoramaTour() {
         <PatchbayLab
           open={Boolean(activeGear && patchbayLabOpen)}
           onClose={closeGearPanel}
+          onBackToOverview={backToGearOverview}
           onStartCourse={() => {
             finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });
@@ -1597,6 +1621,7 @@ function PanoramaTour() {
         <PreampRackLab
           open={Boolean(activeGear && preampRackLabOpen)}
           onClose={closeGearPanel}
+          onBackToOverview={backToGearOverview}
           onStartCourse={() => {
             finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });
@@ -1605,6 +1630,7 @@ function PanoramaTour() {
         <LfEmitterLab
           open={Boolean(activeGear && lfEmitterLabOpen)}
           onClose={closeGearPanel}
+          onBackToOverview={backToGearOverview}
           onStartCourse={() => {
             finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });
@@ -1613,6 +1639,7 @@ function PanoramaTour() {
         <DiffuserPanelLab
           open={Boolean(activeGear && diffuserPanelLabOpen)}
           onClose={closeGearPanel}
+          onBackToOverview={backToGearOverview}
           onStartCourse={() => {
             finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });

@@ -2,6 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "./speakerListeningLab.css";
 import "./soundCardLab.css";
 import { PlayIcon, PauseIcon, LevelMeter, AhaBox, AudioNote } from "./listeningLabShared";
+import {
+  newAudioContext,
+  rampGain,
+  applyScannerProfile,
+  startScannerTune,
+  stopScannerTune,
+  createScannerNodes,
+  teardownScannerNodes,
+} from "./soundCardLabSynthAudio";
 
 // Sound Card hotspot's "Sound Card Lab" — same treatment as the Speakers
 // hotspot's Listening Lab (see SpeakerListeningLab.jsx): replaces the
@@ -18,12 +27,30 @@ import { PlayIcon, PauseIcon, LevelMeter, AhaBox, AudioNote } from "./listeningL
 // for the shared pieces) so this reads as the same "Listening Lab" family,
 // just with different content inside.
 //
-// AUDIO IS UI-ONLY FOR NOW — see SpeakerListeningLab.jsx's own comment for
-// why: every module wires up a real <audio> element pointed at a
-// `public/audio/listening-lab/...` path that doesn't exist yet, play()
-// failures are swallowed, and the "playing" look is driven by React state
-// rather than real playback events.
-function SoundCardLab({ open, onClose, onStartCourse }) {
+// UNLIKE the rest of the "Listening Lab" family (SpeakerListeningLab,
+// MixingConsoleLab, and every other panorama/*Lab.jsx) — but only for
+// MODULE 1 (the HD Document Scanner) — audio is REAL, not a UI-only
+// placeholder pointed at a missing recording. Bit-depth reduction is
+// something the Web Audio API can synthesize and process live, in-browser,
+// with no dependency on recording (and shipping) a real vocal take through
+// three different converters, so a live Web Audio graph is strictly better
+// there than a canned recording: it's the actual mechanism being taught,
+// not a stand-in for it, and it needs zero asset files. That engine
+// (SCANNER_PROFILES, the quantizer curve, the note scheduler, and graph
+// construction) lives in ./soundCardLabSynthAudio.js, not in this file; see
+// that file's header comment for why it's split out, and see ScannerModule
+// below for how this component drives it. It still swallows AudioContext
+// errors the same way the rest of the app swallows <audio> play() failures,
+// since autoplay-restricted browsers can leave a context suspended until a
+// user gesture resumes it.
+//
+// MODULE 2 (the Echo-Free Mirror) instead follows the same UI-only
+// placeholder pattern as every other Listening Lab module — a real <audio>
+// element pointed at a `public/audio/listening-lab/...` path that doesn't
+// exist yet (see SpeakerListeningLab.jsx's header comment for the full
+// rationale) — rather than trying to approximate delayed auditory feedback
+// out of oscillators. See EchoMirrorModule below.
+function SoundCardLab({ open, onClose, onBackToOverview, onStartCourse }) {
   const [activeTab, setActiveTab] = useState(0);
 
   // Every visit starts back on experiment one — a fresh "before the lesson"
@@ -92,7 +119,11 @@ function SoundCardLab({ open, onClose, onStartCourse }) {
 
       <div className="svr-tour-gear-panel__footer">
         <div className="svr-tour-gear-panel__footer-row">
-          <button type="button" className="svr-tour-btn svr-tour-btn-secondary" onClick={onClose}>
+          <button
+            type="button"
+            className="svr-tour-btn svr-tour-btn-secondary"
+            onClick={onBackToOverview}
+          >
             ← Back
           </button>
           {onStartCourse && (
@@ -163,11 +194,11 @@ function JackIcon() {
 // ============================================================
 // MODULE 1 — The HD Document Scanner (resolution & conversion)
 // ============================================================
-const AUDIO_SOURCES_1 = {
-  phone: "/audio/listening-lab/sound-card-scanner-phone.mp3",
-  laptop: "/audio/listening-lab/sound-card-scanner-laptop.mp3",
-  studio: "/audio/listening-lab/sound-card-scanner-studio.mp3",
-};
+// The actual tune/bit-crusher engine (SCANNER_PROFILES, the quantizer
+// curve, the note scheduler, and graph construction) lives in
+// ./soundCardLabSynthAudio.js — this module just drives it: builds the
+// nodes once per mount, lets the user pick a converter or play/pause, and
+// renders the curve/caption that goes with whichever converter is active.
 const CURVES = {
   phone: {
     d: "M0,60 L80,60 L80,20 L160,20 L160,60 L240,60 L240,100 L320,100 L320,60 L400,60 L400,20 L480,20 L480,60 L560,60 L560,100 L640,100",
@@ -198,38 +229,59 @@ function ScannerModule() {
   const [mode, setMode] = useState("phone");
   const [playing, setPlaying] = useState(false);
   const [revealed, setRevealed] = useState(false);
-  const audioRef = useRef(null);
+  const audioCtxRef = useRef(null);
+  const nodesRef = useRef(null);
 
+  // Builds the tune -> quantizer -> lowpass -> master graph once (via
+  // createScannerNodes, in ./soundCardLabSynthAudio.js) and leaves it
+  // running for the module's whole lifetime; play/pause just ramps
+  // masterGain and starts/stops the note scheduler (see
+  // togglePlay/selectMode) instead of start()/stop()-ing the oscillators
+  // themselves — an OscillatorNode can only ever be started once, so
+  // restarting it per play-press isn't an option the way it is with
+  // <audio>.play()/.pause().
   useEffect(() => {
-    const audio = new Audio();
-    audio.loop = true;
-    audio.preload = "auto";
-    audio.src = AUDIO_SOURCES_1.phone;
-    audioRef.current = audio;
-    return () => audio.pause();
+    const ctx = newAudioContext();
+    const nodes = createScannerNodes(ctx);
+    audioCtxRef.current = ctx;
+    nodesRef.current = nodes;
+
+    return () => {
+      teardownScannerNodes(nodes);
+      ctx.close().catch(() => { });
+    };
   }, []);
 
   // Choosing a converter always starts it playing — same "switch stations,
   // keep listening" behavior as SpeakerListeningLab's SpeakerTestModule.
+  // startScannerTune is idempotent, so this doesn't restart the tune from
+  // the top if it's already looping — it just leaves it running while the
+  // converter (and therefore the crunch) underneath it changes.
   const selectMode = (m) => {
     setMode(m);
     setRevealed(true);
     setPlaying(true);
-    const audio = audioRef.current;
-    if (audio) {
-      audio.src = AUDIO_SOURCES_1[m];
-      audio.play().catch(() => { });
+    const ctx = audioCtxRef.current;
+    const nodes = nodesRef.current;
+    if (ctx && nodes) {
+      ctx.resume().catch(() => { });
+      applyScannerProfile(nodes, ctx, m);
+      rampGain(nodes.masterGain, ctx, 0.9);
+      startScannerTune(ctx, nodes);
     }
   };
 
   const togglePlay = () => {
     setRevealed(true);
-    const audio = audioRef.current;
+    const ctx = audioCtxRef.current;
+    const nodes = nodesRef.current;
     setPlaying((prev) => {
       const next = !prev;
-      if (audio) {
-        if (next) audio.play().catch(() => { });
-        else audio.pause();
+      if (ctx && nodes) {
+        ctx.resume().catch(() => { });
+        rampGain(nodes.masterGain, ctx, next ? 0.9 : 0);
+        if (next) startScannerTune(ctx, nodes);
+        else stopScannerTune(nodes);
       }
       return next;
     });
@@ -241,9 +293,10 @@ function ScannerModule() {
     <div className="llab-module">
       <p className="llab-hook">
         Scanning a hand-drawn artwork with a cheap printer vs. a high-end
-        studio scanner. A smooth, organic sound wave — a real voice singing —
-        gets converted differently depending on what's doing the converting.
-        Switch between three converter qualities and hear the difference.
+        studio scanner. A smooth, organic sound wave — here, a simple looping
+        tune — gets converted differently depending on what's doing the
+        converting. Switch between three converter qualities and hear the
+        same tune played back through each one.
       </p>
 
       <div className="llab-card">
@@ -283,7 +336,6 @@ function ScannerModule() {
           </button>
           <LevelMeter playing={playing} />
         </div>
-        {/* <AudioNote>sound-card-scanner-phone/laptop/studio.mp3</AudioNote> */}
 
         <AhaBox show={revealed}>
           A sound card is a high-definition translator — it converts
@@ -300,7 +352,14 @@ function ScannerModule() {
 // ============================================================
 // MODULE 2 — The Echo-Free Mirror (latency & real-time monitoring)
 // ============================================================
-const AUDIO_SOURCE_2 = "/audio/listening-lab/sound-card-mirror-dry.mp3";
+// AUDIO IS UI-ONLY HERE, same pattern as every module in SpeakerListeningLab
+// and MixingConsoleLab (see SpeakerListeningLab.jsx's header comment for the
+// full rationale): a real <audio> element pointed at a
+// `public/audio/listening-lab/...` path that doesn't exist yet, play()
+// failures swallowed, and the "playing" look driven by React state rather
+// than real playback events. MODES below is just display data (the ms
+// readout and status chip next to whichever placeholder clip is selected),
+// not a live delay parameter — there's no Web Audio graph in this module.
 const MAX_MS = 220;
 const BAR_COUNT = 18;
 // Same wobbly-waveform look as the original mockup's generated bars, just a
@@ -309,6 +368,10 @@ const BAR_HEIGHTS = Array.from(
   { length: BAR_COUNT },
   (_, i) => 4 + Math.abs(Math.sin(i * 0.7)) * 12 + (i % 5 === 0 ? 3 : 0),
 );
+const AUDIO_SOURCES_2 = {
+  jack: "/audio/listening-lab/sound-card-jack.mp3",
+  interface: "/audio/listening-lab/sound-card-interface.mp3",
+};
 const MODES = {
   jack: { ms: 200, label: "200 ms", status: "distracting", title: "Distracting" },
   interface: { ms: 2, label: "< 3 ms", status: "seamless", title: "Seamless" },
@@ -320,31 +383,44 @@ const SEG_2 = [
 
 function EchoMirrorModule() {
   const [mode, setMode] = useState("jack");
+  const [playing, setPlaying] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const audioRef = useRef(null);
 
   useEffect(() => {
     const audio = new Audio();
+    audio.loop = true;
     audio.preload = "auto";
-    audio.src = AUDIO_SOURCE_2;
+    audio.src = AUDIO_SOURCES_2.jack;
     audioRef.current = audio;
     return () => audio.pause();
   }, []);
 
-  // Switching monitoring path only updates the visual (how far the "you
-  // hear back" row shifts and fades) — same as the original mockup, where
-  // the actual A/B moment is the trigger button below, not the toggle.
+  // Choosing a monitoring path always starts it playing — same "switch
+  // stations, keep listening" behavior as SpeakerListeningLab's
+  // SpeakerTestModule and ScannerModule above.
   const selectMode = (m) => {
     setMode(m);
     setRevealed(true);
+    setPlaying(true);
+    const audio = audioRef.current;
+    if (audio) {
+      audio.src = AUDIO_SOURCES_2[m];
+      audio.play().catch(() => { });
+    }
   };
 
-  const singPhrase = () => {
+  const togglePlay = () => {
     setRevealed(true);
     const audio = audioRef.current;
-    if (!audio) return;
-    audio.currentTime = 0;
-    audio.play().catch(() => { });
+    setPlaying((prev) => {
+      const next = !prev;
+      if (audio) {
+        if (next) audio.play().catch(() => { });
+        else audio.pause();
+      }
+      return next;
+    });
   };
 
   const { ms, status, title } = MODES[mode];
@@ -409,12 +485,18 @@ function EchoMirrorModule() {
           <div className={"sclab-delay-status " + status}>{title}</div>
         </div>
 
-        <div className="llab-trigger-row">
-          <button type="button" className="llab-trigger-btn" onClick={singPhrase}>
-            🎤 Sing a phrase
+        <div className="llab-playbar">
+          <button
+            className="llab-play"
+            onClick={togglePlay}
+            type="button"
+            aria-label={playing ? "Pause" : "Play"}
+          >
+            {playing ? <PauseIcon /> : <PlayIcon />}
           </button>
+          <LevelMeter playing={playing} />
         </div>
-        {/* <AudioNote>sound-card-mirror-dry.mp3</AudioNote> */}
+        {/* <AudioNote>sound-card-jack/interface.mp3</AudioNote> */}
 
         <AhaBox show={revealed}>
           A studio audio interface processes sound at ultra-fast speeds —

@@ -35,7 +35,7 @@ import { PlayIcon, PauseIcon, LevelMeter, AhaBox, AudioNote } from "./listeningL
 // clips land at those paths. A small mono caption under each transport
 // spells out the exact expected filenames as a placeholder/checklist for
 // whoever adds the audio.
-function SpeakerListeningLab({ open, onClose, onStartCourse }) {
+function SpeakerListeningLab({ open, onClose, onBackToOverview, onStartCourse }) {
   const [activeTab, setActiveTab] = useState(0);
 
   // Every visit starts back on experiment one — this is a fresh "before the
@@ -108,7 +108,11 @@ function SpeakerListeningLab({ open, onClose, onStartCourse }) {
 
       <div className="svr-tour-gear-panel__footer">
         <div className="svr-tour-gear-panel__footer-row">
-          <button type="button" className="svr-tour-btn svr-tour-btn-secondary" onClick={onClose}>
+          <button
+            type="button"
+            className="svr-tour-btn svr-tour-btn-secondary"
+            onClick={onBackToOverview}
+          >
             ← Back
           </button>
           {onStartCourse && (
@@ -498,14 +502,6 @@ function StereoImagingModule() {
 
   return (
     <div className="llab-module">
-      <p className="llab-hook">
-        This one you have to feel for yourself. There's no way for a
-        webpage to swap which physical device your sound comes out of, so
-        a "headphones vs. speakers" toggle here would just be two files
-        that sound identical on whatever you're using right now. Instead,
-        do the real A/B test:
-      </p>
-
       <div className="llab-card">
         <ol className="llab-task-steps">
           <li>

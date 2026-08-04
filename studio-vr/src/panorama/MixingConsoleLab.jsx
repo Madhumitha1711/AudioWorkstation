@@ -23,7 +23,7 @@ import { PlayIcon, PauseIcon, LevelMeter, AhaBox, AudioNote } from "./listeningL
 // `public/audio/listening-lab/...` path that doesn't exist yet, play()
 // failures are swallowed, and the "playing" look is driven by React state
 // rather than real playback events.
-function MixingConsoleLab({ open, onClose, onStartCourse }) {
+function MixingConsoleLab({ open, onClose, onBackToOverview, onStartCourse }) {
   const [activeTab, setActiveTab] = useState(0);
 
   // Every visit starts back on experiment one — a fresh "before the lesson"
@@ -92,7 +92,11 @@ function MixingConsoleLab({ open, onClose, onStartCourse }) {
 
       <div className="svr-tour-gear-panel__footer">
         <div className="svr-tour-gear-panel__footer-row">
-          <button type="button" className="svr-tour-btn svr-tour-btn-secondary" onClick={onClose}>
+          <button
+            type="button"
+            className="svr-tour-btn svr-tour-btn-secondary"
+            onClick={onBackToOverview}
+          >
             ← Back
           </button>
           {onStartCourse && (
@@ -469,10 +473,18 @@ function SoundHighwayModule() {
           <div className="mclab-lane l3" />
           {CARS.map(({ key, tag, color }) => {
             const [x, y] = current.positions[key];
+            // Cars parked this low would have their label run past the
+            // highway's bottom edge and get clipped by overflow:hidden —
+            // flip the label to sit above the dot instead of below it.
+            const isLowLane = y >= 65;
+            const className =
+              "mclab-car" +
+              (crowdedKeys.has(key) ? " crowded" : "") +
+              (isLowLane ? " mclab-car--label-above" : "");
             return (
               <div
                 key={key}
-                className={"mclab-car" + (crowdedKeys.has(key) ? " crowded" : "")}
+                className={className}
                 data-tag={tag}
                 style={{ background: color, left: `${x}%`, top: `${y}%` }}
               />
