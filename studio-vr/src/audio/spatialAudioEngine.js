@@ -112,7 +112,7 @@ let bleedPanner = null;
 let bleedElevationShelf = null;
 let bleedRouting = null; // registered with extraBinauralRoutings while playing
 let bleedVolume = DEFAULT_BLEED_VOLUME;
-let bleedMuted = false;
+let bleedMuted = true; // default: room bleed starts muted
 
 function computeBleedGain() {
   return bleedMuted ? 0 : BLEED_CEILING_GAIN * bleedVolume;
