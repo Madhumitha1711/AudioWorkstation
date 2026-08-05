@@ -288,7 +288,7 @@ function SwitchboardModule() {
     if (audio) {
       audio.src = AUDIO_SOURCES[srcId][destId === "reverb" ? "reverb" : "dry"];
       audio.currentTime = 0;
-      audio.play().catch(() => {});
+      audio.play().catch(() => { });
     }
     setPlayingDest(destId);
   };
@@ -307,10 +307,9 @@ function SwitchboardModule() {
   return (
     <div className="llab-module">
       <p className="llab-hook">
-        How did old-school phone operators connect a caller in New York to a
-        home in Chicago? They plugged a cable directly into a board. Try it
-        yourself — tap the Synthesizer jack, then tap the Reverb Unit jack,
-        and listen to what happens to its output.
+        How did old-school phone operators connect a caller to a home?
+        They plugged a cable directly into a board. Try it yourself — tap the Synthesizer jack,
+        then tap the Reverb Unit jack, and listen to what happens to its output.
       </p>
 
       <div className="llab-card">
@@ -490,7 +489,7 @@ function RailroadModule() {
     const audio = audioRef.current;
     if (audio) {
       audio.src = AUDIO_SOURCES_2[m];
-      audio.play().catch(() => {});
+      audio.play().catch(() => { });
     }
   };
 
@@ -500,7 +499,7 @@ function RailroadModule() {
     setPlaying((prev) => {
       const next = !prev;
       if (audio) {
-        if (next) audio.play().catch(() => {});
+        if (next) audio.play().catch(() => { });
         else audio.pause();
       }
       return next;
