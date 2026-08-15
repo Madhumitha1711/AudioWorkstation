@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Viewer } from "@photo-sphere-viewer/core";
 import { VirtualTourPlugin } from "@photo-sphere-viewer/virtual-tour-plugin";
 import { MarkersPlugin } from "@photo-sphere-viewer/markers-plugin";
@@ -242,8 +242,26 @@ function buildNodes() {
   }));
 }
 
+// Finds which room a hotspot id belongs to, and whether it's a plain gear
+// marker or an interactive one (e.g. the DAW desk) — used by the
+// focus-hotspot effect below to know whether it needs to walk through a
+// doorway before it can even look for the marker (gotoMarker only works for
+// markers belonging to the room actually loaded right now).
+function findHotspotLocation(hotspotId) {
+  for (const room of ROOMS) {
+    if ((room.markers || []).some((m) => m.id === hotspotId)) {
+      return { roomId: room.id, kind: "gear" };
+    }
+    if ((room.interactiveMarkers || []).some((m) => m.id === hotspotId)) {
+      return { roomId: room.id, kind: "interactive" };
+    }
+  }
+  return null;
+}
+
 function PanoramaTour() {
   const navigate = useNavigate();
+  const location = useLocation();
   const containerRef = useRef(null);
   const placementModeRef = useRef(false);
   const viewerRef = useRef(null);
@@ -282,6 +300,22 @@ function PanoramaTour() {
   // Defaults true (Game mode) so behavior is unchanged — re-lock on
   // re-entry — until the panel has actually reported the room's real mode.
   const studioGameModeRef = useRef(true);
+
+  // Set by CoursePage's "← Back to the studio" buttons — they navigate here
+  // with { state: { focusHotspotId } } so arriving from a specific chapter
+  // walks the camera straight to that chapter's hotspot (see the
+  // focus-hotspot effect further down) instead of just dropping the student
+  // in the room to go find it themselves. Read once, into a ref, the same
+  // "consume it once at mount" pattern CoursePage uses for its own
+  // pendingTopicId — revisiting /studio later in the session (e.g. the
+  // Studio nav tab) shouldn't keep replaying an old request.
+  const pendingFocusHotspotIdRef = useRef(location.state?.focusHotspotId ?? null);
+  // Tells StudioHotspotsPanel to power the room up on our behalf (Classic
+  // mode's instant sequence) while a focus request is still pending — a
+  // visitor routed here from a specific chapter came for that piece of
+  // gear, not to redo the power-up puzzle first. See the focus-hotspot
+  // effect below and StudioHotspotsPanel's own autoPowerUp prop.
+  const [autoPowerUp, setAutoPowerUp] = useState(false);
 
   const [currentRoomName, setCurrentRoomName] = useState("");
   const [currentRoomId, setCurrentRoomId] = useState(START_NODE_ID);
@@ -974,6 +1008,49 @@ function PanoramaTour() {
       goToMarkerRef.current?.(id);
     }
   };
+
+  // Drives a pending "focus this hotspot" request (see
+  // pendingFocusHotspotIdRef above) through to completion, re-running itself
+  // as each precondition clears:
+  //   1. Not ready yet (viewer/markers not mounted) → wait for `status`.
+  //   2. Wrong room → walk through the door (goToRoom), wait for the
+  //      resulting node-changed to update currentRoomId, then re-run.
+  //   3. Rig not powered → ask StudioHotspotsPanel to auto-power it, wait
+  //      for poweredOn to flip true, then re-run.
+  //   4. Right room, powered on → walk the camera to the marker exactly like
+  //      a real click would (goToMarker/goToInteractiveMarker), and stop.
+  useEffect(() => {
+    const targetId = pendingFocusHotspotIdRef.current;
+    if (!targetId || status !== "ready") return;
+
+    const target = findHotspotLocation(targetId);
+    if (!target) {
+      // Unknown/stale hotspot id — nothing to walk to, stop trying.
+      pendingFocusHotspotIdRef.current = null;
+      return;
+    }
+
+    if (currentRoomId !== target.roomId) {
+      goToRoom(target.roomId);
+      return;
+    }
+
+    if (!poweredOn) {
+      setAutoPowerUp(true);
+      return;
+    }
+
+    pendingFocusHotspotIdRef.current = null;
+    setAutoPowerUp(false);
+    if (target.kind === "interactive") {
+      const marker = markersRef.current?.getMarker(targetId);
+      goToInteractiveMarkerRef.current?.(targetId, marker?.data);
+    } else {
+      goToMarkerRef.current?.(targetId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- goToRoom is a
+    // stable per-render function, not state; only these three should re-run it.
+  }, [status, currentRoomId, poweredOn]);
 
   // Reports the Studio's actual current Game/Classic mode from
   // StudioHotspotsPanel — fired on every change (initial load, per-room
@@ -1717,6 +1794,7 @@ function PanoramaTour() {
           tourHighlight={tourPanelHighlight}
           tourForceClassicMode={tourForceClassicMode}
           onGameModeChange={handleGameModeChange}
+          autoPowerUp={autoPowerUp}
         />
       )}
 

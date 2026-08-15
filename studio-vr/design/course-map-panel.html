@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Studio VR — Course Map (concept)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --void: #0a0d0b;
+      --panel: #121613;
+      --panel-2: #161b17;
+      --hair: rgba(201, 168, 110, 0.14);
+      --hair-strong: rgba(201, 168, 110, 0.30);
+      --gold: #c9a468;
+      --gold-dim: #8a744c;
+      --gold-glow: rgba(201, 168, 110, 0.35);
+      --text: #eef0ea;
+      --text-dim: #818a82;
+      --text-faint: #525a53;
+      --on: #3fd583;
+      --on-glow: rgba(63, 213, 131, 0.35);
+      --off: #4b524c;
+      --off-bg: #2a2f2b;
+      --err: #f0665c;
+      --locked: #525a53;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #05130c;
+      background-image:
+        radial-gradient(circle at 15% 8%, rgba(63, 213, 131, 0.05), transparent 40%),
+        radial-gradient(circle at 85% 92%, rgba(201, 168, 110, 0.06), transparent 45%);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 32px 16px;
+      font-family: 'Inter', sans-serif;
+      color: var(--text);
+    }
+
+    .panel {
+      position: relative;
+      width: 620px;
+      max-width: 100%;
+      background: linear-gradient(180deg, var(--panel-2), var(--panel));
+      border: 1px solid var(--hair);
+      border-radius: 3px;
+      box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
+    }
+
+    .panel::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(to bottom,
+          rgba(255, 255, 255, 0.012) 0px, rgba(255, 255, 255, 0.012) 1px,
+          transparent 1px, transparent 3px);
+      mix-blend-mode: overlay;
+      z-index: 2;
+    }
+
+    /* ---------- header ---------- */
+    .head {
+      position: relative;
+      padding: 22px 24px 16px;
+      border-bottom: 1px solid var(--hair);
+    }
+
+    .eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10.5px;
+      letter-spacing: 0.16em;
+      color: var(--gold);
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .eyebrow::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--on);
+      box-shadow: 0 0 8px var(--on-glow);
+    }
+
+    .head-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 8px;
+    }
+
+    .title { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 4px; }
+    .sub { font-size: 12.5px; color: var(--text-dim); line-height: 1.5; margin: 0; max-width: 380px; }
+
+    .ring-wrap { flex-shrink: 0; position: relative; width: 58px; height: 58px; }
+    .ring-wrap svg { transform: rotate(-90deg); }
+    .ring-bg { fill: none; stroke: var(--off-bg); stroke-width: 5; }
+    .ring-fg { fill: none; stroke: var(--on); stroke-width: 5; stroke-linecap: round; filter: drop-shadow(0 0 4px var(--on-glow)); }
+    .ring-label {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .ring-label b { font-size: 13px; line-height: 1; }
+    .ring-label span { font-size: 8px; color: var(--text-faint); letter-spacing: 0.06em; }
+
+    .rail-row { display: flex; gap: 3px; margin-top: 16px; }
+    .rail-seg { flex: 1; height: 3px; border-radius: 2px; background: var(--off-bg); }
+    .rail-seg.done { background: var(--on); box-shadow: 0 0 6px var(--on-glow); }
+    .rail-seg.current { background: var(--gold); box-shadow: 0 0 6px var(--gold-glow); }
+
+    /* ---------- controls ---------- */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--hair);
+    }
+
+    .search {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--hair);
+      border-radius: 2px;
+      padding: 8px 10px;
+    }
+    .search svg { width: 14px; height: 14px; color: var(--text-faint); flex-shrink: 0; }
+    .search input {
+      background: none; border: none; outline: none; color: var(--text);
+      font-family: 'Inter', sans-serif; font-size: 12.5px; width: 100%;
+    }
+    .search input::placeholder { color: var(--text-faint); }
+
+    .mode-switch {
+      width: 38px; height: 20px; border-radius: 20px;
+      background: var(--off-bg); border: 1px solid var(--hair);
+      position: relative; cursor: pointer; flex-shrink: 0;
+    }
+    .mode-switch .knob {
+      position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+      border-radius: 50%; background: #9aa39c; transition: transform .2s ease, background .2s ease;
+    }
+    .mode-switch.on { background: rgba(201, 168, 110, 0.18); border-color: var(--gold); }
+    .mode-switch.on .knob { transform: translateX(18px); background: var(--gold); }
+    .mode-label { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); white-space: nowrap; }
+    .mode-label b { color: var(--text); }
+
+    /* ---------- filter chips ---------- */
+    .chips { display: flex; gap: 6px; padding: 10px 24px; flex-wrap: wrap; border-bottom: 1px solid var(--hair); }
+    .chip {
+      font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.04em;
+      text-transform: uppercase; color: var(--text-dim); background: rgba(255,255,255,0.02);
+      border: 1px solid var(--hair); border-radius: 20px; padding: 5px 10px; cursor: pointer;
+    }
+    .chip.active { color: #0b1a11; background: var(--gold); border-color: var(--gold); font-weight: 600; }
+
+    /* ---------- module list ---------- */
+    .modules { max-height: 560px; overflow-y: auto; }
+    .modules::-webkit-scrollbar { width: 6px; }
+    .modules::-webkit-scrollbar-thumb { background: var(--hair-strong); border-radius: 3px; }
+
+    .module { border-bottom: 1px solid var(--hair); }
+    .module-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 24px; cursor: pointer;
+      background: rgba(255,255,255,0.01);
+    }
+    .module-head:hover { background: rgba(255,255,255,0.025); }
+    .module-num {
+      font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--gold-dim);
+      width: 18px; flex-shrink: 0;
+    }
+    .module-title { font-size: 13px; font-weight: 600; flex: 1; }
+    .module-count { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-faint); }
+    .module-chevron { width: 14px; height: 14px; color: var(--text-faint); transition: transform .2s ease; flex-shrink: 0; }
+    .module.open .module-chevron { transform: rotate(90deg); }
+    .module-progress { display: flex; gap: 2px; padding: 0 24px 10px; }
+    .module-progress .seg { flex: 1; height: 2.5px; border-radius: 2px; background: var(--off-bg); }
+    .module-progress .seg.done { background: var(--on); }
+
+    .chapter-list { display: none; padding: 2px 12px 10px; }
+    .module.open .chapter-list { display: block; }
+
+    .chapter-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 12px; border-radius: 3px; border: 1px solid transparent;
+      transition: background .15s ease, border-color .15s ease; cursor: pointer;
+    }
+    .chapter-row:hover { background: rgba(255,255,255,0.025); border-color: var(--hair); }
+    .chapter-row.locked { cursor: default; opacity: 0.55; }
+    .chapter-row.locked:hover { background: none; border-color: transparent; }
+
+    .ch-num {
+      width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600;
+      background: var(--off-bg); color: var(--text-faint); border: 1px solid var(--hair);
+    }
+    .chapter-row.complete .ch-num { background: var(--on); border-color: var(--on); color: #0b1a11; box-shadow: 0 0 8px var(--on-glow); }
+    .chapter-row.current .ch-num { background: var(--gold); border-color: var(--gold); color: #241c0f; box-shadow: 0 0 8px var(--gold-glow); }
+    .chapter-row.locked .ch-num { color: var(--locked); }
+
+    .ch-info { flex: 1; min-width: 0; }
+    .ch-title { font-size: 12.5px; font-weight: 500; color: var(--text); margin: 0 0 3px; }
+    .chapter-row.locked .ch-title { color: var(--text-dim); }
+    .ch-meta { display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--text-faint); }
+    .ch-loc { display: flex; align-items: center; gap: 4px; }
+    .ch-loc svg { width: 10px; height: 10px; }
+
+    .ch-status {
+      font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.05em;
+      text-transform: uppercase; padding: 4px 8px; border-radius: 20px; flex-shrink: 0;
+      border: 1px solid var(--hair);
+    }
+    .chapter-row.complete .ch-status { color: var(--on); border-color: rgba(63,213,131,0.3); background: rgba(63,213,131,0.08); }
+    .chapter-row.current .ch-status { color: var(--gold); border-color: rgba(201,168,110,0.35); background: rgba(201,168,110,0.08); }
+    .chapter-row.available .ch-status { color: var(--text-dim); }
+    .chapter-row.locked .ch-status { color: var(--locked); }
+
+    .footer {
+      padding: 12px 24px 16px; font-size: 10.5px; color: var(--text-faint);
+      border-top: 1px solid var(--hair); font-family: 'JetBrains Mono', monospace; line-height: 1.6;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="panel">
+    <div class="head">
+      <div class="eyebrow">Studio VR · Course map</div>
+      <div class="head-row">
+        <div>
+          <h1 class="title">Audio Engineering Course</h1>
+          <p class="sub">25 chapters across 7 modules. Anchored chapters open from their hotspot in the room — briefing
+            chapters open right here.</p>
+        </div>
+        <div class="ring-wrap">
+          <svg width="58" height="58" viewBox="0 0 58 58">
+            <circle class="ring-bg" cx="29" cy="29" r="24"></circle>
+            <circle class="ring-fg" cx="29" cy="29" r="24" stroke-dasharray="150.8" stroke-dashoffset="127"></circle>
+          </svg>
+          <div class="ring-label"><b>4/25</b><span>DONE</span></div>
+        </div>
+      </div>
+      <div class="rail-row" id="railRow"></div>
+    </div>
+
+    <div class="controls">
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="7" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <input type="text" placeholder="Search chapters…" />
+      </div>
+      <span class="mode-label">Mode: <b id="modeText">Linear</b></span>
+      <div class="mode-switch on" id="modeSwitch" role="switch" aria-checked="true" tabindex="0">
+        <div class="knob"></div>
+      </div>
+    </div>
+
+    <div class="chips">
+      <div class="chip active" data-filter="all">All</div>
+      <div class="chip" data-filter="in-room">📍 In-room</div>
+      <div class="chip" data-filter="briefing">📖 Briefing</div>
+      <div class="chip" data-filter="locked">Locked</div>
+    </div>
+
+    <div class="modules" id="modules"></div>
+
+    <div class="footer">Linear mode locks each chapter until the one before it is complete. Switch to Free roam to
+      review any chapter, any order.</div>
+  </div>
+
+  <script>
+    const locIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>';
+    const bookIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5v-17z"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/></svg>';
+    const chevron = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg>';
+
+    // status: complete | current | available | locked
+    // loc: {room, spot} for in-room chapters, null for briefing chapters
+    const MODULES = [
+      {
+        title: 'Foundations', chapters: [
+          { n: 1, title: 'What Is Sound?', status: 'complete', loc: null },
+          { n: 2, title: 'The Studio: Recording Room & Control Room', status: 'complete', loc: null },
+          { n: 3, title: 'Types of Studios and Audio Workspaces', status: 'complete', loc: null },
+          { n: 4, title: 'Listening Skills, Hearing Health & Critical Listening', status: 'complete', loc: null },
+        ]
+      },
+      {
+        title: 'Room & Acoustics', chapters: [
+          { n: 5, title: 'Studio Acoustics and Room Treatment', status: 'current', loc: { room: 'Control Room', spot: 'Diffuser Panel' } },
+        ]
+      },
+      {
+        title: 'Capture & Signal Path', chapters: [
+          { n: 6, title: 'Microphones: Types, Selection, Placement', status: 'locked', loc: { room: 'Recording Room', spot: 'Mic Booth' } },
+          { n: 7, title: 'Microphone Techniques & Stereo Recording', status: 'locked', loc: { room: 'Recording Room', spot: 'Mic Booth' } },
+          { n: 8, title: 'Connectors, Cables, and Studio Wiring', status: 'locked', loc: { room: 'Control Room', spot: 'Patch Bay' } },
+          { n: 9, title: 'Audio Signal Flow, Levels, and Gain Staging', status: 'locked', loc: { room: 'Control Room', spot: 'Patch Bay' } },
+          { n: 10, title: 'Preamps, Channel Strips, Mixers, Input Routing', status: 'locked', loc: { room: 'Control Room', spot: 'Preamp Rack' } },
+          { n: 11, title: 'Audio Interfaces, Converters, I/O, and MIDI', status: 'locked', loc: { room: 'Control Room', spot: 'Sound Card' } },
+          { n: 12, title: 'Computers, Power, and Studio Configuration', status: 'locked', loc: null },
+        ]
+      },
+      {
+        title: 'Monitoring', chapters: [
+          { n: 13, title: 'Monitoring: Speakers, Headphones, Amps, Subs', status: 'locked', loc: { room: 'Control Room', spot: 'Speakers' } },
+          { n: 14, title: 'Monitor Placement and Speaker Configurations', status: 'locked', loc: { room: 'Control Room', spot: 'Speakers' } },
+          { n: 15, title: 'Mixer Outputs, Aux, Cue Mixes, Monitor Routing', status: 'locked', loc: { room: 'Control Room', spot: 'Mixing Console' } },
+        ]
+      },
+      {
+        title: 'The Digital Domain', chapters: [
+          { n: 16, title: 'Digital Audio Basics and DAWs', status: 'locked', loc: { room: 'Control Room', spot: 'DAW Workstation' } },
+          { n: 17, title: 'Recording Fundamentals', status: 'locked', loc: { room: 'Control Room', spot: 'DAW Workstation' } },
+          { n: 18, title: 'Editing, Comping, Timing, and Arrangement', status: 'locked', loc: { room: 'Control Room', spot: 'DAW Workstation' } },
+          { n: 19, title: 'MIDI, Virtual Instruments, Production Basics', status: 'locked', loc: { room: 'Control Room', spot: 'DAW Workstation' } },
+        ]
+      },
+      {
+        title: 'Mixing & Processing', chapters: [
+          { n: 20, title: 'Mixing Fundamentals: Balance, EQ, Comp, Reverb…', status: 'locked', loc: { room: 'Control Room', spot: 'Mixing Console' } },
+          { n: 21, title: 'Signal Processing and Creative Effects', status: 'locked', loc: { room: 'Control Room', spot: 'Mixing Console' } },
+          { n: 22, title: 'Noise Reduction, Restoration, Troubleshooting', status: 'locked', loc: { room: 'Control Room', spot: 'Mixing Console' } },
+        ]
+      },
+      {
+        title: 'Finishing & Professional Practice', chapters: [
+          { n: 23, title: 'Mastering Essentials', status: 'locked', loc: null },
+          { n: 24, title: 'Tool Selection: The Right Tool for the Job', status: 'locked', loc: null },
+          { n: 25, title: 'Real-World Audio Projects and Workflow', status: 'locked', loc: null },
+        ]
+      },
+    ];
+
+    const modulesEl = document.getElementById('modules');
+    const railRow = document.getElementById('railRow');
+    const allChapters = MODULES.flatMap(m => m.chapters);
+
+    // progress rail across all 25
+    allChapters.forEach(c => {
+      const seg = document.createElement('div');
+      seg.className = 'rail-seg' + (c.status === 'complete' ? ' done' : c.status === 'current' ? ' current' : '');
+      railRow.appendChild(seg);
+    });
+
+    MODULES.forEach((mod, mi) => {
+      const doneCount = mod.chapters.filter(c => c.status === 'complete').length;
+      const modEl = document.createElement('div');
+      modEl.className = 'module' + (mi === 1 ? ' open' : ''); // open the "current" module by default
+      modEl.innerHTML = `
+        <div class="module-head">
+          <span class="module-num">${String(mi + 1).padStart(2, '0')}</span>
+          <span class="module-title">${mod.title}</span>
+          <span class="module-count">${doneCount}/${mod.chapters.length}</span>
+          <span class="module-chevron">${chevron}</span>
+        </div>
+        <div class="module-progress">${mod.chapters.map(c => `<div class="seg${c.status === 'complete' ? ' done' : ''}"></div>`).join('')}</div>
+        <div class="chapter-list"></div>
+      `;
+      const listEl = modEl.querySelector('.chapter-list');
+      mod.chapters.forEach(c => {
+        const row = document.createElement('div');
+        row.className = 'chapter-row ' + c.status;
+        row.dataset.type = c.loc ? 'in-room' : 'briefing';
+        row.dataset.status = c.status;
+        const statusLabel = { complete: 'Complete', current: 'In progress', available: 'Available', locked: 'Locked' }[c.status];
+        row.innerHTML = `
+          <div class="ch-num">${c.n}</div>
+          <div class="ch-info">
+            <p class="ch-title">${c.title}</p>
+            <div class="ch-meta">
+              ${c.loc
+            ? `<span class="ch-loc">${locIcon} ${c.loc.room} · ${c.loc.spot}</span>`
+            : `<span class="ch-loc">${bookIcon} Briefing</span>`}
+            </div>
+          </div>
+          <div class="ch-status">${statusLabel}</div>
+        `;
+        listEl.appendChild(row);
+      });
+      modEl.querySelector('.module-head').addEventListener('click', () => modEl.classList.toggle('open'));
+      modulesEl.appendChild(modEl);
+    });
+
+    // filter chips
+    document.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        const f = chip.dataset.filter;
+        document.querySelectorAll('.chapter-row').forEach(row => {
+          let show = true;
+          if (f === 'in-room') show = row.dataset.type === 'in-room';
+          if (f === 'briefing') show = row.dataset.type === 'briefing';
+          if (f === 'locked') show = row.dataset.status === 'locked';
+          row.style.display = show ? 'flex' : 'none';
+        });
+      });
+    });
+
+    // linear / free-roam toggle (visual only in this mockup)
+    const modeSwitch = document.getElementById('modeSwitch');
+    const modeText = document.getElementById('modeText');
+    modeSwitch.addEventListener('click', () => {
+      const on = modeSwitch.classList.toggle('on');
+      modeSwitch.setAttribute('aria-checked', String(on));
+      modeText.textContent = on ? 'Linear' : 'Free roam';
+      document.querySelectorAll('.chapter-row.locked').forEach(row => {
+        row.style.opacity = on ? '0.55' : '1';
+        row.style.cursor = on ? 'default' : 'pointer';
+      });
+    });
+  </script>
+</body>
+
+</html>

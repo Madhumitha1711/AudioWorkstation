@@ -1,13 +1,185 @@
-// Course content for the "Start Course" screen, organized per VR hotspot
-// (topic). Each ready topic has: narrated video lessons, a knowledge-check
-// assessment, and a hands-on interactive practice section. Only "Speakers"
-// and "DAW Workstation" are fully built out for now — the rest are stubbed
-// as locked/"coming soon" and will be filled in with real course content.
+// Course content for the "Start Course" screen. The full 25-chapter Audio
+// Engineering syllabus lives here as one flat, chapter-numbered TOPICS list,
+// grouped into the 7 curriculum MODULES below for the sidebar. Each ready
+// topic has: narrated video lessons, a knowledge-check assessment, and a
+// hands-on interactive practice section. Only "Speakers" (ch. 13) and "DAW
+// Workstation" (ch. 16) are fully built out for now — every other chapter is
+// stubbed as locked/"coming soon" (ready: false) and will be filled in with
+// real course content over time. Stubbing a chapter doesn't stop it from
+// appearing, grouped and in order, in the course sidebar right now.
+//
+// Two fields tie a chapter back to the VR tour:
+//   - `hotspotId` — the real marker id in panorama/roomsData.js this chapter
+//     is anchored to (a Control Room gear marker or a Recording Room mic
+//     marker), or null for chapters that don't anchor to a physical hotspot
+//     ("briefing" chapters — pure classroom content, e.g. mastering theory).
+//   - `room` — which room that hotspot lives in ("Control Room" /
+//     "Recording Room"), or null to match a null hotspotId.
+// Several chapters legitimately cover ground that maps to a piece of gear
+// that ALREADY has its own primary chapter (e.g. chapter 9, Signal Flow,
+// doesn't get a new hotspot — it shares the existing Patch Bay hotspot with
+// chapter 8). For a hotspot to actually open its info panel + "Start course"
+// link when clicked in the VR tour, one chapter's `id` must exactly match
+// that hotspot's marker id (see the `TOPICS.find(t => t.id === ...)` lookup
+// in PanoramaTour.jsx) — that's the "anchor" chapter for the hotspot.
+// Chapters that only share a hotspot use a distinct `id` of their own and
+// are reachable from the course sidebar, not by clicking the marker
+// directly; "Back to the studio" from one of them still walks the camera to
+// the shared hotspot via `hotspotId` (see CoursePage.jsx's goToStudio).
+export const MODULES = [
+  { id: "foundations", title: "Foundations" },
+  { id: "room-acoustics", title: "Room & Acoustics" },
+  { id: "capture-signal-path", title: "Capture & Signal Path" },
+  { id: "monitoring", title: "Monitoring" },
+  { id: "digital-domain", title: "The Digital Domain" },
+  { id: "mixing-processing", title: "Mixing & Processing" },
+  { id: "finishing", title: "Finishing & Professional Practice" },
+];
 
 export const TOPICS = [
+  // ---- Foundations (ch. 1-4) — no hotspot; scene-setting classroom content ----
+  {
+    id: "what-is-sound",
+    number: 1,
+    module: "foundations",
+    room: null,
+    hotspotId: null,
+    title: "What Is Sound?",
+    intro:
+      "Every mix decision you'll ever make rests on this — sound is vibration, and everything else (frequency, amplitude, phase, timbre) is just a way of describing how that vibration behaves.",
+    ready: false,
+  },
+  {
+    id: "the-studio",
+    number: 2,
+    module: "foundations",
+    room: null,
+    hotspotId: null,
+    title: "The Studio: Recording Room and Control Room",
+    intro:
+      "Two rooms, one signal — the recording room captures the performance, the control room shapes it, and everything in this course happens somewhere between them.",
+    ready: false,
+  },
+  {
+    id: "studio-types",
+    number: 3,
+    module: "foundations",
+    room: null,
+    hotspotId: null,
+    title: "Types of Studios and Audio Workspaces",
+    intro:
+      "Not every studio looks like this one — home rigs, podcast booths, broadcast suites, and mastering rooms all trade the same fundamentals for different priorities.",
+    ready: false,
+  },
+  {
+    id: "listening-skills",
+    number: 4,
+    module: "foundations",
+    room: null,
+    hotspotId: null,
+    title: "Listening Skills, Hearing Health, and Critical Listening",
+    intro:
+      "Your ears are the actual instrument — critical listening is a trainable skill, and protecting it is what lets you keep training it for decades.",
+    ready: false,
+  },
+
+  // ---- Room & Acoustics (ch. 5) ----
+  {
+    id: "diffuser-panel",
+    number: 5,
+    module: "room-acoustics",
+    room: "Control Room",
+    hotspotId: "diffuser-panel",
+    title: "Studio Acoustics and Room Treatment",
+    intro: "Not every acoustic problem should be absorbed away — diffusion is what keeps a treated room sounding alive.",
+    ready: false,
+  },
+
+  // ---- Capture & Signal Path (ch. 6-12) ----
+  {
+    id: "mic-stand",
+    number: 6,
+    module: "capture-signal-path",
+    room: "Recording Room",
+    hotspotId: "mic-stand",
+    title: "Microphones: Types, Characteristics, Selection, and Placement",
+    intro:
+      "A microphone is a translator, not a recorder — it converts air pressure into voltage its own way, and picking the right one is half the battle before you ever touch a fader.",
+    ready: false,
+  },
+  {
+    id: "stereo-overheads",
+    number: 7,
+    module: "capture-signal-path",
+    room: "Recording Room",
+    hotspotId: "stereo-overheads",
+    title: "Microphone Techniques and Stereo Recording",
+    intro:
+      "The same mic in a different spot is a different instrument — technique and placement do as much work as the microphone itself, especially once you're capturing in stereo.",
+    ready: false,
+  },
+  {
+    id: "patch-bay",
+    number: 8,
+    module: "capture-signal-path",
+    room: "Control Room",
+    hotspotId: "patch-bay",
+    title: "Connectors, Cables, and Studio Wiring",
+    intro: "One panel, every connection in the room — the patch bay is what makes a complex studio fast to reconfigure.",
+    ready: false,
+  },
+  {
+    id: "signal-flow",
+    number: 9,
+    module: "capture-signal-path",
+    room: "Control Room",
+    hotspotId: "patch-bay",
+    title: "Audio Signal Flow, Levels, and Gain Staging",
+    intro:
+      "Every stage between the mic and the speaker can add noise or clip a signal — gain staging is the discipline of keeping it clean the whole way through.",
+    ready: false,
+  },
+  {
+    id: "preamp-rack",
+    number: 10,
+    module: "capture-signal-path",
+    room: "Control Room",
+    hotspotId: "preamp-rack",
+    title: "Preamps, Channel Strips, Mixers, and Input Routing",
+    intro:
+      "Before anything reaches the console, it passes through a preamp — the first, and one of the most character-defining, stages in the chain.",
+    ready: false,
+  },
+  {
+    id: "sound-card",
+    number: 11,
+    module: "capture-signal-path",
+    room: "Control Room",
+    hotspotId: "sound-card",
+    title: "Audio Interfaces, Converters, I/O, and MIDI",
+    intro:
+      "The audio interface is the bridge between the analog and digital worlds — and its quality sets a hard ceiling on everything recorded through it.",
+    ready: false,
+  },
+  {
+    id: "computers-power",
+    number: 12,
+    module: "capture-signal-path",
+    room: null,
+    hotspotId: null,
+    title: "Computers, Power, and Studio Configuration",
+    intro:
+      "The most important piece of gear in the room might be the computer running it — storage, drivers, and clean power are what keep a session from falling apart mid-take.",
+    ready: false,
+  },
+
+  // ---- Monitoring (ch. 13-15, plus a bonus companion) ----
   {
     id: "speaker",
+    number: 13,
+    module: "monitoring",
     room: "Control Room",
+    hotspotId: "speaker",
     title: "Speakers",
     intro:
       "Studio monitors are the lens you mix through — everything you learn here is about trusting what you hear.",
@@ -140,18 +312,49 @@ export const TOPICS = [
     interactive: { id: "speaker-interactive", title: "Try It Yourself", kind: "speaker-lab" },
   },
 
+  // Bonus companion, not one of the official 25 chapters — a Control Room
+  // hotspot that extends chapter 13's monitoring topic (bass management),
+  // kept in the sidebar right after Speakers since that's where it's most
+  // relevant. No chapter `number`, so it doesn't get a "Ch N" badge.
+  {
+    id: "lf-emitter",
+    module: "monitoring",
+    room: "Control Room",
+    hotspotId: "lf-emitter",
+    title: "Low Frequency Emitter",
+    intro: "Bass is the hardest thing in a room to get right — this is why it often gets its own dedicated driver.",
+    ready: false,
+  },
+  {
+    id: "monitor-placement",
+    number: 14,
+    module: "monitoring",
+    room: "Control Room",
+    hotspotId: "speaker",
+    title: "Monitor Placement and Speaker Configurations",
+    intro:
+      "Even the right monitor sounds wrong in the wrong spot — placement, listening position, and room interaction decide whether you can trust what you're hearing.",
+    ready: false,
+  },
   {
     id: "mixing-console",
+    number: 15,
+    module: "monitoring",
     room: "Control Room",
-    title: "Mixing Console",
+    hotspotId: "mixing-console",
+    title: "Mixer Outputs, Auxiliaries, Cue Mixes, and Monitoring Routing",
     intro:
       "The console is where every signal in the room converges — understanding its layout means understanding the entire signal path.",
     ready: false,
   },
 
+  // ---- The Digital Domain (ch. 16-19) ----
   {
     id: "daw-screens",
+    number: 16,
+    module: "digital-domain",
     room: "Control Room",
+    hotspotId: "daw-screens",
     title: "DAW Workstation",
     intro:
       "The dual displays run the software brain of the studio — where takes get edited, arranged, and shaped after they're captured.",
@@ -261,40 +464,106 @@ export const TOPICS = [
   },
 
   {
-    id: "patch-bay",
+    id: "recording-fundamentals",
+    number: 17,
+    module: "digital-domain",
     room: "Control Room",
-    title: "Patch Bay",
-    intro: "One panel, every connection in the room — the patch bay is what makes a complex studio fast to reconfigure.",
-    ready: false,
-  },
-  {
-    id: "preamp-rack",
-    room: "Control Room",
-    title: "Preamp Rack",
+    hotspotId: "daw-screens",
+    title: "Recording Fundamentals: Preparing Sessions and Capturing Clean Audio",
     intro:
-      "Before anything reaches the console, it passes through a preamp — the first, and one of the most character-defining, stages in the chain.",
+      "A clean take starts before you hit record — session prep, gain setting, and a comfortable headphone mix do more for the final recording than any plugin will.",
     ready: false,
   },
   {
-    id: "diffuser-panel",
+    id: "editing-comping",
+    number: 18,
+    module: "digital-domain",
     room: "Control Room",
-    title: "Acoustic Diffuser",
-    intro: "Not every acoustic problem should be absorbed away — diffusion is what keeps a treated room sounding alive.",
-    ready: false,
-  },
-  {
-    id: "lf-emitter",
-    room: "Control Room",
-    title: "Low Frequency Emitter",
-    intro: "Bass is the hardest thing in a room to get right — this is why it often gets its own dedicated driver.",
-    ready: false,
-  },
-  {
-    id: "sound-card",
-    room: "Control Room",
-    title: "Sound Card",
+    hotspotId: "daw-screens",
+    title: "Editing, Comping, Timing, and Arrangement",
     intro:
-      "The audio interface is the bridge between the analog and digital worlds — and its quality sets a hard ceiling on everything recorded through it.",
+      "The best performance rarely comes from a single take — editing and comping is how you assemble the ideal one from everything that was actually played.",
+    ready: false,
+  },
+  {
+    id: "midi-virtual-instruments",
+    number: 19,
+    module: "digital-domain",
+    room: "Control Room",
+    hotspotId: "daw-screens",
+    title: "MIDI, Virtual Instruments, and Music Production Basics",
+    intro:
+      "Not every sound in a session was played through a microphone — MIDI and virtual instruments let you sequence, program, and shape performances entirely inside the box.",
+    ready: false,
+  },
+
+  // ---- Mixing & Processing (ch. 20-22) ----
+  {
+    id: "mixing-fundamentals",
+    number: 20,
+    module: "mixing-processing",
+    room: "Control Room",
+    hotspotId: "mixing-console",
+    title: "Mixing Fundamentals: Balance, Panning, EQ, Compression, Reverb, Delay, and Automation",
+    intro:
+      "This is where separate tracks stop sounding like a pile of recordings and start sounding like a record — balance, EQ, and compression are the tools that get you there.",
+    ready: false,
+  },
+  {
+    id: "signal-processing",
+    number: 21,
+    module: "mixing-processing",
+    room: "Control Room",
+    hotspotId: "daw-screens",
+    title: "Signal Processing and Creative Effects",
+    intro:
+      "Beyond the basics, processing becomes a creative choice — saturation, modulation, and pitch effects can shape a sound as much as the performance that created it.",
+    ready: false,
+  },
+  {
+    id: "noise-reduction",
+    number: 22,
+    module: "mixing-processing",
+    room: "Control Room",
+    hotspotId: "daw-screens",
+    title: "Noise Reduction, Restoration, and Troubleshooting",
+    intro:
+      "Every session eventually fights hum, hiss, or a bad cable — knowing how to diagnose and fix routing and noise problems is what keeps a session moving.",
+    ready: false,
+  },
+
+  // ---- Finishing & Professional Practice (ch. 23-25) — no hotspot ----
+  {
+    id: "mastering",
+    number: 23,
+    module: "finishing",
+    room: null,
+    hotspotId: null,
+    title: "Mastering Essentials: Loudness, Tonal Balance, Translation, and Delivery",
+    intro:
+      "Mastering is the last set of ears a mix gets before the world hears it — the job is making sure it holds up on every system it's ever played on.",
+    ready: false,
+  },
+  {
+    id: "tool-selection",
+    number: 24,
+    module: "finishing",
+    room: null,
+    hotspotId: null,
+    title: "Tool Selection: Choosing the Right Tool for the Job",
+    intro:
+      "More gear rarely means a better mix — knowing which microphone, interface, or plugin actually fits the job in front of you is its own skill.",
+    ready: false,
+  },
+  {
+    id: "real-world-projects",
+    number: 25,
+    module: "finishing",
+    room: null,
+    hotspotId: null,
+    title: "Real-World Audio Projects and Professional Workflow",
+    intro:
+      "Everything in this course converges here — real sessions, real deadlines, and the file management, backup, and delivery habits that make you someone people want to work with again.",
     ready: false,
   },
 ];

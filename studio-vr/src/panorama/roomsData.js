@@ -333,7 +333,48 @@ export const ROOMS = [
         arrivalPitch: -7.6,
       },
     ],
-    markers: [],
+    // Two overhead boom mics flanking the drum kit, facing the stone
+    // feature wall — chosen as a natural stereo pair. Coordinates measured
+    // the same way as every Control Room marker (center-origin yaw, wrapped
+    // ±180°) and verified against public/recording.png. `mic-stand` anchors
+    // chapter 6 (Microphones), `stereo-overheads` anchors chapter 7 (Mic
+    // Techniques and Stereo Recording) — see course/courseData.js.
+    markers: [
+      {
+        id: "mic-stand",
+        yaw: 7.0,
+        pitch: 12.9,
+        title: "Microphone",
+        description:
+          "A large-diaphragm condenser on a boom stand, angled down at the drum kit from just above head height. Condensers like this one are prized for their detail and sensitivity — they capture a wide frequency range and fast transients accurately, which is why they're the default choice for overheads, vocals, and acoustic instruments in a treated room like this.",
+        course: {
+          id: "mic-stand-101",
+          objectives: [
+            "Dynamic vs. condenser vs. ribbon microphones, and what each is built for",
+            "Polar patterns (cardioid, omnidirectional, figure-8) and what they reject vs. capture",
+            "Frequency response and transient response as ways to compare mics",
+            "Matching a mic's characteristics to a specific source and room",
+          ],
+        },
+      },
+      {
+        id: "stereo-overheads",
+        yaw: 56.3,
+        pitch: 13.7,
+        title: "Stereo Overhead Pair",
+        description:
+          "The matching mic on the opposite side of the kit — together the two form a stereo overhead pair. How these two capsules are spaced and angled relative to each other (and to the kit) determines the stereo image: get it right and the kit translates as a wide, coherent picture in mono-compatible stereo; get it wrong and instruments smear or partially cancel when summed to mono.",
+        course: {
+          id: "stereo-overheads-101",
+          objectives: [
+            "Spaced-pair, X/Y, and ORTF stereo miking techniques",
+            "Mono compatibility and phase cancellation between two mics on one source",
+            "The 3:1 rule for avoiding comb filtering between nearby microphones",
+            "Distance miking and how it trades detail for room sound",
+          ],
+        },
+      },
+    ],
   },
 ];
 

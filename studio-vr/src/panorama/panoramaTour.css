@@ -1100,9 +1100,22 @@
      including the photo-sphere-viewer's own internal drag-to-look and
      scroll-to-zoom handlers — pointer-events: none on an ancestor removes
      its entire subtree from hit-testing unless a descendant explicitly
-     opts back in (nothing here does), so this alone is enough to freeze
-     the whole viewer, not just the React-rendered panels layered on top
-     of it. */
+     opts back in. One thing does: the markers plugin's own stylesheet
+     (@photo-sphere-viewer/markers-plugin/index.css) sets `.psv-markers
+     { pointer-events: none }` on the markers layer but then `.psv-marker
+     { pointer-events: auto }` on every individual marker, specifically so
+     markers stay clickable while the layer they sit in doesn't intercept
+     drag-to-look. That's exactly right when the scene is unlocked, but it
+     also meant hotspots stayed clickable while powered down — see the
+     override just below. */
+  pointer-events: none;
+}
+
+/* Wins over the markers plugin's own `.psv-marker { pointer-events: auto }`
+   (see the comment above) by being more specific, so hotspots actually go
+   unclickable while the rig is powered down instead of just looking that
+   way. */
+.svr-tour-locked .psv-marker {
   pointer-events: none;
 }
 

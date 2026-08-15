@@ -187,13 +187,30 @@ function StudioHotspotsPanel({
   // decides whether the extra "power the rig back up" step gets inserted
   // afterward. Optional; a no-op outside the tour.
   onGameModeChange,
+  // True while PanoramaTour has a pending "focus this hotspot" request (see
+  // its own focus-hotspot effect) and the rig isn't powered yet — a visitor
+  // routed here from a specific chapter (CoursePage's "← Back to the
+  // studio") came for that piece of gear, not to redo the power-up puzzle
+  // first. Forces Classic mode and runs the same instant sequence as
+  // clicking "Power up Control Room" — see the effect below.
+  autoPowerUp,
 }) {
   const [collapsed, setCollapsed] = useState(false);
   // Tracks whether the panel was auto-collapsed by the effect below (as
   // opposed to the visitor manually clicking the toggle), so closing the DAW
   // module knows whether it's responsible for bringing the panel back.
   const wasAutoCollapsedRef = useRef(false);
-  const devices = useMemo(() => buildDeviceList(room), [room]);
+  // This panel is specifically the Control Room's power-up game/signal
+  // chain — it's keyed off SIGNAL_ORDER, a fixed list of Control Room gear.
+  // The Recording Room's own gear hotspots (mic-stand, stereo-overheads;
+  // see roomsData.js) are plain numbered info hotspots, same as any other
+  // gear marker, but they don't belong to a "power up the room" narrative,
+  // so this panel stays hidden there — same behavior as before the
+  // Recording Room had any markers at all (devices.length === 0 below).
+  const devices = useMemo(
+    () => (room?.id === "studio-room" ? buildDeviceList(room) : []),
+    [room]
+  );
   const roomKey = room?.id || "default";
 
   const [gameMode, setGameMode] = useState(() => loadGameMode(roomKey));
@@ -375,6 +392,28 @@ function StudioHotspotsPanel({
     onPoweredChange?.(allDevicesOn);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allDevicesOn, devices.length]);
+
+  // Auto-power-up on behalf of a pending focus-hotspot request (see
+  // autoPowerUp's own comment above). Switches to Classic mode — the same
+  // guaranteed-to-succeed path the onboarding tour forces for its first
+  // "power up the rig" step — then runs the identical scripted sequence as
+  // clicking "Power up Control Room" by hand. autoPoweredRef stops this from
+  // re-firing on every re-render while autoPowerUp stays true, and resets
+  // once PanoramaTour clears the request (autoPowerUp goes back to false)
+  // so a later, separate deep link can still trigger it again.
+  const autoPoweredRef = useRef(false);
+  useEffect(() => {
+    if (!autoPowerUp) {
+      autoPoweredRef.current = false;
+      return;
+    }
+    if (autoPoweredRef.current || devices.length === 0 || allDevicesOn) return;
+    autoPoweredRef.current = true;
+    if (gameMode) setGameMode(false);
+    classicPowerUpSequence();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately
+    // only re-runs on autoPowerUp itself; gameMode/allDevicesOn are read live.
+  }, [autoPowerUp, devices.length]);
 
   // Mirrors the room's actual current mode up to PanoramaTour on every
   // change to `gameMode` — initial load, a per-room switch (the effect a
