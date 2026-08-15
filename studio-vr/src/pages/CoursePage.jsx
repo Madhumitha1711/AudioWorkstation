@@ -4,11 +4,21 @@ import { TOPICS, MODULES, buildStepList, firstStepIdForTopic } from "../course/c
 import AssessmentSection from "../course/AssessmentSection";
 import InteractiveSection from "../course/InteractiveSection";
 import GearModelViewer from "../panorama/GearModelViewer";
+import { ROOMS } from "../panorama/roomsData";
 import "./CoursePage.css";
 
 const STEPS = buildStepList(TOPICS);
 
 const STEP_TAG = { assessment: "Quiz", interactive: "Lab" };
+
+// Every real VR-tour hotspot (Control Room + Recording Room gear markers),
+// flattened so a chapter's `hotspotId` can be resolved back to the actual
+// in-scene marker name instead of borrowing a course chapter's own (often
+// longer, syllabus-style) title.
+const ALL_HOTSPOTS = ROOMS.flatMap((room) => room.markers ?? []);
+function hotspotName(hotspotId, fallbackTitle) {
+  return ALL_HOTSPOTS.find((m) => m.id === hotspotId)?.title ?? fallbackTitle;
+}
 
 function CoursePage() {
   const navigate = useNavigate();
@@ -193,9 +203,11 @@ function CoursePage() {
                                 {topic.number ? `Ch ${topic.number} · ` : ""}
                                 {topic.title}
                               </span>
-                              <span className="tloc">
-                                {topic.room ? `📍 ${topic.room}` : "📖 Briefing · no hotspot"}
-                              </span>
+                              {topic.room && (
+                                <span className="tloc">
+                                  📍 {topic.room}-{hotspotName(topic.hotspotId, topic.title)}
+                                </span>
+                              )}
                             </span>
                           </div>
                         </div>
@@ -219,7 +231,11 @@ function CoursePage() {
                               {topic.number ? `Ch ${topic.number} · ` : ""}
                               {topic.title}
                             </span>
-                            <span className="tloc anchored">📍 {topic.room}</span>
+                            {topic.room && (
+                              <span className="tloc anchored">
+                                📍 {topic.room}-{hotspotName(topic.hotspotId, topic.title)}
+                              </span>
+                            )}
                           </span>
                           <span className="tcount">
                             {doneCount}/{topicSteps.length}
@@ -257,12 +273,12 @@ function CoursePage() {
                 {activeTopic.number ? ` · Chapter ${activeTopic.number}` : ""} · {activeTopic.title}
               </div>
               <h1 className="topic-heading">{activeTopic.title}</h1>
-              {activeTopic.hotspotId ? (
+              {activeTopic.hotspotId && (
                 <div className="loc-chip anchored">
-                  📍 Anchored — {activeTopic.room} · {activeTopic.title} hotspot
+                  📍 Anchored —{" "}
+                  {activeTopic.room} ·{" "}
+                  {hotspotName(activeTopic.hotspotId, activeTopic.title)} hotspot
                 </div>
-              ) : (
-                <div className="loc-chip">📖 Briefing chapter — no VR hotspot</div>
               )}
               <p className="topic-intro">{activeTopic.intro}</p>
               <div className="topic-progress-row">
@@ -383,9 +399,8 @@ function CoursePage() {
                   <h4>{activeTopic.hotspotId ? "Back in the studio?" : "Ready to keep exploring?"}</h4>
                   <p>
                     {activeTopic.hotspotId
-                      ? `This chapter is anchored to the ${TOPICS.find((t) => t.id === activeTopic.hotspotId)?.title ?? activeTopic.title
-                      } hotspot in the ${activeTopic.room} — head back and we'll walk you straight to it.`
-                      : "This chapter is classroom-only and isn't anchored to a hotspot — head back to the studio to pick up wherever you left off."}
+                      ? `This chapter is anchored to the ${hotspotName(activeTopic.hotspotId, activeTopic.title)} hotspot in the ${activeTopic.room} — head back and we'll walk you straight to it.`
+                      : "This chapter is classroom-only — head back to the studio to pick up wherever you left off."}
                   </p>
                 </div>
                 <button className="btn-primary" onClick={() => goToStudio(activeTopic.hotspotId)}>

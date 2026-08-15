@@ -86,12 +86,12 @@ export const ROOMS = [
         pitch: 4.7,
         // Where the camera lands, looking into the recording room, once
         // this door is clicked — independent of the yaw/pitch above, which
-        // only places the door hotspot within *this* room's photo. Set to
-        // the exact opposite (+180°) of the recording room's own door yaw
-        // (285.7, see that room's links[] below) so the door the student
-        // just walked through is directly behind them on arrival.
-        arrivalYaw: 105.7,
-        arrivalPitch: -16.8,
+        // only places the door hotspot within *this* room's photo.
+        // Intentionally overridden from the usual "door behind you" framing
+        // (which would be 105.7/-16.8) so the student instead arrives facing
+        // the recording room's screen.
+        arrivalYaw: 33.2,
+        arrivalPitch: -3.9,
       },
     ],
     // In-scene control for the roomBleed bed above: its own hotspot
