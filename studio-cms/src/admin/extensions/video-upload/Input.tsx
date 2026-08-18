@@ -10,11 +10,16 @@ import { useFetchClient, useNotification } from '@strapi/strapi/admin';
  *
  * Renders in place of the default text input for `video.videoUid` on a
  * Section. Instead of pasting a Cloudflare Stream UID by hand, an editor
- * picks a file here and this component uploads it through the existing
- * custom route (src/api/section/routes/video-upload.ts +
- * src/api/section/controllers/section.ts), which pushes it to Cloudflare
- * Stream server-to-server and writes videoUid/status/durationSeconds onto
- * the section document directly.
+ * picks a file here and this component uploads it through the admin-
+ * authenticated route registered in ../../../index.ts (POST/GET
+ * /admin/section-video/:id[/status]), which reuses the same controller
+ * (src/api/section/controllers/section.ts) as the content-API routes at
+ * /api/sections/:id/video — it pushes the file to Cloudflare Stream
+ * server-to-server and writes videoUid/status/durationSeconds onto the
+ * section document directly. This calls the /admin/... path rather than
+ * /api/... because useFetchClient below sends the admin panel's session
+ * JWT, and the /api/... content-API routes only accept a Strapi API token
+ * — hitting those from here 401s with "Missing or invalid credentials".
  *
  * Important trade-off: that controller persists the whole `video` component
  * straight to the document the moment the upload finishes — it does not go
@@ -195,7 +200,7 @@ const VideoUploadInput = ({
       const formData = new FormData();
       formData.append('file', file);
 
-      const { data } = await post<SectionResponse>(`/api/sections/${documentId}/video`, formData);
+      const { data } = await post<SectionResponse>(`/admin/section-video/${documentId}`, formData);
       const video = data?.data?.video;
 
       if (video?.videoUid) {
@@ -227,7 +232,7 @@ const VideoUploadInput = ({
     setIsChecking(true);
     setLocalError(null);
     try {
-      const { data } = await get<SectionResponse>(`/api/sections/${documentId}/video/status`);
+      const { data } = await get<SectionResponse>(`/admin/section-video/${documentId}/status`);
       const video = data?.data?.video;
       if (video?.status) {
         setStatus(video.status);

@@ -49,14 +49,19 @@ const config = ({ env }: Core.Config.Shared.ConfigParams): Core.Config.Plugin =>
           region: env('AWS_REGION'),
           params: {
             Bucket: env('AWS_BUCKET'),
+            ACL: null, // <--- Stops Strapi from attaching public ACLs in params
           },
           // Only needed for S3-compatible endpoints (e.g. R2, MinIO, DO Spaces).
           ...(env('AWS_ENDPOINT') ? { endpoint: env('AWS_ENDPOINT'), forcePathStyle: env.bool('AWS_FORCE_PATH_STYLE', false) } : {}),
         },
       },
       actionOptions: {
-        upload: {},
-        uploadStream: {},
+        upload: {
+          ACL: null, // <--- Overrides default upload action ACL settings
+        },
+        uploadStream: {
+          ACL: null, // <--- Overrides default stream upload action ACL settings
+        },
         delete: {},
       },
       security: {
