@@ -5,8 +5,8 @@ import { InsertRack } from "./InsertRack";
 import { SendRack } from "./SendRack";
 
 // Left-hand tracklist column — one row per track (channel-strip head +
-// upload/demo/solo/mute/download/remove buttons + inline Inserts/Sends
-// racks), plus the trailing "+ Add Track" row. Scroll-synced with the
+// upload/record/demo/solo/mute/download/remove buttons + inline Inserts/
+// Sends racks), plus the trailing "+ Add Track" row. Scroll-synced with the
 // Arrangement pane on the right (see onTracklistScroll/rowSlotHeights in
 // DawWorkstationScreen.jsx — trackRowRefs is populated here so that effect
 // can measure each row's real height). `chainActions`/`sendActions` bundle
@@ -24,6 +24,9 @@ export function TrackList({
   setTrackVolume,
   handleTrackFile,
   loadDemoForTrack,
+  recordingTrackId,
+  onStartRecording,
+  onStopRecording,
   toggleTrackSolo,
   toggleTrackMute,
   downloadingTrackId,
@@ -65,7 +68,9 @@ export function TrackList({
               <div className="track-name">{track.name}</div>
               <div className="track-sub-row">
                 <div className="track-sub mono">
-                  {track.loadError ? (
+                  {recordingTrackId === track.id ? (
+                    <span className="track-sub-recording">● Recording…</span>
+                  ) : track.loadError ? (
                     <span className="track-sub-error">{track.loadError}</span>
                   ) : track.kind === "aux" ? (
                     `Aux bus · ${track.chain.length} insert${track.chain.length === 1 ? "" : "s"} · ${
@@ -101,15 +106,52 @@ export function TrackList({
                       accept="audio/*"
                       id={`daw-file-${track.id}`}
                       className="daw-file-input"
+                      disabled={recordingTrackId === track.id}
                       onClick={(e) => e.stopPropagation()}
                       onChange={(e) => handleTrackFile(track.id, e)}
                     />
-                    <label htmlFor={`daw-file-${track.id}`} className="tbtn" title="Upload audio" onClick={(e) => e.stopPropagation()}>
+                    <label
+                      htmlFor={`daw-file-${track.id}`}
+                      className={"tbtn" + (recordingTrackId === track.id ? " is-disabled" : "")}
+                      title="Upload audio"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (recordingTrackId === track.id) e.preventDefault();
+                      }}
+                    >
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M12 15V4M7.5 8.5 12 4l4.5 4.5" strokeLinecap="round" strokeLinejoin="round" />
                         <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </label>
+                    <button
+                      type="button"
+                      className={"tbtn rec" + (recordingTrackId === track.id ? " is-recording" : "")}
+                      title={
+                        recordingTrackId === track.id
+                          ? "Stop recording and load it onto this track"
+                          : recordingTrackId
+                            ? "Another track is already recording"
+                            : "Record from your microphone"
+                      }
+                      disabled={!!recordingTrackId && recordingTrackId !== track.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (recordingTrackId === track.id) onStopRecording();
+                        else onStartRecording(track.id);
+                      }}
+                    >
+                      {recordingTrackId === track.id ? (
+                        <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                          <rect x="7" y="7" width="10" height="10" rx="1.5" />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z" strokeLinejoin="round" />
+                          <path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </button>
                     <div className="tbtn-select-wrap" onClick={(e) => e.stopPropagation()}>
                       <span className="tbtn" aria-hidden="true">
                         D
@@ -117,6 +159,7 @@ export function TrackList({
                       <select
                         className="tbtn-select"
                         value=""
+                        disabled={recordingTrackId === track.id}
                         title="Load a Hungarian Dance No. 5 stem onto this track"
                         aria-label="Load a demo clip onto this track"
                         onChange={(e) => {

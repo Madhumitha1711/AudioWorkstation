@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Patch Bay Lab — Reroute the Signal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0b0d;
+    --panel:#16161a;
+    --panel-alt:#1c1c21;
+    --border:#2a2a30;
+    --border-soft:#232328;
+    --text:#ede9e3;
+    --text-muted:#8b8890;
+    --amber:#e8934a;
+    --amber-dim:#6b4a2c;
+    --green:#5fd9a0;
+    --green-dim:#2c5f49;
+    --purple:#a78bfa;
+    --purple-dim:#4a3a6b;
+    --red:#e8615f;
+    --red-dim:#6b2c2c;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;}
+  ::selection{background:var(--amber-dim);}
+  @media (prefers-reduced-motion: reduce){ *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;} }
+
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .display{font-family:'Space Grotesk',sans-serif;}
+
+  .wrap{max-width:760px;margin:0 auto;padding:0 20px 140px;}
+  .hero{padding:56px 0 40px;border-bottom:1px solid var(--border-soft);}
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--green); display:flex; align-items:center; gap:8px; margin-bottom:14px;
+  }
+  .eyebrow::before{content:''; width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green);}
+  h1.display{font-size:clamp(28px,5vw,40px); line-height:1.15; margin:0 0 14px; font-weight:600; letter-spacing:-.01em;}
+  .hero p{color:var(--text-muted); font-size:15px; line-height:1.6; max-width:52ch; margin:0 0 0;}
+
+  .module{padding:56px 0; border-bottom:1px solid var(--border-soft);}
+  .module:last-of-type{border-bottom:none;}
+  .m-eyebrow{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--text-muted); margin-bottom:10px; display:flex; align-items:center; gap:10px;
+  }
+  .m-eyebrow .n{color:var(--amber);}
+  .module h2.display{font-size:clamp(21px,3.6vw,26px); margin:0 0 10px; font-weight:600;}
+  .hook{color:var(--text-muted); font-size:14.5px; line-height:1.6; margin:0 0 26px; max-width:56ch;}
+
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:22px;}
+
+  /* segmented toggle (module 2) */
+  .seg{display:flex; background:#0e0e11; border:1px solid var(--border); border-radius:8px; padding:4px; gap:4px;}
+  .seg button{
+    flex:1; background:transparent; border:none; color:var(--text-muted); padding:12px 8px; border-radius:6px;
+    font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.03em; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:6px; transition:background .15s, color .15s;
+  }
+  .seg button svg{width:20px;height:20px; opacity:.6; transition:opacity .15s;}
+  .seg button.active{background:var(--panel-alt); color:var(--text); box-shadow:inset 0 0 0 1px var(--border);}
+  .seg button.active svg{opacity:1;}
+  .seg button.active.direct{color:var(--green);}
+  .seg button.active.direct svg{stroke:var(--green);}
+  .seg button.active.detour{color:var(--amber);}
+  .seg button.active.detour svg{stroke:var(--amber);}
+
+  /* module 1 — patch board */
+  .patch-board{position:relative; display:flex; justify-content:space-between; padding:6px 4px; min-height:230px;}
+  .patch-svg{position:absolute; inset:0; width:100%; height:100%; z-index:1;}
+  .patch-col{display:flex; flex-direction:column; gap:30px; z-index:2; justify-content:center;}
+  .patch-col-label{font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px;}
+  .patch-jack{display:flex; align-items:center; gap:10px; user-select:none;}
+  .patch-jack.source{cursor:grab;}
+  .patch-jack.source:active{cursor:grabbing;}
+  .destinations .patch-jack{flex-direction:row-reverse; text-align:right;}
+  .jack-dot{width:22px; height:22px; border-radius:50%; background:var(--panel-alt); border:2px solid var(--jc,var(--border)); flex-shrink:0; transition:box-shadow .2s, border-color .2s; position:relative;}
+  .jack-dot::after{content:''; position:absolute; inset:5px; border-radius:50%; background:var(--jc,var(--border)); opacity:.35;}
+  .patch-jack.connected .jack-dot{box-shadow:0 0 10px 1px var(--jc,var(--border));}
+  .patch-jack.connected .jack-dot::after{opacity:1;}
+  .jack-name{font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text);}
+  .jack-hint{display:block; font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text-muted); margin-top:1px;}
+
+  .patch-status{margin-top:16px; padding:10px 12px; background:#0e0e11; border:1px solid var(--border); border-radius:6px; font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text-muted); text-align:center;}
+
+  .outputs{margin-top:16px; display:flex; flex-direction:column; gap:8px;}
+  .output-row{display:flex; align-items:center; gap:10px; background:#0e0e11; border:1px solid var(--border); border-radius:6px; padding:8px 12px; opacity:.55; transition:opacity .2s, border-color .2s;}
+  .output-row.has-signal{opacity:1;}
+  .output-row.playing{border-color:var(--green);}
+  .output-name{width:110px; flex-shrink:0; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-muted); letter-spacing:.03em;}
+  .output-play{
+    width:24px; height:24px; border-radius:50%; border:1px solid var(--border); background:var(--panel-alt);
+    color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+    transition:border-color .15s;
+  }
+  .output-play:hover{border-color:var(--amber);}
+  .output-play svg{width:9px; height:9px;}
+  .output-wave{flex:1; height:22px;}
+  .output-wave svg{width:100%; height:100%; display:block;}
+  .output-tag{width:100px; flex-shrink:0; text-align:right; font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--text-muted);}
+
+  .trigger-row{display:flex; align-items:center; gap:12px; margin-top:18px;}
+  .trigger-btn{
+    background:var(--panel-alt); border:1px solid var(--border); color:var(--text); padding:10px 16px;
+    border-radius:6px; font-family:'JetBrains Mono',monospace; font-size:12px; cursor:pointer; transition:border-color .15s;
+  }
+  .trigger-btn:hover{border-color:var(--green);}
+
+  .aha{
+    margin-top:20px; border:1px solid var(--green-dim); background:linear-gradient(180deg,rgba(95,217,160,.07),rgba(95,217,160,.02));
+    border-radius:8px; padding:16px 18px; opacity:0; transform:translateY(6px); pointer-events:none;
+    transition:opacity .4s ease, transform .4s ease;
+  }
+  .aha.show{opacity:1; transform:translateY(0); pointer-events:auto;}
+  .aha-label{font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--green); margin-bottom:6px;}
+  .aha p{margin:0; font-size:14px; line-height:1.55; color:#dcd9d3;}
+
+  /* module 2 — railroad track */
+  .track-box{margin-top:18px; background:#0e0e11; border:1px solid var(--border); border-radius:8px; padding:14px 14px 8px;}
+  .track-label{display:flex; justify-content:space-between; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-muted); letter-spacing:.06em; margin-bottom:4px;}
+  .track-stage{position:relative; height:130px;}
+  .track-stage svg{position:absolute; inset:0; width:100%; height:100%;}
+  .track-icon{position:absolute; top:50%; transform:translate(-50%,-50%); width:28px; height:28px; z-index:2;}
+  .track-icon.mic{left:8%; color:var(--amber);}
+  .track-icon.computer{left:92%; color:var(--text);}
+  .track-icon.tube{width:34px; height:34px; color:var(--amber);}
+  .track-caption{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-muted); text-align:center; margin-top:8px; letter-spacing:.03em; line-height:1.5;}
+
+  .wave-compare{display:flex; align-items:center; gap:10px; margin-top:16px; background:#0e0e11; border:1px solid var(--border); border-radius:6px; padding:10px 12px;}
+  .wave-compare-label{width:110px; flex-shrink:0; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-muted); letter-spacing:.04em;}
+  .wave-compare-shape{flex:1; height:40px;}
+  .wave-compare-shape svg{width:100%; height:100%; display:block;}
+
+  .playbar{display:flex; align-items:center; gap:14px; margin-top:18px;}
+  .play-btn{
+    width:42px;height:42px;border-radius:50%; border:1px solid var(--border); background:var(--panel-alt);
+    color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+    transition:border-color .15s;
+  }
+  .play-btn:hover{border-color:var(--amber);}
+  .play-btn svg{width:16px;height:16px;}
+  .level{flex:1; height:42px; background:#0e0e11; border:1px solid var(--border); border-radius:6px; display:flex; align-items:center; gap:3px; padding:0 10px;}
+  .level span{flex:1; height:6px; background:var(--border); border-radius:2px; transition:height .12s ease, background .12s ease;}
+  .level.playing span{animation:pulse 1.1s ease-in-out infinite;}
+  .level span:nth-child(1){animation-delay:0s;} .level span:nth-child(2){animation-delay:.08s;}
+  .level span:nth-child(3){animation-delay:.16s;} .level span:nth-child(4){animation-delay:.24s;}
+  .level span:nth-child(5){animation-delay:.32s;} .level span:nth-child(6){animation-delay:.4s;}
+  .level span:nth-child(7){animation-delay:.48s;} .level span:nth-child(8){animation-delay:.56s;}
+  .level span:nth-child(9){animation-delay:.64s;} .level span:nth-child(10){animation-delay:.72s;}
+  .level.playing span{background:var(--green);}
+  @keyframes pulse{0%,100%{height:6px;} 50%{height:26px;}}
+
+  .footer{padding:52px 0 20px; text-align:center;}
+  .footer p{color:var(--text-muted); font-size:13.5px; margin:0 0 18px;}
+  .continue-btn{
+    background:transparent; border:1px solid var(--green); color:var(--green); padding:12px 26px; border-radius:6px;
+    font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:14px; cursor:pointer; transition:background .15s;
+  }
+  .continue-btn:hover{background:rgba(95,217,160,.08);}
+
+  .progress{position:fixed; right:22px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:14px; z-index:20;}
+  .progress .dot{width:8px;height:8px;border-radius:50%; background:var(--border); transition:background .3s, box-shadow .3s;}
+  .progress .dot.active{background:var(--amber); box-shadow:0 0 8px var(--amber);}
+  @media (max-width:820px){ .progress{display:none;} }
+
+  .hint{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-muted); margin-top:14px; opacity:.7;}
+
+  @media (max-width:520px){
+    .seg button{font-size:10.5px; padding:10px 4px;}
+    .jack-name{font-size:10px;}
+    .output-name, .output-tag{width:70px; font-size:9px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress">
+  <div class="dot" data-m="1"></div>
+  <div class="dot" data-m="2"></div>
+</div>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div class="eyebrow">Interactive Lab · Before Lesson 1</div>
+    <h1 class="display">Reroute the signal before you learn to route it.</h1>
+    <p>Two quick experiments — no theory yet, just dragging, switching, and listening. Put in headphones or turn your speakers up, then tap play wherever you see a signal.</p>
+  </div>
+
+  <!-- ========================= MODULE 1 — THE TELEPHONE SWITCHBOARD ========================= -->
+  <div class="module" id="mod1">
+    <div class="m-eyebrow"><span class="n">01</span> · Signal Routing</div>
+    <h2 class="display">The Telephone Switchboard</h2>
+    <p class="hook">How did old-school phone operators connect a caller in New York to a home in Chicago? They plugged a cable directly into a board. Try it yourself — drag from the Synthesizer jack to the Reverb Unit jack and watch what happens to its output.</p>
+
+    <div class="panel">
+      <div class="patch-board" id="patchBoard">
+        <svg class="patch-svg" id="patchSvg"></svg>
+        <div class="patch-col sources">
+          <div class="patch-col-label">Sources</div>
+          <div class="patch-jack source" data-id="singer" style="--jc:var(--amber)">
+            <div class="jack-dot" id="jack-singer"></div>
+            <div><div class="jack-name">Singer</div><span class="jack-hint">drag me →</span></div>
+          </div>
+          <div class="patch-jack source" data-id="synth" style="--jc:var(--green)">
+            <div class="jack-dot" id="jack-synth"></div>
+            <div><div class="jack-name">Synthesizer</div><span class="jack-hint">drag me →</span></div>
+          </div>
+          <div class="patch-jack source" data-id="guitar" style="--jc:var(--purple)">
+            <div class="jack-dot" id="jack-guitar"></div>
+            <div><div class="jack-name">Electric Guitar</div><span class="jack-hint">drag me →</span></div>
+          </div>
+        </div>
+        <div class="patch-col destinations">
+          <div class="patch-col-label">Destinations</div>
+          <div class="patch-jack dest" data-id="tape">
+            <div class="jack-dot" id="jack-tape"></div>
+            <div><div class="jack-name">Tape Recorder</div></div>
+          </div>
+          <div class="patch-jack dest" data-id="headphones">
+            <div class="jack-dot" id="jack-headphones"></div>
+            <div><div class="jack-name">Headphones</div></div>
+          </div>
+          <div class="patch-jack dest" data-id="reverb">
+            <div class="jack-dot" id="jack-reverb"></div>
+            <div><div class="jack-name">Reverb Unit</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="patch-status" id="patchStatus">Drag a cable from a source jack on the left to a destination jack on the right.</div>
+
+      <div class="outputs" id="outputs">
+        <div class="output-row" data-dest="tape">
+          <div class="output-name">TAPE RECORDER</div>
+          <button class="output-play" data-dest="tape" aria-label="Play tape recorder output">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="output-wave"><svg viewBox="0 0 200 24" preserveAspectRatio="none"></svg></div>
+          <div class="output-tag">— no signal —</div>
+        </div>
+        <div class="output-row" data-dest="headphones">
+          <div class="output-name">HEADPHONES</div>
+          <button class="output-play" data-dest="headphones" aria-label="Play headphones output">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="output-wave"><svg viewBox="0 0 200 24" preserveAspectRatio="none"></svg></div>
+          <div class="output-tag">— no signal —</div>
+        </div>
+        <div class="output-row" data-dest="reverb">
+          <div class="output-name">REVERB UNIT</div>
+          <button class="output-play" data-dest="reverb" aria-label="Play reverb unit output">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="output-wave"><svg viewBox="0 0 200 24" preserveAspectRatio="none"></svg></div>
+          <div class="output-tag">— no signal —</div>
+        </div>
+      </div>
+
+      <div class="trigger-row">
+        <button class="trigger-btn" id="resetPatch">Reset patch</button>
+      </div>
+      <div class="hint">Drag from any source jack to any destination jack, then hit play on that row. Patch the Synthesizer into the Reverb Unit to see (and hear) the payoff. Audio: audio/patchbay-{source}-dry.mp3 · audio/patchbay-{source}-reverb.mp3</div>
+
+      <div class="aha" id="aha1">
+        <div class="aha-label">The take-away</div>
+        <p>A patch bay is just a central control hub. It brings the hidden back-panel plugs of every piece of studio gear to one easy front panel, so you can re-route audio in seconds without crawling behind a desk.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================= MODULE 2 — THE RAILROAD SWITCH ========================= -->
+  <div class="module" id="mod2">
+    <div class="m-eyebrow"><span class="n">02</span> · Signal Detours</div>
+    <h2 class="display">The Railroad Switch</h2>
+    <p class="hook">Train tracks use switches to redirect a train to a new station without rebuilding the tracks. Flip the switch below to send the vocal down a different track before it reaches the computer.</p>
+
+    <div class="panel">
+      <div class="seg" role="group" aria-label="Choose a track">
+        <button class="direct active" data-mode="direct">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="3" y1="12" x2="21" y2="12"/><polyline points="16 7 21 12 16 17"/></svg>
+          Track A — Direct
+        </button>
+        <button class="detour" data-mode="detour">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h6l3-5 3 10 3-5h3"/></svg>
+          Track B — Detour (Tube Gear)
+        </button>
+      </div>
+
+      <div class="track-box">
+        <div class="track-label"><span>VOCAL</span><span id="trackTitle" class="mono">TRACK A — DIRECT TO COMPUTER</span><span>COMPUTER</span></div>
+        <div class="track-stage">
+          <svg id="trackSvg" viewBox="0 0 300 130" preserveAspectRatio="none"></svg>
+          <div class="track-icon mic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M19 11a7 7 0 0 1-14 0"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+          </div>
+          <div class="track-icon tube" id="tubeIcon" style="left:50%; top:78%;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="16" height="16" rx="1.5"/><ellipse cx="12" cy="10" rx="3" ry="4"/><line x1="12" y1="14" x2="12" y2="18"/></svg>
+          </div>
+          <div class="track-icon computer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M6 10l2 -3 2 5 2 -6 2 4 2 -2"/><line x1="9" y1="19" x2="15" y2="19"/><line x1="12" y1="16" x2="12" y2="19"/></svg>
+          </div>
+        </div>
+        <div class="track-caption" id="trackCaption">The vocal goes straight into the computer — clean, dry, and completely unprocessed.</div>
+      </div>
+
+      <div class="wave-compare">
+        <div class="wave-compare-label">SIGNAL AT COMPUTER</div>
+        <div class="wave-compare-shape"><svg id="trackWaveSvg" viewBox="0 0 200 40" preserveAspectRatio="none"></svg></div>
+      </div>
+
+      <div class="playbar">
+        <button class="play-btn" id="play2" aria-label="Play">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <div class="level" id="level2">
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="hint">Audio: audio/railroad-direct.mp3 · audio/railroad-detour.mp3 (same vocal take, straight to the computer vs. through the tube unit first)</div>
+
+      <div class="aha" id="aha2">
+        <div class="aha-label">The take-away</div>
+        <p>A patch bay lets you create custom detours for your sound, sending it through any combination of studio gear before it gets recorded — same source, different path, different result.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>That's it — two experiments, zero jargon. Lesson 1 builds on exactly what you just saw.</p>
+    <button class="continue-btn" id="continueBtn">Continue to Lesson 1 →</button>
+  </div>
+
+</div>
+
+<script>
+/* ============================================================
+   SHARED AUDIO HELPERS — swap file paths for your real recordings.
+   Everything below just loads and plays these files; no live
+   processing happens anywhere in this page.
+   ============================================================ */
+const stoppers = [];
+function stopOthers(except){ stoppers.forEach(fn=>{ if(fn!==except) fn(); }); }
+function playIcon(){ return '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>'; }
+function pauseIcon(){ return '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>'; }
+
+class ClipPlayer{
+  constructor(sources, {loop=true}={}){
+    this.sources = sources;
+    this.audio = new Audio();
+    this.audio.loop = loop;
+    this.audio.preload = 'auto';
+    this.current = null;
+  }
+  setClip(key){
+    if(this.current === key) return;
+    this.current = key;
+    const wasPlaying = !this.audio.paused;
+    this.audio.src = this.sources[key];
+    if(wasPlaying) this.play();
+  }
+  play(){ this.audio.currentTime = this.audio.currentTime || 0; this.audio.play().catch(()=>{}); }
+  restart(){ this.audio.currentTime = 0; this.audio.play().catch(()=>{}); }
+  pause(){ this.audio.pause(); }
+  get playing(){ return !this.audio.paused; }
+}
+
+/* ============================================================
+   MODULE 1 — The Telephone Switchboard (drag-to-patch)
+   ============================================================ */
+const Mod1 = (()=>{
+  const board = document.getElementById('patchBoard');
+  const svg = document.getElementById('patchSvg');
+  const SOURCES = {
+    singer: { color:'#e8934a' },
+    synth:  { color:'#5fd9a0' },
+    guitar: { color:'#a78bfa' },
+  };
+  const DEST_IDS = ['tape','headphones','reverb'];
+  let connections = {};   // sourceId -> destId
+  let dragging = null;    // { sourceId, x, y }
+  let revealed = false;
+
+  // One shared player for all three output rows — only one row plays at a
+  // time. Source path is built from which source is patched into a
+  // destination, and whether that destination is the reverb unit.
+  const rowAudio = new Audio();
+  rowAudio.loop = true;
+  rowAudio.preload = 'auto';
+  let playingDest = null;
+
+  function stopRowAudio(){
+    rowAudio.pause();
+    playingDest = null;
+    renderPlayIcons();
+  }
+  stoppers.push(stopRowAudio);
+
+  function toggleRowAudio(destId){
+    const srcId = Object.keys(connections).find(s=>connections[s]===destId);
+    if(!srcId) return;
+    if(playingDest === destId){
+      stopRowAudio();
+      return;
+    }
+    stopOthers(stopRowAudio);
+    const kind = destId === 'reverb' ? 'reverb' : 'dry';
+    rowAudio.src = `audio/patchbay-${srcId}-${kind}.mp3`;
+    rowAudio.currentTime = 0;
+    rowAudio.play().catch(()=>{});
+    playingDest = destId;
+    renderPlayIcons();
+  }
+
+  function renderPlayIcons(){
+    DEST_IDS.forEach(destId=>{
+      const row = document.querySelector(`.output-row[data-dest="${destId}"]`);
+      const btn = row.querySelector('.output-play');
+      btn.innerHTML = playingDest === destId ? pauseIcon() : playIcon();
+      row.classList.toggle('playing', playingDest === destId);
+    });
+  }
+
+  function boardRect(){ return board.getBoundingClientRect(); }
+  function jackCenter(el){
+    const r = el.getBoundingClientRect();
+    const b = boardRect();
+    return { x: r.left - b.left + r.width/2, y: r.top - b.top + r.height/2 };
+  }
+
+  function sizeSvg(){
+    const b = boardRect();
+    svg.setAttribute('width', b.width);
+    svg.setAttribute('height', b.height);
+    svg.setAttribute('viewBox', `0 0 ${b.width} ${b.height}`);
+  }
+
+  function cablePath(p1, p2){
+    const midX = (p1.x + p2.x) / 2;
+    return `M ${p1.x},${p1.y} C ${midX},${p1.y} ${midX},${p2.y} ${p2.x},${p2.y}`;
+  }
+
+  function redraw(){
+    sizeSvg();
+    let html = '';
+    Object.entries(connections).forEach(([srcId, destId])=>{
+      const p1 = jackCenter(document.getElementById('jack-'+srcId));
+      const p2 = jackCenter(document.getElementById('jack-'+destId));
+      const color = SOURCES[srcId].color;
+      html += `<path d="${cablePath(p1,p2)}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" opacity="0.85"/>`;
+      html += `<circle cx="${p1.x}" cy="${p1.y}" r="4" fill="${color}"/><circle cx="${p2.x}" cy="${p2.y}" r="4" fill="${color}"/>`;
+    });
+    if(dragging){
+      const p1 = jackCenter(document.getElementById('jack-'+dragging.sourceId));
+      const color = SOURCES[dragging.sourceId].color;
+      html += `<path d="${cablePath(p1, {x:dragging.x,y:dragging.y})}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 5" opacity="0.7"/>`;
+    }
+    svg.innerHTML = html;
+  }
+
+  function miniWave(colorVar, kind){
+    // kind: 'flat' | 'dry' | 'wet'
+    if(kind === 'flat'){
+      return `<svg viewBox="0 0 200 24" preserveAspectRatio="none"><line x1="0" y1="12" x2="200" y2="12" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="3 4"/></svg>`;
+    }
+    const dry = 'M0,12 C10,4 20,4 30,12 C40,20 50,20 60,12 C70,4 80,4 90,12 C100,20 110,20 120,12 C130,4 140,4 150,12';
+    if(kind === 'dry'){
+      return `<svg viewBox="0 0 200 24" preserveAspectRatio="none"><path d="${dry}" fill="none" stroke="${colorVar}" stroke-width="2"/></svg>`;
+    }
+    // wet: dry wave plus fading repeated echoes trailing to the right
+    let echoes = '';
+    for(let i=1;i<=4;i++){
+      echoes += `<path d="${dry}" fill="none" stroke="${colorVar}" stroke-width="1.4" opacity="${0.35 - i*0.07}" transform="translate(${i*14},0) scale(0.9,${1 - i*0.12})"/>`;
+    }
+    return `<svg viewBox="0 0 200 24" preserveAspectRatio="none"><path d="${dry}" fill="none" stroke="${colorVar}" stroke-width="2"/>${echoes}</svg>`;
+  }
+
+  function updateOutputs(){
+    stopRowAudio();
+    DEST_IDS.forEach(destId=>{
+      const row = document.querySelector(`.output-row[data-dest="${destId}"]`);
+      const srcId = Object.keys(connections).find(s=>connections[s]===destId);
+      const waveEl = row.querySelector('.output-wave');
+      const tagEl = row.querySelector('.output-tag');
+      if(!srcId){
+        waveEl.innerHTML = miniWave(null,'flat');
+        tagEl.textContent = '— no signal —';
+        row.classList.remove('has-signal');
+        return;
+      }
+      row.classList.add('has-signal');
+      const color = SOURCES[srcId].color;
+      if(destId === 'reverb'){
+        waveEl.innerHTML = miniWave(color,'wet');
+        tagEl.textContent = capitalize(srcId) + ' + reverb';
+      } else {
+        waveEl.innerHTML = miniWave(color,'dry');
+        tagEl.textContent = capitalize(srcId) + ' (dry)';
+      }
+    });
+
+    const statusEl = document.getElementById('patchStatus');
+    const entries = Object.entries(connections);
+    if(!entries.length){
+      statusEl.textContent = 'Drag a cable from a source jack on the left to a destination jack on the right.';
+    } else {
+      statusEl.textContent = entries.map(([s,d])=>`${capitalize(s)} → ${capitalize(d)}`).join('   ·   ');
+    }
+
+    if(connections.synth === 'reverb') reveal();
+  }
+
+  function capitalize(id){
+    const names = { singer:'Singer', synth:'Synthesizer', guitar:'Guitar', tape:'Tape Recorder', headphones:'Headphones', reverb:'Reverb Unit' };
+    return names[id] || id;
+  }
+
+  function reveal(){ if(revealed) return; revealed = true; document.getElementById('aha1').classList.add('show'); }
+
+  function pointInRect(x, y, rect, pad){
+    return x >= rect.left - pad && x <= rect.right + pad && y >= rect.top - pad && y <= rect.bottom + pad;
+  }
+
+  function init(){
+    Object.keys(SOURCES).forEach(id=>{
+      const jack = document.getElementById('jack-'+id);
+      jack.addEventListener('pointerdown', e=>{
+        e.preventDefault();
+        const p = jackCenter(jack);
+        dragging = { sourceId:id, x:p.x, y:p.y };
+        document.querySelector(`.patch-jack.source[data-id="${id}"]`).classList.add('connected');
+        redraw();
+      });
+    });
+
+    window.addEventListener('pointermove', e=>{
+      if(!dragging) return;
+      const b = boardRect();
+      dragging.x = e.clientX - b.left;
+      dragging.y = e.clientY - b.top;
+      redraw();
+    });
+
+    window.addEventListener('pointerup', e=>{
+      if(!dragging) return;
+      let landed = null;
+      DEST_IDS.forEach(destId=>{
+        const el = document.getElementById('jack-'+destId);
+        const r = el.getBoundingClientRect();
+        if(pointInRect(e.clientX, e.clientY, r, 16)) landed = destId;
+      });
+      if(landed){
+        connections[dragging.sourceId] = landed;
+      }
+      document.querySelectorAll('.patch-jack').forEach(j=>{
+        const id = j.dataset.id;
+        const isConnected = connections[id] !== undefined || Object.values(connections).includes(id);
+        j.classList.toggle('connected', isConnected);
+      });
+      dragging = null;
+      redraw();
+      updateOutputs();
+    });
+
+    document.getElementById('resetPatch').addEventListener('click', ()=>{
+      connections = {};
+      document.querySelectorAll('.patch-jack').forEach(j=>j.classList.remove('connected'));
+      redraw();
+      updateOutputs();
+    });
+
+    document.querySelectorAll('.output-play').forEach(btn=>{
+      btn.addEventListener('click', ()=> toggleRowAudio(btn.dataset.dest));
+    });
+
+    window.addEventListener('resize', redraw);
+
+    redraw();
+    updateOutputs();
+  }
+  return {init};
+})();
+
+/* ============================================================
+   MODULE 2 — The Railroad Switch (detour)
+   ============================================================ */
+const Mod2 = (()=>{
+  const player = new ClipPlayer({ direct:'audio/railroad-direct.mp3', detour:'audio/railroad-detour.mp3' }, {loop:true});
+  const modes = {
+    direct: {
+      title:'TRACK A — DIRECT TO COMPUTER',
+      caption:'The vocal goes straight into the computer — clean, dry, and completely unprocessed.',
+      trackColor:'var(--green)', otherColor:'rgba(255,255,255,0.08)', showTube:false,
+      wave:'M0,20 C15,6 30,6 45,20 C60,34 75,34 90,20 C105,6 120,6 135,20 C150,34 165,34 180,20', waveColor:'#5fd9a0'
+    },
+    detour: {
+      title:'TRACK B — DETOUR THROUGH TUBE GEAR',
+      caption:'The vocal gets rerouted through a vintage tube unit first, adding warm analog grit before reaching the computer.',
+      trackColor:'var(--amber)', otherColor:'rgba(255,255,255,0.08)', showTube:true,
+      wave:'M0,20 C15,4 22,4 30,16 L34,24 C42,32 46,32 45,20 C50,8 62,4 68,18 L72,26 C80,34 84,32 90,20 C96,6 108,4 113,16 L117,25 C124,33 128,32 135,20 C141,7 153,4 158,17 L162,25 C169,33 173,32 180,20',
+      waveColor:'#e8934a'
+    }
+  };
+
+  function drawTrack(mode){
+    const svg = document.getElementById('trackSvg');
+    const m = modes[mode];
+    const micX=32, compX=268, midY=45, tubeX=150, tubeY=102;
+    let html = '';
+    if(mode === 'direct'){
+      html += `<line x1="${micX}" y1="${midY}" x2="${compX}" y2="${midY}" stroke="${m.otherColor}" stroke-width="6" stroke-linecap="round"/>`;
+      html += `<path d="M ${micX},${midY} Q ${tubeX},${tubeY} ${compX},${midY}" fill="none" stroke="${m.otherColor}" stroke-width="6" stroke-linecap="round"/>`;
+      html += `<line x1="${micX}" y1="${midY}" x2="${compX}" y2="${midY}" stroke="${m.trackColor}" stroke-width="5" stroke-linecap="round"/>`;
+    } else {
+      html += `<line x1="${micX}" y1="${midY}" x2="${compX}" y2="${midY}" stroke="${m.otherColor}" stroke-width="6" stroke-linecap="round"/>`;
+      html += `<path d="M ${micX},${midY} Q ${tubeX},${tubeY} ${compX},${midY}" fill="none" stroke="${m.trackColor}" stroke-width="5" stroke-linecap="round"/>`;
+    }
+    svg.innerHTML = html;
+    document.getElementById('tubeIcon').style.opacity = mode === 'detour' ? '1' : '0.25';
+  }
+
+  function setMode(mode){
+    const m = modes[mode];
+    document.getElementById('trackTitle').textContent = m.title;
+    document.getElementById('trackCaption').textContent = m.caption;
+    drawTrack(mode);
+    const waveSvg = document.getElementById('trackWaveSvg');
+    waveSvg.innerHTML = `<path d="${m.wave}" fill="none" stroke="${m.waveColor}" stroke-width="2"/>`;
+    player.setClip(mode);
+    reveal();
+  }
+  let revealed = false;
+  function reveal(){ if(revealed) return; revealed = true; document.getElementById('aha2').classList.add('show'); }
+
+  function updatePlayUI(){
+    document.getElementById('play2').innerHTML = player.playing ? pauseIcon() : playIcon();
+    document.getElementById('level2').classList.toggle('playing', player.playing);
+  }
+  function stop(){ player.pause(); updatePlayUI(); }
+  stoppers.push(stop);
+
+  function init(){
+    player.setClip('direct');
+    setMode('direct');
+    document.querySelectorAll('#mod2 .seg button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        document.querySelectorAll('#mod2 .seg button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        stopOthers(stop);
+        setMode(btn.dataset.mode);
+        if(!player.playing) player.play();
+        updatePlayUI();
+      });
+    });
+    document.getElementById('play2').addEventListener('click', ()=>{
+      if(player.playing){ player.pause(); }
+      else { stopOthers(stop); player.play(); }
+      updatePlayUI();
+    });
+  }
+  return {init};
+})();
+
+/* ============================================================
+   PROGRESS DOTS (scroll spy)
+   ============================================================ */
+function initProgress(){
+  const dots = document.querySelectorAll('#progress .dot');
+  const sections = ['mod1','mod2'].map(id=>document.getElementById(id));
+  const io = new IntersectionObserver(entries=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){
+        const idx = sections.indexOf(entry.target);
+        dots.forEach((d,i)=>d.classList.toggle('active', i===idx));
+      }
+    });
+  }, {threshold:0.5});
+  sections.forEach(s=>io.observe(s));
+}
+
+document.getElementById('continueBtn').addEventListener('click', ()=>{});
+
+Mod1.init();
+Mod2.init();
+initProgress();
+</script>
+</body>
+</html>

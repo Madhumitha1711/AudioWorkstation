@@ -26,7 +26,7 @@ export function TopBar({
   return (
     <div className="daw-topbar">
       <button className="exit-btn" onClick={onClose}>
-        ‹ Exit to Studio
+        ‹ Back to Control Room
       </button>
       <div className="topbar-divider" />
       <div className="app-id">

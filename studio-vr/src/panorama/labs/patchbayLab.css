@@ -1,0 +1,253 @@
+/* Styles for PatchbayLab.jsx — ported from design/patchbay-lab.html.
+   Reuses the shared `.llab-*` base (panel shell width/height, tabs, card,
+   seg toggle, curve visual, playbar, trigger row, take-away chip/pop, audio
+   note) from speakerListeningLab.css — see that file's own header comment.
+   Only the two visuals unique to this lab — the click-to-patch switchboard
+   (module 1) and the mic → [tube] → computer track diagram (module 2) — get
+   their own `pblab-` prefixed rules below, scaled down from the original
+   mockup's 760px layout to fit the ~352px docked panel.
+*/
+
+/* ---------- module 1 — the telephone switchboard ---------- */
+.pblab-board {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px;
+}
+.pblab-board-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+.pblab-col {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.pblab-col-label {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--llab-text-muted);
+}
+.pblab-jack {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+.pblab-col.dest .pblab-jack {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+.pblab-jack-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--llab-panel-alt);
+  border: 2px solid var(--jc, var(--llab-border));
+  flex-shrink: 0;
+  position: relative;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.pblab-jack-dot::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--jc, var(--llab-border));
+  opacity: 0.35;
+}
+.pblab-jack.source.connected .pblab-jack-dot,
+.pblab-jack.dest.connected .pblab-jack-dot {
+  box-shadow: 0 0 8px 1px var(--jc, var(--llab-green));
+  border-color: var(--jc, var(--llab-green));
+}
+.pblab-jack.source.connected .pblab-jack-dot::after,
+.pblab-jack.dest.connected .pblab-jack-dot::after {
+  opacity: 1;
+}
+.pblab-jack.dest.connected .pblab-jack-dot {
+  border-color: var(--llab-green);
+}
+.pblab-jack.dest.connected .pblab-jack-dot::after {
+  background: var(--llab-green);
+}
+.pblab-jack.source.armed .pblab-jack-dot {
+  box-shadow: 0 0 0 3px rgba(232, 147, 74, 0.35);
+  border-color: var(--llab-amber);
+}
+.pblab-jack.dest.armable {
+  animation: pblab-armable-pulse 1s ease-in-out infinite;
+}
+@keyframes pblab-armable-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+.pblab-jack-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.pblab-jack-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  color: var(--shell-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pblab-jack-hint {
+  font-size: 8.5px;
+  color: var(--llab-amber);
+  letter-spacing: 0.02em;
+}
+
+.pblab-status {
+  margin-top: 12px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--llab-border);
+  border-radius: 6px;
+  font-size: 10px;
+  color: var(--llab-text-muted);
+  text-align: center;
+}
+
+.pblab-outputs {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pblab-output-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--llab-border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  opacity: 0.55;
+  transition: opacity 0.2s, border-color 0.2s;
+}
+.pblab-output-row.has-signal {
+  opacity: 1;
+}
+.pblab-output-row.playing {
+  border-color: var(--llab-green);
+}
+.pblab-output-name {
+  width: 66px;
+  flex-shrink: 0;
+  font-size: 8.5px;
+  color: var(--llab-text-muted);
+  letter-spacing: 0.02em;
+}
+.pblab-output-play {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--llab-border);
+  background: var(--llab-panel-alt);
+  color: var(--shell-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.pblab-output-play:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+.pblab-output-play svg {
+  width: 8px;
+  height: 8px;
+}
+.pblab-output-row .llab-levels {
+  height: 22px;
+}
+.pblab-output-tag {
+  flex-shrink: 0;
+  font-size: 8.5px;
+  color: var(--llab-text-muted);
+  max-width: 74px;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- module 2 — the railroad switch (mic -> [tube] -> computer) ---------- */
+.pblab-track-box {
+  margin-top: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--llab-border);
+  border-radius: 8px;
+  padding: 10px 10px 8px;
+}
+.pblab-track-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 8.5px;
+  color: var(--llab-text-muted);
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+.pblab-track-stage {
+  position: relative;
+  height: 66px;
+}
+.pblab-track-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.pblab-track-icon {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  z-index: 2;
+}
+.pblab-track-icon.mic {
+  left: 10%;
+  color: var(--llab-amber);
+}
+.pblab-track-icon.computer {
+  left: 90%;
+  color: var(--shell-text);
+}
+.pblab-track-icon.tube {
+  left: 50%;
+  top: 84%;
+  width: 20px;
+  height: 20px;
+  color: var(--llab-amber);
+}
+.pblab-track-caption {
+  font-size: 10px;
+  color: var(--llab-text-muted);
+  text-align: center;
+  margin-top: 6px;
+  letter-spacing: 0.02em;
+  line-height: 1.45;
+}

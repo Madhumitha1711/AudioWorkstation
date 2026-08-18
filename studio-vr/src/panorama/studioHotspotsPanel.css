@@ -4,19 +4,17 @@
    the confetti completion overlay — permanently docked instead of hidden
    behind a separate launcher.
 
-   Colour and type now match the app's other floating chrome instead of
-   keeping a separate identity: same --shell-* glass tokens (see index.css)
-   as .svr-tour-gear-panel — the info card that opens when you click a
-   hotspot marker directly, in panoramaTour.css — same translucent
-   background + blur, same border/text colors, same plain sans-serif type
-   (var(--sans), no separate label font). --hsp-* custom property NAMES are
+   Colour and type match the app's other floating chrome in shape: same
+   glass look (translucent background + blur, same border/text treatment,
+   same plain sans-serif type via var(--sans), no separate label font) as
+   .svr-tour-gear-panel — the info card that opens when you click a hotspot
+   marker directly, in panoramaTour.css. --hsp-* custom property NAMES are
    kept below purely so the ~700 lines of rules further down that already
-   read var(--hsp-*) didn't need touching one by one; their VALUES now
-   mostly just alias the --shell-* tokens. The one thing that doesn't come
-   from --shell-* is the on/tripped accent: the app doesn't theme its own
-   green accent (.svr-tour-gear-badge, .svr-tour-btn-primary etc. use the
-   same fixed green in both light and dark), so --hsp-on/--hsp-err are
-   fixed here too rather than swapped per theme.
+   read var(--hsp-*) didn't need touching one by one; their VALUES are now
+   fixed dark literals (copied from --shell-*'s dark defaults in index.css)
+   rather than live references to --shell-*, so this panel deliberately
+   opts out of the site-wide light/dark theme toggle and always renders
+   dark — see the block below for why.
 
    Docked left, 30% of the viewer's width, full height. A collapse tab
    (nested inside the panel, positioned just past its right edge — see
@@ -27,21 +25,27 @@
    without any JS measuring of the panel's (responsive) width. */
 
 .svr-hotspot-panel {
-  --hsp-void: var(--shell-bg);
-  --hsp-panel: var(--shell-bg);
-  --hsp-panel-2: var(--shell-bg);
-  --hsp-hair: var(--shell-border-soft);
-  --hsp-hair-strong: var(--shell-border);
+  /* Fixed dark literals rather than var(--shell-*) — this panel doesn't
+     participate in the light theme (see the file header comment above),
+     so these are pinned to the dark palette's values (index.css) instead
+     of tracking whatever data-theme is set on <html>. --hsp-tint-rgb stays
+     white (its light-theme flip to black is what the old override below
+     did; with light theme removed here it's always white now). */
+  --hsp-void: rgba(8, 9, 12, 0.92);
+  --hsp-panel: rgba(8, 9, 12, 0.92);
+  --hsp-panel-2: rgba(8, 9, 12, 0.92);
+  --hsp-hair: rgba(255, 255, 255, 0.08);
+  --hsp-hair-strong: rgba(255, 255, 255, 0.12);
   --hsp-gold: #22c76a;
   --hsp-gold-dim: #1a9c56;
   --hsp-gold-glow: rgba(34, 199, 106, 0.35);
-  --hsp-text: var(--shell-text);
-  --hsp-text-dim: var(--shell-text-dim);
-  --hsp-text-faint: var(--shell-text-dimmer);
+  --hsp-text: #ffffff;
+  --hsp-text-dim: rgba(255, 255, 255, 0.65);
+  --hsp-text-faint: rgba(255, 255, 255, 0.45);
   --hsp-on: #22c76a;
   --hsp-on-glow: rgba(34, 199, 106, 0.35);
-  --hsp-off: var(--shell-text-dimmer);
-  --hsp-off-bg: var(--shell-panel);
+  --hsp-off: rgba(255, 255, 255, 0.45);
+  --hsp-off-bg: rgba(255, 255, 255, 0.04);
   --hsp-err: #ff6b6b;
   --hsp-err-glow: rgba(255, 107, 107, 0.3);
   --hsp-tint-rgb: 255, 255, 255;
@@ -56,10 +60,10 @@
   max-width: 460px;
   display: flex;
   flex-direction: column;
-  background: var(--shell-bg);
+  background: var(--hsp-panel);
   backdrop-filter: blur(14px);
-  border-right: 1px solid var(--shell-border);
-  box-shadow: var(--shadow);
+  border-right: 1px solid var(--hsp-hair-strong);
+  box-shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
   color: var(--hsp-text);
   font-family: var(--sans);
   transform: translateX(0);
@@ -68,19 +72,6 @@
 
 .svr-hotspot-panel.is-collapsed {
   transform: translateX(-100%);
-}
-
-/* Only --hsp-tint-rgb needs a light-theme override — every other token
-   above already reads a --shell-* variable, which flips value on its own
-   when ThemeContext.jsx sets data-theme="light" on <html> (see index.css).
-   This RGB triplet (no alpha) sits behind the panel's own faint
-   highlight-on-top-of-itself tints (mute button, mode row, stat cards,
-   hover states…) — those bake the alpha in per rule via
-   rgba(var(--hsp-tint-rgb), x), so flipping the base color from white to
-   black here is enough to keep them reading as a highlight instead of a
-   dark smudge once the backdrop goes light. */
-:root[data-theme='light'] .svr-hotspot-panel {
-  --hsp-tint-rgb: 0, 0, 0;
 }
 
 @keyframes svrHotspotShake {
@@ -209,6 +200,22 @@
   letter-spacing: -0.01em;
 }
 
+/* Brief "what you'll learn" topic line — sits above the mechanics line
+   (.svr-hotspot-panel__sub) and the device list, so it reads before either
+   of those. Slightly brighter than __sub (text instead of text-dim) and a
+   gold label so it stands out as the topic, not another instruction. */
+.svr-hotspot-panel__intro {
+  font-size: 12.5px;
+  color: var(--hsp-text);
+  line-height: 1.5;
+  margin: 0 0 10px;
+}
+
+.svr-hotspot-panel__intro b {
+  color: var(--hsp-gold);
+  font-weight: 600;
+}
+
 .svr-hotspot-panel__sub {
   font-size: 12.5px;
   color: var(--hsp-text-dim);
@@ -277,6 +284,15 @@
 .svr-hotspot-mode-switch.on .svr-hotspot-mode-switch__knob {
   transform: translateX(18px);
   background: var(--hsp-gold);
+}
+
+/* Locked for the onboarding tour's "power up the rig" step (see
+   tourForceClassicMode in StudioHotspotsPanel.jsx) — reads as dimmed/
+   unclickable rather than a normal live switch, since the click handler is
+   a no-op while this class is present. */
+.svr-hotspot-mode-switch.is-locked {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .svr-hotspot-stats {
@@ -376,6 +392,11 @@
   background: rgba(var(--hsp-tint-rgb), 0.04);
 }
 
+.svr-hotspot-qbtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .svr-hotspot-qbtn--hint:hover {
   color: var(--hsp-gold);
   border-color: rgba(201, 168, 110, 0.4);
@@ -384,6 +405,50 @@
 .svr-hotspot-qbtn--danger:hover {
   color: var(--hsp-err);
   border-color: rgba(240, 102, 92, 0.4);
+}
+
+/* Primary call-to-action treatment for "Power up in order" (Classic mode)
+   while the rig is still off — see the !allDevicesOn check in
+   StudioHotspotsPanel.jsx. Without this it looked exactly like the neutral
+   Hint/New round/Power down utility buttons next to it, so a first-time
+   visitor had no visual cue that *this* is the one control that actually
+   brings the studio online. Filled + glowing + a slow pulse make it read
+   as "click me" at a glance; cleared the instant every device is on, or
+   while the power-up animation is already mid-run (see the .svr-hotspot-
+   qbtn:disabled rule above for that state instead). */
+.svr-hotspot-qbtn--power-cta {
+  color: #06120b;
+  font-weight: 700;
+  background: var(--hsp-on);
+  border-color: var(--hsp-on);
+  box-shadow: 0 0 0 0 var(--hsp-on-glow);
+  animation: svrHotspotPowerCta 2.2s ease-in-out infinite;
+}
+
+.svr-hotspot-qbtn--power-cta:hover {
+  color: #06120b;
+  background: var(--hsp-on);
+  border-color: var(--hsp-on);
+  filter: brightness(1.1);
+}
+
+@keyframes svrHotspotPowerCta {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--hsp-on-glow);
+  }
+
+  50% {
+    box-shadow: 0 0 16px 3px var(--hsp-on-glow);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .svr-hotspot-qbtn--power-cta {
+    animation: none;
+    box-shadow: 0 0 12px 2px var(--hsp-on-glow);
+  }
 }
 
 .svr-hotspot-panel__legend {
@@ -927,131 +992,12 @@
   flex-shrink: 0;
 }
 
-.svr-hotspot-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(5, 15, 10, 0.9);
-  backdrop-filter: blur(2px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-  z-index: 7;
-  overflow: hidden;
-}
-
-.svr-hotspot-overlay.visible {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.svr-hotspot-confetti-layer {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.svr-hotspot-confetti-piece {
-  position: absolute;
-  top: -10px;
-  width: 6px;
-  height: 10px;
-  opacity: 0.9;
-  animation-name: svrHotspotConfettiFall;
-  animation-timing-function: ease-in;
-  animation-fill-mode: forwards;
-}
-
-@keyframes svrHotspotConfettiFall {
-  to {
-    transform: translateY(420px) rotate(600deg);
-    opacity: 0;
-  }
-}
-
-.svr-hotspot-overlay-card {
-  position: relative;
-  z-index: 2;
-  text-align: center;
-  padding: 0 30px;
-}
-
-.svr-hotspot-overlay-eyebrow {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 10.5px;
-  letter-spacing: 0.18em;
-  color: var(--hsp-gold);
-  text-transform: uppercase;
-}
-
-.svr-hotspot-overlay-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--hsp-text);
-  margin: 8px 0 12px;
-}
-
-.svr-hotspot-stars {
-  font-size: 26px;
-  letter-spacing: 6px;
-  margin-bottom: 14px;
-  color: var(--hsp-off-bg);
-}
-
-.svr-hotspot-stars span.on {
-  color: var(--hsp-gold);
-  text-shadow: 0 0 12px var(--hsp-gold-glow);
-}
-
-.svr-hotspot-overlay-summary {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 11.5px;
-  color: var(--hsp-text-dim);
-  line-height: 1.7;
-  margin-bottom: 20px;
-}
-
-.svr-hotspot-overlay-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-}
-
-.svr-hotspot-obtn {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 10px 18px;
-  border-radius: 2px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  border: 1px solid transparent;
-}
-
-.svr-hotspot-obtn--primary {
-  background: var(--hsp-on);
-  border-color: var(--hsp-on);
-  color: #0b1a11;
-  font-weight: 600;
-}
-
-.svr-hotspot-obtn--primary:hover {
-  filter: brightness(1.1);
-}
-
-.svr-hotspot-obtn--secondary {
-  background: transparent;
-  border-color: var(--hsp-hair-strong);
-  color: var(--hsp-text-dim);
-}
-
-.svr-hotspot-obtn--secondary:hover {
-  color: var(--hsp-text);
-  border-color: var(--hsp-gold-dim);
-}
+/* The confetti/stars completion overlay (svr-hotspot-overlay and its
+   children — confetti layer, stars, Play again/Close actions) that used to
+   render here has been removed: finishing the sequence now unlocks the rest
+   of the scene instead (see StudioHotspotsPanel.jsx / PanoramaTour's
+   onPoweredChange), and that un-graying is the reward, so a separate
+   celebration screen on top of it was redundant. */
 
 @media (max-width: 720px) {
   .svr-hotspot-panel {

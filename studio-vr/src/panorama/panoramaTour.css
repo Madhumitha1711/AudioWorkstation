@@ -12,6 +12,7 @@
 .psv-virtual-tour-link {
   display: none !important;
 }
+
 .hotspot-marker {
   position: relative;
   width: 100%;
@@ -24,6 +25,7 @@
      explicitly here so every hotspot reads as clickable on hover. */
   cursor: pointer;
 }
+
 .hotspot-marker__ring {
   position: absolute;
   inset: 0;
@@ -32,9 +34,11 @@
   animation: hotspot-pulse 2.2s ease-out infinite;
   transition: animation-duration 0.15s ease;
 }
+
 .hotspot-marker__ring--delayed {
   animation-delay: 1.1s;
 }
+
 .hotspot-marker__dot {
   position: absolute;
   inset: 0;
@@ -52,6 +56,7 @@
   animation: hotspot-breathe 2.2s ease-in-out infinite;
   transition: transform 0.15s ease, filter 0.15s ease;
 }
+
 /* Hover: scale + brighten the badge and speed up its pulse rings, on top
    of the pointer cursor above, so a hotspot visibly "wakes up" under the
    cursor before it's even clicked. */
@@ -59,9 +64,11 @@
   transform: scale(1.15);
   filter: brightness(1.12);
 }
+
 .hotspot-marker:hover .hotspot-marker__ring {
   animation-duration: 1.3s;
 }
+
 /* Selected: applied via JS (see setSelectedMarkerEl/clearSelectedMarkerEl
    in PanoramaTour's render body) to whichever hotspot's panel is
    currently open — a one-shot "pop" plus a faster, brighter breathing
@@ -71,56 +78,73 @@
 .svr-hotspot-selected {
   animation: hotspot-select-pop 0.35s ease-out;
 }
+
 .svr-hotspot-selected .hotspot-marker__dot {
   animation: hotspot-breathe-selected 1.1s ease-in-out infinite;
   filter: brightness(1.2) saturate(1.15);
 }
+
 .svr-hotspot-selected .hotspot-marker__ring {
   animation-duration: 1.3s;
 }
+
 @keyframes hotspot-pulse {
   0% {
     transform: scale(0.9);
     opacity: 0.8;
   }
+
   100% {
     transform: scale(2.4);
     opacity: 0;
   }
 }
+
 @keyframes hotspot-breathe {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(1);
   }
+
   50% {
     transform: scale(1.08);
   }
 }
+
 @keyframes hotspot-breathe-selected {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(1.08);
   }
+
   50% {
     transform: scale(1.22);
   }
 }
+
 @keyframes hotspot-select-pop {
   0% {
     transform: scale(1);
   }
+
   45% {
     transform: scale(1.3);
   }
+
   100% {
     transform: scale(1);
   }
 }
+
 /* Door hotspots: same pulsing-badge shape as gear hotspots, in blue with
    a door icon instead of a number, so they read as "go to another room"
    at a glance. */
 .hotspot-marker__ring--door {
   border-color: rgba(90, 170, 255, 0.85);
 }
+
 .hotspot-marker__dot--door {
   font-size: 15px;
   background: radial-gradient(circle at 32% 28%, #9fd3ff, #2e7fe0 70%);
@@ -128,12 +152,14 @@
     0 0 10px rgba(70, 150, 255, 0.75),
     inset 0 0 5px rgba(255, 255, 255, 0.5);
 }
+
 /* Volume-control hotspots (roomsData.js volumeControls): same
    pulsing-badge shape again, in amber with a speaker icon, so they read
    as "adjust audio" rather than "gear info" or "go to another room". */
 .hotspot-marker__ring--volume {
   border-color: rgba(255, 176, 59, 0.85);
 }
+
 .hotspot-marker__dot--volume {
   font-size: 14px;
   background: radial-gradient(circle at 32% 28%, #ffd699, #e08a1e 70%);
@@ -141,6 +167,7 @@
     0 0 10px rgba(255, 176, 59, 0.75),
     inset 0 0 5px rgba(255, 255, 255, 0.5);
 }
+
 /* Interactive-module hotspots (roomsData.js interactiveMarkers, e.g. the
    daw-desk hotspot that opens the live DawWorkstationScreen): orange, so a
    hotspot that opens a live functional module reads as visually distinct
@@ -150,6 +177,7 @@
 .hotspot-marker__ring--interactive {
   border-color: rgba(255, 130, 40, 0.85);
 }
+
 .hotspot-marker__dot--interactive {
   background: radial-gradient(circle at 32% 28%, #ffb877, #e0631e 70%);
   box-shadow:
@@ -173,9 +201,11 @@
   flex-shrink: 0;
   transition: background 0.15s ease;
 }
+
 .svr-tour-icon-btn:hover {
   background: var(--shell-panel-hover);
 }
+
 .svr-tour-icon-btn.active {
   background: var(--shell-panel);
   border-color: var(--shell-border);
@@ -210,42 +240,77 @@
      (90+), which this UI never needs to sit above anyway. */
   z-index: 60;
 }
+
 .svr-tour-room-block {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0 8px;
+  padding: 0 4px;
   min-width: 0;
 }
+
 .svr-tour-room-name {
   color: var(--shell-text);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.01em;
   white-space: nowrap;
+  padding: 0 4px;
 }
-.svr-tour-room-dots {
+
+/* Segmented room switcher — replaces the old unlabeled svr-tour-room-dot
+   (6px circles, easy to miss and gave no clue what clicking one did). Each
+   segment is a full text button naming its room, so both the current room
+   and the click target are obvious at a glance instead of relying on a
+   tiny highlighted dot.
+
+   Pinned to the dark palette: this pill re-declares the --shell-* tokens it
+   reads (below and in .svr-tour-room-toggle__opt) to fixed dark literals
+   instead of inheriting whatever :root[data-theme] currently has them set
+   to, so the Control Room / Recording Room switcher no longer follows the
+   site-wide light theme. */
+.svr-tour-room-toggle {
+  --shell-panel-hover: rgba(255, 255, 255, 0.08);
+  --shell-border: rgba(255, 255, 255, 0.12);
+  --shell-text-dimmer: rgba(255, 255, 255, 0.45);
+  --shell-text-dim: rgba(255, 255, 255, 0.65);
+
   display: flex;
-  gap: 5px;
-  margin-top: 4px;
+  align-items: center;
+  gap: 2px;
+  background: var(--shell-panel-hover);
+  border: 1px solid var(--shell-border);
+  border-radius: 999px;
+  padding: 3px;
 }
-.svr-tour-room-dot {
-  width: 6px;
-  height: 6px;
-  padding: 0;
-  border-radius: 50%;
+
+.svr-tour-room-toggle__opt {
   border: none;
-  background: var(--shell-border);
+  background: transparent;
+  color: var(--shell-text-dimmer);
+  font-family: sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  padding: 7px 14px;
+  border-radius: 999px;
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
-.svr-tour-room-dot:hover {
-  background: var(--shell-text-dim);
+
+.svr-tour-room-toggle__opt:hover {
+  color: var(--shell-text-dim);
 }
-.svr-tour-room-dot.current {
+
+.svr-tour-room-toggle__opt.current {
   background: #22ff88;
-  transform: scale(1.3);
+  color: #0a0a0a;
 }
+
+.svr-tour-room-toggle__opt.current:hover {
+  opacity: 0.9;
+}
+
 .svr-tour-divider {
   width: 1px;
   align-self: stretch;
@@ -270,28 +335,34 @@
   flex-shrink: 0;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
+
 .svr-tour-binaural-icon {
   font-size: 14px;
   line-height: 1;
   transition: filter 0.15s ease, opacity 0.15s ease;
 }
+
 .svr-tour-binaural-btn.on {
   background: #22ff55;
   border: 1px solid transparent;
   color: #0a0a0a;
 }
+
 .svr-tour-binaural-btn.on:hover {
   opacity: 0.9;
 }
+
 .svr-tour-binaural-btn.off {
   background: transparent;
   border: 1px solid var(--shell-border);
   color: var(--shell-text-dimmer);
 }
+
 .svr-tour-binaural-btn.off .svr-tour-binaural-icon {
   filter: grayscale(1);
   opacity: 0.6;
 }
+
 .svr-tour-binaural-btn.off:hover {
   background: var(--shell-panel-hover);
   color: var(--shell-text-dim);
@@ -318,10 +389,12 @@
   font-family: sans-serif;
   z-index: 60;
 }
+
 .svr-tour-hint-chip.open {
   padding: 8px 12px 10px 8px;
   cursor: default;
 }
+
 .svr-tour-hint-text {
   display: none;
   font-size: 11.5px;
@@ -329,9 +402,11 @@
   color: var(--shell-text-dim);
   padding-top: 5px;
 }
+
 .svr-tour-hint-chip.open .svr-tour-hint-text {
   display: block;
 }
+
 .svr-tour-hint-placement {
   margin-top: 4px;
   color: #7cfc9a;
@@ -344,7 +419,34 @@
   right: 16px;
   width: 320px;
   max-width: calc(100vw - 32px);
-  max-height: calc(100vh - 110px);
+  /* Sized against the *positioned ancestor's* own height (the root
+     `<div style={{height:"100%"}}>` PanoramaTour renders into — see
+     PanoramaTour.jsx's return statement), not against 100vh. That root div
+     already sits below the app's 60px Header (see App.jsx/Header.css) and
+     is exactly as tall as the room view, so `calc(100vh - Npx)` was quietly
+     assuming the panel's own container was the full browser window — on a
+     short window the panel's max-height came out taller than the room view
+     actually had room for below `top: 74px`, and since html/body/#root are
+     all `overflow: hidden` (see index.css) that overflow wasn't just
+     scrollable, it was genuinely unreachable (the footer's Back/Start
+     course buttons rendered off the bottom edge with no way to get to
+     them). `calc(100% - ...)` tracks the real available height instead —
+     it shrinks automatically on short windows (the panel's own
+     `overflow-y: auto` body, below, scrolls its content so the header/tabs/
+     footer stay put and visible) and keeps working even if the Header's
+     height or this panel's `top` offset ever changes, without needing a
+     second constant kept in sync here.
+
+     The 130px reserve is `top` (74px) + Photo Sphere Viewer's own bottom
+     navbar (zoom/caption/fullscreen — see the `navbar:` option passed to
+     `new Viewer(...)` in PanoramaTour.jsx) + a 16px gap. That navbar is a
+     PSV-owned absolutely-positioned bar pinned to the *same* container's
+     bottom edge at a fixed 40px height and z-index 90 — above this panel's
+     z-index 60 (see the z-index comment on .svr-tour-toolbar below) — so
+     without reserving its height here too, a tall panel's footer buttons
+     would sit right under it, half-covered and unclickable, exactly like
+     the viewport-overflow bug above just 40px higher up. */
+  max-height: calc(100% - 130px);
   background: var(--shell-bg);
   border: 1px solid var(--shell-border);
   border-radius: 14px;
@@ -358,16 +460,19 @@
   animation: svr-tour-slide-in 0.2s ease-out;
   z-index: 60;
 }
+
 @keyframes svr-tour-slide-in {
   from {
     opacity: 0;
     transform: translateY(-8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
+
 .svr-tour-gear-panel__head {
   display: flex;
   align-items: center;
@@ -375,6 +480,7 @@
   padding: 14px 16px 12px;
   border-bottom: 1px solid var(--shell-border-soft);
 }
+
 .svr-tour-gear-badge {
   display: flex;
   align-items: center;
@@ -388,15 +494,18 @@
   font-weight: 700;
   flex-shrink: 0;
 }
+
 .svr-tour-gear-panel__titles {
   min-width: 0;
   flex: 1;
 }
+
 .svr-tour-gear-panel__title {
   font-size: 14.5px;
   font-weight: 700;
   line-height: 1.2;
 }
+
 .svr-tour-gear-panel__kicker {
   font-size: 10.5px;
   text-transform: uppercase;
@@ -404,6 +513,7 @@
   color: var(--shell-text-dimmer);
   margin-top: 2px;
 }
+
 .svr-tour-gear-panel__close {
   width: 26px;
   height: 26px;
@@ -416,14 +526,17 @@
   flex-shrink: 0;
   line-height: 1;
 }
+
 .svr-tour-gear-panel__close:hover {
   background: var(--shell-panel-hover);
   color: var(--shell-text);
 }
+
 .svr-tour-gear-panel__body {
   padding: 14px 16px;
   overflow-y: auto;
 }
+
 .svr-tour-section-label {
   font-size: 10.5px;
   text-transform: uppercase;
@@ -434,22 +547,37 @@
 
 /* ---------- "Choose how to start" body (PanoramaTour.jsx's activeGear
    panel, quiz-inactive view) ------
-   Replaces what used to be a description + "what you'll learn" checklist:
-   selecting a hotspot no longer shows any read-only content screen at
-   all — just two big equally-weighted choices, "Test your knowledge" and
-   "Start course". Both go straight for the decision instead of easing into
-   it with copy first. */
+   Used to be a description + "what you'll learn" checklist, trimmed down to
+   just two big equally-weighted choices ("Test your knowledge"/the gear's
+   own lab, and "Start course") so the decision wasn't buried under copy.
+   .svr-tour-choice-intro below brings back one line of that — the topic's
+   existing TOPICS[].intro tagline — just above the two cards, so a visitor
+   still gets a one-line "what this teaches" before picking, without
+   reintroducing the fuller checklist this section deliberately dropped. */
 .svr-tour-choice-body {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
+
+.svr-tour-choice-intro {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--shell-text-dim);
+  margin: 2px 0 2px;
+}
+
+.svr-tour-choice-intro b {
+  color: var(--shell-text);
+}
+
 .svr-tour-choice-empty {
   font-size: 12.5px;
   line-height: 1.5;
   color: var(--shell-text-dimmer);
   margin: 4px 0;
 }
+
 .svr-tour-choice-card {
   display: flex;
   align-items: center;
@@ -462,9 +590,11 @@
   font-family: inherit;
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
 }
+
 .svr-tour-choice-card:active {
   transform: scale(0.99);
 }
+
 .svr-tour-choice-card-icon {
   flex-shrink: 0;
   width: 34px;
@@ -475,22 +605,26 @@
   justify-content: center;
   font-size: 15px;
 }
+
 .svr-tour-choice-card-text {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
+
 .svr-tour-choice-card-title {
   font-size: 13.5px;
   font-weight: 700;
   color: var(--shell-text);
 }
+
 .svr-tour-choice-card-sub {
   font-size: 11.5px;
   line-height: 1.4;
   color: var(--shell-text-dimmer);
 }
+
 /* "Test your knowledge" — the optional detour. Quieter dashed treatment so
    it reads as inviting-but-optional next to the solid "Start course" card
    below, same intent as the old svr-tour-btn-quiz footer button this
@@ -499,30 +633,37 @@
   background: rgba(34, 255, 85, 0.06);
   border: 1px dashed rgba(34, 255, 85, 0.35);
 }
+
 .svr-tour-choice-card--quiz:hover {
   background: rgba(34, 255, 85, 0.12);
   border-color: rgba(34, 255, 85, 0.55);
 }
+
 .svr-tour-choice-card--quiz .svr-tour-choice-card-icon {
   background: rgba(34, 255, 85, 0.14);
 }
+
 /* "Start course" — the direct/default path, solid green to match
    svr-tour-btn-primary's weight elsewhere in this file. */
 .svr-tour-choice-card--course {
   background: #22ff55;
   border: 1px solid transparent;
 }
+
 .svr-tour-choice-card--course:hover {
   opacity: 0.92;
 }
+
 .svr-tour-choice-card--course .svr-tour-choice-card-icon {
   background: rgba(10, 10, 10, 0.12);
   color: #0a0a0a;
 }
+
 .svr-tour-choice-card--course .svr-tour-choice-card-title,
 .svr-tour-choice-card--course .svr-tour-choice-card-sub {
   color: #0a0a0a;
 }
+
 .svr-tour-choice-card--course .svr-tour-choice-card-sub {
   opacity: 0.75;
 }
@@ -534,6 +675,7 @@
   padding: 12px 16px 14px;
   border-top: 1px solid var(--shell-border-soft);
 }
+
 /* Wraps a row of buttons within the footer (e.g. the knowledge-check
    results screen's "Back" / "Start course" pair below) — the footer itself
    stacks rows top to bottom, each row lays its own buttons out side by
@@ -542,6 +684,7 @@
   display: flex;
   gap: 8px;
 }
+
 .svr-tour-btn {
   flex: 1;
   padding: 9px 0;
@@ -552,22 +695,27 @@
   text-align: center;
   transition: opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
+
 .svr-tour-btn-primary {
   background: #22ff55;
   color: #0a0a0a;
   border: none;
 }
+
 .svr-tour-btn-primary:hover {
   opacity: 0.9;
 }
+
 .svr-tour-btn-secondary {
   background: var(--shell-panel);
   color: var(--shell-text);
   border: 1px solid var(--shell-border);
 }
+
 .svr-tour-btn-secondary:hover {
   background: var(--shell-panel-hover);
 }
+
 .svr-tour-btn:disabled {
   opacity: 0.45;
   cursor: default;
@@ -591,6 +739,7 @@
   gap: 4px;
   padding: 0 16px 12px;
 }
+
 .svr-tour-precheck-progress-seg {
   flex: 1;
   height: 3px;
@@ -598,13 +747,21 @@
   background: var(--shell-border);
   transition: background 0.2s ease, box-shadow 0.2s ease;
 }
-.svr-tour-precheck-progress-seg.filled {
-  background: #22ff55;
-  box-shadow: 0 0 6px rgba(34, 255, 85, 0.4);
+
+.svr-tour-precheck-progress-seg.correct {
+  background: #22c76a;
+  box-shadow: 0 0 6px rgba(34, 199, 106, 0.4);
 }
-.svr-tour-precheck-progress-seg.current:not(.filled) {
+
+.svr-tour-precheck-progress-seg.incorrect {
+  background: #ff5c5c;
+  box-shadow: 0 0 6px rgba(255, 92, 92, 0.4);
+}
+
+.svr-tour-precheck-progress-seg.current:not(.correct):not(.incorrect) {
   background: var(--shell-text-dimmer);
 }
+
 .svr-tour-precheck-skip {
   align-self: center;
   background: none;
@@ -616,25 +773,30 @@
   text-underline-offset: 2px;
   cursor: pointer;
 }
+
 .svr-tour-precheck-skip:hover {
   color: var(--shell-text-dim);
 }
+
 .svr-tour-precheck-score {
   text-align: center;
   padding: 10px 12px 16px;
   border-bottom: 1px solid var(--shell-border-soft);
   margin-bottom: 14px;
 }
+
 .svr-tour-precheck-score-value {
   font-size: 26px;
   font-weight: 800;
   color: var(--shell-text);
 }
+
 .svr-tour-precheck-score-note {
   margin-top: 4px;
   font-size: 12px;
   color: var(--shell-text-dimmer);
 }
+
 .svr-tour-precheck-recap {
   list-style: none;
   margin: 0;
@@ -643,6 +805,7 @@
   flex-direction: column;
   gap: 8px;
 }
+
 .svr-tour-precheck-recap li {
   display: flex;
   gap: 8px;
@@ -650,6 +813,7 @@
   line-height: 1.45;
   color: var(--shell-text-dim);
 }
+
 .svr-tour-precheck-recap-mark {
   flex-shrink: 0;
   width: 16px;
@@ -662,31 +826,37 @@
   justify-content: center;
   margin-top: 2px;
 }
+
 .svr-tour-precheck-recap li.good .svr-tour-precheck-recap-mark {
   background: rgba(34, 199, 106, 0.15);
   color: #22c76a;
 }
+
 .svr-tour-precheck-recap li.bad .svr-tour-precheck-recap-mark {
   background: rgba(255, 92, 92, 0.15);
   color: #ff5c5c;
 }
+
 .svr-tour-precheck-lede {
   margin: 0 0 12px;
   font-size: 12px;
   line-height: 1.5;
   color: var(--shell-text-dimmer);
 }
+
 .svr-tour-precheck-question {
   font-size: 13.5px;
   font-weight: 600;
   line-height: 1.45;
   margin-bottom: 12px;
 }
+
 .svr-tour-precheck-options {
   display: flex;
   flex-direction: column;
   gap: 7px;
 }
+
 .svr-tour-precheck-option {
   display: flex;
   align-items: center;
@@ -703,12 +873,15 @@
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
+
 .svr-tour-precheck-option:hover:not(:disabled) {
   background: var(--shell-panel-hover);
 }
+
 .svr-tour-precheck-option:disabled {
   cursor: default;
 }
+
 .svr-tour-precheck-option-mark {
   flex-shrink: 0;
   width: 14px;
@@ -716,29 +889,36 @@
   border-radius: 50%;
   border: 1.5px solid var(--shell-border);
 }
+
 .svr-tour-precheck-option.selected {
   border-color: #22ff55;
 }
+
 .svr-tour-precheck-option.selected .svr-tour-precheck-option-mark {
   border-color: #22ff55;
   background: #22ff55;
 }
+
 .svr-tour-precheck-option.correct {
   border-color: #22c76a;
   background: rgba(34, 199, 106, 0.12);
 }
+
 .svr-tour-precheck-option.correct .svr-tour-precheck-option-mark {
   border-color: #22c76a;
   background: #22c76a;
 }
+
 .svr-tour-precheck-option.incorrect {
   border-color: #ff5c5c;
   background: rgba(255, 92, 92, 0.1);
 }
+
 .svr-tour-precheck-option.incorrect .svr-tour-precheck-option-mark {
   border-color: #ff5c5c;
   background: #ff5c5c;
 }
+
 .svr-tour-precheck-feedback {
   margin-top: 12px;
   padding: 10px 12px;
@@ -746,10 +926,12 @@
   font-size: 12px;
   line-height: 1.5;
 }
+
 .svr-tour-precheck-feedback.good {
   background: rgba(34, 199, 106, 0.12);
   color: #7dffb8;
 }
+
 .svr-tour-precheck-feedback.bad {
   background: rgba(255, 92, 92, 0.1);
   color: #ff9d9d;
@@ -774,6 +956,7 @@
   animation: svr-tour-slide-in 0.2s ease-out;
   z-index: 60;
 }
+
 .svr-tour-volume-panel__head {
   display: flex;
   align-items: center;
@@ -781,10 +964,12 @@
   padding: 14px 16px 12px;
   border-bottom: 1px solid var(--shell-border-soft);
 }
+
 .svr-tour-volume-panel__icon {
   font-size: 15px;
   flex-shrink: 0;
 }
+
 .svr-tour-volume-panel__title {
   flex: 1;
   min-width: 0;
@@ -792,20 +977,24 @@
   font-weight: 700;
   line-height: 1.2;
 }
+
 .svr-tour-volume-panel__body {
   padding: 14px 16px 16px;
 }
+
 .svr-tour-volume-panel__desc {
   font-size: 12.5px;
   line-height: 1.55;
   color: var(--shell-text-dim);
   margin-bottom: 14px;
 }
+
 .svr-tour-volume-row {
   display: flex;
   align-items: center;
   gap: 10px;
 }
+
 .svr-tour-volume-slider {
   flex: 1;
   -webkit-appearance: none;
@@ -816,10 +1005,12 @@
   outline: none;
   cursor: pointer;
 }
+
 .svr-tour-volume-slider:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
 .svr-tour-volume-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -831,6 +1022,7 @@
   cursor: pointer;
   border: 2px solid #0a0a0a;
 }
+
 .svr-tour-volume-slider::-moz-range-thumb {
   width: 15px;
   height: 15px;
@@ -840,6 +1032,7 @@
   cursor: pointer;
   border: 2px solid #0a0a0a;
 }
+
 .svr-tour-volume-val {
   min-width: 44px;
   text-align: right;
@@ -861,6 +1054,7 @@
   font-family: sans-serif;
   background: var(--shell-page-bg);
 }
+
 .svr-tour-spinner {
   width: 32px;
   height: 32px;
@@ -869,15 +1063,89 @@
   border-top-color: #22ff88;
   animation: svr-tour-spin 0.9s linear infinite;
 }
+
 @keyframes svr-tour-spin {
   to {
     transform: rotate(360deg);
   }
 }
+
 .svr-tour-loading-text {
   font-size: 13px;
   color: var(--shell-text-dim);
 }
+
 .svr-tour-error-text {
   color: #f66;
+}
+
+/* Gates the whole scene — the panorama viewer (drag-to-look, scroll-to-zoom)
+   plus every marker and panel it can open — behind the Studio's power-up
+   game in the left-docked side panel (StudioHotspotsPanel), which is
+   deliberately rendered as a sibling *outside* .svr-tour-lockable so it
+   stays usable while everything else here is locked. See the onPoweredChange
+   wiring in PanoramaTour.jsx. */
+.svr-tour-lockable {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  /* Smoothly desaturate/dim in and out rather than snapping, so powering up
+     reads as the rig visibly coming back to life instead of a hard cut. */
+  transition: filter 0.5s ease;
+}
+
+.svr-tour-locked {
+  filter: grayscale(1) brightness(0.5) contrast(0.95);
+  /* Blocks clicks, drags, and wheel/scroll input on everything inside,
+     including the photo-sphere-viewer's own internal drag-to-look and
+     scroll-to-zoom handlers — pointer-events: none on an ancestor removes
+     its entire subtree from hit-testing unless a descendant explicitly
+     opts back in. One thing does: the markers plugin's own stylesheet
+     (@photo-sphere-viewer/markers-plugin/index.css) sets `.psv-markers
+     { pointer-events: none }` on the markers layer but then `.psv-marker
+     { pointer-events: auto }` on every individual marker, specifically so
+     markers stay clickable while the layer they sit in doesn't intercept
+     drag-to-look. That's exactly right when the scene is unlocked, but it
+     also meant hotspots stayed clickable while powered down — see the
+     override just below. */
+  pointer-events: none;
+}
+
+/* Wins over the markers plugin's own `.psv-marker { pointer-events: auto }`
+   (see the comment above) by being more specific, so hotspots actually go
+   unclickable while the rig is powered down instead of just looking that
+   way. */
+.svr-tour-locked .psv-marker {
+  pointer-events: none;
+}
+
+/* Small pill telling the visitor why the scene is dimmed and where to go
+   fix that — sits outside .svr-tour-lockable (see PanoramaTour.jsx) so it
+   stays fully legible instead of getting grayscaled along with everything
+   it's explaining. Bottom-center, out of the way of the toolbar/hint chip
+   (top) and the docked panel (left). */
+.svr-tour-locked-banner {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #F5A623;
+  border: 1px solid var(--shell-border);
+  border-radius: 999px;
+  padding: 8px 16px;
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow);
+  font-family: sans-serif;
+  font-size: 13px;
+  color: #141418;
+  max-width: calc(100vw - 32px);
+  text-align: center;
+  pointer-events: none;
+  /* Same reasoning as the floating panels above (see the z-index: 60 note
+     near .svr-tour-toolbar) — comfortably above Photo Sphere Viewer's own
+     marker layer. */
+  z-index: 60;
 }

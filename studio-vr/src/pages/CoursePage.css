@@ -14,7 +14,20 @@
 
   width: 100%;
   height: 100%;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  /* Above 960px wide, .course-topbar and .course-layout below each own
+     their own scrolling (course-layout's two columns scroll independently
+     via flex + min-height: 0), so this container itself doesn't need to
+     scroll — see the media query at the bottom of this file for the <960px
+     case, which stacks the columns and switches this back to being the one
+     thing that scrolls. Either way, this avoids the old bug where the
+     sidebar's own scroll height was calculated from 100vh without knowing
+     about the shell header rendered above this page (see App.jsx), which
+     silently pushed its last few chapters past the bottom of the browser
+     window with no way to reach them — sizing off this flex layout instead
+     of the viewport means it can't get that wrong again. */
+  overflow-y: hidden;
   /* Safety net: nothing on this page should ever be able to push it wider
      than the viewport (see .course-main's min-width fix below for the
      actual root cause) — this just guarantees a rogue element can't shift
@@ -75,8 +88,7 @@
     justify-content: space-between;
     padding: 16px 32px;
     border-bottom: 1px solid var(--border-soft);
-    position: sticky;
-    top: 0;
+    flex-shrink: 0;
     background: rgba(5, 5, 7, 0.92);
     backdrop-filter: blur(8px);
     z-index: 10;
@@ -180,19 +192,35 @@
 
   .course-layout {
     display: grid;
-    grid-template-columns: 300px 1fr;
-    align-items: start;
+    grid-template-columns: 360px 1fr;
+    /* Definite height (the leftover space below .course-topbar in the flex
+       column above), so the single implicit row fills it and the sidebar/
+       main columns below can each scroll within their own share of it. */
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .course-sidebar {
     border-right: 1px solid var(--border-soft);
     padding: 20px 0;
-    position: sticky;
-    top: 78px;
-    max-height: calc(100vh - 78px);
+    box-sizing: border-box;
+    /* .course-layout has a definite height (see above), so this can just
+       fill its grid cell and scroll internally — no more guessing at
+       100vh minus every ancestor's height (topbar, the global shell header
+       this page doesn't even know about) to size it, which is what let the
+       last few chapters end up rendered past the bottom of the browser
+       window with no way to scroll to them. */
+    height: 100%;
     overflow-y: auto;
+    /* Without this, setting overflow-y here makes the browser treat
+       overflow-x as "auto" too (per spec, a non-"visible" overflow-y forces
+       the other axis out of "visible"), which was enabling a stray
+       horizontal scrollbar even though nothing here actually needs one now
+       that row text wraps normally. Pin it closed explicitly. */
+    overflow-x: hidden;
     /* Grid items default to min-width: auto (shrink-to-fit their content's
-       intrinsic width), which can silently override the 300px track and
+       intrinsic width), which can silently override the 360px track and
        force the whole grid — and the page — wider than the viewport. This
        lets it actually shrink to the track width instead. */
     min-width: 0;
@@ -205,6 +233,65 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--text-dimmer);
+  }
+
+  /* Module accordion — one level up from the topic accordion below. Only
+     modules with at least one topic in TOPICS ever render (see CoursePage's
+     filter), so this never shows an empty group for a module that doesn't
+     have any authored chapters yet. */
+  .module-block {
+    border-bottom: 1px solid var(--border-soft);
+    padding-bottom: 2px;
+  }
+  .module-block:last-child {
+    border-bottom: none;
+  }
+
+  .module-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 11.5px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dimmer);
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
+  }
+  .module-head:hover {
+    color: var(--text-dim);
+  }
+  .module-head .chev {
+    transition: transform 0.2s ease;
+    font-size: 9px;
+    flex-shrink: 0;
+  }
+  .module-head.open .chev {
+    transform: rotate(90deg);
+  }
+  .module-head .mname {
+    flex: 1;
+  }
+  .module-head .tcount {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-dimmer);
+    text-transform: none;
+    letter-spacing: normal;
+  }
+
+  .module-topics {
+    display: none;
+    flex-direction: column;
+  }
+  .module-topics.open {
+    display: flex;
   }
 
   .topic-block {
@@ -252,8 +339,23 @@
   .topic-head.open .chev {
     transform: rotate(90deg);
   }
-  .topic-head .tname {
+  .topic-head .tname-col {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .topic-head .tname {
+    line-height: 1.3;
+  }
+  .topic-head .tloc {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-dimmer);
+  }
+  .topic-head .tloc.anchored {
+    color: rgba(125, 255, 184, 0.7);
   }
   .topic-head .tcount {
     font-size: 10.5px;
@@ -343,6 +445,13 @@
 
   .course-main {
     padding: 36px 48px 90px;
+    box-sizing: border-box;
+    /* Scrolls independently of the sidebar now — see .course-layout and
+       .course-sidebar above. The sticky "stays in view while lesson text
+       scrolls past it" 3D model box further down (.topic-model-box) sticks
+       relative to this scroll, which is exactly the effect it's after. */
+    height: 100%;
+    overflow-y: auto;
     /* Same fix as .course-sidebar: without this, this column's min-width
        defaults to its content's intrinsic width instead of the 1fr track,
        so it can force the grid wider than the viewport. */
@@ -375,6 +484,26 @@
     margin: 0 0 10px;
     letter-spacing: -0.01em;
   }
+
+  .loc-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    margin-bottom: 18px;
+    border: 1px solid var(--border-soft);
+    color: var(--text-dim);
+    background: rgba(255, 255, 255, 0.03);
+  }
+  .loc-chip.anchored {
+    color: var(--accent);
+    background: rgba(125, 255, 184, 0.08);
+    border-color: rgba(125, 255, 184, 0.3);
+  }
+
   .topic-intro {
     font-size: 14.5px;
     line-height: 1.7;
@@ -604,17 +733,28 @@
   }
 
   @media (max-width: 960px) {
+    /* Below this width the two columns stack instead of sitting side by
+       side, so there's no more reason for either one to scroll on its
+       own — switch back to the whole page scrolling as one, with the
+       sidebar and main column both back in normal document flow. */
+    & {
+      overflow-y: auto;
+    }
     .course-layout {
       grid-template-columns: 1fr;
+      flex: none;
+      min-height: 0;
+      overflow: visible;
     }
     .course-sidebar {
-      position: relative;
-      top: 0;
-      max-height: none;
+      height: auto;
+      overflow-y: visible;
       border-right: none;
       border-bottom: 1px solid var(--border-soft);
     }
     .course-main {
+      height: auto;
+      overflow-y: visible;
       padding: 28px 22px 70px;
     }
     .lesson-body-row {

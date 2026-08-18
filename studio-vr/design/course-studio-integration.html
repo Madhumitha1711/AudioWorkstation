@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studio VR — Course/Studio integration concept</title>
+<style>
+  /* ===== tokens copied verbatim from the real app (index.css / CoursePage.css /
+     studioHotspotsPanel.css / Header.css) so this reads as "the app", not a
+     new visual language. ===== */
+  :root {
+    --shell-bg: rgba(8, 9, 12, 0.92);
+    --shell-panel: rgba(255, 255, 255, 0.04);
+    --shell-panel-hover: rgba(255, 255, 255, 0.08);
+    --shell-border: rgba(255, 255, 255, 0.12);
+    --shell-border-soft: rgba(255, 255, 255, 0.08);
+    --shell-text: #ffffff;
+    --shell-text-dim: rgba(255, 255, 255, 0.65);
+    --shell-text-dimmer: rgba(255, 255, 255, 0.45);
+    --shell-accent-ink: #04160a;
+    --shell-gradient-accent: radial-gradient(circle at 32% 28%, #7dffb8, #17c76a 70%);
+    --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+    --mono: ui-monospace, Consolas, monospace;
+
+    --bg: #050507;
+    --panel: rgba(255, 255, 255, 0.04);
+    --panel-hover: rgba(255, 255, 255, 0.07);
+    --border: rgba(255, 255, 255, 0.12);
+    --border-soft: rgba(255, 255, 255, 0.08);
+    --text: #ffffff;
+    --text-dim: rgba(255, 255, 255, 0.65);
+    --text-dimmer: rgba(255, 255, 255, 0.45);
+    --accent: #7dffb8;
+    --accent2: #17c76a;
+    --accent-ink: #04160a;
+    --gradient-accent: radial-gradient(circle at 32% 28%, var(--accent), var(--accent2) 70%);
+
+    --hsp-hair: rgba(255, 255, 255, 0.08);
+    --hsp-hair-strong: rgba(255, 255, 255, 0.12);
+    --hsp-gold: #22c76a;
+    --hsp-gold-dim: #1a9c56;
+    --hsp-gold-glow: rgba(34, 199, 106, 0.35);
+    --hsp-on: #22c76a;
+    --hsp-on-glow: rgba(34, 199, 106, 0.35);
+    --hsp-off: rgba(255, 255, 255, 0.45);
+    --hsp-off-bg: rgba(255, 255, 255, 0.04);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--shell-page-bg, #08090b); }
+  body {
+    font: 14px/1.5 var(--sans);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- concept switcher (review aid only — not app chrome) ---------- */
+  .concept-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; background: #000; border-bottom: 1px dashed rgba(255,255,255,0.2);
+    font-family: var(--mono); font-size: 11px; color: var(--text-dimmer);
+  }
+  .concept-bar b { color: var(--text); font-family: var(--sans); }
+  .concept-tabs { display: flex; gap: 6px; margin-left: auto; }
+  .concept-tab {
+    padding: 6px 12px; border-radius: 999px; border: 1px solid var(--shell-border-soft);
+    background: var(--shell-panel); color: var(--shell-text-dim); cursor: pointer; font-family: var(--sans);
+    font-size: 12px; font-weight: 600;
+  }
+  .concept-tab.active { background: var(--shell-gradient-accent); color: var(--shell-accent-ink); border-color: transparent; }
+
+  /* ---------- shared header (real Header.jsx / Header.css, unmodified) ---------- */
+  .svr-shell-header {
+    height: 60px; display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding: 0 24px; background: var(--shell-bg); backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--shell-border-soft); color: var(--shell-text);
+  }
+  .shell-brand { display: inline-flex; align-items: center; gap: 10px; background: none; border: none; color: inherit; cursor: pointer; }
+  .shell-logo-mark { width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--shell-gradient-accent); color: var(--shell-accent-ink); font-size: 14px; font-weight: 700; }
+  .shell-brand-name { font-size: 14.5px; font-weight: 700; letter-spacing: -0.01em; }
+  .shell-header-right { display: flex; align-items: center; gap: 16px; }
+  .shell-greeting { font-size: 13px; opacity: 0.75; }
+  .shell-nav { display: flex; gap: 2px; padding: 4px; background: var(--shell-panel); border: 1px solid var(--shell-border-soft); border-radius: 999px; }
+  .shell-nav-link { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; background: transparent; color: var(--shell-text-dim); border: none; border-radius: 999px; font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: var(--sans); }
+  .shell-nav-link.active { background: var(--shell-gradient-accent); color: var(--shell-accent-ink); }
+  .shell-icon-btn { width: 32px; height: 32px; border-radius: 50%; background: var(--shell-panel); color: var(--shell-text-dim); border: 1px solid var(--shell-border-soft); display: inline-flex; align-items: center; justify-content: center; }
+
+  .view { display: none; height: calc(100vh - 60px - 37px); }
+  .view.active { display: block; }
+
+  /* ================= COURSE VIEW ================= */
+  #courseView { overflow-y: auto; background: var(--bg); }
+  .course-topbar {
+    display: flex; align-items: center; justify-content: space-between; padding: 16px 32px;
+    border-bottom: 1px solid var(--border-soft); position: sticky; top: 0;
+    background: rgba(5,5,7,0.92); backdrop-filter: blur(8px); z-index: 10; gap: 16px; flex-wrap: wrap;
+  }
+  .course-crumb { font-size: 11.5px; color: var(--text-dimmer); margin-bottom: 3px; }
+  .course-crumb b { color: var(--text-dim); font-weight: 600; }
+  .course-title-block h1 { color: var(--text); font-size: 16.5px; margin: 0 0 4px; font-weight: 800; }
+  .progress-wrap { display: flex; align-items: center; gap: 10px; }
+  .progress-track { width: 180px; height: 6px; border-radius: 99px; background: rgba(255,255,255,0.08); overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--gradient-accent); border-radius: 99px; }
+  .progress-label { font-size: 11.5px; color: var(--text-dimmer); }
+  .btn-primary { display: inline-flex; align-items: center; gap: 8px; padding: 11px 22px; border-radius: 999px; border: none; cursor: pointer; background: var(--gradient-accent); color: var(--accent-ink); font-weight: 700; font-size: 13px; font-family: var(--sans); }
+
+  .course-layout { display: grid; grid-template-columns: 320px 1fr; align-items: start; }
+  .course-sidebar { border-right: 1px solid var(--border-soft); padding: 16px 0; position: sticky; top: 0; max-height: calc(100vh - 60px - 37px - 71px); overflow-y: auto; }
+
+  .module-block { margin-bottom: 2px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+  .module-head { display: flex; align-items: center; gap: 10px; padding: 12px 20px; cursor: pointer; }
+  .module-head:hover { background: var(--panel); }
+  .module-num { font-family: var(--mono); font-size: 10px; color: var(--text-dimmer); width: 16px; flex-shrink: 0; }
+  .module-name { flex: 1; font-size: 12.5px; font-weight: 800; letter-spacing: 0.02em; color: var(--text-dim); }
+  .module-count { font-size: 10.5px; color: var(--text-dimmer); font-weight: 600; }
+  .module-chev { font-size: 9px; color: var(--text-dimmer); transition: transform .2s ease; }
+  .module-block.open .module-chev { transform: rotate(90deg); }
+
+  .chapter-list { display: none; flex-direction: column; padding: 2px 10px 8px 14px; }
+  .module-block.open .chapter-list { display: flex; }
+
+  .chapter-head { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; cursor: pointer; border-left: 2px solid transparent; }
+  .chapter-head:hover { background: var(--panel); }
+  .chapter-head.current { background: rgba(125,255,184,0.06); border-left-color: var(--accent); }
+  .chapter-head.locked { cursor: default; opacity: 0.5; }
+
+  .ch-badge {
+    width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 9.5px; font-weight: 700; background: rgba(255,255,255,0.06); color: var(--text-dimmer); border: 1px solid var(--border-soft);
+  }
+  .chapter-head.current .ch-badge { background: var(--gradient-accent); color: var(--accent-ink); border-color: transparent; }
+  .chapter-head.anchored .ch-badge { border-color: rgba(125,255,184,0.35); color: var(--accent); }
+
+  .ch-info { flex: 1; min-width: 0; }
+  .ch-title-row { font-size: 12.5px; font-weight: 600; color: var(--text-dim); }
+  .chapter-head:hover .ch-title-row, .chapter-head.current .ch-title-row { color: #fff; }
+  .ch-loc { font-size: 9.5px; color: var(--text-dimmer); display: flex; align-items: center; gap: 4px; margin-top: 2px; font-family: var(--mono); }
+  .ch-loc.anchored { color: rgba(125,255,184,0.75); }
+  .ch-soon { font-size: 9px; font-weight: 800; text-transform: uppercase; color: var(--text-dimmer); background: rgba(255,255,255,0.06); padding: 3px 7px; border-radius: 999px; flex-shrink: 0; }
+
+  .course-main { padding: 32px 44px 80px; }
+  .course-content { max-width: 780px; margin: 0 auto; }
+  .topic-eyebrow { font-size: 11.5px; color: var(--accent); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
+  .topic-heading { color: var(--text); font-size: 28px; font-weight: 800; margin: 0 0 10px; letter-spacing: -0.01em; }
+  .loc-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 11.5px; font-weight: 600; margin-bottom: 18px; border: 1px solid var(--border-soft); }
+  .loc-chip.anchored { color: var(--accent); background: rgba(125,255,184,0.08); border-color: rgba(125,255,184,0.3); }
+  .loc-chip.briefing { color: var(--text-dim); background: var(--panel); }
+  .topic-intro { font-size: 14.5px; color: var(--text-dim); line-height: 1.6; margin-bottom: 20px; }
+  .lesson-video { position: relative; border-radius: 14px; overflow: hidden; background: linear-gradient(135deg,#141517,#0b0c0e); aspect-ratio: 16/7; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border-soft); }
+  .play-btn { width: 52px; height: 52px; border-radius: 50%; background: var(--gradient-accent); }
+  .lesson-article p { color: var(--text-dim); font-size: 14px; line-height: 1.7; margin: 0 0 14px; }
+  .studio-cta { margin-top: 28px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 22px; border-radius: 14px; background: var(--panel); border: 1px solid var(--border-soft); }
+  .studio-cta.briefing { opacity: 0.7; }
+  .studio-cta h4 { margin: 0 0 4px; font-size: 13.5px; }
+  .studio-cta p { margin: 0; font-size: 12.5px; color: var(--text-dim); }
+  .btn-secondary { padding: 9px 16px; border-radius: 999px; background: rgba(255,255,255,0.06); color: var(--text); font-weight: 600; font-size: 12.5px; border: 1px solid var(--border); cursor: pointer; font-family: var(--sans); white-space: nowrap; }
+
+  /* ================= STUDIO VIEW ================= */
+  #studioView { position: relative; background:
+      radial-gradient(circle at 30% 20%, rgba(34,199,106,0.06), transparent 45%),
+      radial-gradient(circle at 75% 80%, rgba(34,199,106,0.05), transparent 45%),
+      linear-gradient(180deg, #1c1e22, #0a0b0d);
+    overflow: hidden;
+  }
+  .rig-silhouette { position: absolute; left: 50%; bottom: 6%; transform: translateX(-50%); width: 46%; opacity: 0.35; }
+  .rig-silhouette svg { width: 100%; display: block; filter: drop-shadow(0 20px 40px rgba(0,0,0,0.6)); }
+
+  .studio-toppill {
+    position: absolute; top: 22px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 10px; padding: 6px; border-radius: 999px;
+    background: var(--shell-bg); border: 1px solid var(--shell-border-soft); backdrop-filter: blur(12px); z-index: 5;
+  }
+  .room-pill { display: flex; border-radius: 999px; overflow: hidden; }
+  .room-pill button { padding: 8px 16px; font-size: 12px; font-weight: 700; border: none; background: transparent; color: var(--shell-text-dim); cursor: pointer; font-family: var(--sans); border-radius: 999px; }
+  .room-pill button.active { background: var(--shell-gradient-accent); color: var(--shell-accent-ink); }
+
+  .hotspot-panel {
+    position: absolute; top: 0; left: 0; bottom: 0; width: 320px; z-index: 6;
+    background: rgba(8,9,12,0.92); backdrop-filter: blur(14px); border-right: 1px solid var(--hsp-hair-strong);
+    display: flex; flex-direction: column; color: #fff;
+  }
+  .hsp-header { padding: 20px 20px 14px; border-bottom: 1px solid var(--hsp-hair); }
+  .hsp-eyebrow { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--hsp-gold); text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+  .hsp-eyebrow::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--hsp-on); box-shadow: 0 0 8px var(--hsp-on-glow); }
+  .hsp-title { font-size: 17px; font-weight: 700; margin: 8px 0 4px; }
+  .hsp-sub { font-size: 11.5px; color: rgba(255,255,255,0.55); line-height: 1.5; margin: 0; }
+
+  .hsp-list { padding: 6px 8px 14px; overflow-y: auto; }
+  .hsp-row { display: flex; align-items: center; gap: 11px; padding: 10px 10px; border-radius: 8px; }
+  .hsp-row:hover { background: rgba(255,255,255,0.03); }
+  .hsp-num { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 10px; font-weight: 700; background: var(--hsp-gold); color: #04160a; box-shadow: 0 0 8px var(--hsp-gold-glow); }
+  .hsp-row.dim .hsp-num { background: var(--hsp-off-bg); color: var(--hsp-off); border: 1px solid var(--hsp-hair); }
+  .hsp-row .hsp-info { flex: 1; }
+  .hsp-row .hsp-name { font-size: 12.5px; font-weight: 600; }
+  .hsp-row .hsp-meta { font-family: var(--mono); font-size: 9.5px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+  .hsp-chapcount { font-family: var(--mono); font-size: 9px; padding: 2px 7px; border-radius: 999px; background: rgba(34,199,106,0.14); color: var(--hsp-gold); border: 1px solid rgba(34,199,106,0.3); }
+  .hsp-group-label { padding: 12px 12px 4px; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.35); }
+  .hsp-row.book .hsp-num { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.55); border: 1px solid var(--hsp-hair); font-size: 12px; box-shadow: none; }
+  .hsp-row.book .hsp-meta { color: rgba(255,255,255,0.35); }
+
+  .badge {
+    position: absolute; width: 34px; height: 34px; border-radius: 50%;
+    background: rgba(34,199,106,0.18); border: 1.5px solid var(--hsp-gold); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-weight: 700; font-size: 12px;
+    box-shadow: 0 0 14px var(--hsp-gold-glow); cursor: pointer; z-index: 4;
+  }
+  .badge.daw { background: rgba(255,255,255,0.1); }
+  .badge .count {
+    position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; color: #04160a; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800;
+  }
+
+  .daw-popover {
+    position: absolute; width: 260px; background: rgba(10,11,14,0.97); border: 1px solid var(--hsp-hair-strong);
+    border-radius: 12px; padding: 12px; z-index: 8; display: none; backdrop-filter: blur(10px);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+  }
+  .daw-popover.show { display: block; }
+  .daw-popover-title { font-size: 11.5px; font-weight: 700; margin-bottom: 8px; color: var(--hsp-gold); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.06em; }
+  .daw-popover-item { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 7px; font-size: 12px; }
+  .daw-popover-item:hover { background: rgba(255,255,255,0.06); }
+  .daw-popover-item .n { font-family: var(--mono); font-size: 9.5px; color: rgba(255,255,255,0.4); width: 18px; }
+
+  .legend-note {
+    position: absolute; bottom: 18px; right: 18px; font-family: var(--mono); font-size: 10px; color: rgba(255,255,255,0.4);
+    background: rgba(0,0,0,0.4); padding: 8px 12px; border-radius: 8px; max-width: 260px; line-height: 1.6; z-index: 5;
+  }
+</style>
+</head>
+
+<body>
+
+  <div class="concept-bar">
+    <b>Concept mockup</b> — how the 25-chapter design lives inside the real Course/Studio tabs (not a new screen)
+    <div class="concept-tabs">
+      <div class="concept-tab" data-view="courseView">Course tab</div>
+      <div class="concept-tab active" data-view="studioView">Studio tab — lands here first</div>
+    </div>
+  </div>
+
+  <header class="svr-shell-header">
+    <button class="shell-brand"><span class="shell-logo-mark">◎</span><span class="shell-brand-name">Studio VR</span></button>
+    <div class="shell-header-right">
+      <span class="shell-greeting">Hi, Student</span>
+      <nav class="shell-nav">
+        <button class="shell-nav-link nav-course">📘 Course</button>
+        <button class="shell-nav-link nav-studio active">🎙 Studio</button>
+        <button class="shell-nav-link">💬 Discussion</button>
+      </nav>
+      <span class="shell-icon-btn">⏻</span>
+      <span class="shell-icon-btn">☀</span>
+    </div>
+  </header>
+
+  <!-- ================= COURSE VIEW ================= -->
+  <div class="view" id="courseView">
+    <div class="course-topbar">
+      <div>
+        <div class="course-crumb">Module 3 · Capture &amp; Signal Path &nbsp;/&nbsp; <b>Connectors, Cables &amp; Studio Wiring</b></div>
+        <div class="course-title-block">
+          <h1>Studio VR — Audio Engineering</h1>
+          <div class="progress-wrap">
+            <div class="progress-track"><div class="progress-fill" style="width:16%"></div></div>
+            <span class="progress-label">4 / 25 chapters complete</span>
+          </div>
+        </div>
+      </div>
+      <button class="btn-primary">← Back to the studio</button>
+    </div>
+
+    <div class="course-layout">
+      <aside class="course-sidebar" id="sidebar"></aside>
+      <main class="course-main">
+        <div class="course-content">
+          <div class="topic-eyebrow">Module 3 · Capture &amp; Signal Path</div>
+          <h1 class="topic-heading">Connectors, Cables, and Studio Wiring</h1>
+          <div class="loc-chip anchored">📍 Anchored — Control Room · Patch Bay hotspot</div>
+          <p class="topic-intro">Understand XLR, TRS, TS, RCA, MIDI, USB, speaker cables, balanced and unbalanced connections, and basic studio cable management.</p>
+          <div class="lesson-video"><div class="play-btn"></div></div>
+          <div class="lesson-article" style="margin-top:20px">
+            <p>A patch bay exposes the inputs and outputs of every piece of gear in the room on a single panel, letting an engineer route signal between the console, outboard gear, and DAW interface using patch cables instead of permanently wiring everything together...</p>
+          </div>
+          <div class="studio-cta">
+            <div><h4>Back in the control room?</h4><p>This chapter's hotspot is the Patch Bay — look for badge 08.</p></div>
+            <button class="btn-secondary">← Back to the studio</button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- ================= STUDIO VIEW ================= -->
+  <div class="view active" id="studioView">
+    <div class="studio-toppill">
+      <div class="room-pill">
+        <button class="active">Control Room</button>
+        <button>Recording Room</button>
+      </div>
+    </div>
+
+    <div class="rig-silhouette">
+      <svg viewBox="0 0 600 220" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.5">
+        <rect x="40" y="30" width="520" height="120" rx="6"/>
+        <rect x="150" y="10" width="300" height="90" rx="4"/>
+        <line x1="60" y1="150" x2="60" y2="200"/><line x1="540" y1="150" x2="540" y2="200"/>
+        <rect x="20" y="40" width="30" height="90" rx="3"/><rect x="550" y="40" width="30" height="90" rx="3"/>
+      </svg>
+    </div>
+
+    <div class="hotspot-panel">
+      <div class="hsp-header">
+        <div class="hsp-eyebrow">Studio VR · Chapter path</div>
+        <div class="hsp-title">Bring the Control Room online</div>
+        <p class="hsp-sub">This list is now the whole curriculum, in order — chapters with no gear still show up here as a quick read, no camera walk needed.</p>
+      </div>
+      <div class="hsp-list" id="hspList"></div>
+    </div>
+
+    <!-- in-scene badges, positioned roughly like the real screenshot -->
+    <div class="badge" style="left:20%; top:52%;" data-ch="8">08</div>
+    <div class="badge" style="left:32%; top:60%;" data-ch="10">10</div>
+    <div class="badge" style="left:44%; top:38%;" data-ch="15">15</div>
+    <div class="badge daw" style="left:58%; top:34%;" id="dawBadge">16<span class="count">7</span></div>
+    <div class="badge" style="left:70%; top:60%;" data-ch="5">05</div>
+    <div class="badge" style="left:88%; top:50%;" data-ch="13">13</div>
+
+    <div class="daw-popover" id="dawPopover">
+      <div class="daw-popover-title">DAW Workstation · 7 chapters</div>
+      <div class="daw-popover-item"><span class="n">16</span> Digital Audio Basics &amp; DAWs</div>
+      <div class="daw-popover-item"><span class="n">17</span> Recording Fundamentals</div>
+      <div class="daw-popover-item"><span class="n">18</span> Editing, Comping &amp; Arrangement</div>
+      <div class="daw-popover-item"><span class="n">19</span> MIDI &amp; Virtual Instruments</div>
+      <div class="daw-popover-item"><span class="n">20</span> Mixing Fundamentals</div>
+      <div class="daw-popover-item"><span class="n">21</span> Signal Processing &amp; Effects</div>
+      <div class="daw-popover-item"><span class="n">22</span> Noise Reduction &amp; Restoration</div>
+    </div>
+
+    <div class="legend-note">Students land here first (LoginPage already does <code>navigate("/studio")</code>). The docked panel is now the full 25-chapter curriculum, not just this room's gear — "Start here" and "Wrap-up" are plain reads with no scene badge. One gear hotspot can also open more than one chapter — Patch Bay covers Ch.08 + Ch.09, the DAW covers seven (backed by the existing plugin-editor chapters already built for the insert rack).</div>
+  </div>
+
+  <script>
+    // ---------- module/chapter data ----------
+    const MODULES = [
+      { name: 'Foundations', chapters: [
+        { n:1, t:'What Is Sound?', loc:null },
+        { n:2, t:'The Studio: Recording Room & Control Room', loc:null },
+        { n:3, t:'Types of Studios and Audio Workspaces', loc:null },
+        { n:4, t:'Listening Skills & Hearing Health', loc:null },
+      ]},
+      { name: 'Room & Acoustics', chapters: [
+        { n:5, t:'Studio Acoustics and Room Treatment', loc:'Control Room · Diffuser Panel' },
+      ]},
+      { name: 'Capture & Signal Path', chapters: [
+        { n:6, t:'Microphones: Types, Selection, Placement', loc:'Recording Room · Mic Booth (new)' },
+        { n:7, t:'Mic Techniques & Stereo Recording', loc:'Recording Room · Mic Booth (new)' },
+        { n:8, t:'Connectors, Cables, and Studio Wiring', loc:'Control Room · Patch Bay', current:true },
+        { n:9, t:'Signal Flow, Levels, and Gain Staging', loc:'Control Room · Patch Bay' },
+        { n:10, t:'Preamps, Channel Strips, Mixers', loc:'Control Room · Preamp Rack' },
+        { n:11, t:'Interfaces, Converters, I/O, MIDI', loc:'Control Room · Sound Card' },
+        { n:12, t:'Computers, Power, Studio Config', loc:null },
+      ]},
+      { name: 'Monitoring', chapters: [
+        { n:13, t:'Monitoring: Speakers, Headphones, Subs', loc:'Control Room · Speakers' },
+        { n:14, t:'Monitor Placement & Configurations', loc:'Control Room · Speakers' },
+        { n:15, t:'Mixer Outputs, Aux, Cue Mixes', loc:'Control Room · Mixing Console' },
+      ]},
+      { name: 'The Digital Domain', chapters: [
+        { n:16, t:'Digital Audio Basics and DAWs', loc:'Control Room · DAW Workstation' },
+        { n:17, t:'Recording Fundamentals', loc:'Control Room · DAW Workstation' },
+        { n:18, t:'Editing, Comping & Arrangement', loc:'Control Room · DAW Workstation' },
+        { n:19, t:'MIDI & Virtual Instruments', loc:'Control Room · DAW Workstation' },
+      ]},
+      { name: 'Mixing & Processing', chapters: [
+        { n:20, t:'Mixing Fundamentals', loc:'Control Room · DAW Workstation' },
+        { n:21, t:'Signal Processing & Creative Effects', loc:'Control Room · DAW Workstation' },
+        { n:22, t:'Noise Reduction & Restoration', loc:'Control Room · DAW Workstation' },
+      ]},
+      { name: 'Finishing & Professional Practice', chapters: [
+        { n:23, t:'Mastering Essentials', loc:null },
+        { n:24, t:'Tool Selection', loc:null },
+        { n:25, t:'Real-World Projects & Workflow', loc:null },
+      ]},
+    ];
+
+    const sidebar = document.getElementById('sidebar');
+    MODULES.forEach((mod, mi) => {
+      const done = mi === 0 ? 4 : 0;
+      const modEl = document.createElement('div');
+      modEl.className = 'module-block' + (mi === 2 ? ' open' : '');
+      modEl.innerHTML = `
+        <div class="module-head">
+          <span class="module-num">${String(mi+1).padStart(2,'0')}</span>
+          <span class="module-name">${mod.name}</span>
+          <span class="module-count">${done}/${mod.chapters.length}</span>
+          <span class="module-chev">▸</span>
+        </div>
+        <div class="chapter-list"></div>
+      `;
+      const list = modEl.querySelector('.chapter-list');
+      mod.chapters.forEach(c => {
+        const row = document.createElement('div');
+        row.className = 'chapter-head' + (c.loc ? ' anchored' : '') + (c.current ? ' current' : '') + (mi > 2 || (mi===2 && c.n>8) ? ' locked' : '');
+        row.innerHTML = `
+          <div class="ch-badge">${String(c.n).padStart(2,'0')}</div>
+          <div class="ch-info">
+            <div class="ch-title-row">${c.t}</div>
+            <div class="ch-loc${c.loc ? ' anchored' : ''}">${c.loc ? '📍 ' + c.loc : '📖 Briefing'}</div>
+          </div>
+          ${(mi > 2 || (mi===2 && c.n>8)) ? '<span class="ch-soon">Locked</span>' : ''}
+        `;
+        list.appendChild(row);
+      });
+      modEl.querySelector('.module-head').addEventListener('click', () => modEl.classList.toggle('open'));
+      sidebar.appendChild(modEl);
+    });
+
+    // ---------- studio hotspot list (chapter-numbered, whole curriculum) ----------
+    // book: true = briefing chapter, no scene badge, no camera walk — just a
+    // read that opens the same card style as a gear hotspot.
+    const HSP_GROUPS = [
+      { label: 'Start here', rows: [
+        { n:1, name:'What Is Sound?', ch:'Ch. 01', book:true, active:true },
+        { n:2, name:'The Studio', ch:'Ch. 02', book:true, active:true },
+        { n:3, name:'Types of Studios', ch:'Ch. 03', book:true, active:false },
+        { n:4, name:'Listening Skills', ch:'Ch. 04', book:true, active:false },
+      ]},
+      { label: 'Control Room gear', rows: [
+        { n:5, name:'Diffuser Panel', ch:'Ch. 05', active:false },
+        { n:8, name:'Patch Bay', ch:'Ch. 08–09', active:false },
+        { n:10, name:'Preamp Rack', ch:'Ch. 10', active:false },
+        { n:11, name:'Sound Card', ch:'Ch. 11', active:false },
+        { n:13, name:'Speakers', ch:'Ch. 13–14', active:false },
+        { n:15, name:'Mixing Console', ch:'Ch. 15', active:false },
+        { n:16, name:'DAW Workstation', ch:'Ch. 16–22', active:false, count:7 },
+      ]},
+      { label: 'Wrap-up', rows: [
+        { n:12, name:'Computers & Power', ch:'Ch. 12', book:true, active:false },
+        { n:23, name:'Mastering Essentials', ch:'Ch. 23', book:true, active:false },
+        { n:24, name:'Tool Selection', ch:'Ch. 24', book:true, active:false },
+        { n:25, name:'Real-World Projects', ch:'Ch. 25', book:true, active:false },
+      ]},
+    ];
+    const hspList = document.getElementById('hspList');
+    HSP_GROUPS.forEach(group => {
+      const label = document.createElement('div');
+      label.className = 'hsp-group-label';
+      label.textContent = group.label;
+      hspList.appendChild(label);
+      group.rows.forEach(d => {
+        const row = document.createElement('div');
+        row.className = 'hsp-row' + (d.book ? ' book' : '') + (d.active ? '' : ' dim');
+        row.innerHTML = `
+          <div class="hsp-num">${d.book ? '📖' : String(d.n).padStart(2,'0')}</div>
+          <div class="hsp-info">
+            <div class="hsp-name">${d.name}</div>
+            <div class="hsp-meta">${d.book ? 'READ · no camera walk' : (d.active ? 'ACTIVE' : 'OFF')}</div>
+          </div>
+          <span class="hsp-chapcount">${d.ch}${d.count ? ' · ' + d.count + ' ch' : ''}</span>
+        `;
+        hspList.appendChild(row);
+      });
+    });
+
+    // ---------- DAW badge popover ----------
+    const dawBadge = document.getElementById('dawBadge');
+    const dawPopover = document.getElementById('dawPopover');
+    dawBadge.addEventListener('click', (e) => {
+      dawPopover.classList.toggle('show');
+      dawPopover.style.left = (dawBadge.offsetLeft + 40) + 'px';
+      dawPopover.style.top = (dawBadge.offsetTop - 10) + 'px';
+    });
+
+    // ---------- concept view switcher ----------
+    document.querySelectorAll('.concept-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.concept-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(tab.dataset.view).classList.add('active');
+        document.querySelector('.nav-course').classList.toggle('active', tab.dataset.view === 'courseView');
+        document.querySelector('.nav-studio').classList.toggle('active', tab.dataset.view === 'studioView');
+      });
+    });
+  </script>
+</body>
+</html>

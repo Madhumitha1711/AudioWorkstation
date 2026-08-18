@@ -62,7 +62,18 @@
 .daw-overlay {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  /* Position + a non-auto z-index makes this its own stacking context, so
+     every descendant — including the internal popups below that carry their
+     own z-index: 60/61 (InsertRack, PluginEditorPopup, etc.) — is capped at
+     whatever layer this value paints on in the *outer* document, regardless
+     of those inner numbers. PanoramaTour.jsx's floating toolbar
+     (.svr-tour-toolbar, the "Studio / Binaural on" pill) sits in that outer
+     stacking context at z-index: 60 (see panoramaTour.css), so this overlay
+     — meant to be a full-screen modal above the whole tour while open — has
+     to clear that, not just the z-index: 30 of Photo Sphere Viewer's own
+     markers. Previously this was 20, which let the tour toolbar paint on
+     top of the DAW's own top bar. */
+  z-index: 70;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -637,6 +648,43 @@
   border-color: var(--green);
   color: var(--green);
 }
+.tbtn.is-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+/* Record button (mic → filled square) next to Upload — solid red and
+   gently pulsing while armed, same "unmistakably live" language every DAW's
+   own record-enable button uses. */
+.tbtn.rec:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.tbtn.rec.is-recording {
+  background: var(--red-dim, rgba(220, 60, 60, 0.18));
+  border-color: var(--red);
+  color: var(--red);
+  animation: daw-rec-pulse 1.1s ease-in-out infinite;
+}
+@keyframes daw-rec-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(220, 60, 60, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(220, 60, 60, 0);
+  }
+}
+.track-sub-recording {
+  color: var(--red);
+  animation: daw-rec-text-pulse 1.1s ease-in-out infinite;
+}
+@keyframes daw-rec-text-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
 
 /* Demo-clip dropdown (track-btns "D") — a real <select> so the browser's
    own native listbox handles positioning/keyboard/outside-click dismissal,
@@ -1189,10 +1237,16 @@
    short, bottom-docked panel) or a Mixer-view channel strip, routinely
    clipped part of the list against that ancestor's scroll box. Escaping to
    the body sidesteps that entirely; top/bottom/left/width/max-height all
-   come from the inline style openPicker computes, not from here. */
+   come from the inline style openPicker computes, not from here.
+
+   Portaled to <body> means this escapes .daw-overlay's own stacking
+   context entirely, so its z-index has to clear .daw-overlay's (70, see
+   above) directly in the outer/root stack — being higher than the tour
+   toolbar's 60 isn't enough on its own once it's compared against the
+   overlay it visually sits inside. */
 .insert-picker {
   position: fixed;
-  z-index: 60;
+  z-index: 80;
   overflow-y: auto;
   padding: 6px;
   border-radius: 8px;
@@ -1447,10 +1501,10 @@
 }
 
 /* Bus picker — opens off "+ Send", portaled to <body> for the same reason
-   as .insert-picker above. */
+   as .insert-picker above (same z-index note applies too). */
 .send-picker {
   position: fixed;
-  z-index: 60;
+  z-index: 80;
   overflow-y: auto;
   padding: 6px;
   border-radius: 8px;
@@ -1573,11 +1627,13 @@
    (owning channel's name + Solo) and an AUTO section (automation-mode
    display). Portaled to <body>, positioned in JS off the clicked slot's own
    screen position (see openSendWindow in SendRack), same reasoning as
-   .insert-picker/.send-picker above. */
+   .insert-picker/.send-picker above (including the z-index note). Stays
+   one above them since it can open from a slot that's already inside an
+   open .send-picker's screen area. */
 .send-window {
   --pc: var(--teal);
   position: fixed;
-  z-index: 61;
+  z-index: 81;
   width: 140px;
   display: flex;
   flex-direction: column;
@@ -2274,23 +2330,33 @@
 }
 
 /* Below this width there isn't room for the tracklist's own inline
-   Inserts/Sends strips next to the name/controls — hide them rather than
-   squeeze everything further; the Mixer view still reaches the exact same
-   racks (a selected clip portion's own chain is still reachable down in the
-   dock — see .dock/selectedRegionObj — but a track's whole-track chain only
-   lives inline here or in the Mixer view now). */
+   Inserts/Sends strips *beside* the name/buttons column any more — used to
+   just hide them here (a track's whole-track chain was only reachable via
+   Mixer view, or the dock for a selected portion), but that left no way to
+   see/edit it inline at all below this width. Stack them in their own
+   full-width row under the head/buttons instead — same slots, same
+   dense/lettered look, just reflowed — so they stay visible and clickable
+   at any width; each row simply grows taller to fit (the row-height
+   ResizeObserver in DawWorkstationScreen.jsx re-measures and keeps the
+   matching .arr-row in sync automatically, so nothing here needs to hard-
+   code a shorter row height any more). */
 @media (max-width: 1180px) {
   .tracklist {
-    width: 180px;
+    width: 240px;
   }
   .track-row {
     min-height: 0;
   }
-  .track-row__racks {
-    display: none;
+  .track-row__body {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
   }
-  .arr-row {
-    height: 44px;
+  .track-row__btn-col {
+    width: auto;
+  }
+  .track-row__racks {
+    width: 100%;
   }
 }
 
@@ -2303,5 +2369,18 @@
     max-height: 40%;
     border-right: none;
     border-bottom: 1px solid var(--border);
+  }
+}
+
+/* Narrower still (the tracklist's own 240px width above, or a phone-width
+   viewport once .daw-body stacks at 720px) — the dense Inserts/Sends rows
+   above still fit (flex:1/min-width:0 on each lettered slot lets them
+   shrink to a bare letter with the name sliver ellipsized away), but the
+   track-row__rack-label ("INS"/"SEND") column can give a few more of those
+   px back to the slots themselves. */
+@media (max-width: 480px) {
+  .track-row__rack-label {
+    width: 20px;
+    font-size: 7px;
   }
 }

@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import "./studioHotspotsPanel.css";
 import { ICONS, WARN_ICON, buildDeviceList } from "./hotspotDevices";
+import { powerUp, powerDown } from "../store/controlRoomSlice";
 
-// The left-docked "Studio Hotspots" panel — now *is* the power-up challenge
-// from design/studio-hotspots-panel.html, ported in full: mute button,
-// Game/Classic mode switch, attempts/faults/hints/time stats, hint system,
-// timer, best-score persistence, and the confetti completion overlay all
-// live permanently in the docked rail instead of behind a separate button.
+// The left-docked "Studio Hotspots" panel — *is* the power-up challenge from
+// design/studio-hotspots-panel.html, ported in full: mute button, Game/
+// Classic mode switch, attempts/faults/hints/time stats, hint system, timer,
+// and best-score persistence all live permanently in the docked rail instead
+// of behind a separate button. Deliberately dropped from that original
+// design: the confetti/stars completion overlay — finishing the sequence
+// unlocks the rest of the scene (see PanoramaTour's onPoweredChange), and
+// that un-graying is the reward, so a separate celebration screen on top of
+// it would be redundant.
 //
 // One deliberate departure from the design: clicking a row (anywhere except
 // the power switch) still drives real navigation — it walks the camera up
@@ -113,13 +119,98 @@ function freshRoundState(devices, gameMode) {
   };
 }
 
-function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice }) {
+// Same shape as freshRoundState, but every device starts "on" instead of
+// "off" — used to restore a Classic-mode room to "powered" (see
+// controlRoomPowered in StudioHotspotsPanel) instead of wiping it back to
+// fresh/off. Canonical (unshuffled) order only, since this is only ever
+// used for Classic mode.
+function allOnRoundState(devices) {
+  const status = {};
+  const consecutiveMiss = {};
+  devices.forEach((d) => {
+    status[d.id] = "on";
+    consecutiveMiss[d.id] = 0;
+  });
+  return {
+    order: devices.slice(),
+    status,
+    consecutiveMiss,
+    revealedHints: {},
+    mistakes: 0,
+    hintsUsed: 0,
+    roundOver: false,
+    startedAt: null,
+    finishedAt: null,
+  };
+}
+
+function StudioHotspotsPanel({
+  room,
+  activeGear,
+  activeModule,
+  onSelectDevice,
+  // Called with `true` once every device in this room's chain is "on" —
+  // regardless of Game mode (round.roundOver, gated to Game mode only, see
+  // finishRound below) or Classic mode (classicPowerUpSequence never sets
+  // roundOver at all). PanoramaTour uses this to unlock the rest of the
+  // scene (see the svr-tour-locked wrapper there) once the visitor has
+  // actually powered the rig up, and re-locks it if a device gets switched
+  // back off (e.g. Power down) — the lock state simply mirrors "are all
+  // devices currently on" live, in either mode.
+  onPoweredChange,
+  // Which real element on this panel the onboarding tour (see
+  // src/tour/OnboardingTour.jsx, wired up from PanoramaTour.jsx) wants
+  // highlighted right now, or null/undefined outside of the tour: "mode"
+  // glows the Game/Classic switch (the "Try Game mode" step), "devices"
+  // glows the device grid/list at the bottom (the very next step, "Bring
+  // the rig back online" — the switch itself was already used a step ago,
+  // so that step points at where the actual power-on clicks happen
+  // instead), and "power-button" glows the "Power up in order" button
+  // specifically. Purely a `.svr-tour-glow` class toggle — no other
+  // behavior here changes based on the tour. The "select a hotspot" step no
+  // longer highlights anything on this panel — it points at the hotspot
+  // marker directly in the scene instead (see PanoramaTour's
+  // tourGlowMarkerId), since it now asks the visitor to click there rather
+  // than use this panel.
+  tourHighlight,
+  // True only during the tour's very first ("power up the rig") step.
+  // Game mode defaults ON for a brand-new visitor (see loadGameMode's
+  // null-means-true fallback below), but that step is meant to be a simple,
+  // guaranteed-to-succeed Classic-mode "Power up in order" click — Game
+  // mode's shuffled guess-the-order challenge is what the tour's own next,
+  // mandatory "Try Game mode" step introduces. See the effect and
+  // toggleGameMode guard below for how this is enforced.
+  tourForceClassicMode,
+  // Reports every actual Game/Classic switch flip up to PanoramaTour (see
+  // toggleGameMode below) — it's the only way the tour can tell whether the
+  // visitor toggled Game mode on during the "Try Game mode" step, which
+  // decides whether the extra "power the rig back up" step gets inserted
+  // afterward. Optional; a no-op outside the tour.
+  onGameModeChange,
+  // True while PanoramaTour has a pending "focus this hotspot" request (see
+  // its own focus-hotspot effect) and the rig isn't powered yet — a visitor
+  // routed here from a specific chapter (CoursePage's "← Back to the
+  // studio") came for that piece of gear, not to redo the power-up puzzle
+  // first. Forces Classic mode and runs the same instant sequence as
+  // clicking "Power up Control Room" — see the effect below.
+  autoPowerUp,
+}) {
   const [collapsed, setCollapsed] = useState(false);
   // Tracks whether the panel was auto-collapsed by the effect below (as
   // opposed to the visitor manually clicking the toggle), so closing the DAW
   // module knows whether it's responsible for bringing the panel back.
   const wasAutoCollapsedRef = useRef(false);
-  const devices = useMemo(() => buildDeviceList(room), [room]);
+  // This panel is specifically the Control Room's power-up game/signal
+  // chain — it's keyed off SIGNAL_ORDER, a fixed list of Control Room gear.
+  // The Recording Room's own gear hotspots (mic-stand, stereo-overheads;
+  // see roomsData.js) are plain numbered info hotspots, same as any other
+  // gear marker, but they don't belong to a "power up the room" narrative,
+  // so this panel stays hidden there — same behavior as before the
+  // Recording Room had any markers at all (devices.length === 0 below).
+  const devices = useMemo(
+    () => (room?.id === "studio-room" ? buildDeviceList(room) : []),
+    [room]
+  );
   const roomKey = room?.id || "default";
 
   const [gameMode, setGameMode] = useState(() => loadGameMode(roomKey));
@@ -134,8 +225,6 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
   const [now, setNow] = useState(Date.now());
   const [shaking, setShaking] = useState(false);
   const [rowFx, setRowFx] = useState({}); // { [deviceId]: "success" | "error" | "hint" }
-  const [confetti, setConfetti] = useState([]);
-  const [overlayHidden, setOverlayHidden] = useState(false);
   // True while the Classic-mode "Power up in order" animation is stepping
   // through devices — used to disable the trigger button mid-run and to
   // let a room change / power-down interrupt it cleanly.
@@ -153,6 +242,25 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
   // comparing against the last roomKey we actually recorded catches the
   // duplicate call while still recording every real room change.
   const lastRecordedRoomKeyRef = useRef(null);
+
+  const dispatch = useDispatch();
+  // Whether the Control Room rig has been powered up — lives in Redux
+  // (controlRoomSlice) rather than component state or a ref, specifically
+  // so it survives everything a purely local flag wouldn't: room changes,
+  // Game/Classic mode toggles, and even this whole component unmounting —
+  // which happens on every navigation away from /studio and back (see
+  // App.jsx's <Routes>), not just on logout. Written at the two places
+  // Classic mode's power state actually changes (classicPowerUpSequence
+  // finishing, powerDownAll) and by toggleGameMode when a Game-mode round
+  // finishes fully powered — and read by the room-change effect below and
+  // by toggleGameMode to decide whether (re-)entering Classic mode should
+  // show the rig powered-on instead of resetting to fresh/off. This is the
+  // half of "Control Room stays powered until Power down or Log off" that
+  // lives in this component; the slice's own logOff case in extraReducers
+  // covers the log-off half. See studioGameModeRef in PanoramaTour.jsx for
+  // the separate (unrelated) mechanism that skips re-locking the *scene*
+  // on Studio re-entry while in Classic mode.
+  const controlRoomPowered = useSelector((state) => state.controlRoom.powered);
 
   function clearSequenceTimers() {
     sequenceTimers.current.forEach(clearTimeout);
@@ -199,6 +307,36 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
     }
   }, [activeModule]);
 
+  // The onboarding tour (see src/tour/, wired up from PanoramaTour.jsx)
+  // points at something on this panel — force it open. Without this, a
+  // visitor who collapsed the panel (or hit it while still auto-collapsed
+  // from a just-closed DAW module, see the effect above) would land on the
+  // tour's very first, mandatory "power up the rig" step with no way to
+  // even see the power switches. The className guard below backs this up
+  // for the same frame the tour starts targeting this panel, before this
+  // effect's setCollapsed(false) has had a chance to commit.
+  useEffect(() => {
+    if (tourHighlight) setCollapsed(false);
+  }, [tourHighlight]);
+
+  // Enforces the "power up the rig" step's simple, guaranteed-to-succeed
+  // Classic-mode flow (see the tourForceClassicMode prop comment above) —
+  // needed because Game mode defaults ON for a brand-new visitor (see
+  // loadGameMode's null-means-true fallback a few lines up). Only ever
+  // forces the switch OFF, and never persists that via saveGameMode/
+  // recordGamePlayed the way a real toggleGameMode() click does — this
+  // isn't the visitor's own choice, so their actual saved preference (or
+  // lack of one) is left alone rather than overwritten, and the ordinary
+  // toggleGameMode() guard below is what actually keeps it off for the
+  // rest of this step.
+  useEffect(() => {
+    if (tourForceClassicMode && gameMode) {
+      setGameMode(false);
+      setRound((prev) => ({ ...prev, order: devices.slice(), roundOver: false }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tourForceClassicMode]);
+
   // Re-derive the round whenever the room (and therefore its device list)
   // changes — e.g. the visitor walks into a different room.
   useEffect(() => {
@@ -206,15 +344,24 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
     setSequencing(false);
     const mode = loadGameMode(roomKey);
     setGameMode(mode);
-    setRound(freshRoundState(devices, mode));
+    // Classic mode is meant to stay powered once it's on, through every
+    // room change, until an explicit Power down or a logout (see
+    // controlRoomPowered's own comment above) — so a Classic room gets
+    // restored powered-on here instead of wiped back to fresh/off whenever
+    // the Redux flag says the rig is on. Game mode keeps the existing
+    // "always re-lock on arrival" behavior (a fresh, shuffled round every
+    // time), since replaying the challenge is the point of that mode.
+    if (!mode && controlRoomPowered) {
+      setRound(allOnRoundState(devices));
+    } else {
+      setRound(freshRoundState(devices, mode));
+    }
     setBest(loadBest(roomKey));
     if (lastRecordedRoomKeyRef.current !== roomKey) {
       lastRecordedRoomKeyRef.current = roomKey;
       recordGamePlayed(roomKey, mode);
     }
-    setConfetti([]);
     setRowFx({});
-    setOverlayHidden(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room]);
 
@@ -232,6 +379,68 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
     },
     []
   );
+
+  // Reports "fully powered" to the parent tour. Guarded on devices.length so
+  // a room with no chain at all (e.g. the Recording Room, which renders no
+  // panel — see the early return just below) never reports back and can't
+  // clobber whatever power state the Studio last set; only a room that
+  // actually has a panel/game gets a say here.
+  const allDevicesOn =
+    devices.length > 0 && devices.every((d) => round.status[d.id] === "on");
+  useEffect(() => {
+    if (devices.length === 0) return;
+    onPoweredChange?.(allDevicesOn);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allDevicesOn, devices.length]);
+
+  // Auto-power-up on behalf of a pending focus-hotspot request (see
+  // autoPowerUp's own comment above). Switches to Classic mode — the same
+  // guaranteed-to-succeed path the onboarding tour forces for its first
+  // "power up the rig" step — then runs the identical scripted sequence as
+  // clicking "Power up Control Room" by hand. autoPoweredRef stops this from
+  // re-firing on every re-render while autoPowerUp stays true, and resets
+  // once PanoramaTour clears the request (autoPowerUp goes back to false)
+  // so a later, separate deep link can still trigger it again.
+  const autoPoweredRef = useRef(false);
+  useEffect(() => {
+    if (!autoPowerUp) {
+      autoPoweredRef.current = false;
+      return;
+    }
+    if (autoPoweredRef.current || devices.length === 0 || allDevicesOn) return;
+    autoPoweredRef.current = true;
+    if (gameMode) setGameMode(false);
+    classicPowerUpSequence();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately
+    // only re-runs on autoPowerUp itself; gameMode/allDevicesOn are read live.
+  }, [autoPowerUp, devices.length]);
+
+  // Mirrors the room's actual current mode up to PanoramaTour on every
+  // change to `gameMode` — initial load, a per-room switch (the effect a
+  // few lines up in the room-change block), and manual toggles all funnel
+  // through that one piece of state, so this single effect is the only
+  // place that needs to call onGameModeChange (toggleGameMode used to call
+  // it directly, but that only covered manual flips and left PanoramaTour
+  // without the room's real mode until the visitor happened to touch the
+  // switch). PanoramaTour needs this live, not just "was it toggled during
+  // the tour," so it can tell whether to keep the rig powered through a
+  // Studio re-entry: Classic mode (game mode off) is meant to stay on once
+  // powered, in every scenario, until an explicit Power down or a logout —
+  // see the onNodeChanged guard in PanoramaTour.jsx.
+  //
+  // Guarded on devices.length exactly like the onPoweredChange effect
+  // above, and for the same reason: this component stays mounted across
+  // every room (not just the Studio), so without the guard, walking into a
+  // chain-less room like the Recording Room would fire this with that
+  // room's own (irrelevant, possibly stale/default) localStorage-loaded
+  // gameMode and clobber PanoramaTour's mirror of the Studio's real mode —
+  // which is exactly the "walk to the Recording Room and back" scenario
+  // this whole mechanism exists to get right.
+  useEffect(() => {
+    if (devices.length === 0) return;
+    onGameModeChange?.(gameMode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameMode, devices.length]);
 
   if (devices.length === 0) return null;
 
@@ -288,19 +497,10 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
     }, duration);
   }
 
-  function launchConfetti() {
-    const colors = ["#22c76a", "#7dffb8", "#ffffff", "#17c76a"];
-    const pieces = Array.from({ length: 40 }, (_, i) => ({
-      id: i,
-      left: Math.random() * 100,
-      color: colors[Math.floor(Math.random() * colors.length)],
-      duration: 1.6 + Math.random() * 1.2,
-      delay: Math.random() * 0.4,
-      rotate: Math.random() * 360,
-    }));
-    setConfetti(pieces);
-  }
-
+  // Records the completed round's score. No celebration screen here on
+  // purpose — the studio itself un-graying (see PanoramaTour's
+  // onPoweredChange) is the reward for finishing the sequence, so this only
+  // needs to handle the score bookkeeping + a completion chime.
   function finishRound(mistakes, hintsUsed, startedAt) {
     const finishedAt = Date.now();
     const elapsedSec = startedAt ? (finishedAt - startedAt) / 1000 : 0;
@@ -317,8 +517,6 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
       saveBest(roomKey, nextBest);
     }
     setBest(nextBest);
-    setOverlayHidden(false);
-    launchConfetti();
     return finishedAt;
   }
 
@@ -368,6 +566,11 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
     const finishedAt = willFinish
       ? finishRound(mistakes, round.hintsUsed, startedAt)
       : round.finishedAt;
+    // Clearing the Game-mode challenge is as real a power-up as Classic
+    // mode's own "Power up in order" sequence — set the same persistent
+    // Redux flag so it's remembered the same way (see controlRoomPowered's
+    // comment above).
+    if (willFinish) dispatch(powerUp());
 
     setRound({
       ...round,
@@ -395,8 +598,6 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
   }
 
   function newRound() {
-    setConfetti([]);
-    setOverlayHidden(false);
     setRound(freshRoundState(devices, gameMode));
     recordGamePlayed(roomKey, gameMode);
   }
@@ -411,6 +612,12 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
       });
       return { ...prev, status };
     });
+    // Explicit Power down is one of the only two things allowed to undo a
+    // power-up (the other is logout) — clear the Redux flag so a later
+    // re-entry, or toggling Game mode off, doesn't restore the rig back on.
+    // Harmless to also do this in Game mode; nothing reads it as a live
+    // "turn the devices off" signal there, only as "was it left powered".
+    dispatch(powerDown());
   }
 
   // Classic mode has no per-device switch to click (see the row render
@@ -441,22 +648,82 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
         // moment and reads better with a rising chime as each station
         // lands, same mute toggle respected via beep()'s own check.
         beep(420 + i * 55, 0.1, "sine");
-        if (i === devices.length - 1) setSequencing(false);
+        if (i === devices.length - 1) {
+          setSequencing(false);
+          // Rig just finished powering up in Classic mode — set the Redux
+          // flag so a later re-entry (e.g. walking to the Recording Room
+          // and back), or toggling Game mode on and back off, restores it
+          // powered-on instead of resetting. See controlRoomPowered's own
+          // comment above.
+          dispatch(powerUp());
+        }
       }, STEP_MS * (i + 1));
       sequenceTimers.current.push(t);
     });
   }
 
   function toggleGameMode() {
+    // Locked to Classic mode for the tour's "power up the rig" step — see
+    // tourForceClassicMode above. The switch itself stays visible (rather
+    // than being removed) so the step doesn't look broken, it just won't
+    // respond until the tour moves on to "Try Game mode".
+    if (tourForceClassicMode) return;
     clearSequenceTimers();
     setSequencing(false);
     const next = !gameMode;
     setGameMode(next);
+    // onGameModeChange fires from the gameMode effect above, not here —
+    // that effect also covers initial load and per-room switches, so this
+    // call would just be a redundant duplicate of the same report.
     saveGameMode(roomKey, next);
-    setConfetti([]);
-    setOverlayHidden(false);
-    setRound(freshRoundState(devices, next));
     setBest(loadBest(roomKey));
+
+    // Whether the rig is already fully powered *before* this toggle takes
+    // effect — e.g. the visitor just cleared a Game round, or brought it
+    // online with Classic mode's "Power up in order". Only used below, in
+    // the Classic-mode branch.
+    const alreadyPowered =
+      devices.length > 0 && devices.every((d) => round.status[d.id] === "on");
+
+    if (next) {
+      // Switching INTO Game mode always visually powers the rig down and
+      // starts a fresh, shuffled round — regardless of whether it was
+      // already fully powered. Game mode is the challenge: working the
+      // order out from scratch is the point of it.
+      //
+      // Deliberately does NOT dispatch(powerDown()) here — that action
+      // means "explicit Power down / Log off", which clears the persistent
+      // Redux flag for good. This is only a temporary, visual power-down
+      // for the challenge; the flag stays exactly as it was so switching
+      // back to Classic mode (below) knows to bring the rig back online.
+      setRound(freshRoundState(devices, next));
+    } else {
+      // Switching INTO Classic mode. Finishing a Game-mode round already
+      // leaves every device "on" (alreadyPowered) — that's as real a
+      // power-up as Classic mode's own "Power up in order" sequence, so it
+      // sets the same persistent Redux flag.
+      if (alreadyPowered) dispatch(powerUp());
+
+      // The rig is meant to read as powered — either it already did
+      // (controlRoomPowered, e.g. it was powered up before Game mode ever
+      // got switched on) or it just got set above — so bring every device
+      // back to "on" instead of leaving Classic mode showing whatever
+      // partial/off state the Game round happened to be in. This is the
+      // "toggling Game mode off powers the studio back up, since it was on
+      // before" behavior.
+      if (controlRoomPowered || alreadyPowered) {
+        setRound(allOnRoundState(devices));
+      } else {
+        // Never actually powered — only changes how the list is displayed
+        // (canonical order instead of shuffled) and clears the
+        // now-irrelevant "roundOver" flag; device status is left as-is.
+        setRound((prev) => ({
+          ...prev,
+          order: devices.slice(),
+          roundOver: false,
+        }));
+      }
+    }
     recordGamePlayed(roomKey, next);
   }
 
@@ -470,15 +737,21 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
   const eyebrowClass =
     "svr-hotspot-panel__eyebrow" + (round.roundOver ? " complete" : anyError ? " fault" : "");
 
-  const penalty = round.mistakes + round.hintsUsed;
-  const starCount = penalty === 0 ? 3 : penalty <= 2 ? 2 : 1;
-
   const handleRowActivate = (device) => onSelectDevice(device.kind, device.id);
 
   return (
     <div
       className={
-        "svr-hotspot-panel" + (collapsed ? " is-collapsed" : "") + (shaking ? " shake" : "")
+        "svr-hotspot-panel" +
+        // Same "force open for the tour" intent as the effect above,
+        // enforced directly in render too: whatever `collapsed` currently
+        // holds, this panel never actually *renders* collapsed while the
+        // tour has it (or something on it) highlighted.
+        (collapsed && !tourHighlight ? " is-collapsed" : "") +
+        (shaking ? " shake" : "")
+        // No whole-panel glow anymore — the "power up the rig" step now
+        // glows the "Power up in order" button itself (see below), since
+        // that's the one control this step actually wants clicked.
       }
     >
       <div className="svr-hotspot-panel__header">
@@ -503,23 +776,44 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
           </svg>
         </button>
 
-        <h2 className="svr-hotspot-panel__title">Bring the Studio online</h2>
+        <h2 className="svr-hotspot-panel__title">Bring the Control Room online</h2>
+        {/* Brief, static topic intro — what the room as a whole teaches —
+            shown above the mechanics line and the device list/options below
+            it, so a visitor knows what they're about to learn before they
+            pick a device or touch the power switches. Unlike the mechanics
+            line right after it, this doesn't change with Game/Classic mode:
+            it's about the subject matter, not how to operate the panel. */}
+        <p className="svr-hotspot-panel__intro">
+          <b>What you&apos;ll learn:</b> the studio&apos;s full signal chain —
+          how a source gets patched in, gain-staged, converted, mixed, treated
+          by the room, and finally reproduced through the monitors.
+        </p>
         <p className="svr-hotspot-panel__sub">
           {gameMode
             ? "Work out the correct signal order and switch on every station, or click a device to walk over and read about it. Guess wrong and the breaker trips."
-            : "Power up in order to watch the rig come online in sequence, or click a device to walk over and read about it."}
+            : "Power up Control Room to watch the rig come online in sequence, or click a device to walk over and read about it."}
         </p>
 
-        <div className="svr-hotspot-mode-row">
+        <div
+          className={
+            "svr-hotspot-mode-row" + (tourHighlight === "mode" ? " svr-tour-glow" : "")
+          }
+        >
           <span className="svr-hotspot-mode-label">
             Game mode: <b>{gameMode ? "On" : "Off"}</b>
           </span>
           <div
-            className={"svr-hotspot-mode-switch" + (gameMode ? " on" : "")}
+            className={
+              "svr-hotspot-mode-switch" +
+              (gameMode ? " on" : "") +
+              (tourForceClassicMode ? " is-locked" : "")
+            }
             role="switch"
-            tabIndex={0}
+            tabIndex={tourForceClassicMode ? -1 : 0}
             aria-checked={gameMode}
+            aria-disabled={tourForceClassicMode || undefined}
             aria-label="Toggle game mode"
+            title={tourForceClassicMode ? "Available once you power up the rig" : undefined}
             onClick={toggleGameMode}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -593,12 +887,27 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
         )}
         {!gameMode && (
           <button
-            className="svr-hotspot-qbtn"
+            className={
+              "svr-hotspot-qbtn" +
+              // Highlighted as the primary call-to-action while the rig is
+              // still off — this is the only control in Classic mode that
+              // actually powers the studio on, so it shouldn't blend in
+              // with Power down next to it. Cleared once every device is on
+              // (allDevicesOn) or while the sequence is already animating
+              // (sequencing), since the "Powering up…"/disabled state
+              // already communicates that on its own.
+              (!allDevicesOn && !sequencing ? " svr-hotspot-qbtn--power-cta" : "") +
+              (tourHighlight === "power-button" ? " svr-tour-glow" : "")
+            }
             onClick={classicPowerUpSequence}
             disabled={sequencing}
             type="button"
+            title={!allDevicesOn ? "Click to power on the control room" : undefined}
+            aria-label={
+              !allDevicesOn ? "Power up Control Room — click to power on the control room" : undefined
+            }
           >
-            {sequencing ? "Powering up…" : "Power up in order"}
+            {sequencing ? "Powering up…" : "Power up Control Room"}
           </button>
         )}
         <button
@@ -635,7 +944,12 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
           Classic mode keeps the taller rail/list below, since it has no
           per-device switch and leans on the numbered signal-order read. */}
       {gameMode ? (
-        <div className="svr-hotspot-panel__list svr-hotspot-panel__list--grid">
+        <div
+          className={
+            "svr-hotspot-panel__list svr-hotspot-panel__list--grid" +
+            (tourHighlight === "devices" ? " svr-tour-glow" : "")
+          }
+        >
           <div className="svr-hotspot-grid">
             {round.order.map((d) => {
               const canonicalIndex = devices.findIndex((dv) => dv.id === d.id);
@@ -652,7 +966,6 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
                   key={d.id}
                   className={
                     "svr-hotspot-box" +
-                    (isCurrent ? " svr-hotspot-box--current" : "") +
                     (round.revealedHints[d.id] ? " hint-revealed" : "") +
                     (fx === "hint" ? " hint-pulse" : "") +
                     (fx === "success" ? " success-pulse" : "") +
@@ -718,7 +1031,11 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
           </div>
         </div>
       ) : (
-        <div className="svr-hotspot-panel__list">
+        <div
+          className={
+            "svr-hotspot-panel__list" + (tourHighlight === "devices" ? " svr-tour-glow" : "")
+          }
+        >
           {round.order.map((d, i) => {
             const canonicalIndex = devices.findIndex((dv) => dv.id === d.id);
             const nodeLabel = String(canonicalIndex + 1).padStart(2, "0");
@@ -811,54 +1128,6 @@ function StudioHotspotsPanel({ room, activeGear, activeModule, onSelectDevice })
       >
         {collapsed ? "›" : "‹"}
       </button>
-
-      <div
-        className={"svr-hotspot-overlay" + (round.roundOver && !overlayHidden ? " visible" : "")}
-      >
-        <div className="svr-hotspot-confetti-layer">
-          {confetti.map((p) => (
-            <span
-              key={p.id}
-              className="svr-hotspot-confetti-piece"
-              style={{
-                left: `${p.left}%`,
-                background: p.color,
-                animationDuration: `${p.duration}s`,
-                animationDelay: `${p.delay}s`,
-                transform: `rotate(${p.rotate}deg)`,
-              }}
-            />
-          ))}
-        </div>
-        <div className="svr-hotspot-overlay-card">
-          <div className="svr-hotspot-overlay-eyebrow">Signal restored</div>
-          <div className="svr-hotspot-overlay-title">Sequence complete</div>
-          <div className="svr-hotspot-stars">
-            {[1, 2, 3].map((n) => (
-              <span key={n} className={n <= starCount ? "on" : ""}>
-                ★
-              </span>
-            ))}
-          </div>
-          <div className="svr-hotspot-overlay-summary">
-            Signal restored in <b>{mmss(elapsed / 1000)}</b> · {round.mistakes} fault
-            {round.mistakes === 1 ? "" : "s"} · {round.hintsUsed} hint
-            {round.hintsUsed === 1 ? "" : "s"} used
-          </div>
-          <div className="svr-hotspot-overlay-actions">
-            <button className="svr-hotspot-obtn svr-hotspot-obtn--primary" onClick={newRound} type="button">
-              Play again
-            </button>
-            <button
-              className="svr-hotspot-obtn svr-hotspot-obtn--secondary"
-              onClick={() => setOverlayHidden(true)}
-              type="button"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

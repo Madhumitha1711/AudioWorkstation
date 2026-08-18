@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Listening Lab — Train Your Ears</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0b0d;
+    --panel:#16161a;
+    --panel-alt:#1c1c21;
+    --border:#2a2a30;
+    --border-soft:#232328;
+    --text:#ede9e3;
+    --text-muted:#8b8890;
+    --amber:#e8934a;
+    --amber-dim:#6b4a2c;
+    --green:#5fd9a0;
+    --green-dim:#2c5f49;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;}
+  ::selection{background:var(--amber-dim);}
+  @media (prefers-reduced-motion: reduce){ *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;} }
+
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .display{font-family:'Space Grotesk',sans-serif;}
+
+  .wrap{max-width:760px;margin:0 auto;padding:0 20px 140px;}
+  .hero{padding:56px 0 40px;border-bottom:1px solid var(--border-soft);}
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--green); display:flex; align-items:center; gap:8px; margin-bottom:14px;
+  }
+  .eyebrow::before{content:''; width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green);}
+  h1.display{font-size:clamp(28px,5vw,40px); line-height:1.15; margin:0 0 14px; font-weight:600; letter-spacing:-.01em;}
+  .hero p{color:var(--text-muted); font-size:15px; line-height:1.6; max-width:52ch; margin:0 0 0;}
+
+  .module{padding:56px 0; border-bottom:1px solid var(--border-soft);}
+  .module:last-of-type{border-bottom:none;}
+  .m-eyebrow{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--text-muted); margin-bottom:10px; display:flex; align-items:center; gap:10px;
+  }
+  .m-eyebrow .n{color:var(--amber);}
+  .module h2.display{font-size:clamp(21px,3.6vw,26px); margin:0 0 10px; font-weight:600;}
+  .hook{color:var(--text-muted); font-size:14.5px; line-height:1.6; margin:0 0 26px; max-width:56ch;}
+
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:22px;}
+
+  /* segmented toggle */
+  .seg{display:flex; background:#0e0e11; border:1px solid var(--border); border-radius:8px; padding:4px; gap:4px;}
+  .seg button{
+    flex:1; background:transparent; border:none; color:var(--text-muted); padding:12px 8px; border-radius:6px;
+    font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.03em; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:6px; transition:background .15s, color .15s;
+  }
+  .seg button svg{width:20px;height:20px; opacity:.6; transition:opacity .15s;}
+  .seg button.active{background:var(--panel-alt); color:var(--text); box-shadow:inset 0 0 0 1px var(--border);}
+  .seg button.active svg{opacity:1;}
+  .seg button.active.phone,.seg button.active.car{color:var(--amber);}
+  .seg button.active.phone svg,.seg button.active.car svg{stroke:var(--amber);}
+  .seg button.active.studio,.seg button.active.speakers{color:var(--amber);}
+  .seg button.active.studio svg{stroke:var(--green);}
+  .seg button.active.headphones{color:var(--green);}
+  .seg button.active.headphones svg{stroke:var(--green);}
+
+  .curve-box{margin-top:18px; background:#0e0e11; border:1px solid var(--border); border-radius:8px; padding:14px 14px 8px;}
+  .curve-label{display:flex; justify-content:space-between; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-muted); letter-spacing:.06em; margin-bottom:4px;}
+  .curve-shape{width:100%; height:120px; display:block;}
+  .curve-shape path{fill:none; stroke-width:2;}
+  .curve-caption{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-muted); text-align:center; margin-top:6px; letter-spacing:.03em;}
+
+  .playbar{display:flex; align-items:center; gap:14px; margin-top:18px;}
+  .play-btn{
+    width:42px;height:42px;border-radius:50%; border:1px solid var(--border); background:var(--panel-alt);
+    color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+    transition:border-color .15s;
+  }
+  .play-btn:hover{border-color:var(--amber);}
+  .play-btn svg{width:16px;height:16px;}
+  .level{flex:1; height:42px; background:#0e0e11; border:1px solid var(--border); border-radius:6px; display:flex; align-items:center; gap:3px; padding:0 10px;}
+  .level span{flex:1; height:6px; background:var(--border); border-radius:2px; transition:height .12s ease, background .12s ease;}
+  .level.playing span{animation:pulse 1.1s ease-in-out infinite;}
+  .level span:nth-child(1){animation-delay:0s;} .level span:nth-child(2){animation-delay:.08s;}
+  .level span:nth-child(3){animation-delay:.16s;} .level span:nth-child(4){animation-delay:.24s;}
+  .level span:nth-child(5){animation-delay:.32s;} .level span:nth-child(6){animation-delay:.4s;}
+  .level span:nth-child(7){animation-delay:.48s;} .level span:nth-child(8){animation-delay:.56s;}
+  .level span:nth-child(9){animation-delay:.64s;} .level span:nth-child(10){animation-delay:.72s;}
+  .level.playing span{background:var(--green);}
+  @keyframes pulse{0%,100%{height:6px;} 50%{height:26px;}}
+
+  .aha{
+    margin-top:20px; border:1px solid var(--green-dim); background:linear-gradient(180deg,rgba(95,217,160,.07),rgba(95,217,160,.02));
+    border-radius:8px; padding:16px 18px; opacity:0; transform:translateY(6px); pointer-events:none;
+    transition:opacity .4s ease, transform .4s ease;
+  }
+  .aha.show{opacity:1; transform:translateY(0); pointer-events:auto;}
+  .aha-label{font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--green); margin-bottom:6px;}
+  .aha p{margin:0; font-size:14px; line-height:1.55; color:#dcd9d3;}
+
+  .fader-track{position:relative; height:6px; background:#0e0e11; border:1px solid var(--border); border-radius:4px; margin:38px 4px 10px;}
+  .fader-fill{position:absolute; top:0; left:0; height:100%; background:linear-gradient(90deg,var(--green),var(--amber)); border-radius:4px; opacity:.35;}
+  .fader-handle{
+    position:absolute; top:50%; width:26px; height:40px; margin-left:-13px; margin-top:-20px;
+    background:var(--panel-alt); border:1px solid var(--border); border-radius:5px; cursor:grab;
+    display:flex; align-items:center; justify-content:center; touch-action:none;
+  }
+  .fader-handle::before{content:''; width:12px; height:2px; background:var(--text-muted); box-shadow:0 5px var(--text-muted), 0 -5px var(--text-muted);}
+  .fader-handle:active{cursor:grabbing; border-color:var(--amber);}
+  .fader-handle:focus-visible{outline:2px solid var(--amber); outline-offset:2px;}
+  .zones{display:flex; justify-content:space-between; margin-top:8px;}
+  .zone{flex:1; text-align:center; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-muted); padding:0 4px; transition:color .15s;}
+  .zone.active{color:var(--text);}
+  .zone .icon{display:block; margin:0 auto 6px; width:26px; height:26px; opacity:.45; transition:opacity .15s;}
+  .zone.active .icon{opacity:1;}
+  .zone.active.z-bath{color:var(--amber);} .zone.active.z-bath .icon{filter:drop-shadow(0 0 4px var(--amber));}
+  .zone.active.z-living{color:var(--green);}
+  .zone.active.z-closet{color:var(--text-muted);}
+
+  .decay-viz{display:flex; align-items:flex-end; gap:3px; height:34px; margin-top:16px;}
+  .decay-viz span{flex:1; background:var(--green); border-radius:1px; opacity:.85; transition:height .3s ease;}
+
+  .trigger-row{display:flex; align-items:center; gap:12px; margin-top:18px;}
+  .trigger-btn{
+    background:var(--panel-alt); border:1px solid var(--border); color:var(--text); padding:10px 16px;
+    border-radius:6px; font-family:'JetBrains Mono',monospace; font-size:12px; cursor:pointer; transition:border-color .15s;
+  }
+  .trigger-btn:hover{border-color:var(--green);}
+  .auto-toggle{display:flex; align-items:center; gap:8px; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-muted); cursor:pointer; user-select:none;}
+  .auto-toggle input{accent-color:var(--green); width:14px; height:14px;}
+
+  .beam-stage{position:relative; height:120px; margin:20px 0 6px; display:flex; align-items:center; justify-content:space-between;}
+  .beam-stage .spk{width:34px; height:34px; opacity:.75; flex-shrink:0;}
+  .beam-stage .ear{width:36px; height:36px; opacity:.9; flex-shrink:0;}
+  .beam-svg{position:absolute; left:34px; right:34px; top:0; height:100%; z-index:0;}
+  .end-labels{display:flex; justify-content:space-between; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-muted); letter-spacing:.04em; margin-top:6px;}
+
+  .footer{padding:52px 0 20px; text-align:center;}
+  .footer p{color:var(--text-muted); font-size:13.5px; margin:0 0 18px;}
+  .continue-btn{
+    background:transparent; border:1px solid var(--green); color:var(--green); padding:12px 26px; border-radius:6px;
+    font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:14px; cursor:pointer; transition:background .15s;
+  }
+  .continue-btn:hover{background:rgba(95,217,160,.08);}
+
+  .progress{position:fixed; right:22px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:14px; z-index:20;}
+  .progress .dot{width:8px;height:8px;border-radius:50%; background:var(--border); transition:background .3s, box-shadow .3s;}
+  .progress .dot.active{background:var(--amber); box-shadow:0 0 8px var(--amber);}
+  @media (max-width:820px){ .progress{display:none;} }
+
+  .hint{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-muted); margin-top:14px; opacity:.7;}
+
+  @media (max-width:520px){
+    .seg button{font-size:10.5px; padding:10px 4px;}
+    .zone{font-size:9.5px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress">
+  <div class="dot" data-m="1"></div>
+  <div class="dot" data-m="2"></div>
+  <div class="dot" data-m="3"></div>
+</div>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div class="eyebrow">Listening Lab · Before Lesson 1</div>
+    <h1 class="display">Train your ears before you train your hands.</h1>
+    <p>Three quick experiments — no theory yet, just listening. Put in headphones or turn your speakers up, then tap play on any experiment below. Real recordings, nothing processed live.</p>
+  </div>
+
+  <!-- ========================= MODULE 1 ========================= -->
+  <div class="module" id="mod1">
+    <div class="m-eyebrow"><span class="n">01</span> · Speaker Test</div>
+    <h2 class="display">Car Stereo vs. Kitchen Radio</h2>
+    <p class="hook">Why does your favorite song sound amazing in your car, but thin and terrible off a phone speaker on the kitchen counter? Same song, three real recordings of it — captured through each system.</p>
+
+    <div class="panel">
+      <div class="seg" role="group" aria-label="Choose playback system">
+        <button class="phone active" data-mode="phone">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+          Phone on Counter
+        </button>
+        <button class="car" data-mode="car">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 13l1.5-5A2 2 0 0 1 6.4 6.5h11.2A2 2 0 0 1 19.5 8L21 13"/><rect x="2" y="13" width="20" height="5" rx="1.5"/><circle cx="6.5" cy="18.5" r="1.5"/><circle cx="17.5" cy="18.5" r="1.5"/></svg>
+          Car Stereo
+        </button>
+        <button class="studio" data-mode="studio">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          Studio Monitors
+        </button>
+      </div>
+
+      <div class="curve-box">
+        <div class="curve-label"><span>20 Hz</span><span id="curveTitle" class="mono">TYPICAL RESPONSE — PHONE ON COUNTER</span><span>20 kHz</span></div>
+        <svg class="curve-shape" id="curveShape" viewBox="0 0 640 120" preserveAspectRatio="none">
+          <line x1="0" y1="60" x2="640" y2="60" stroke="rgba(255,255,255,0.08)"/>
+          <path id="curvePath" d="" stroke="#e8934a"/>
+        </svg>
+        <div class="curve-caption" id="curveCaption">Bass and highs are cut — everything funnels through the mids.</div>
+      </div>
+
+      <div class="playbar">
+        <button class="play-btn" id="play1" aria-label="Play">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <div class="level" id="level1">
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="hint">Audio: audio/module1-phone.mp3 · audio/module1-car.mp3 · audio/module1-studio.mp3 (same song, recorded through each system)</div>
+
+      <div class="aha" id="aha1">
+        <div class="aha-label">The take-away</div>
+        <p>Consumer speakers <em>lie</em> to you on purpose — they boost bass or treble to sound exciting in a showroom. Studio monitors tell the flat, boring truth, so if a mix sounds right on them, it'll translate everywhere else too.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================= MODULE 2 ========================= -->
+  <div class="module" id="mod2">
+    <div class="m-eyebrow"><span class="n">02</span> · Room Acoustics</div>
+    <h2 class="display">The Singing-in-the-Shower Effect</h2>
+    <p class="hook">Why does everyone sound like a pop star singing in a tiled bathroom? Drag the speaker between three real rooms and hear the same note recorded in each one — nothing about the source changed, only the room around it.</p>
+
+    <div class="panel">
+      <div class="fader-track" id="track2">
+        <div class="fader-fill" id="fill2" style="width:0%"></div>
+        <div class="fader-handle" id="handle2" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="2" aria-valuenow="0" aria-label="Room" style="left:0%"></div>
+      </div>
+      <div class="zones">
+        <div class="zone z-bath active" data-zone="0">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+          Tiled Bathroom
+        </div>
+        <div class="zone z-living" data-zone="1">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 18v-6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6"/><path d="M4 18h16"/><path d="M6 12V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4"/></svg>
+          Living Room
+        </div>
+        <div class="zone z-closet" data-zone="2">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="2" width="16" height="20" rx="1"/><path d="M9 2v20M15 2v20"/></svg>
+          Closet Full of Coats
+        </div>
+      </div>
+
+      <div class="decay-viz" id="decayViz" aria-hidden="true"></div>
+
+      <div class="trigger-row">
+        <button class="trigger-btn" id="triggerNote">▶ Play a note</button>
+        <label class="auto-toggle"><input type="checkbox" id="autoRepeat"> Auto-repeat every 2s</label>
+      </div>
+      <div class="hint">Audio: audio/module2-bathroom.mp3 · audio/module2-living.mp3 · audio/module2-closet.mp3 (same note, recorded in each room)</div>
+
+      <div class="aha" id="aha2">
+        <div class="aha-label">The take-away</div>
+        <p>What you're hearing isn't just the sound — it's the room bouncing that sound back at you. Tile reflects almost everything; coats absorb almost everything. Studio monitors need a <em>treated</em> room so the space stops adding its own opinion to your mix.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================= MODULE 3 ========================= -->
+  <div class="module" id="mod3">
+    <div class="m-eyebrow"><span class="n">03</span> · Stereo Imaging</div>
+    <h2 class="display">The Headphone Illusion</h2>
+    <p class="hook">Put on headphones and a sound can feel like it's sitting inside your skull. Play the same phrase on speakers and it feels like a stage in front of you. Toggle between a speaker recording and a headphone recording of the same moment and hear the difference.</p>
+
+    <div class="panel">
+      <div class="beam-stage">
+        <svg viewBox="0 0 24 24" class="spk" fill="none" stroke="var(--amber)" stroke-width="1.5"><rect x="4" y="2" width="16" height="20" rx="2"/><circle cx="12" cy="8" r="2.5"/><circle cx="12" cy="16" r="4"/></svg>
+        <svg class="beam-svg" id="beamSvg" viewBox="0 0 300 120" preserveAspectRatio="none"></svg>
+        <svg viewBox="0 0 24 24" class="ear" fill="none" stroke="var(--green)" stroke-width="1.5"><path d="M12 4a6 6 0 0 0-6 6c0 2 1 3 1 5a3 3 0 0 0 3 3"/><path d="M12 4a6 6 0 0 1 6 6c0 4-3 4-3 8"/></svg>
+      </div>
+
+      <div class="seg" role="group" aria-label="Choose recording" style="margin-top:20px;">
+        <button class="speakers active" data-mode="speakers">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          At the Speakers
+        </button>
+        <button class="headphones" data-mode="headphones">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="2" y="14" width="5" height="7" rx="1.5"/><rect x="17" y="14" width="5" height="7" rx="1.5"/></svg>
+          In Headphones
+        </button>
+      </div>
+
+      <div class="playbar" style="margin-top:18px;">
+        <button class="play-btn" id="play3" aria-label="Play">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <div class="level" id="level3">
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="hint">Audio: audio/module3-speakers.mp3 · audio/module3-headphones.mp3 (same phrase, recorded via speakers vs. headphones)</div>
+
+      <div class="aha" id="aha3">
+        <div class="aha-label">The take-away</div>
+        <p>Real speakers mix sound in open air before it reaches both your ears — each ear hears a little of <em>both</em> speakers. Headphones skip that step entirely, feeding each ear in total isolation. That's the "3D stage" speakers create naturally, and what stereo mixing has to fake for headphones.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>That's it — three experiments, zero jargon. Lesson 1 builds on exactly what you just heard.</p>
+    <button class="continue-btn" id="continueBtn">Continue to Lesson 1 →</button>
+  </div>
+
+</div>
+
+<script>
+/* ============================================================
+   AUDIO FILE MAP — swap these paths for your real recordings.
+   Everything below just loads and plays these files; no live
+   processing happens anywhere in this page.
+   ============================================================ */
+const AUDIO_FILES = {
+  mod1: { phone:'audio/module1-phone.mp3', car:'audio/module1-car.mp3', studio:'audio/module1-studio.mp3' },
+  mod2: { bathroom:'audio/module2-bathroom.mp3', living:'audio/module2-living.mp3', closet:'audio/module2-closet.mp3' },
+  mod3: { speakers:'audio/module3-speakers.mp3', headphones:'audio/module3-headphones.mp3' }
+};
+
+const stoppers = [];
+function stopOthers(except){ stoppers.forEach(fn=>{ if(fn!==except) fn(); }); }
+function playIcon(){ return '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>'; }
+function pauseIcon(){ return '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>'; }
+
+/* Simple looping clip player: swap src, keep playing if it already was */
+class ClipPlayer{
+  constructor(sources, {loop=true}={}){
+    this.sources = sources;
+    this.audio = new Audio();
+    this.audio.loop = loop;
+    this.audio.preload = 'auto';
+    this.current = null;
+  }
+  setClip(key){
+    if(this.current === key) return;
+    this.current = key;
+    const wasPlaying = !this.audio.paused;
+    this.audio.src = this.sources[key];
+    if(wasPlaying) this.play();
+  }
+  play(){ this.audio.currentTime = this.audio.currentTime || 0; this.audio.play().catch(()=>{}); }
+  restart(){ this.audio.currentTime = 0; this.audio.play().catch(()=>{}); }
+  pause(){ this.audio.pause(); }
+  get playing(){ return !this.audio.paused; }
+}
+
+/* ============================================================
+   MODULE 1 — Car Stereo vs Kitchen Radio
+   ============================================================ */
+const Mod1 = (()=>{
+  const player = new ClipPlayer(AUDIO_FILES.mod1, {loop:true});
+  let revealed = false;
+
+  const curves = {
+    phone:  { d:'M0,90 L120,90 L200,45 L440,45 L520,90 L640,90', title:'PHONE ON COUNTER', color:'#e8934a',
+              caption:'Bass and highs are cut — everything funnels through the mids.' },
+    car:    { d:'M0,20 L160,20 L260,55 L420,55 L520,15 L640,15', title:'CAR STEREO', color:'#e8934a',
+              caption:'Bass is boosted hard, highs are pushed too — it flatters the song but hides the truth.' },
+    studio: { d:'M0,60 L640,60', title:'STUDIO MONITORS', color:'#5fd9a0',
+              caption:"A flat, honest line. What you hear is what's actually in the mix." }
+  };
+
+  function setMode(mode){
+    document.getElementById('curvePath').setAttribute('d', curves[mode].d);
+    document.getElementById('curvePath').setAttribute('stroke', curves[mode].color);
+    document.getElementById('curveTitle').textContent = 'TYPICAL RESPONSE — ' + curves[mode].title;
+    document.getElementById('curveCaption').textContent = curves[mode].caption;
+    player.setClip(mode);
+    reveal();
+  }
+  function reveal(){ if(revealed) return; revealed = true; document.getElementById('aha1').classList.add('show'); }
+
+  function updatePlayUI(){
+    document.getElementById('play1').innerHTML = player.playing ? pauseIcon() : playIcon();
+    document.getElementById('level1').classList.toggle('playing', player.playing);
+  }
+  function stop(){ player.pause(); updatePlayUI(); }
+  stoppers.push(stop);
+
+  function init(){
+    player.setClip('phone');
+    document.querySelectorAll('#mod1 .seg button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        document.querySelectorAll('#mod1 .seg button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        stopOthers(stop);
+        setMode(btn.dataset.mode);
+        if(!player.playing) player.play();
+        updatePlayUI();
+      });
+    });
+    document.getElementById('play1').addEventListener('click', ()=>{
+      if(player.playing){ player.pause(); }
+      else { stopOthers(stop); player.play(); }
+      updatePlayUI();
+    });
+  }
+  return {init};
+})();
+
+/* ============================================================
+   MODULE 2 — Room Acoustics
+   ============================================================ */
+const Mod2 = (()=>{
+  const player = new ClipPlayer(AUDIO_FILES.mod2, {loop:false});
+  let revealed = false, autoTimer = null;
+  const rooms = [
+    { key:'bathroom', bars:[90,70,55,42,32,24,17,12,8,5] },
+    { key:'living',   bars:[70,45,26,14,7,3,0,0,0,0] },
+    { key:'closet',   bars:[55,10,2,0,0,0,0,0,0,0] },
+  ];
+
+  function drawBars(bars){
+    const viz = document.getElementById('decayViz');
+    viz.innerHTML = '';
+    bars.forEach(h=>{
+      const el = document.createElement('span');
+      el.style.height = Math.max(2, h*0.34) + 'px';
+      viz.appendChild(el);
+    });
+  }
+
+  function setRoom(idx){
+    document.querySelectorAll('#mod2 .zone').forEach((z,i)=>z.classList.toggle('active', i===idx));
+    document.getElementById('handle2').setAttribute('aria-valuenow', idx);
+    player.setClip(rooms[idx].key);
+    drawBars(rooms[idx].bars);
+  }
+
+  function reveal(){ if(revealed) return; revealed = true; document.getElementById('aha2').classList.add('show'); }
+
+  function stopAuto(){
+    if(autoTimer){ clearInterval(autoTimer); autoTimer = null; }
+    document.getElementById('autoRepeat').checked = false;
+    player.pause();
+  }
+  stoppers.push(stopAuto);
+
+  function init(){
+    setRoom(0);
+    makeDraggable(document.getElementById('track2'), document.getElementById('handle2'), {
+      snapPoints: 3,
+      onFill: pct => { document.getElementById('fill2').style.width = (pct*100)+'%'; },
+      onChange: pct => setRoom(Math.round(pct*2))
+    });
+    document.getElementById('triggerNote').addEventListener('click', ()=>{
+      stopOthers(stopAuto);
+      player.restart();
+      reveal();
+    });
+    document.getElementById('autoRepeat').addEventListener('change', e=>{
+      if(e.target.checked){
+        stopOthers(stopAuto);
+        e.target.checked = true;
+        player.restart();
+        reveal();
+        autoTimer = setInterval(()=>player.restart(), 2000);
+      } else {
+        stopAuto();
+      }
+    });
+  }
+  return {init};
+})();
+
+/* ============================================================
+   MODULE 3 — Headphone Illusion
+   ============================================================ */
+const Mod3 = (()=>{
+  const player = new ClipPlayer(AUDIO_FILES.mod3, {loop:true});
+  let revealed = false;
+
+  function drawBeam(mode){
+    const svg = document.getElementById('beamSvg');
+    const v = mode === 'headphones' ? 1 : 0;
+    const spread = 55 - v*40;
+    const focusX = 40 + v*220;
+    svg.innerHTML = `
+      <polygon points="0,${60-spread} 0,${60+spread} ${focusX},62 ${focusX},58" fill="url(#g1)" opacity="0.55"/>
+      <polygon points="300,${60-spread} 300,${60+spread} ${300-focusX},62 ${300-focusX},58" fill="url(#g2)" opacity="0.55"/>
+      <defs>
+        <linearGradient id="g1" x1="0" x2="1"><stop offset="0" stop-color="#e8934a"/><stop offset="1" stop-color="#5fd9a0"/></linearGradient>
+        <linearGradient id="g2" x1="1" x2="0"><stop offset="0" stop-color="#e8934a"/><stop offset="1" stop-color="#5fd9a0"/></linearGradient>
+      </defs>`;
+  }
+
+  function updatePlayUI(){
+    document.getElementById('play3').innerHTML = player.playing ? pauseIcon() : playIcon();
+    document.getElementById('level3').classList.toggle('playing', player.playing);
+  }
+  function stop(){ player.pause(); updatePlayUI(); }
+  stoppers.push(stop);
+
+  function setMode(mode){
+    drawBeam(mode);
+    player.setClip(mode);
+    reveal();
+  }
+  function reveal(){ if(revealed) return; revealed = true; document.getElementById('aha3').classList.add('show'); }
+
+  function init(){
+    player.setClip('speakers');
+    drawBeam('speakers');
+    document.querySelectorAll('#mod3 .seg button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        document.querySelectorAll('#mod3 .seg button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        stopOthers(stop);
+        setMode(btn.dataset.mode);
+        if(!player.playing) player.play();
+        updatePlayUI();
+      });
+    });
+    document.getElementById('play3').addEventListener('click', ()=>{
+      if(player.playing){ player.pause(); }
+      else { stopOthers(stop); player.play(); }
+      updatePlayUI();
+    });
+  }
+  return {init};
+})();
+
+/* ============================================================
+   SHARED DRAG HELPER
+   ============================================================ */
+function makeDraggable(track, handle, {snapPoints, onChange, onFill}){
+  let dragging = false;
+  function rect(){ return track.getBoundingClientRect(); }
+  function setFromClientX(x){
+    const r = rect();
+    let pct = (x - r.left) / r.width;
+    pct = Math.max(0, Math.min(1, pct));
+    if(snapPoints){
+      const n = snapPoints - 1;
+      pct = Math.round(pct*n) / n;
+    }
+    handle.style.left = (pct*100) + '%';
+    if(onFill) onFill(pct);
+    onChange(pct);
+  }
+  handle.addEventListener('pointerdown', e=>{ dragging=true; handle.setPointerCapture(e.pointerId); e.preventDefault(); });
+  window.addEventListener('pointermove', e=>{ if(dragging) setFromClientX(e.clientX); });
+  window.addEventListener('pointerup', ()=>dragging=false);
+  track.addEventListener('pointerdown', e=>{ setFromClientX(e.clientX); dragging=true; });
+  handle.addEventListener('keydown', e=>{
+    const r = rect();
+    const cur = parseFloat(handle.style.left)/100 || 0;
+    const step = snapPoints ? 1/(snapPoints-1) : 0.05;
+    if(e.key==='ArrowRight' || e.key==='ArrowUp'){ setFromClientX(r.left + Math.min(1,cur+step)*r.width); e.preventDefault(); }
+    if(e.key==='ArrowLeft' || e.key==='ArrowDown'){ setFromClientX(r.left + Math.max(0,cur-step)*r.width); e.preventDefault(); }
+  });
+}
+
+/* ============================================================
+   PROGRESS DOTS (scroll spy)
+   ============================================================ */
+function initProgress(){
+  const dots = document.querySelectorAll('#progress .dot');
+  const sections = ['mod1','mod2','mod3'].map(id=>document.getElementById(id));
+  const io = new IntersectionObserver(entries=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){
+        const idx = sections.indexOf(entry.target);
+        dots.forEach((d,i)=>d.classList.toggle('active', i===idx));
+      }
+    });
+  }, {threshold:0.5});
+  sections.forEach(s=>io.observe(s));
+}
+
+document.getElementById('continueBtn').addEventListener('click', ()=>{ stoppers.forEach(fn=>fn()); });
+
+Mod1.init();
+Mod2.init();
+Mod3.init();
+initProgress();
+</script>
+</body>
+</html>

@@ -1,13 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { buildStepList, firstStepIdForTopic } from "../course/courseData";
+import { MODULES, buildStepList, firstStepIdForTopic } from "../course/courseData";
 import { useCourseTopics } from "../course/useCourseTopics";
 import AssessmentSection from "../course/AssessmentSection";
 import InteractiveSection from "../course/InteractiveSection";
 import GearModelViewer from "../panorama/GearModelViewer";
+import { ROOMS } from "../panorama/roomsData";
 import "./CoursePage.css";
 
 const STEP_TAG = { assessment: "Quiz", interactive: "Lab" };
+
+// Every real VR-tour hotspot (Control Room + Recording Room gear markers),
+// flattened so a chapter's `hotspotId` can be resolved back to the actual
+// in-scene marker name instead of borrowing a course chapter's own (often
+// longer, syllabus-style) title.
+const ALL_HOTSPOTS = ROOMS.flatMap((room) => room.markers ?? []);
+function hotspotName(hotspotId, fallbackTitle) {
+  return ALL_HOTSPOTS.find((m) => m.id === hotspotId)?.title ?? fallbackTitle;
+}
 
 function CourseStatusScreen({ title, message, actionLabel, onAction }) {
   return (
@@ -51,16 +61,31 @@ function CoursePage() {
   useEffect(() => {
     if (hasInitialized || STEPS.length === 0) return;
     const requested = pendingTopicId && firstStepIdForTopic(STEPS, pendingTopicId);
-    const stepId = requested ?? STEPS[0]?.id;
-    const topicId = STEPS.find((s) => s.id === stepId)?.topicId ?? STEPS[0]?.topicId;
-    setActiveStepId(stepId);
-    if (topicId) setOpenTopics(new Set([topicId]));
-    setHasInitialized(true);
-  }, [STEPS, hasInitialized, pendingTopicId]);
+    return requested ?? STEPS[0]?.id;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only meant to run once, at mount
+  }, []);
+
+  const [openTopics, setOpenTopics] = useState(() => {
+    const topicId = STEPS.find((s) => s.id === initialStepId)?.topicId ?? STEPS[0]?.topicId;
+    return new Set([topicId]);
+  });
+  // Which module accordion(s) are expanded in the sidebar — mirrors
+  // openTopics above, one level up. Starts with just the module containing
+  // wherever the student is actually landing (a fresh visit, or a topic
+  // requested via route state), same "open where you are" logic as
+  // openTopics.
+  const [openModules, setOpenModules] = useState(() => {
+    const topicId = STEPS.find((s) => s.id === initialStepId)?.topicId ?? STEPS[0]?.topicId;
+    const moduleId = TOPICS.find((t) => t.id === topicId)?.module;
+    return new Set(moduleId ? [moduleId] : []);
+  });
+  const [activeStepId, setActiveStepId] = useState(initialStepId);
+  const [completed, setCompleted] = useState(() => new Set());
 
   const activeIndex = STEPS.findIndex((s) => s.id === activeStepId);
   const activeStep = STEPS[activeIndex] ?? STEPS[0];
   const activeTopic = (topics ?? []).find((t) => t.id === activeStep?.topicId);
+  const activeModuleInfo = MODULES.find((m) => m.id === activeTopic?.module);
 
   const stepsInTopic = useMemo(
     () => STEPS.filter((s) => s.topicId === activeTopic?.id),
@@ -70,8 +95,31 @@ function CoursePage() {
   const topicPct = stepsInTopic.length ? Math.round((doneInTopic / stepsInTopic.length) * 100) : 0;
   const overallPct = STEPS.length ? Math.round((completed.size / STEPS.length) * 100) : 0;
 
-  const goToStudio = () => navigate("/studio");
+  // Studio is where students actually land (LoginPage routes straight to
+  // /studio) — this page is the notebook they get sent to from there, so
+  // every way back hands PanoramaTour the hotspot that got them here. It
+  // reads that as location.state.focusHotspotId and walks the camera
+  // straight to it (powering the rig up on the way if it isn't already) —
+  // see PanoramaTour's focus-hotspot effect. Several chapters share one
+  // physical hotspot (e.g. "Signal Flow" shares the Patch Bay marker with
+  // "Connectors, Cables, and Studio Wiring"), so this reads `hotspotId`
+  // rather than the chapter's own `id` — see the field comment atop
+  // course/courseData.js. A handful of "briefing" chapters have no hotspot
+  // at all (hotspotId: null); PanoramaTour's focus effect already no-ops
+  // gracefully when handed a null/missing target, so this still just lands
+  // the student back in whichever room they left, unfocused.
+  const goToStudio = (hotspotId = activeTopic?.hotspotId) =>
+    navigate("/studio", { state: { focusHotspotId: hotspotId } });
   const goHome = () => navigate("/");
+
+  const toggleModule = (moduleId) => {
+    setOpenModules((prev) => {
+      const next = new Set(prev);
+      if (next.has(moduleId)) next.delete(moduleId);
+      else next.add(moduleId);
+      return next;
+    });
+  };
 
   const toggleTopic = (topicId) => {
     setOpenTopics((prev) => {
@@ -85,6 +133,8 @@ function CoursePage() {
   const selectStep = (stepId, topicId) => {
     setActiveStepId(stepId);
     setOpenTopics((prev) => new Set(prev).add(topicId));
+    const moduleId = TOPICS.find((t) => t.id === topicId)?.module;
+    if (moduleId) setOpenModules((prev) => new Set(prev).add(moduleId));
   };
 
   const markComplete = (stepId) => {
@@ -157,7 +207,7 @@ function CoursePage() {
           </button>
           <div className="course-title-block">
             <div className="course-crumb">
-              Control Room &nbsp;/&nbsp; <b>{activeTopic?.title}</b>
+              {activeModuleInfo?.title ?? "Control Room"} &nbsp;/&nbsp; <b>{activeTopic?.title}</b>
             </div>
             <h1>Studio VR — Audio Engineering</h1>
             <div className="progress-wrap">
@@ -171,74 +221,126 @@ function CoursePage() {
           </div>
         </div>
         <div className="course-topbar-right">
-          <button className="btn-primary" onClick={goToStudio}>
-            Launch VR studio →
+          <button className="btn-primary" onClick={() => goToStudio()}>
+            ← Back to the studio
           </button>
         </div>
       </div>
 
       <div className="course-layout">
         <aside className="course-sidebar">
-          <div className="sidebar-section-label">Control Room</div>
-          {(topics ?? []).map((topic) => {
-            if (!topic.ready) {
-              return (
-                <div className="topic-block" key={topic.id}>
-                  <div className="topic-head locked">
-                    <span className="chev">▸</span>
-                    <span className="tname">{topic.title}</span>
-                    <span className="tsoon">Soon</span>
-                  </div>
-                </div>
-              );
-            }
-
-            const isOpen = openTopics.has(topic.id);
-            const isCurrent = topic.id === activeTopic?.id;
-            const topicSteps = STEPS.filter((s) => s.topicId === topic.id);
-            const doneCount = topicSteps.filter((s) => completed.has(s.id)).length;
+          {MODULES.filter((mod) => TOPICS.some((t) => t.module === mod.id)).map((mod) => {
+            const moduleTopics = TOPICS.filter((t) => t.module === mod.id);
+            const isModuleOpen = openModules.has(mod.id);
+            const moduleSteps = STEPS.filter((s) =>
+              moduleTopics.some((t) => t.id === s.topicId)
+            );
+            const moduleDone = moduleSteps.filter((s) => completed.has(s.id)).length;
 
             return (
-              <div className="topic-block" key={topic.id}>
+              <div className="module-block" key={mod.id}>
                 <button
-                  className={`topic-head${isOpen ? " open" : ""}${isCurrent ? " current" : ""}`}
-                  onClick={() => toggleTopic(topic.id)}
+                  className={`module-head${isModuleOpen ? " open" : ""}`}
+                  onClick={() => toggleModule(mod.id)}
                 >
                   <span className="chev">▸</span>
-                  <span className="tname">{topic.title}</span>
-                  <span className="tcount">
-                    {doneCount}/{topicSteps.length}
-                  </span>
+                  <span className="mname">{mod.title}</span>
+                  {moduleSteps.length > 0 && (
+                    <span className="tcount">
+                      {moduleDone}/{moduleSteps.length}
+                    </span>
+                  )}
                 </button>
-                <div className={`lesson-list${isOpen ? " open" : ""}`}>
-                  {topicSteps.map((step) => (
-                    <button
-                      key={step.id}
-                      className={`lesson-item${step.id === activeStep?.id ? " active" : ""}`}
-                      onClick={() => selectStep(step.id, topic.id)}
-                    >
-                      <span className={`lesson-check${completed.has(step.id) ? " done" : ""}`}>
-                        {completed.has(step.id) ? "✓" : ""}
-                      </span>
-                      <span className="lname">{step.data.title}</span>
-                      {STEP_TAG[step.kind] && <span className="ltag">{STEP_TAG[step.kind]}</span>}
-                    </button>
-                  ))}
+
+                <div className={`module-topics${isModuleOpen ? " open" : ""}`}>
+                  {moduleTopics.map((topic) => {
+                    if (!topic.ready) {
+                      return (
+                        <div className="topic-block" key={topic.id}>
+                          <div className="topic-head locked">
+                            <span className="chev" />
+                            <span className="tname-col">
+                              <span className="tname">
+                                {topic.number ? `Ch ${topic.number} · ` : ""}
+                                {topic.title}
+                              </span>
+                              {topic.room && (
+                                <span className="tloc">
+                                  📍 {topic.room}-{hotspotName(topic.hotspotId, topic.title)}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    const isOpen = openTopics.has(topic.id);
+                    const isCurrent = topic.id === activeTopic?.id;
+                    const topicSteps = STEPS.filter((s) => s.topicId === topic.id);
+                    const doneCount = topicSteps.filter((s) => completed.has(s.id)).length;
+
+                    return (
+                      <div className="topic-block" key={topic.id}>
+                        <button
+                          className={`topic-head${isOpen ? " open" : ""}${isCurrent ? " current" : ""}`}
+                          onClick={() => toggleTopic(topic.id)}
+                        >
+                          <span className="chev">▸</span>
+                          <span className="tname-col">
+                            <span className="tname">
+                              {topic.number ? `Ch ${topic.number} · ` : ""}
+                              {topic.title}
+                            </span>
+                            {topic.room && (
+                              <span className="tloc anchored">
+                                📍 {topic.room}-{hotspotName(topic.hotspotId, topic.title)}
+                              </span>
+                            )}
+                          </span>
+                          <span className="tcount">
+                            {doneCount}/{topicSteps.length}
+                          </span>
+                        </button>
+                        <div className={`lesson-list${isOpen ? " open" : ""}`}>
+                          {topicSteps.map((step) => (
+                            <button
+                              key={step.id}
+                              className={`lesson-item${step.id === activeStep?.id ? " active" : ""}`}
+                              onClick={() => selectStep(step.id, topic.id)}
+                            >
+                              <span className={`lesson-check${completed.has(step.id) ? " done" : ""}`}>
+                                {completed.has(step.id) ? "✓" : ""}
+                              </span>
+                              <span className="lname">{step.data.title}</span>
+                              {STEP_TAG[step.kind] && <span className="ltag">{STEP_TAG[step.kind]}</span>}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
           })}
-          <div className="sidebar-section-label">Recording Room</div>
-          <div className="empty-topic-note">More lessons coming soon</div>
         </aside>
 
         <main className="course-main">
           {activeTopic && activeStep && (
             <div className="course-content">
               <div className="topic-eyebrow">
-                Control Room · {activeTopic.title}
+                {activeModuleInfo?.title ?? "Control Room"}
+                {activeTopic.number ? ` · Chapter ${activeTopic.number}` : ""} · {activeTopic.title}
               </div>
               <h1 className="topic-heading">{activeTopic.title}</h1>
+              {activeTopic.hotspotId && (
+                <div className="loc-chip anchored">
+                  📍 Anchored —{" "}
+                  {activeTopic.room} ·{" "}
+                  {hotspotName(activeTopic.hotspotId, activeTopic.title)} hotspot
+                </div>
+              )}
               <p className="topic-intro">{activeTopic.intro}</p>
               <div className="topic-progress-row">
                 <div className="progress-track">
@@ -355,14 +457,15 @@ function CoursePage() {
 
               <div className="studio-cta">
                 <div>
-                  <h4>Want to see it in place?</h4>
+                  <h4>{activeTopic.hotspotId ? "Back in the studio?" : "Ready to keep exploring?"}</h4>
                   <p>
-                    Step into the 360° control room and find the {activeTopic.title.toLowerCase()} hotspot
-                    yourself.
+                    {activeTopic.hotspotId
+                      ? `This chapter is anchored to the ${hotspotName(activeTopic.hotspotId, activeTopic.title)} hotspot in the ${activeTopic.room} — head back and we'll walk you straight to it.`
+                      : "This chapter is classroom-only — head back to the studio to pick up wherever you left off."}
                   </p>
                 </div>
-                <button className="btn-primary" onClick={goToStudio}>
-                  Launch VR studio →
+                <button className="btn-primary" onClick={() => goToStudio(activeTopic.hotspotId)}>
+                  ← Back to the studio
                 </button>
               </div>
             </div>

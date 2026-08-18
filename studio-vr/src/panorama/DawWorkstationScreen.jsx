@@ -118,6 +118,21 @@ function DawWorkstationScreen({ open, onClose }) {
   const demoBufferRef = useRef(null); // synthetic fallback buffer (see createDemoLoopBuffer), lazily created only if a real DEMO_CLIPS fetch fails
   const demoClipBuffersRef = useRef(new Map()); // DEMO_CLIPS id -> decoded AudioBuffer, so re-picking/re-seeding the same ~20-45MB stem doesn't re-fetch/re-decode it
 
+  // ── Mic recording (per-track "Record" button, right next to Upload) ────
+  // Records straight from the mic via MediaRecorder, then decodes the result
+  // through the exact same ctx.decodeAudioData path handleTrackFile uses for
+  // an uploaded file — so a recording lands on the track (peaks, chain
+  // reset, etc.) exactly like any other clip once it's done. Only one track
+  // can record at a time; recordingTrackIdRef mirrors recordingTrackId state
+  // so the async MediaRecorder callbacks (onstop) always see the current id
+  // rather than one captured at record-start time.
+  const [recordingTrackId, setRecordingTrackId] = useState(null);
+  const recordingTrackIdRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+  const recordedChunksRef = useRef([]);
+  const recordingCounterRef = useRef(0);
+
   // Each track's own clip can start anywhere in the arrangement (see
   // track.startAt, seconds — dragged via the clip's header in the
   // arrangement pane below), so the arrangement's total length is the
@@ -504,7 +519,15 @@ function DawWorkstationScreen({ open, onClose }) {
       const meterAnalyser = ctx.createAnalyser();
       meterAnalyser.fftSize = 512;
       masterGain.connect(meterAnalyser);
-      const speakerBus = createStudioSpeakerBus();
+      // `independent: true` — the DAW's own mix bus stays spatialized
+      // (still sounds like it's coming from the studio monitors, still
+      // turns with the student's head), but skips the shared masterGain/
+      // outputGain stage the panorama tour's own master mute button
+      // controls (see setMuted() in spatialAudioEngine.js and
+      // toggleMasterMute in PanoramaTour.jsx) — muting the ambient
+      // bed/room bleed/narration from the tour's toolbar shouldn't also
+      // reach in and silence whatever's playing on this screen.
+      const speakerBus = createStudioSpeakerBus({ independent: true });
       if (speakerBus) masterGain.connect(speakerBus.input);
       else masterGain.connect(ctx.destination);
 
@@ -907,6 +930,18 @@ function DawWorkstationScreen({ open, onClose }) {
   const removeTrack = useCallback(
     (id) => {
       const track = tracksRef.current.find((t) => t.id === id);
+      // If this track is the one currently recording, cancel the recording
+      // outright (no onstop decode — its track is about to be gone anyway)
+      // rather than leaving the mic stream open with nowhere to land.
+      if (recordingTrackIdRef.current === id) {
+        if (mediaRecorderRef.current) mediaRecorderRef.current.onstop = null;
+        mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+        mediaStreamRef.current = null;
+        mediaRecorderRef.current = null;
+        recordedChunksRef.current = [];
+        recordingTrackIdRef.current = null;
+        setRecordingTrackId(null);
+      }
       // Dropping a track (an Aux bus, most commonly) also has to drop every
       // OTHER track's send that was routed at it — otherwise those sends
       // would silently point at a bus id nothing owns any more.
@@ -1033,6 +1068,86 @@ function DawWorkstationScreen({ open, onClose }) {
     },
     [ensureContext, releaseTrackRegions, playFrom, currentOffset],
   );
+
+  // Stops the mic stream/recorder and clears every recording-related ref —
+  // shared by the normal onstop path below and the hard-cancel path (closing
+  // the DAW, or the track being removed, mid-recording).
+  const teardownRecording = useCallback(() => {
+    mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+    mediaStreamRef.current = null;
+    mediaRecorderRef.current = null;
+    recordedChunksRef.current = [];
+    recordingTrackIdRef.current = null;
+    setRecordingTrackId(null);
+  }, []);
+
+  const startRecording = useCallback(
+    async (id) => {
+      if (recordingTrackIdRef.current) return; // one track records at a time
+      const ctx = await ensureContext();
+      if (!ctx) {
+        setTracks((prev) => prev.map((t) => (t.id === id ? { ...t, loadError: "Could not start the audio engine." } : t)));
+        return;
+      }
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+        setTracks((prev) => prev.map((t) => (t.id === id ? { ...t, loadError: "Recording isn't supported in this browser." } : t)));
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaStreamRef.current = stream;
+        recordedChunksRef.current = [];
+        const recorder = new MediaRecorder(stream);
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) recordedChunksRef.current.push(e.data);
+        };
+        recorder.onstop = async () => {
+          const chunks = recordedChunksRef.current;
+          const mimeType = recorder.mimeType || "audio/webm";
+          teardownRecording();
+          if (!chunks.length) return;
+          try {
+            const blob = new Blob(chunks, { type: mimeType });
+            const arrayBuffer = await blob.arrayBuffer();
+            const decoded = await ctx.decodeAudioData(arrayBuffer);
+            const peaks = computePeaks(decoded);
+            recordingCounterRef.current += 1;
+            releaseTrackRegions(id);
+            const next = tracksRef.current.map((t) =>
+              t.id === id
+                ? { ...t, buffer: decoded, peaks, duration: decoded.duration, name: `Recording ${recordingCounterRef.current}`, loadError: "", regions: [] }
+                : t,
+            );
+            tracksRef.current = next;
+            setTracks(next);
+            if (isPlayingRef.current) playFrom(currentOffset());
+          } catch (err) {
+            console.error("[DawWorkstationScreen] recording decode failed", err);
+            setTracks((prev) => prev.map((t) => (t.id === id ? { ...t, loadError: "Could not process the recording." } : t)));
+          }
+        };
+        mediaRecorderRef.current = recorder;
+        recordingTrackIdRef.current = id;
+        setRecordingTrackId(id);
+        recorder.start();
+      } catch (err) {
+        console.error("[DawWorkstationScreen] mic access failed", err);
+        setTracks((prev) => prev.map((t) => (t.id === id ? { ...t, loadError: "Microphone access was denied." } : t)));
+      }
+    },
+    [ensureContext, releaseTrackRegions, teardownRecording, playFrom, currentOffset],
+  );
+
+  // The Record button toggles into this once a track is recording (see
+  // TrackList's own record/stop button) — stopping the MediaRecorder fires
+  // its `onstop` above, which does the actual decode/track-update.
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    } else {
+      teardownRecording();
+    }
+  }, [teardownRecording]);
 
   const setTrackVolume = useCallback((id, volume) => {
     const next = tracksRef.current.map((t) => (t.id === id ? { ...t, volume } : t));
@@ -1480,6 +1595,18 @@ function DawWorkstationScreen({ open, onClose }) {
   // and again on unmount, not lazily on the next reopen).
   useEffect(() => {
     return () => {
+      // Closing the DAW (or unmounting) mid-recording shouldn't leave the
+      // mic stream open in the background — cancel outright, same as
+      // removeTrack does for the track being recorded.
+      if (recordingTrackIdRef.current) {
+        if (mediaRecorderRef.current) mediaRecorderRef.current.onstop = null;
+        mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+        mediaStreamRef.current = null;
+        mediaRecorderRef.current = null;
+        recordedChunksRef.current = [];
+        recordingTrackIdRef.current = null;
+        setRecordingTrackId(null);
+      }
       teardownPlaybackGraph();
       tracksRef.current.forEach((t) => {
         disconnectChainSlots(t.chain);
@@ -2330,6 +2457,9 @@ function DawWorkstationScreen({ open, onClose }) {
                     setTrackVolume={setTrackVolume}
                     handleTrackFile={handleTrackFile}
                     loadDemoForTrack={loadDemoForTrack}
+                    recordingTrackId={recordingTrackId}
+                    onStartRecording={startRecording}
+                    onStopRecording={stopRecording}
                     toggleTrackSolo={toggleTrackSolo}
                     toggleTrackMute={toggleTrackMute}
                     downloadingTrackId={downloadingTrackId}
