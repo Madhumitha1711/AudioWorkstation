@@ -1,0 +1,74 @@
+{
+  "kind": "collectionType",
+  "collectionName": "course_topics",
+  "info": {
+    "singularName": "chapter",
+    "pluralName": "chapters",
+    "displayName": "Chapter",
+    "description": "A chapter within a Main Topic (e.g. Speakers, Mixing Console, DAW Workstation) — also the anchor for a VR hotspot when it has one. Matches TOPICS[] in studio-vr's src/course/courseData.js. Renamed from \"Course Topic\"; collectionName kept as course_topics so existing content isn't orphaned."
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "slug": {
+      "type": "uid",
+      "targetField": "title",
+      "required": true,
+      "description": "Matches TOPICS[].id / roomsData.js marker.id, e.g. \"speaker\", \"daw-screens\"."
+    },
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "room": {
+      "type": "string",
+      "description": "Display name of the room this chapter lives in, e.g. \"Control Room\" (matches TOPICS[].room)."
+    },
+    "intro": {
+      "type": "text",
+      "required": true
+    },
+    "ready": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the chapter is live or shown as \"coming soon\" — matches TOPICS[].ready."
+    },
+    "order": {
+      "type": "integer",
+      "default": 0,
+      "description": "Display/curriculum order within the whole course; studio-vr's buildStepList() walks chapters in this order."
+    },
+    "number": {
+      "type": "integer",
+      "description": "Chapter number in the 25-chapter syllabus (e.g. 13 for Speakers). Left empty for bonus chapters, like the LF Emitter companion, that don't get a \"Ch N\" badge."
+    },
+    "hotspotId": {
+      "type": "string",
+      "description": "The VR-tour hotspot marker id (studio-vr's panorama/roomsData.js) this chapter anchors to. Left empty for classroom-only chapters with no physical hotspot."
+    },
+    "mainTopic": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::main-topic.main-topic",
+      "inversedBy": "chapters"
+    },
+    "sections": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::section.section",
+      "mappedBy": "chapter"
+    },
+    "assessment": {
+      "type": "component",
+      "repeatable": false,
+      "component": "course.assessment"
+    },
+    "interactive": {
+      "type": "component",
+      "repeatable": false,
+      "component": "course.interactive-activity"
+    }
+  }
+}

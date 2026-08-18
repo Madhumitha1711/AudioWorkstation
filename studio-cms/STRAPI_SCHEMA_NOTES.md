@@ -18,15 +18,30 @@ the Public role).
 
 ## Content types (`src/api/`)
 
-- **Course Topic** (`course-topic`) — one per course topic (Speakers,
-  Mixing Console, DAW Workstation, …). Matches `TOPICS[]`. Has a
-  `model3d` component (the `.glb` gear scan), a one-to-many relation to
-  **Lesson**, a nested `assessment` component, and a nested `interactive`
-  component.
-- **Lesson** (`lesson`) — one narrated lesson within a topic. Matches
-  `TOPICS[].lessons[]`. `content` is a rich-text (blocks) field replacing
-  `paragraphs[]`; `video` is a `shared.cloudflare-video` component holding
-  the Cloudflare Stream UID + S3 thumbnail.
+Three levels, matching studio-vr's own structure: a **Main Topic** (one of
+the 7 curriculum modules) has many **Chapters**; each **Chapter** has many
+**Sections** and its own **Assessment**.
+
+- **Main Topic** (`main-topic`) — one per curriculum module (Foundations,
+  Room & Acoustics, Monitoring, …). Matches `MODULES[]`. Has a one-to-many
+  relation to **Chapter**. This is what studio-vr's course sidebar groups
+  chapters under.
+- **Chapter** (`chapter`) — one per course chapter (Speakers, Mixing
+  Console, DAW Workstation, …). Matches `TOPICS[]`. Renamed from "Course
+  Topic"; the underlying `course_topics` DB table/API is unchanged so
+  existing content carried over. Has a `number` (chapter number in the
+  25-chapter syllabus) and `hotspotId` (VR-tour hotspot anchor) field —
+  both used to only live in studio-vr's hardcoded `courseData.js` and are
+  now part of this schema — plus a `model3d` component (the `.glb` gear
+  scan, actually stored on the chapter's first Section), a many-to-one
+  relation to **Main Topic**, a one-to-many relation to **Section**, a
+  nested `assessment` component, and a nested `interactive` component.
+- **Section** (`section`) — one narrated section within a Chapter. Matches
+  `TOPICS[].lessons[]`. Renamed from "Lesson"; the underlying `lessons` DB
+  table/API is unchanged so existing content carried over. `content` is a
+  rich-text (blocks) field replacing `paragraphs[]`; `video` is a
+  `shared.cloudflare-video` component holding the Cloudflare Stream UID +
+  S3 thumbnail.
 
 ## Components (`src/components/`)
 
@@ -54,20 +69,20 @@ the Public role).
   S3-compatible service (R2, MinIO, etc.) instead of real AWS.
 - **Video** is *not* run through Strapi's upload plugin — there's no
   Strapi-maintained Cloudflare Stream provider. Instead, two custom routes on
-  the lesson API (`src/api/lesson/routes/video-upload.ts` +
-  `src/api/lesson/controllers/lesson.ts`, backed by
+  the section API (`src/api/section/routes/video-upload.ts` +
+  `src/api/section/controllers/section.ts`, backed by
   `src/utils/cloudflare-stream.ts`) push the file to Cloudflare
-  server-to-server and write the result onto the lesson automatically:
+  server-to-server and write the result onto the section automatically:
 
-  - `POST /api/lessons/:documentId/video` — send the video file as
+  - `POST /api/sections/:documentId/video` — send the video file as
     `multipart/form-data` under a `file` field (`video` also works). The
-    route uploads it to Cloudflare Stream, then updates that lesson's
+    route uploads it to Cloudflare Stream, then updates that section's
     `video` component with the returned `videoUid`, `status`, and
     `durationSeconds` (once Cloudflare reports one). Requires
     `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_STREAM_API_TOKEN` to be set.
-  - `GET /api/lessons/:documentId/video/status` — re-checks encoding status
+  - `GET /api/sections/:documentId/video/status` — re-checks encoding status
     with Cloudflare and syncs `video.status`/`video.durationSeconds` onto
-    the lesson. Cloudflare encodes asynchronously, so a video usually stays
+    the section. Cloudflare encodes asynchronously, so a video usually stays
     `pending`/`processing` for a bit after upload — poll this (or call it
     from a cron job later) until it flips to `ready`.
 
@@ -77,13 +92,13 @@ the Public role).
   under Settings -> API Tokens, since they're not part of the default CRUD
   set a full-access token already covers.
 
-  **Admin UI:** the Lesson edit view's `video.videoUid` field is a custom
+  **Admin UI:** the Section edit view's `video.videoUid` field is a custom
   field ("video-upload", registered in `src/index.ts` + `src/admin/app.tsx`,
   widget at `src/admin/extensions/video-upload/Input.tsx`) rather than a
   plain text box — it shows an "Upload video" / "Replace video" button that
   calls the route above directly, plus a "Check status" button for the
   status route. Content editors don't need Postman/curl for the common
-  case; upload only works once the lesson has been saved at least once
+  case; upload only works once the section has been saved at least once
   (needs a `documentId`), and the page reloads after a successful upload so
   the rest of the form (status, duration) reflects what the route just
   wrote to the document.
@@ -96,7 +111,7 @@ the Public role).
   (subdomain from the Stream dashboard).
 
   This uploads the whole file in one request, which is fine for typical
-  lesson-length clips but buffers it in memory/temp disk — for very large
+  section-length clips but buffers it in memory/temp disk — for very large
   files, switch to Cloudflare's "direct creator upload" (TUS) flow instead
   (request a one-time upload URL, upload straight to Cloudflare from the
   caller, then use `GET .../video/status` or a webhook to pick up
@@ -111,11 +126,13 @@ cp .env.example .env        # fill in APP_KEYS/secrets + AWS_* vars
 npm run develop
 ```
 
-On first boot Strapi will create the new tables/components. Then in the
-admin:
+On first boot Strapi will create the new tables/components (`chapter`/
+`section` keep their old `course_topics`/`lessons` DB tables — see above —
+so a Strapi instance that already had course content just gets new columns/
+relations added, nothing is dropped). Then in the admin:
 
 1. **Settings → API Tokens → Create new API Token** — give it Read-only (or
-   custom, scoped to just the two content types above) access. There is no
+   custom, scoped to just the three content types above) access. There is no
    `users-permissions` plugin in this project (end-user accounts/login live
    in the separate NestJS service instead), so there's no Public/Authenticated
    role to flip on — every content-API request needs this token as
@@ -123,13 +140,16 @@ admin:
    in `studio-backend/.env` as `STRAPI_API_TOKEN` (that service proxies
    Strapi for studio-vr — see `studio-backend/src/courses` — so the token
    never has to reach the browser).
-2. Enter content for each topic/lesson by hand in the admin, **or** run
-   `scripts/seed-course-content.mjs` to bulk-import the existing
+2. Enter content for each main topic/chapter/section by hand in the admin,
+   **or** run `scripts/seed-course-content.mjs` to bulk-import the existing
    `courseData.js` objects — see that script's header comment for setup.
    It needs its own token with *write* access (Full access is simplest for
    a one-off migration run); that can be a separate, temporary token from
    the read-only one studio-backend uses, or the same token if you gave it
-   broader access.
+   broader access. **If chapters were already seeded before this Main
+   Topic / `number` / `hotspotId` schema migration**, re-running this
+   script backfills those fields onto the existing chapters instead of
+   skipping them — see the script's "Safe to re-run" note.
 
 ## Fetching from studio-vr
 
@@ -138,12 +158,13 @@ studio-backend's `/courses` endpoint (`src/course/useCourseTopics.js`),
 which proxies Strapi with this populate query:
 
 ```
-GET /api/course-topics?populate[lessons][populate][model3d][populate]=*
-                       &populate[lessons][populate][video]=*
-                       &populate[assessment][populate][questions][populate][options]=*
-                       &populate[assessment][populate][questions][populate][audioClips][populate]=*
-                       &populate[interactive]=*
-                       &sort=order:asc
+GET /api/chapters?populate[mainTopic]=*
+                  &populate[sections][populate][model3d][populate]=*
+                  &populate[sections][populate][video]=*
+                  &populate[assessment][populate][questions][populate][options]=*
+                  &populate[assessment][populate][questions][populate][audioClips][populate]=*
+                  &populate[interactive]=*
+                  &sort=order:asc
 ```
 
 Note the explicit `[audioClips][populate]=*` — a bare `populate=*` on
@@ -152,6 +173,8 @@ media file nested one level further inside each one, so it has to be
 spelled out.
 
 `studio-backend/src/courses/course.mapper.ts` reshapes the response back
-into the same `TOPICS[]` shape `courseData.js` used to hardcode, so if you
-add content in the Strapi admin it shows up in studio-vr without any
-frontend changes.
+into the same `TOPICS[]` shape `courseData.js` used to hardcode (plus
+`module`/`moduleTitle`/`moduleOrder`, `number`, and `hotspotId`, all now
+read straight off the Chapter/Main Topic records instead of a hardcoded
+list), so if you add or edit content in the Strapi admin it shows up in
+studio-vr without any frontend changes.

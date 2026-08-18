@@ -9,12 +9,12 @@ import { useFetchClient, useNotification } from '@strapi/strapi/admin';
  * src/components/shared/cloudflare-video.json for where it's attached).
  *
  * Renders in place of the default text input for `video.videoUid` on a
- * Lesson. Instead of pasting a Cloudflare Stream UID by hand, an editor
+ * Section. Instead of pasting a Cloudflare Stream UID by hand, an editor
  * picks a file here and this component uploads it through the existing
- * custom route (src/api/lesson/routes/video-upload.ts +
- * src/api/lesson/controllers/lesson.ts), which pushes it to Cloudflare
+ * custom route (src/api/section/routes/video-upload.ts +
+ * src/api/section/controllers/section.ts), which pushes it to Cloudflare
  * Stream server-to-server and writes videoUid/status/durationSeconds onto
- * the lesson document directly.
+ * the section document directly.
  *
  * Important trade-off: that controller persists the whole `video` component
  * straight to the document the moment the upload finishes — it does not go
@@ -62,15 +62,15 @@ interface VideoUploadInputProps {
   error?: string;
 }
 
-interface LessonVideoComponentResponse {
+interface SectionVideoComponentResponse {
   videoUid?: string;
   status?: CloudflareVideoStatus;
   durationSeconds?: number;
 }
 
-interface LessonResponse {
+interface SectionResponse {
   data?: {
-    video?: LessonVideoComponentResponse;
+    video?: SectionVideoComponentResponse;
   };
 }
 
@@ -195,7 +195,7 @@ const VideoUploadInput = ({
       const formData = new FormData();
       formData.append('file', file);
 
-      const { data } = await post<LessonResponse>(`/api/lessons/${documentId}/video`, formData);
+      const { data } = await post<SectionResponse>(`/api/sections/${documentId}/video`, formData);
       const video = data?.data?.video;
 
       if (video?.videoUid) {
@@ -227,7 +227,7 @@ const VideoUploadInput = ({
     setIsChecking(true);
     setLocalError(null);
     try {
-      const { data } = await get<LessonResponse>(`/api/lessons/${documentId}/video/status`);
+      const { data } = await get<SectionResponse>(`/api/sections/${documentId}/video/status`);
       const video = data?.data?.video;
       if (video?.status) {
         setStatus(video.status);
@@ -256,7 +256,7 @@ const VideoUploadInput = ({
       )}
 
       {!documentId ? (
-        <HelpText>Save this lesson first, then come back here to upload its video.</HelpText>
+        <HelpText>Save this section first, then come back here to upload its video.</HelpText>
       ) : (
         <>
           <Row>

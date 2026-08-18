@@ -3,9 +3,9 @@
  *
  * Video is intentionally NOT routed through Strapi's upload plugin (there's
  * no Strapi-maintained Stream provider). This module is what the custom
- * `POST /api/lessons/:id/video` route (src/api/lesson/controllers/lesson.ts)
+ * `POST /api/sections/:id/video` route (src/api/section/controllers/section.ts)
  * uses to push a file to Cloudflare server-to-server and read back the
- * UID/status that gets written onto a lesson's `shared.cloudflare-video`
+ * UID/status that gets written onto a section's `shared.cloudflare-video`
  * component.
  *
  * Not registered as a Strapi service on purpose — it lives outside `src/api`

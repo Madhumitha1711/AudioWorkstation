@@ -1,5 +1,5 @@
 /**
- * Custom routes bolted onto the core lesson router (routes/lesson.ts).
+ * Custom routes bolted onto the core section router (routes/section.ts).
  * Strapi loads every file in an api's routes/ folder and merges them, so
  * this lives alongside the auto-generated CRUD routes rather than replacing
  * them.
@@ -15,16 +15,16 @@ export default {
   routes: [
     {
       method: 'POST',
-      path: '/lessons/:id/video',
-      handler: 'lesson.uploadVideo',
+      path: '/sections/:id/video',
+      handler: 'section.uploadVideo',
       config: {
         policies: [],
       },
     },
     {
       method: 'GET',
-      path: '/lessons/:id/video/status',
-      handler: 'lesson.refreshVideoStatus',
+      path: '/sections/:id/video/status',
+      handler: 'section.refreshVideoStatus',
       config: {
         policies: [],
       },

@@ -441,13 +441,13 @@ export interface AdminUser extends Struct.CollectionTypeSchema {
   };
 }
 
-export interface ApiCourseTopicCourseTopic extends Struct.CollectionTypeSchema {
+export interface ApiChapterChapter extends Struct.CollectionTypeSchema {
   collectionName: 'course_topics';
   info: {
-    description: "A VR hotspot topic in the course curriculum (e.g. Speakers, Mixing Console, DAW Workstation), matching TOPICS[] in studio-vr's src/course/courseData.js.";
-    displayName: 'Course Topic';
-    pluralName: 'course-topics';
-    singularName: 'course-topic';
+    description: 'A chapter within a Main Topic (e.g. Speakers, Mixing Console, DAW Workstation) \u2014 also the anchor for a VR hotspot when it has one. Matches TOPICS[] in studio-vr\'s src/course/courseData.js. Renamed from "Course Topic"; collectionName kept as course_topics so existing content isn\'t orphaned.';
+    displayName: 'Chapter';
+    pluralName: 'chapters';
+    singularName: 'chapter';
   };
   options: {
     draftAndPublish: true;
@@ -457,22 +457,28 @@ export interface ApiCourseTopicCourseTopic extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    hotspotId: Schema.Attribute.String;
     interactive: Schema.Attribute.Component<
       'course.interactive-activity',
       false
     >;
     intro: Schema.Attribute.Text & Schema.Attribute.Required;
-    lessons: Schema.Attribute.Relation<'oneToMany', 'api::lesson.lesson'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
-      'api::course-topic.course-topic'
+      'api::chapter.chapter'
     > &
       Schema.Attribute.Private;
+    mainTopic: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::main-topic.main-topic'
+    >;
+    number: Schema.Attribute.Integer;
     order: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     publishedAt: Schema.Attribute.DateTime;
     ready: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     room: Schema.Attribute.String;
+    sections: Schema.Attribute.Relation<'oneToMany', 'api::section.section'>;
     slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
     title: Schema.Attribute.String & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
@@ -481,18 +487,51 @@ export interface ApiCourseTopicCourseTopic extends Struct.CollectionTypeSchema {
   };
 }
 
-export interface ApiLessonLesson extends Struct.CollectionTypeSchema {
-  collectionName: 'lessons';
+export interface ApiMainTopicMainTopic extends Struct.CollectionTypeSchema {
+  collectionName: 'main_topics';
   info: {
-    description: "A single narrated video lesson within a Course Topic, matching TOPICS[].lessons[] in studio-vr's courseData.js.";
-    displayName: 'Lesson';
-    pluralName: 'lessons';
-    singularName: 'lesson';
+    description: "One of the curriculum modules that group chapters in the course sidebar (Foundations, Room & Acoustics, Monitoring, ...). Matches MODULES[] in studio-vr's src/course/courseData.js. Each Main Topic has many Chapters.";
+    displayName: 'Main Topic';
+    pluralName: 'main-topics';
+    singularName: 'main-topic';
   };
   options: {
     draftAndPublish: true;
   };
   attributes: {
+    chapters: Schema.Attribute.Relation<'oneToMany', 'api::chapter.chapter'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::main-topic.main-topic'
+    > &
+      Schema.Attribute.Private;
+    order: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
+    title: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiSectionSection extends Struct.CollectionTypeSchema {
+  collectionName: 'lessons';
+  info: {
+    description: 'A single narrated section within a Chapter (e.g. one video + text block), matching TOPICS[].lessons[] in studio-vr\'s courseData.js. Renamed from "Lesson"; collectionName kept as lessons so existing content isn\'t orphaned.';
+    displayName: 'Section';
+    pluralName: 'sections';
+    singularName: 'section';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    chapter: Schema.Attribute.Relation<'manyToOne', 'api::chapter.chapter'>;
     content: Schema.Attribute.Blocks & Schema.Attribute.Required;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -501,7 +540,7 @@ export interface ApiLessonLesson extends Struct.CollectionTypeSchema {
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
-      'api::lesson.lesson'
+      'api::section.section'
     > &
       Schema.Attribute.Private;
     model3d: Schema.Attribute.Component<'shared.model-asset', false>;
@@ -509,10 +548,6 @@ export interface ApiLessonLesson extends Struct.CollectionTypeSchema {
     publishedAt: Schema.Attribute.DateTime;
     slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
     title: Schema.Attribute.String & Schema.Attribute.Required;
-    topic: Schema.Attribute.Relation<
-      'manyToOne',
-      'api::course-topic.course-topic'
-    >;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -879,8 +914,9 @@ declare module '@strapi/strapi' {
       'admin::transfer-token': AdminTransferToken;
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
-      'api::course-topic.course-topic': ApiCourseTopicCourseTopic;
-      'api::lesson.lesson': ApiLessonLesson;
+      'api::chapter.chapter': ApiChapterChapter;
+      'api::main-topic.main-topic': ApiMainTopicMainTopic;
+      'api::section.section': ApiSectionSection;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;

@@ -3,16 +3,21 @@ import { StrapiService } from '../strapi/strapi.service';
 import { mapCourseTopic, mapCourseTopics } from './course.mapper';
 import {
   CourseTopic,
+  StrapiChapter,
   StrapiCollectionResponse,
-  StrapiCourseTopic,
 } from './course.types';
 
 // Mirrors the populate query documented in
 // studio-cms/STRAPI_SCHEMA_NOTES.md's "Fetching from studio-vr" section —
-// pulls in everything CoursePage.jsx needs in one request.
-const COURSE_TOPIC_POPULATE = {
+// pulls in everything CoursePage.jsx needs in one request. `mainTopic` is
+// what makes the course sidebar's module grouping work (see
+// course.mapper.ts) — without it every chapter's `module` comes back null
+// and the sidebar renders empty, same failure mode as a chapter with no
+// sections.
+const CHAPTER_POPULATE = {
   populate: {
-    lessons: {
+    mainTopic: true,
+    sections: {
       populate: {
         model3d: { populate: '*' },
         video: { populate: '*' },
@@ -37,27 +42,27 @@ const COURSE_TOPIC_POPULATE = {
 export class CoursesService {
   constructor(private readonly strapi: StrapiService) {}
 
-  /** Every course topic (Speakers, Mixing Console, DAW Workstation, ...), in curriculum order. */
+  /** Every chapter (Speakers, Mixing Console, DAW Workstation, ...), in curriculum order. */
   async findAll(): Promise<CourseTopic[]> {
     const response = await this.strapi.get<
-      StrapiCollectionResponse<StrapiCourseTopic>
-    >('/api/course-topics', COURSE_TOPIC_POPULATE);
+      StrapiCollectionResponse<StrapiChapter>
+    >('/api/chapters', CHAPTER_POPULATE);
     return mapCourseTopics(response.data);
   }
 
-  /** A single topic by its slug (studio-vr's `TOPICS[].id`, e.g. "speaker"). */
+  /** A single chapter by its slug (studio-vr's `TOPICS[].id`, e.g. "speaker"). */
   async findBySlug(slug: string): Promise<CourseTopic> {
     const response = await this.strapi.get<
-      StrapiCollectionResponse<StrapiCourseTopic>
-    >('/api/course-topics', {
-      ...COURSE_TOPIC_POPULATE,
+      StrapiCollectionResponse<StrapiChapter>
+    >('/api/chapters', {
+      ...CHAPTER_POPULATE,
       filters: { slug: { $eq: slug } },
     });
 
-    const [topic] = response.data;
-    if (!topic) {
+    const [chapter] = response.data;
+    if (!chapter) {
       throw new NotFoundException(`No course topic found for slug "${slug}"`);
     }
-    return mapCourseTopic(topic);
+    return mapCourseTopic(chapter);
   }
 }

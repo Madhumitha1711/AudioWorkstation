@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { MODULES, buildStepList, firstStepIdForTopic } from "../course/courseData";
+import { buildStepList, firstStepIdForTopic } from "../course/courseData";
 import { useCourseTopics } from "../course/useCourseTopics";
 import AssessmentSection from "../course/AssessmentSection";
 import InteractiveSection from "../course/InteractiveSection";
@@ -53,39 +53,58 @@ function CoursePage() {
   // below picks an initial step the first time real topics show up.
   const STEPS = useMemo(() => (topics ? buildStepList(topics) : []), [topics]);
 
+  // Sidebar module groups (Foundations, Monitoring, ...) used to come from
+  // a hardcoded MODULES import in courseData.js. They now come from each
+  // chapter's own `module`/`moduleTitle`/`moduleOrder` fields, which
+  // studio-backend fills in from Strapi's Main Topic relation (see
+  // studio-backend/src/courses/course.mapper.ts and studio-cms's
+  // STRAPI_SCHEMA_NOTES.md) — so renaming/reordering/adding a Main Topic in
+  // the CMS shows up here without a frontend deploy. Only modules that
+  // actually have a chapter appear, in the same order MODULES.filter(...)
+  // used to produce.
+  const moduleList = useMemo(() => {
+    const byId = new Map();
+    (topics ?? []).forEach((t) => {
+      if (!t.module || byId.has(t.module)) return;
+      byId.set(t.module, {
+        id: t.module,
+        title: t.moduleTitle ?? t.module,
+        order: t.moduleOrder ?? 0,
+      });
+    });
+    return Array.from(byId.values()).sort((a, b) => a.order - b.order);
+  }, [topics]);
+
+  const [hasInitialized, setHasInitialized] = useState(false);
+
+  // Which topic/module accordion(s) are expanded in the sidebar, and which
+  // step is active. All three used to be computable synchronously from the
+  // (formerly hardcoded) TOPICS/STEPS at mount. Now that topics arrive
+  // asynchronously from studio-backend's `/courses` endpoint, none of this
+  // is known until the first real STEPS list shows up — so these start
+  // empty/null and get set together, once, by the effect below the first
+  // time STEPS is non-empty.
   const [openTopics, setOpenTopics] = useState(() => new Set());
+  const [openModules, setOpenModules] = useState(() => new Set());
   const [activeStepId, setActiveStepId] = useState(null);
   const [completed, setCompleted] = useState(() => new Set());
-  const [hasInitialized, setHasInitialized] = useState(false);
 
   useEffect(() => {
     if (hasInitialized || STEPS.length === 0) return;
-    const requested = pendingTopicId && firstStepIdForTopic(STEPS, pendingTopicId);
-    return requested ?? STEPS[0]?.id;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only meant to run once, at mount
-  }, []);
+    const requestedId = pendingTopicId && firstStepIdForTopic(STEPS, pendingTopicId);
+    const initialStepId = requestedId ?? STEPS[0]?.id;
+    const topicId = STEPS.find((s) => s.id === initialStepId)?.topicId ?? STEPS[0]?.topicId;
+    const moduleId = (topics ?? []).find((t) => t.id === topicId)?.module;
 
-  const [openTopics, setOpenTopics] = useState(() => {
-    const topicId = STEPS.find((s) => s.id === initialStepId)?.topicId ?? STEPS[0]?.topicId;
-    return new Set([topicId]);
-  });
-  // Which module accordion(s) are expanded in the sidebar — mirrors
-  // openTopics above, one level up. Starts with just the module containing
-  // wherever the student is actually landing (a fresh visit, or a topic
-  // requested via route state), same "open where you are" logic as
-  // openTopics.
-  const [openModules, setOpenModules] = useState(() => {
-    const topicId = STEPS.find((s) => s.id === initialStepId)?.topicId ?? STEPS[0]?.topicId;
-    const moduleId = TOPICS.find((t) => t.id === topicId)?.module;
-    return new Set(moduleId ? [moduleId] : []);
-  });
-  const [activeStepId, setActiveStepId] = useState(initialStepId);
-  const [completed, setCompleted] = useState(() => new Set());
+    setActiveStepId(initialStepId);
+    setOpenTopics(new Set(topicId ? [topicId] : []));
+    setOpenModules(new Set(moduleId ? [moduleId] : []));
+    setHasInitialized(true);
+  }, [STEPS, hasInitialized, pendingTopicId, topics]);
 
   const activeIndex = STEPS.findIndex((s) => s.id === activeStepId);
   const activeStep = STEPS[activeIndex] ?? STEPS[0];
   const activeTopic = (topics ?? []).find((t) => t.id === activeStep?.topicId);
-  const activeModuleInfo = MODULES.find((m) => m.id === activeTopic?.module);
 
   const stepsInTopic = useMemo(
     () => STEPS.filter((s) => s.topicId === activeTopic?.id),
@@ -133,7 +152,7 @@ function CoursePage() {
   const selectStep = (stepId, topicId) => {
     setActiveStepId(stepId);
     setOpenTopics((prev) => new Set(prev).add(topicId));
-    const moduleId = TOPICS.find((t) => t.id === topicId)?.module;
+    const moduleId = (topics ?? []).find((t) => t.id === topicId)?.module;
     if (moduleId) setOpenModules((prev) => new Set(prev).add(moduleId));
   };
 
@@ -207,7 +226,7 @@ function CoursePage() {
           </button>
           <div className="course-title-block">
             <div className="course-crumb">
-              {activeModuleInfo?.title ?? "Control Room"} &nbsp;/&nbsp; <b>{activeTopic?.title}</b>
+              {activeTopic?.moduleTitle ?? "Control Room"} &nbsp;/&nbsp; <b>{activeTopic?.title}</b>
             </div>
             <h1>Studio VR — Audio Engineering</h1>
             <div className="progress-wrap">
@@ -229,8 +248,8 @@ function CoursePage() {
 
       <div className="course-layout">
         <aside className="course-sidebar">
-          {MODULES.filter((mod) => TOPICS.some((t) => t.module === mod.id)).map((mod) => {
-            const moduleTopics = TOPICS.filter((t) => t.module === mod.id);
+          {moduleList.map((mod) => {
+            const moduleTopics = (topics ?? []).filter((t) => t.module === mod.id);
             const isModuleOpen = openModules.has(mod.id);
             const moduleSteps = STEPS.filter((s) =>
               moduleTopics.some((t) => t.id === s.topicId)
@@ -330,7 +349,7 @@ function CoursePage() {
           {activeTopic && activeStep && (
             <div className="course-content">
               <div className="topic-eyebrow">
-                {activeModuleInfo?.title ?? "Control Room"}
+                {activeTopic.moduleTitle ?? "Control Room"}
                 {activeTopic.number ? ` · Chapter ${activeTopic.number}` : ""} · {activeTopic.title}
               </div>
               <h1 className="topic-heading">{activeTopic.title}</h1>

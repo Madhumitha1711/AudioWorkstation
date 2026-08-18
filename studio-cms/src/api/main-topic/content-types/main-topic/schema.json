@@ -1,0 +1,37 @@
+{
+  "kind": "collectionType",
+  "collectionName": "main_topics",
+  "info": {
+    "singularName": "main-topic",
+    "pluralName": "main-topics",
+    "displayName": "Main Topic",
+    "description": "One of the curriculum modules that group chapters in the course sidebar (Foundations, Room & Acoustics, Monitoring, ...). Matches MODULES[] in studio-vr's src/course/courseData.js. Each Main Topic has many Chapters."
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "slug": {
+      "type": "uid",
+      "targetField": "title",
+      "required": true,
+      "description": "Matches MODULES[].id, e.g. \"foundations\", \"monitoring\"."
+    },
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "order": {
+      "type": "integer",
+      "default": 0,
+      "description": "Sidebar display order for this module, ascending."
+    },
+    "chapters": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::chapter.chapter",
+      "mappedBy": "mainTopic"
+    }
+  }
+}

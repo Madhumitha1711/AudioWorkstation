@@ -68,7 +68,9 @@ export interface StrapiBlockNode {
   children?: StrapiBlockNode[];
 }
 
-export interface StrapiLesson {
+// A Section (api::section.section — renamed from "Lesson"; see
+// STRAPI_SCHEMA_NOTES.md). One narrated section within a Chapter.
+export interface StrapiSection {
   id?: number;
   documentId?: string;
   slug?: string;
@@ -80,7 +82,20 @@ export interface StrapiLesson {
   model3d?: StrapiModelAsset | null;
 }
 
-export interface StrapiCourseTopic {
+// A Main Topic (api::main-topic.main-topic) — one of the curriculum modules
+// a Chapter is grouped under in studio-vr's course sidebar.
+export interface StrapiMainTopic {
+  id?: number;
+  documentId?: string;
+  slug?: string;
+  title?: string;
+  order?: number;
+}
+
+// A Chapter (api::chapter.chapter — renamed from "Course Topic"; see
+// STRAPI_SCHEMA_NOTES.md). One chapter within a Main Topic, and the anchor
+// for a VR hotspot when it has one.
+export interface StrapiChapter {
   id?: number;
   documentId?: string;
   slug?: string;
@@ -89,7 +104,10 @@ export interface StrapiCourseTopic {
   intro?: string;
   ready?: boolean;
   order?: number;
-  lessons?: StrapiLesson[];
+  number?: number | null;
+  hotspotId?: string | null;
+  mainTopic?: StrapiMainTopic | null;
+  sections?: StrapiSection[];
   assessment?: StrapiAssessment | null;
   interactive?: StrapiInteractiveActivity | null;
 }
@@ -156,7 +174,20 @@ export interface CourseTopic {
   title: string;
   intro: string;
   ready: boolean;
+  // Curriculum-structure fields, now read straight off the Chapter's own
+  // `number`/`hotspotId` fields and its `mainTopic` relation (see
+  // course.mapper.ts) instead of a hardcoded/static lookup. `null` when a
+  // chapter has no Main Topic assigned yet or no number/hotspot.
+  module: string | null;
+  moduleTitle: string | null;
+  moduleOrder: number | null;
+  number: number | null;
+  hotspotId: string | null;
   model?: CourseModel;
+  // Field name kept as `lessons` (rather than renaming to `sections`) so
+  // studio-vr's CoursePage.jsx/courseData.js don't need to change what they
+  // read — only the CMS-side name changed (Lesson -> Section; see
+  // STRAPI_SCHEMA_NOTES.md).
   lessons?: CourseLesson[];
   assessment?: CourseAssessment;
   interactive?: CourseInteractive;

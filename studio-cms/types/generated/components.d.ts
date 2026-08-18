@@ -72,7 +72,7 @@ export interface SharedAudioAsset extends Struct.ComponentSchema {
 export interface SharedCloudflareVideo extends Struct.ComponentSchema {
   collectionName: 'components_shared_cloudflare_videos';
   info: {
-    description: 'Reference to a video hosted on Cloudflare Stream. Strapi does not store the video file itself \u2014 use the upload button on this field in the admin (pushes to Cloudflare Stream via POST /api/lessons/:id/video), or paste a UID by hand if you uploaded to Cloudflare yourself.';
+    description: 'Reference to a video hosted on Cloudflare Stream. Strapi does not store the video file itself \u2014 use the upload button on this field in the admin (pushes to Cloudflare Stream via POST /api/sections/:id/video), or paste a UID by hand if you uploaded to Cloudflare yourself.';
     displayName: 'Cloudflare Video';
     icon: 'play-circle';
   };

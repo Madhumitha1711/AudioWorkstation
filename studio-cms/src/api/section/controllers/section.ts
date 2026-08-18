@@ -15,7 +15,7 @@ type UploadedFile = {
   mimetype?: string;
 };
 
-type LessonVideoComponent = {
+type SectionVideoComponent = {
   videoUid?: string;
   durationSeconds?: number;
   status?: CloudflareVideoStatus;
@@ -28,19 +28,19 @@ function pickUploadedFile(ctx: any): UploadedFile | undefined {
   return Array.isArray(candidate) ? candidate[0] : candidate;
 }
 
-export default factories.createCoreController('api::lesson.lesson', ({ strapi }) => ({
+export default factories.createCoreController('api::section.section', ({ strapi }) => ({
   /**
-   * POST /api/lessons/:id/video
+   * POST /api/sections/:id/video
    * multipart/form-data with the video under a `file` (or `video`) field.
    *
    * Uploads the file straight to Cloudflare Stream (server-to-server) and
-   * writes the resulting UID/status/duration onto this lesson's `video`
+   * writes the resulting UID/status/duration onto this section's `video`
    * (shared.cloudflare-video) component. Strapi's media library / S3
    * provider is intentionally NOT involved — video never becomes a Strapi
    * upload-plugin asset, matching how this project's other media (images,
    * narration audio, .glb scans) goes to S3 while video goes to Stream.
    *
-   * `:id` is the lesson's documentId (Strapi 5 Document Service API).
+   * `:id` is the section's documentId (Strapi 5 Document Service API).
    */
   async uploadVideo(ctx: any) {
     const { id: documentId } = ctx.params;
@@ -57,14 +57,14 @@ export default factories.createCoreController('api::lesson.lesson', ({ strapi })
       return ctx.badRequest(`Expected a video file, got "${file.mimetype}".`);
     }
 
-    const existing = await strapi.documents('api::lesson.lesson').findOne({
+    const existing = await strapi.documents('api::section.section').findOne({
       documentId,
       populate: ['video'],
     });
 
     if (!existing) {
       await fs.unlink(file.filepath).catch(() => {});
-      return ctx.notFound(`Lesson ${documentId} not found.`);
+      return ctx.notFound(`Section ${documentId} not found.`);
     }
 
     let streamResult;
@@ -74,7 +74,7 @@ export default factories.createCoreController('api::lesson.lesson', ({ strapi })
         file.originalFilename ?? file.newFilename ?? 'video.mp4'
       );
     } catch (error) {
-      strapi.log.error('[lesson.uploadVideo] Cloudflare Stream upload failed', error);
+      strapi.log.error('[section.uploadVideo] Cloudflare Stream upload failed', error);
       return ctx.internalServerError(
         error instanceof Error ? error.message : 'Cloudflare Stream upload failed.'
       );
@@ -82,9 +82,9 @@ export default factories.createCoreController('api::lesson.lesson', ({ strapi })
       await fs.unlink(file.filepath).catch(() => {});
     }
 
-    const existingVideo = (existing.video ?? {}) as LessonVideoComponent;
+    const existingVideo = (existing.video ?? {}) as SectionVideoComponent;
 
-    const updated = await strapi.documents('api::lesson.lesson').update({
+    const updated = await strapi.documents('api::section.section').update({
       documentId,
       data: {
         video: {
@@ -103,43 +103,43 @@ export default factories.createCoreController('api::lesson.lesson', ({ strapi })
   },
 
   /**
-   * GET /api/lessons/:id/video/status
+   * GET /api/sections/:id/video/status
    *
    * Cloudflare Stream encodes asynchronously, so the status written at
    * upload time is usually still "pending"/"processing". Call this to
-   * re-check with Cloudflare and sync the lesson's `video.status` (and
+   * re-check with Cloudflare and sync the section's `video.status` (and
    * duration, once available) — poll it after upload, or wire it to a cron
    * job / admin action later.
    */
   async refreshVideoStatus(ctx: any) {
     const { id: documentId } = ctx.params;
 
-    const existing = await strapi.documents('api::lesson.lesson').findOne({
+    const existing = await strapi.documents('api::section.section').findOne({
       documentId,
       populate: ['video'],
     });
 
     if (!existing) {
-      return ctx.notFound(`Lesson ${documentId} not found.`);
+      return ctx.notFound(`Section ${documentId} not found.`);
     }
 
-    const existingVideo = (existing.video ?? {}) as LessonVideoComponent;
+    const existingVideo = (existing.video ?? {}) as SectionVideoComponent;
     const videoUid = existingVideo.videoUid;
     if (!videoUid) {
-      return ctx.badRequest('This lesson has no video.videoUid to look up yet.');
+      return ctx.badRequest('This section has no video.videoUid to look up yet.');
     }
 
     let streamResult;
     try {
       streamResult = await getCloudflareStreamStatus(videoUid);
     } catch (error) {
-      strapi.log.error('[lesson.refreshVideoStatus] Cloudflare Stream status lookup failed', error);
+      strapi.log.error('[section.refreshVideoStatus] Cloudflare Stream status lookup failed', error);
       return ctx.internalServerError(
         error instanceof Error ? error.message : 'Cloudflare Stream status lookup failed.'
       );
     }
 
-    const updated = await strapi.documents('api::lesson.lesson').update({
+    const updated = await strapi.documents('api::section.section').update({
       documentId,
       data: {
         video: {

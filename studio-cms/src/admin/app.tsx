@@ -33,12 +33,12 @@ export default {
   },
   register(app: StrapiApp) {
     // Admin-side half of the "video-upload" custom field. Used by the
-    // Lesson content type's shared.cloudflare-video component (see
+    // Section content type's shared.cloudflare-video component (see
     // src/components/shared/cloudflare-video.json's `videoUid` attribute,
     // which points at "global::video-upload"). Replaces the default text
     // input for that field with an upload widget that pushes a file
     // straight to Cloudflare Stream via the existing
-    // POST /api/lessons/:id/video route.
+    // POST /api/sections/:id/video route.
     //
     // Registered directly here (no plugin) since this is app-specific and
     // isn't meant for Marketplace distribution. Matching server-side

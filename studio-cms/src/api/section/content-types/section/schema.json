@@ -1,0 +1,57 @@
+{
+  "kind": "collectionType",
+  "collectionName": "lessons",
+  "info": {
+    "singularName": "section",
+    "pluralName": "sections",
+    "displayName": "Section",
+    "description": "A single narrated section within a Chapter (e.g. one video + text block), matching TOPICS[].lessons[] in studio-vr's courseData.js. Renamed from \"Lesson\"; collectionName kept as lessons so existing content isn't orphaned."
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "slug": {
+      "type": "uid",
+      "targetField": "title",
+      "required": true,
+      "description": "Matches section.id, e.g. \"monitor-types\", \"ported-vs-sealed\"."
+    },
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "duration": {
+      "type": "string",
+      "description": "Human-readable duration shown in the UI, e.g. \"4 min\"."
+    },
+    "order": {
+      "type": "integer",
+      "default": 0,
+      "description": "Position within the parent chapter's section list."
+    },
+    "content": {
+      "type": "blocks",
+      "required": true,
+      "description": "Section body. studio-vr renders each top-level block as a paragraph."
+    },
+    "video": {
+      "type": "component",
+      "repeatable": false,
+      "component": "shared.cloudflare-video"
+    },
+    "model3d": {
+      "type": "component",
+      "repeatable": false,
+      "component": "shared.model-asset",
+      "description": "Rotatable 3D gear scan for this section (each section can carry its own model)."
+    },
+    "chapter": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::chapter.chapter",
+      "inversedBy": "sections"
+    }
+  }
+}

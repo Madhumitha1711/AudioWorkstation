@@ -8,9 +8,9 @@ import {
   CourseVideo,
   StrapiAssessment,
   StrapiBlockNode,
-  StrapiCourseTopic,
+  StrapiChapter,
   StrapiInteractiveActivity,
-  StrapiLesson,
+  StrapiSection,
   StrapiModelAsset,
   StrapiCloudflareVideo,
 } from './course.types';
@@ -56,20 +56,23 @@ function mapVideo(
   };
 }
 
-function mapLesson(lesson: StrapiLesson): CourseLesson {
+// Output type/field name (`CourseLesson`) kept as-is even though the
+// Strapi-side input is now a Section (renamed from Lesson) — see
+// course.types.ts's CourseTopic.lessons comment.
+function mapLesson(section: StrapiSection): CourseLesson {
   return {
-    id: lesson.slug ?? String(lesson.id ?? ''),
-    title: lesson.title ?? '',
-    duration: lesson.duration ?? null,
-    paragraphs: blocksToParagraphs(lesson.content),
-    video: mapVideo(lesson.video),
-    model: mapModel(lesson.model3d),
+    id: section.slug ?? String(section.id ?? ''),
+    title: section.title ?? '',
+    duration: section.duration ?? null,
+    paragraphs: blocksToParagraphs(section.content),
+    video: mapVideo(section.video),
+    model: mapModel(section.model3d),
   };
 }
 
 function mapAssessment(
   assessment: StrapiAssessment | null | undefined,
-  topicSlug: string,
+  chapterSlug: string,
 ): CourseAssessment | undefined {
   if (!assessment) return undefined;
 
@@ -91,7 +94,7 @@ function mapAssessment(
   );
 
   return {
-    id: assessment.assessmentKey ?? `${topicSlug}-assessment`,
+    id: assessment.assessmentKey ?? `${chapterSlug}-assessment`,
     title: assessment.title ?? 'Knowledge Check',
     questions,
   };
@@ -99,52 +102,57 @@ function mapAssessment(
 
 function mapInteractive(
   interactive: StrapiInteractiveActivity | null | undefined,
-  topicSlug: string,
+  chapterSlug: string,
 ): CourseInteractive | undefined {
   if (!interactive) return undefined;
   return {
-    id: interactive.activityKey ?? `${topicSlug}-interactive`,
+    id: interactive.activityKey ?? `${chapterSlug}-interactive`,
     title: interactive.title ?? '',
     kind: interactive.kind ?? '',
   };
 }
 
 /**
- * First lesson (in display order) that carries a 3D scan, reshaped to the
- * topic-level `model` field studio-vr's courseData.js/CoursePage.jsx expect.
- * The Strapi schema moved model3d onto Lesson so each lesson can carry its
- * own scan; this picks a sensible default for the topic-level field the
- * frontend currently reads, without losing the per-lesson data (each mapped
- * lesson also carries its own `model`).
+ * First section (in display order) that carries a 3D scan, reshaped to the
+ * chapter-level `model` field studio-vr's courseData.js/CoursePage.jsx
+ * expect. The Strapi schema keeps model3d on Section so each section can
+ * carry its own scan; this picks a sensible default for the chapter-level
+ * field the frontend currently reads, without losing the per-section data
+ * (each mapped section also carries its own `model`).
  */
-function deriveTopicModel(lessons: StrapiLesson[]): CourseModel | undefined {
-  const withModel = lessons
+function deriveTopicModel(sections: StrapiSection[]): CourseModel | undefined {
+  const withModel = sections
     .slice()
     .sort(byOrder)
-    .find((lesson) => lesson.model3d?.file || lesson.model3d?.kind);
+    .find((section) => section.model3d?.file || section.model3d?.kind);
   return mapModel(withModel?.model3d);
 }
 
-export function mapCourseTopic(topic: StrapiCourseTopic): CourseTopic {
-  const slug = topic.slug ?? String(topic.id ?? '');
-  const ready = Boolean(topic.ready);
-  const lessons = (topic.lessons ?? []).slice().sort(byOrder);
+export function mapCourseTopic(chapter: StrapiChapter): CourseTopic {
+  const slug = chapter.slug ?? String(chapter.id ?? '');
+  const ready = Boolean(chapter.ready);
+  const sections = (chapter.sections ?? []).slice().sort(byOrder);
 
   return {
     id: slug,
-    room: topic.room ?? null,
-    title: topic.title ?? '',
-    intro: topic.intro ?? '',
+    room: chapter.room ?? null,
+    title: chapter.title ?? '',
+    intro: chapter.intro ?? '',
     ready,
+    module: chapter.mainTopic?.slug ?? null,
+    moduleTitle: chapter.mainTopic?.title ?? null,
+    moduleOrder: chapter.mainTopic?.order ?? null,
+    number: chapter.number ?? null,
+    hotspotId: chapter.hotspotId ?? null,
     ...(ready && {
-      model: deriveTopicModel(lessons),
-      lessons: lessons.map(mapLesson),
-      assessment: mapAssessment(topic.assessment, slug),
-      interactive: mapInteractive(topic.interactive, slug),
+      model: deriveTopicModel(sections),
+      lessons: sections.map(mapLesson),
+      assessment: mapAssessment(chapter.assessment, slug),
+      interactive: mapInteractive(chapter.interactive, slug),
     }),
   };
 }
 
-export function mapCourseTopics(topics: StrapiCourseTopic[]): CourseTopic[] {
-  return topics.slice().sort(byOrder).map(mapCourseTopic);
+export function mapCourseTopics(chapters: StrapiChapter[]): CourseTopic[] {
+  return chapters.slice().sort(byOrder).map(mapCourseTopic);
 }
