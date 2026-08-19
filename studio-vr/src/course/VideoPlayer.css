@@ -1,0 +1,92 @@
+/* Cloudflare Stream embed for a course section's video. Sizing/border match
+   the app's other 16:9 media boxes (see .topic-model-box in CoursePage.css)
+   so a video and a 3D-model box look like the same family of component. */
+.video-player-wrap {
+  margin-bottom: 8px;
+}
+
+.video-player {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  background: #000;
+}
+
+.video-player iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* Duration/status/captions for a *real, playable* video live in their own
+   row below the frame, never overlaid on it — Cloudflare's Stream Player
+   draws its own control bar along the bottom of the iframe, and anything of
+   ours absolutely positioned in that space would sit on top of (and block)
+   those native controls. */
+.video-player-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 11.5px;
+}
+.vp-duration {
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.vp-status-badge {
+  font-weight: 600;
+  color: var(--accent);
+}
+.vp-captions-link {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-decoration: none;
+  border: 1px solid var(--border-soft);
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.vp-captions-link:hover {
+  color: var(--text-dim);
+  border-color: var(--accent-border, var(--border-soft));
+}
+
+/* "No video uploaded yet" state — a static poster image with an overlaid
+   badge is fine here (unlike above) since there's no native player chrome
+   underneath it to collide with. Reuses the panorama still that used to be
+   the (non-functional) placeholder for every lesson, dimmed a touch more so
+   the "coming soon" badge reads clearly against it. */
+.video-player-empty {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+}
+.video-player-empty img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.55);
+  display: block;
+}
+.vp-empty-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 8px 16px;
+  border-radius: 999px;
+  white-space: nowrap;
+}

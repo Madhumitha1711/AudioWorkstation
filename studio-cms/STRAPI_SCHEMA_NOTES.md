@@ -47,7 +47,10 @@ the 7 curriculum modules) has many **Chapters**; each **Chapter** has many
 
 - `shared/cloudflare-video` — `videoUid`, `durationSeconds`, `thumbnail`
   (S3 image), `captionsUrl`, `status`.
-- `shared/model-asset` — `kind` + `.glb` file (S3).
+- `shared/model-asset` — `kind` + a file that's either a `.glb`/`.gltf`
+  scan or a plain image (S3, `allowedTypes: ["files", "images"]`);
+  studio-vr picks which one to render off the file's mime type (see
+  studio-backend's `course.mapper.ts` `deriveAssetType`).
 - `shared/audio-asset` — `label` + an audio file (S3, `allowedTypes:
   ["audios"]`). Used by `course/question.audioClips` for ear-training-style
   questions that need the student to listen to something before answering
@@ -66,7 +69,11 @@ the 7 curriculum modules) has many **Chapters**; each **Chapter** has many
   `@strapi/provider-upload-aws-s3` (added to `package.json`). Fill in
   `AWS_ACCESS_KEY_ID` / `AWS_ACCESS_SECRET` / `AWS_REGION` / `AWS_BUCKET` in
   `.env` (see `.env.example`). `AWS_ENDPOINT` is only needed for an
-  S3-compatible service (R2, MinIO, etc.) instead of real AWS.
+  S3-compatible service (R2, MinIO, etc.) instead of real AWS. Strapi's raw
+  media `url` is never handed to the browser directly — studio-backend
+  rewrites `model3d.file.url` into a short-lived presigned URL before
+  returning course data (see `studio-backend/src/assets/asset-url.service.ts`),
+  so the S3 bucket itself doesn't need to be publicly readable.
 - **Video** is *not* run through Strapi's upload plugin — there's no
   Strapi-maintained Cloudflare Stream provider. Instead, two custom routes on
   the section API (`src/api/section/routes/video-upload.ts` +

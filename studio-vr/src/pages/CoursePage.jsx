@@ -4,6 +4,7 @@ import { buildStepList, firstStepIdForTopic } from "../course/courseData";
 import { useCourseTopics } from "../course/useCourseTopics";
 import AssessmentSection from "../course/AssessmentSection";
 import InteractiveSection from "../course/InteractiveSection";
+import VideoPlayer from "../course/VideoPlayer";
 import GearModelViewer from "../panorama/GearModelViewer";
 import { ROOMS } from "../panorama/roomsData";
 import "./CoursePage.css";
@@ -372,22 +373,44 @@ function CoursePage() {
 
               {activeStep.kind === "lesson" && (
                 <>
-                  <div className="lesson-video">
-                    <img src="/paranoma.png" alt="" />
-                    <div className="play-btn" />
-                    <div className="vtag">Lesson video · {activeStep.data.duration}</div>
-                  </div>
+                  <VideoPlayer
+                    video={activeStep.data.video}
+                    fallbackDuration={activeStep.data.duration}
+                    title={activeStep.data.title}
+                  />
                   <p className="video-caption">Watch first, then read the full lesson below.</p>
 
                   <div className={`lesson-body-row${activeTopic.model ? " has-model" : ""}`}>
                     {activeTopic.model && (
                       <div className="topic-model-box">
-                        <GearModelViewer
-                          url={activeTopic.model.url}
-                          kind={activeTopic.model.kind}
-                          height={320}
-                        />
-                        <div className="vtag">Inspect in 3D · drag to rotate</div>
+                        {/* The CMS's model3d asset can be either a .glb/.gltf
+                            scan or a plain reference image now (see
+                            studio-backend's course.mapper.ts
+                            deriveAssetType) — studio-backend tells us which
+                            one this is via `model.type`, so this box shows
+                            an <img> in place of the 3D viewer for an image
+                            asset instead of trying to load it as a scan.
+                            `type` is missing/null for older cached
+                            responses without it, so this still defaults to
+                            the 3D viewer in that case. */}
+                        {activeTopic.model.type === "image" ? (
+                          <img
+                            className="topic-model-image"
+                            src={activeTopic.model.url}
+                            alt={`${activeTopic.title} reference`}
+                          />
+                        ) : (
+                          <GearModelViewer
+                            url={activeTopic.model.url}
+                            kind={activeTopic.model.kind}
+                            height={320}
+                          />
+                        )}
+                        <div className="vtag">
+                          {activeTopic.model.type === "image"
+                            ? "Reference photo"
+                            : "Inspect in 3D · drag to rotate"}
+                        </div>
                       </div>
                     )}
 

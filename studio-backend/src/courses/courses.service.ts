@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { StrapiService } from '../strapi/strapi.service';
+import { AssetUrlService } from '../assets/asset-url.service';
 import { mapCourseTopic, mapCourseTopics } from './course.mapper';
 import {
   CourseTopic,
@@ -40,14 +41,17 @@ const CHAPTER_POPULATE = {
 
 @Injectable()
 export class CoursesService {
-  constructor(private readonly strapi: StrapiService) {}
+  constructor(
+    private readonly strapi: StrapiService,
+    private readonly assets: AssetUrlService,
+  ) {}
 
   /** Every chapter (Speakers, Mixing Console, DAW Workstation, ...), in curriculum order. */
   async findAll(): Promise<CourseTopic[]> {
     const response = await this.strapi.get<
       StrapiCollectionResponse<StrapiChapter>
     >('/api/chapters', CHAPTER_POPULATE);
-    return mapCourseTopics(response.data);
+    return mapCourseTopics(response.data, this.assets);
   }
 
   /** A single chapter by its slug (studio-vr's `TOPICS[].id`, e.g. "speaker"). */
@@ -63,6 +67,6 @@ export class CoursesService {
     if (!chapter) {
       throw new NotFoundException(`No course topic found for slug "${slug}"`);
     }
-    return mapCourseTopic(chapter);
+    return mapCourseTopic(chapter, this.assets);
   }
 }

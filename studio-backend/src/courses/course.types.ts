@@ -7,6 +7,7 @@
 export interface StrapiMedia {
   id?: number;
   url?: string;
+  mime?: string | null;
 }
 
 export interface StrapiModelAsset {
@@ -119,9 +120,18 @@ export interface StrapiCollectionResponse<T> {
 
 // --- Reshaped output, matching studio-vr's src/course/courseData.js TOPICS[] ---
 
+// `type` tells studio-vr's CoursePage.jsx whether to render this asset with
+// GearModelViewer (3D) or as a plain <img> — derived server-side from the
+// uploaded file's mime type / extension (see course.mapper.ts's
+// deriveAssetType), since the CMS's `shared.model-asset` component now
+// accepts either a .glb/.gltf scan or any image. `url` is a presigned,
+// time-limited S3 URL (see ../assets/asset-url.service.ts), not the raw
+// studio-cms media URL.
 export interface CourseModel {
   kind: string | null;
   url: string | null;
+  mime: string | null;
+  type: 'model' | 'image' | null;
 }
 
 export interface CourseVideo {

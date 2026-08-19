@@ -93,12 +93,12 @@ export interface SharedCloudflareVideo extends Struct.ComponentSchema {
 export interface SharedModelAsset extends Struct.ComponentSchema {
   collectionName: 'components_shared_model_assets';
   info: {
-    description: "Rotatable 3D preview for a piece of gear (e.g. photogrammetry-scanned speaker.glb), matching TOPICS[].model in studio-vr's courseData.js.";
+    description: "Rotatable 3D preview for a piece of gear (e.g. photogrammetry-scanned speaker.glb) OR a plain reference image, matching TOPICS[].model in studio-vr's courseData.js. studio-vr picks which one to render off the uploaded file's mime type (see studio-backend's course.mapper.ts deriveAssetType).";
     displayName: '3D Model Asset';
     icon: 'cube';
   };
   attributes: {
-    file: Schema.Attribute.Media<'files'>;
+    file: Schema.Attribute.Media<'files' | 'images'>;
     kind: Schema.Attribute.String;
   };
 }
