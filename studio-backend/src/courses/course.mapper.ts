@@ -89,16 +89,24 @@ async function mapModel(
  * CloudflareStreamTokenService) so a captured/leaked token can't be reused
  * to watch a paid course's video outside of studio-vr's own paid-and-signed-in
  * flow the way a bare, never-expiring `videoUid` could.
+ *
+ * `thumbnail` is a plain image stored via the same S3 upload provider as
+ * model3d's images (see mapModel above), so it needs the same presigning —
+ * studio-vr passes `thumbnailUrl` straight through as the Cloudflare Stream
+ * player's `?poster=` query param (see VideoPlayer.jsx), and the browser
+ * fetches that URL directly, so a raw, unsigned S3 URL just 403s there since
+ * the bucket isn't public-read.
  */
-function mapVideo(
+async function mapVideo(
   video: StrapiCloudflareVideo | null | undefined,
   streamTokens: CloudflareStreamTokenService,
-): CourseVideo | undefined {
+  assets: AssetUrlService,
+): Promise<CourseVideo | undefined> {
   if (!video) return undefined;
   return {
     playbackToken: streamTokens.sign(video.videoUid),
     durationSeconds: video.durationSeconds ?? null,
-    thumbnailUrl: video.thumbnail?.url ?? null,
+    thumbnailUrl: await assets.presign(video.thumbnail?.url ?? null),
     captionsUrl: video.captionsUrl ?? null,
     status: video.status ?? null,
   };
@@ -117,7 +125,7 @@ async function mapLesson(
     title: section.title ?? '',
     duration: section.duration ?? null,
     paragraphs: blocksToParagraphs(section.content),
-    video: mapVideo(section.video, streamTokens),
+    video: await mapVideo(section.video, streamTokens, assets),
     model: await mapModel(section.model3d, assets),
   };
 }
