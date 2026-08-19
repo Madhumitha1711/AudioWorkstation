@@ -380,8 +380,8 @@ function CoursePage() {
                   />
                   <p className="video-caption">Watch first, then read the full lesson below.</p>
 
-                  <div className={`lesson-body-row${activeTopic.model ? " has-model" : ""}`}>
-                    {activeTopic.model && (
+                  <div className={`lesson-body-row${activeStep.data.model ? " has-model" : ""}`}>
+                    {activeStep.data.model && (
                       <div className="topic-model-box">
                         {/* The CMS's model3d asset can be either a .glb/.gltf
                             scan or a plain reference image now (see
@@ -392,22 +392,29 @@ function CoursePage() {
                             asset instead of trying to load it as a scan.
                             `type` is missing/null for older cached
                             responses without it, so this still defaults to
-                            the 3D viewer in that case. */}
-                        {activeTopic.model.type === "image" ? (
+                            the 3D viewer in that case.
+
+                            Reads this off the *active lesson* (activeStep.data),
+                            not the chapter/topic — model3d lives on Section in
+                            the CMS so each section carries its own asset. Using
+                            the topic-level `model` here previously made every
+                            section in a chapter show whichever section's image
+                            happened to be first in order. */}
+                        {activeStep.data.model.type === "image" ? (
                           <img
                             className="topic-model-image"
-                            src={activeTopic.model.url}
-                            alt={`${activeTopic.title} reference`}
+                            src={activeStep.data.model.url}
+                            alt={`${activeStep.data.title} reference`}
                           />
                         ) : (
                           <GearModelViewer
-                            url={activeTopic.model.url}
-                            kind={activeTopic.model.kind}
+                            url={activeStep.data.model.url}
+                            kind={activeStep.data.model.kind}
                             height={320}
                           />
                         )}
                         <div className="vtag">
-                          {activeTopic.model.type === "image"
+                          {activeStep.data.model.type === "image"
                             ? "Reference photo"
                             : "Inspect in 3D · drag to rotate"}
                         </div>
