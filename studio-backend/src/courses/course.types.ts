@@ -134,8 +134,15 @@ export interface CourseModel {
   type: 'model' | 'image' | null;
 }
 
+// `playbackToken` is a short-lived, signed Cloudflare Stream token (see
+// ../assets/cloudflare-stream-token.service.ts), NOT the raw Stream
+// videoUid — studio-vr's VideoPlayer embeds it as
+// https://iframe.cloudflarestream.com/<playbackToken>. Renamed from
+// `videoUid` on purpose: this field expires and is scoped to whoever
+// requested it, so it shouldn't be mistaken for a stable, shareable video
+// identifier the way a bare UID would be.
 export interface CourseVideo {
-  videoUid: string | null;
+  playbackToken: string | null;
   durationSeconds: number | null;
   thumbnailUrl: string | null;
   captionsUrl: string | null;

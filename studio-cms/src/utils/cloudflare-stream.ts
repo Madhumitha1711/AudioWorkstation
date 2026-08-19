@@ -87,8 +87,37 @@ async function parseStreamResponse(response: Response, action: string): Promise<
 
 /**
  * Uploads a video file straight to Cloudflare Stream (server-to-server,
- * whole file buffered from disk into one multipart request) and returns the
- * info needed to populate a `shared.cloudflare-video` component.
+ * whole file buffered from disk into one multipart request), then makes a
+ * second call to require a signed URL for it, and returns the info needed
+ * to populate a `shared.cloudflare-video` component.
+ *
+ * This is a paid course, so the plain
+ * https://iframe.cloudflarestream.com/<uid> embed URL must NOT play back
+ * for anyone who merely knows/guesses a videoUid (e.g. from a network
+ * response, view-source, a shared link). With requireSignedURLs set,
+ * playback needs a short-lived signed token instead, minted server-side by
+ * studio-backend's CloudflareStreamTokenService (behind /courses' auth +
+ * payment gate) — see studio-backend/src/assets/cloudflare-stream-token.service.ts.
+ *
+ * The securing step is a SEPARATE call (setRequireSignedUrls) rather than a
+ * `requiresignedurls` field on the upload request itself — an earlier
+ * version of this function tried passing that as a multipart form field on
+ * the single-request upload endpoint, but Cloudflare silently ignored it
+ * (the video came back with "Require Signed URLs" still off in the
+ * dashboard). The documented, confirmed-working way to set this is the
+ * same "edit video details" POST used by setRequireSignedUrls, so that's
+ * what runs here too, immediately after upload. If it fails, this throws
+ * rather than returning a result — see the controller
+ * (src/api/section/controllers/section.ts's uploadVideo): a failure here
+ * means the caller does NOT write videoUid onto the section, so a video
+ * never ends up referenced from the CMS while still playable via its bare
+ * UID. The video itself is left on Cloudflare in that case (unsecured);
+ * either retry the upload or run scripts/secure-existing-videos.mjs
+ * against it once the underlying issue is fixed.
+ *
+ * Videos uploaded before this two-step flow existed are NOT retroactively
+ * secured; run scripts/secure-existing-videos.mjs once to flip
+ * requireSignedURLs on those too.
  *
  * Fine for typical lesson-length clips. For very large files, prefer
  * Cloudflare's "direct creator upload" flow (request a one-time upload URL,
@@ -113,7 +142,42 @@ export async function uploadVideoToCloudflareStream(
   });
 
   const result = await parseStreamResponse(response, 'upload');
+
+  // See the doc comment above for why this is a separate call rather than
+  // a field on the upload request.
+  await setRequireSignedUrls(result.uid, true);
+
   return toLessonResult(result);
+}
+
+/**
+ * Flips a video's `requireSignedURLs` flag. Called by
+ * uploadVideoToCloudflareStream right after every new upload, and by
+ * scripts/secure-existing-videos.mjs to retroactively lock down videos
+ * uploaded before that call existed. Not wired into any HTTP route itself
+ * (this project has no admin-triggered "secure this video" button, and
+ * doesn't need one beyond those two call sites).
+ */
+export async function setRequireSignedUrls(
+  videoUid: string,
+  required: boolean
+): Promise<void> {
+  const accountId = getRequiredEnv('CLOUDFLARE_ACCOUNT_ID');
+  const apiToken = getRequiredEnv('CLOUDFLARE_STREAM_API_TOKEN');
+
+  const response = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream/${videoUid}`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ uid: videoUid, requireSignedURLs: required }),
+    }
+  );
+
+  await parseStreamResponse(response, 'requireSignedURLs update');
 }
 
 /**

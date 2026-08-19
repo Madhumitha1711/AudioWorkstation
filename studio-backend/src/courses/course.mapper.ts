@@ -15,6 +15,7 @@ import {
   StrapiCloudflareVideo,
 } from './course.types';
 import { AssetUrlService } from '../assets/asset-url.service';
+import { CloudflareStreamTokenService } from '../assets/cloudflare-stream-token.service';
 
 const byOrder = (a: { order?: number }, b: { order?: number }) =>
   (a.order ?? 0) - (b.order ?? 0);
@@ -81,12 +82,21 @@ async function mapModel(
   };
 }
 
+/**
+ * Reshapes a Strapi `shared.cloudflare-video` component into the
+ * `CourseVideo` studio-vr reads, swapping the raw Stream `videoUid` for a
+ * short-lived signed playback token along the way (see
+ * CloudflareStreamTokenService) so a captured/leaked token can't be reused
+ * to watch a paid course's video outside of studio-vr's own paid-and-signed-in
+ * flow the way a bare, never-expiring `videoUid` could.
+ */
 function mapVideo(
-  video?: StrapiCloudflareVideo | null,
+  video: StrapiCloudflareVideo | null | undefined,
+  streamTokens: CloudflareStreamTokenService,
 ): CourseVideo | undefined {
   if (!video) return undefined;
   return {
-    videoUid: video.videoUid ?? null,
+    playbackToken: streamTokens.sign(video.videoUid),
     durationSeconds: video.durationSeconds ?? null,
     thumbnailUrl: video.thumbnail?.url ?? null,
     captionsUrl: video.captionsUrl ?? null,
@@ -100,13 +110,14 @@ function mapVideo(
 async function mapLesson(
   section: StrapiSection,
   assets: AssetUrlService,
+  streamTokens: CloudflareStreamTokenService,
 ): Promise<CourseLesson> {
   return {
     id: section.slug ?? String(section.id ?? ''),
     title: section.title ?? '',
     duration: section.duration ?? null,
     paragraphs: blocksToParagraphs(section.content),
-    video: mapVideo(section.video),
+    video: mapVideo(section.video, streamTokens),
     model: await mapModel(section.model3d, assets),
   };
 }
@@ -176,6 +187,7 @@ async function deriveTopicModel(
 export async function mapCourseTopic(
   chapter: StrapiChapter,
   assets: AssetUrlService,
+  streamTokens: CloudflareStreamTokenService,
 ): Promise<CourseTopic> {
   const slug = chapter.slug ?? String(chapter.id ?? '');
   const ready = Boolean(chapter.ready);
@@ -195,7 +207,7 @@ export async function mapCourseTopic(
     ...(ready && {
       model: await deriveTopicModel(sections, assets),
       lessons: await Promise.all(
-        sections.map((section) => mapLesson(section, assets)),
+        sections.map((section) => mapLesson(section, assets, streamTokens)),
       ),
       assessment: mapAssessment(chapter.assessment, slug),
       interactive: mapInteractive(chapter.interactive, slug),
@@ -206,11 +218,12 @@ export async function mapCourseTopic(
 export async function mapCourseTopics(
   chapters: StrapiChapter[],
   assets: AssetUrlService,
+  streamTokens: CloudflareStreamTokenService,
 ): Promise<CourseTopic[]> {
   return Promise.all(
     chapters
       .slice()
       .sort(byOrder)
-      .map((chapter) => mapCourseTopic(chapter, assets)),
+      .map((chapter) => mapCourseTopic(chapter, assets, streamTokens)),
   );
 }
