@@ -1,0 +1,138 @@
+{
+  "family": "studio-cms",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "runtimePlatform": {
+    "cpuArchitecture": "ARM64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::654740195946:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::654740195946:role/studio-cms-task-role",
+  "containerDefinitions": [
+    {
+      "name": "studio-cms",
+      "image": "654740195946.dkr.ecr.ap-south-1.amazonaws.com/studio-cms:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 1337,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "HOST",
+          "value": "0.0.0.0"
+        },
+        {
+          "name": "PORT",
+          "value": "1337"
+        },
+        {
+          "name": "DATABASE_CLIENT",
+          "value": "postgres"
+        },
+        {
+          "name": "DATABASE_HOST",
+          "value": "database-1.c7waymsegsxj.ap-south-1.rds.amazonaws.com"
+        },
+        {
+          "name": "DATABASE_PORT",
+          "value": "5432"
+        },
+        {
+          "name": "DATABASE_NAME",
+          "value": "studio-cms"
+        },
+        {
+          "name": "DATABASE_SSL",
+          "value": "true"
+        },
+        {
+          "name": "DATABASE_SSL_REJECT_UNAUTHORIZED",
+          "value": "false"
+        },
+        {
+          "name": "AWS_REGION",
+          "value": "ap-south-1"
+        },
+        {
+          "name": "AWS_BUCKET",
+          "value": "dualmono-images"
+        },
+        {
+          "name": "CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN",
+          "value": "<CLOUDFLARE_CUSTOMER_SUBDOMAIN>"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_USERNAME",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/DATABASE_USERNAME"
+        },
+        {
+          "name": "DATABASE_PASSWORD",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/DATABASE_PASSWORD"
+        },
+        {
+          "name": "APP_KEYS",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/APP_KEYS"
+        },
+        {
+          "name": "API_TOKEN_SALT",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/API_TOKEN_SALT"
+        },
+        {
+          "name": "ADMIN_JWT_SECRET",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/ADMIN_JWT_SECRET"
+        },
+        {
+          "name": "TRANSFER_TOKEN_SALT",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/TRANSFER_TOKEN_SALT"
+        },
+        {
+          "name": "ENCRYPTION_KEY",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/ENCRYPTION_KEY"
+        },
+        {
+          "name": "AWS_ACCESS_KEY_ID",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/CMS_AWS_ACCESS_KEY_ID"
+        },
+        {
+          "name": "AWS_ACCESS_SECRET",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/CMS_AWS_ACCESS_SECRET"
+        },
+        {
+          "name": "CLOUDFLARE_ACCOUNT_ID",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/CLOUDFLARE_ACCOUNT_ID"
+        },
+        {
+          "name": "CLOUDFLARE_STREAM_API_TOKEN",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/CLOUDFLARE_STREAM_API_TOKEN"
+        }
+      ],
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:1337/_health || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/studio-cms",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "studio-cms"
+        }
+      }
+    }
+  ]
+}

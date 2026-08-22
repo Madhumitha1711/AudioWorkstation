@@ -1,0 +1,38 @@
+# Local/dev parity stack — not used for the actual AWS deployment, but lets
+# you build and run the two backend services together before pushing images
+# to ECR. Run: docker compose up --build
+#
+# studio-vr isn't here: it deploys as static files to S3 + CloudFront, not a
+# container (see studio-vr/deploy.sh). Run it locally with `npm run dev` in
+# studio-vr/ instead.
+#
+# No Postgres container here — both apps point at your real AWS RDS instance
+# via DATABASE_HOST/DATABASE_USERNAME/DATABASE_PASSWORD etc. in their own
+# .env files (already present in studio-backend/ and studio-cms/). Make sure
+# your RDS security group allows inbound connections from wherever you're
+# running this (your machine's IP, or a bastion/VPN into the VPC) and that
+# DATABASE_SSL=true is set if the instance requires SSL.
+
+services:
+  studio-cms:
+    build:
+      context: ./studio-cms
+    restart: unless-stopped
+    env_file:
+      - ./studio-cms/.env
+    ports:
+      - "1337:1337"
+
+  studio-backend:
+    build:
+      context: ./studio-backend
+    restart: unless-stopped
+    env_file:
+      - ./studio-backend/.env
+    environment:
+      STRAPI_BASE_URL: http://studio-cms:1337
+    depends_on:
+      studio-cms:
+        condition: service_started
+    ports:
+      - "3000:3000"

@@ -1,0 +1,182 @@
+{
+  "family": "studio-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "runtimePlatform": {
+    "cpuArchitecture": "ARM64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::654740195946:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::654740195946:role/studio-backend-task-role",
+  "containerDefinitions": [
+    {
+      "name": "studio-backend",
+      "image": "654740195946.dkr.ecr.ap-south-1.amazonaws.com/studio-backend:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "PORT",
+          "value": "3000"
+        },
+        {
+          "name": "CORS_ORIGINS",
+          "value": "https://audio-workstation-oxzt.vercel.app"
+        },
+        {
+          "name": "DATABASE_HOST",
+          "value": "database-1.c7waymsegsxj.ap-south-1.rds.amazonaws.com"
+        },
+        {
+          "name": "DATABASE_PORT",
+          "value": "5432"
+        },
+        {
+          "name": "DATABASE_NAME",
+          "value": "studio-db"
+        },
+        {
+          "name": "DATABASE_SSL",
+          "value": "true"
+        },
+        {
+          "name": "DATABASE_SSL_REJECT_UNAUTHORIZED",
+          "value": "false"
+        },
+        {
+          "name": "DATABASE_SYNCHRONIZE",
+          "value": "true"
+        },
+        {
+          "name": "STRAPI_BASE_URL",
+          "value": "http://ec2-13-203-212-164.ap-south-1.compute.amazonaws.com:1337"
+        },
+        {
+          "name": "JWT_EXPIRES_IN",
+          "value": "7d"
+        },
+        {
+          "name": "GOOGLE_CLIENT_ID",
+          "value": "<GOOGLE_OAUTH_CLIENT_ID>"
+        },
+        {
+          "name": "AWS_REGION",
+          "value": "ap-south-1"
+        },
+        {
+          "name": "SES_FROM_EMAIL",
+          "value": "<VERIFIED_SES_SENDER_EMAIL>"
+        },
+        {
+          "name": "AWS_ASSETS_BUCKET",
+          "value": "dualmono-images"
+        },
+        {
+          "name": "AWS_ASSET_URL_EXPIRES_IN",
+          "value": "3600"
+        },
+        {
+          "name": "CLOUDFLARE_STREAM_TOKEN_EXPIRES_IN",
+          "value": "14400"
+        },
+        {
+          "name": "ADMIN_EMAILS",
+          "value": "madhuvivaan@gmail.com"
+        },
+        {
+          "name": "COURSE_PRICE_USD",
+          "value": "199"
+        },
+        {
+          "name": "PAYMENT_GATEWAY",
+          "value": "razorpay"
+        },
+        {
+          "name": "FRONTEND_URL",
+          "value": "https://audio-workstation-oxzt.vercel.app"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_USERNAME",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/DATABASE_USERNAME"
+        },
+        {
+          "name": "DATABASE_PASSWORD",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/DATABASE_PASSWORD"
+        },
+        {
+          "name": "STRAPI_API_TOKEN",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/STRAPI_API_TOKEN"
+        },
+        {
+          "name": "JWT_SECRET",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/JWT_SECRET"
+        },
+        {
+          "name": "AWS_ACCESS_KEY_ID",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/BACKEND_AWS_ACCESS_KEY_ID"
+        },
+        {
+          "name": "AWS_SECRET_ACCESS_KEY",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/BACKEND_AWS_SECRET_ACCESS_KEY"
+        },
+        {
+          "name": "CLOUDFLARE_STREAM_KEY_ID",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/CLOUDFLARE_STREAM_KEY_ID"
+        },
+        {
+          "name": "CLOUDFLARE_STREAM_SIGNING_KEY",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/CLOUDFLARE_STREAM_SIGNING_KEY"
+        },
+        {
+          "name": "RAZORPAY_KEY_ID",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/RAZORPAY_KEY_ID"
+        },
+        {
+          "name": "RAZORPAY_KEY_SECRET",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/RAZORPAY_KEY_SECRET"
+        },
+        {
+          "name": "RAZORPAY_WEBHOOK_SECRET",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/RAZORPAY_WEBHOOK_SECRET"
+        },
+        {
+          "name": "STRIPE_SECRET_KEY",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/STRIPE_SECRET_KEY"
+        },
+        {
+          "name": "STRIPE_WEBHOOK_SECRET",
+          "valueFrom": "arn:aws:ssm:ap-south-1:654740195946:parameter/studio/dev/STRIPE_WEBHOOK_SECRET"
+        }
+      ],
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:3000/ || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/studio-backend",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "studio-backend"
+        }
+      }
+    }
+  ]
+}
