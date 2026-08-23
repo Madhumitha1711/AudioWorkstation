@@ -32,7 +32,13 @@ export function useFaustDsp(audioContext, basePath) {
                 const dspMeta = await (await fetch(`${basePath}/dsp-meta.json`)).json();
                 const dspModule = await compileFaustWasm(`${basePath}/dsp-module.wasm`);
                 const generator = new FaustMonoDspGenerator();
-                const faustNode = await generator.createNode(audioContext, dspMeta.name, { module: dspModule, json: JSON.stringify(dspMeta), soundfiles: {} }, false, 512);
+                // sp=true: force ScriptProcessorNode instead of AudioWorkletNode. AudioWorkletNode
+                // requires a secure context (HTTPS or localhost); this deploy currently serves over
+                // plain HTTP (S3 website endpoint, no CloudFront), where audioContext.audioWorklet is
+                // undefined and .createNode() would throw trying to call addModule() on it.
+                // Trade-off: ScriptProcessorNode is deprecated and runs DSP on the main thread, so it's
+                // more prone to glitches under UI load. Switch back to false once served over HTTPS.
+                const faustNode = await generator.createNode(audioContext, dspMeta.name, { module: dspModule, json: JSON.stringify(dspMeta), soundfiles: {} }, true, 512);
                 if (cancelled)
                     return;
                 if (!faustNode)

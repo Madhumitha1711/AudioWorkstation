@@ -5,19 +5,16 @@
 # caching; until then this is the simplest, cheapest way to serve it.
 #
 # Usage:
-#   S3_BUCKET=my-frontend-bucket ./deploy.sh
+#   ./deploy.sh                              # deploys to dualmono-hosting
+#   S3_BUCKET=other-bucket ./deploy.sh       # override the target bucket
 #
-# Required env vars:
-#   S3_BUCKET — the S3 bucket serving the site
-# Optional:
+# Optional env vars:
+#   S3_BUCKET — the S3 bucket serving the site (default: dualmono-hosting)
 #   AWS_PROFILE / AWS_REGION — as usual for the AWS CLI
 
 set -euo pipefail
 
-if [[ -z "${S3_BUCKET:-}" ]]; then
-  echo "Set S3_BUCKET before running this script." >&2
-  exit 1
-fi
+S3_BUCKET="${S3_BUCKET:-dualmono-hosting}"
 
 cd "$(dirname "$0")"
 

@@ -355,7 +355,10 @@ function DawWorkstationScreen({ open, onClose }) {
       engineCacheRef.current.set(def.key, cached);
     }
     const generator = new FaustMonoDspGenerator();
-    const node = await generator.createNode(ctx, cached.meta.name, cached.factory, false, 512);
+    // sp=true: ScriptProcessorNode instead of AudioWorkletNode, since AudioWorkletNode needs a
+    // secure context and this is currently served over plain HTTP. Switch back to false once HTTPS
+    // is in front of the deploy (see offlineRender.js, which stays on AudioWorkletNode/false).
+    const node = await generator.createNode(ctx, cached.meta.name, cached.factory, true, 512);
     return { node, meta: cached.meta };
   }, []);
 

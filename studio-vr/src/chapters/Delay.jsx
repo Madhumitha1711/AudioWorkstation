@@ -696,7 +696,10 @@ export default function Delay() {
         const factory = { module: dspModuleRef.current, json: JSON.stringify(dspMetaRef.current), soundfiles: {} };
         let faustNode;
         try {
-            faustNode = await generatorRef.current.createNode(ctx, dspMetaRef.current.name, factory, false, 512);
+            // sp=true: ScriptProcessorNode instead of AudioWorkletNode (which needs a secure
+            // context) since this is currently served over plain HTTP. Revert to false once HTTPS
+            // is in front of the deploy.
+            faustNode = await generatorRef.current.createNode(ctx, dspMetaRef.current.name, factory, true, 512);
         }
         catch (err) {
             console.error('[Chapter9] failed to build Faust delay node', err);
