@@ -1,9 +1,7 @@
-// Shared data/helpers for the studio hotspots device list, used by both
-// StudioHotspotsPanel.jsx (the always-on left-docked nav rail) and
-// StudioPowerUpChallenge.jsx (the optional power-up minigame ported from
-// design/studio-hotspots-panel.html). Keeping icons/ordering/list-building
-// in one place means the two stay visually and behaviorally consistent
-// instead of drifting apart as separate copies.
+// Shared data/helpers for the studio hotspots device list, used by
+// StudioHotspotsPanel.jsx (the always-on left-docked nav rail that also
+// drives the Control Room's power-up sequence). Kept separate so that file
+// stays focused on the panel itself.
 
 // SIGNAL_ORDER mirrors the 7-device chain from the original design (patch
 // bay -> ... -> speaker). LF Emitter isn't part of that original mock but is
@@ -33,8 +31,6 @@ export const ICONS = {
   speaker: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="2" width="14" height="20" rx="1.5"/><circle cx="12" cy="8" r="2.5"/><circle cx="12" cy="16" r="4"/></svg>`,
 };
 
-export const WARN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 16H3z"/><line x1="12" y1="10" x2="12" y2="14"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg>`;
-
 // Builds the ordered device list for a room: known signal-chain hotspots
 // first (per SIGNAL_ORDER), then anything else the room defines, so the
 // panel never silently drops a real hotspot just because it's new.
@@ -45,8 +41,8 @@ export function buildDeviceList(room) {
     // `secondaryEntry` markers (see roomsData.js) are extra in-scene click
     // points onto a device that already has a primary entry here — e.g. a
     // second DAW hotspot at desk height alongside the one by the monitors.
-    // They stay out of this list so the panel/power-up game never shows the
-    // same real device twice.
+    // They stay out of this list so the panel never shows the same real
+    // device twice.
     ...(room.interactiveMarkers || [])
       .filter((m) => !m.secondaryEntry)
       .map((m) => [m.id, { ...m, kind: "interactive" }]),
@@ -64,19 +60,3 @@ export function buildDeviceList(room) {
   byId.forEach((device) => ordered.push(device));
   return ordered;
 }
-
-// Describes a device's dependency in the signal chain, given its canonical
-// (non-shuffled) position in the device list. Used both for the always-on
-// panel's "req" line and the challenge's hint text.
-export function describeRequirement(devices, canonicalIndex) {
-  if (canonicalIndex === 0) return "No dependency · powers first";
-  const prevTitle = devices[canonicalIndex - 1]?.title;
-  if (canonicalIndex === devices.length - 1) {
-    return `Requires ${prevTitle} · powers last`;
-  }
-  return `Requires ${prevTitle}`;
-}
-
-// Small on/tripped/off status light shown on every device row. Shared here
-// so both panels agree on the same three labels/colors.
-export const POWER_LED_LABEL = { on: "On", error: "Tripped", off: "Off" };

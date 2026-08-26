@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Viewer } from "@photo-sphere-viewer/core";
 import { VirtualTourPlugin } from "@photo-sphere-viewer/virtual-tour-plugin";
@@ -12,18 +12,10 @@ import {
   resumeAudio,
   updateListenerOrientation,
   stopHotspotNarration,
-  setRoomAmbience,
-  stopAmbientBed,
   setMuted,
   isMuted,
   setBinauralEnabled,
   isBinauralEnabled,
-  startRoomBleed,
-  stopRoomBleed,
-  setRoomBleedVolume,
-  getRoomBleedVolume,
-  setRoomBleedMuted,
-  isRoomBleedMuted,
 } from "../audio/spatialAudioEngine";
 import DawWorkstationScreen from "./DawWorkstationScreen";
 import SpeakerListeningLab from "./labs/SpeakerListeningLab";
@@ -34,15 +26,12 @@ import PreampRackLab from "./labs/PreampRackLab";
 import LfEmitterLab from "./labs/LfEmitterLab";
 import DiffuserPanelLab from "./labs/DiffuserPanelLab";
 import StudioHotspotsPanel from "./StudioHotspotsPanel";
-// Only used here to build the "Try Game mode" tour step's correct-order
-// hint (see tourStepsForCard below) — StudioHotspotsPanel already imports
-// this same helper independently for its own device list.
-import { buildDeviceList } from "./hotspotDevices";
 // Component is HotspotKnowledgeCheck; the file itself is still named
 // HotspotPrecheck.jsx — see the note at the top of that file.
 import HotspotKnowledgeCheck from "./HotspotPrecheck";
 import { TOPICS } from "../course/courseData";
 import OnboardingTour from "../tour/OnboardingTour";
+import TourWelcomeModal from "../tour/TourWelcomeModal";
 import { TOUR_STEPS } from "../tour/tourSteps";
 import "./panoramaTour.css";
 
@@ -67,7 +56,6 @@ function markTourCompleted() {
   }
 }
 
-const DEFAULT_AMBIENCE = { filterFreq: 500, gain: 0.03, gustDepth: 0.015 };
 // The wide, "standing in the middle of the room" resting view — used both
 // for the first-arrival reveal and to zoom back out whenever a hotspot's
 // gear panel is closed, so the camera doesn't just stay parked at whatever
@@ -116,19 +104,6 @@ const interactiveMarkerHtml = (icon, variant) => `
     <span class="hotspot-marker__ring${variant ? ` hotspot-marker__ring--${variant}` : ""}"></span>
     <span class="hotspot-marker__ring${variant ? ` hotspot-marker__ring--${variant}` : ""} hotspot-marker__ring--delayed"></span>
     <span class="hotspot-marker__dot${variant ? ` hotspot-marker__dot--${variant}` : ""}">${icon}</span>
-  </div>
-`;
-
-// Amber speaker-icon badge for a room's `volumeControls` hotspots — opens a
-// small slider + mute panel for an adjustable background bed (e.g. the
-// recording-room bleed) instead of a gear/course info panel, so it reads as
-// "audio control" at a glance rather than another piece of gear to learn
-// about.
-const volumeMarkerHtml = () => `
-  <div class="hotspot-marker hotspot-marker--volume">
-    <span class="hotspot-marker__ring hotspot-marker__ring--volume"></span>
-    <span class="hotspot-marker__ring hotspot-marker__ring--volume hotspot-marker__ring--delayed"></span>
-    <span class="hotspot-marker__dot hotspot-marker__dot--volume">🔊</span>
   </div>
 `;
 
@@ -219,25 +194,6 @@ function buildNodes() {
           pitch: marker.pitch,
         },
       })),
-      ...(room.volumeControls || []).map((control) => ({
-        id: control.id,
-        position: { yaw: deg(control.yaw), pitch: deg(control.pitch) },
-        html: volumeMarkerHtml(),
-        size: { width: 26, height: 26 },
-        anchor: "center center",
-        tooltip: {
-          content: control.title || "Volume",
-          trigger: "hover",
-        },
-        data: {
-          kind: "volume",
-          id: control.id,
-          title: control.title,
-          target: control.target,
-          yaw: control.yaw,
-          pitch: control.pitch,
-        },
-      })),
     ],
   }));
 }
@@ -289,18 +245,6 @@ function PanoramaTour() {
   // the null it captured on the first render (the same stale-closure reason
   // latestRequestRef exists).
   const activeModuleRef = useRef(null);
-  // Same stale-closure fix as activeModuleRef, for the volume-control marker
-  // click handler.
-  const activeVolumeControlRef = useRef(null);
-  // Same stale-closure fix as activeModuleRef, for the mount-only
-  // onNodeChanged handler below, which needs to read the Studio's *current*
-  // Game/Classic mode (reported live via handleGameModeChange, from
-  // StudioHotspotsPanel's onGameModeChange — see that effect's comment) to
-  // decide whether re-arriving at the Studio should re-lock the scene.
-  // Defaults true (Game mode) so behavior is unchanged — re-lock on
-  // re-entry — until the panel has actually reported the room's real mode.
-  const studioGameModeRef = useRef(true);
-
   // Set by CoursePage's "← Back to the studio" buttons — they navigate here
   // with { state: { focusHotspotId } } so arriving from a specific chapter
   // walks the camera straight to that chapter's hotspot (see the
@@ -310,12 +254,21 @@ function PanoramaTour() {
   // pendingTopicId — revisiting /studio later in the session (e.g. the
   // Studio nav tab) shouldn't keep replaying an old request.
   const pendingFocusHotspotIdRef = useRef(location.state?.focusHotspotId ?? null);
-  // Tells StudioHotspotsPanel to power the room up on our behalf (Classic
-  // mode's instant sequence) while a focus request is still pending — a
-  // visitor routed here from a specific chapter came for that piece of
-  // gear, not to redo the power-up puzzle first. See the focus-hotspot
-  // effect below and StudioHotspotsPanel's own autoPowerUp prop.
+  // Tells StudioHotspotsPanel to power the room up on our behalf (its own
+  // instant sequence) while a focus request is still pending — a visitor
+  // routed here from a specific chapter came for that piece of gear, not
+  // to redo the power-up sequence first. See the focus-hotspot effect
+  // below and StudioHotspotsPanel's own autoPowerUp prop.
   const [autoPowerUp, setAutoPowerUp] = useState(false);
+  // Bumped by the toolbar's replay button (handleTourReplay below) to ask
+  // StudioHotspotsPanel to power the rig back down — see its own
+  // powerDownSignal prop/effect. Restarting the tour always opens on the
+  // "power up the rig" step; if the rig were left powered on from an
+  // earlier visit, that first step's own instruction ("Power up Control
+  // Room to bring the rig online") wouldn't line up with what's already on
+  // screen, so the replay needs the rig back in its "off" starting state
+  // for the tour to make sense again.
+  const [powerDownSignal, setPowerDownSignal] = useState(0);
 
   const [currentRoomName, setCurrentRoomName] = useState("");
   const [currentRoomId, setCurrentRoomId] = useState(START_NODE_ID);
@@ -369,11 +322,6 @@ function PanoramaTour() {
   // completely different code paths below and only one panel is ever meant
   // to be visible at a time — each open path clears the other two.
   const [activeModule, setActiveModule] = useState(null);
-  // Whichever "volume" hotspot (see roomsData.js volumeControls) currently
-  // has its slider + mute panel open, or null. Same "only one panel visible
-  // at a time" rule as activeModule/activeGear above — every path that opens
-  // one of the other two panels also clears this.
-  const [activeVolumeControl, setActiveVolumeControl] = useState(null);
   const [placementMode, setPlacementMode] = useState(false);
   const [lastPlacement, setLastPlacement] = useState(null);
   const [status, setStatus] = useState("loading");
@@ -381,25 +329,16 @@ function PanoramaTour() {
   const [audioMuted, setAudioMuted] = useState(isMuted());
   const [binauralOn, setBinauralOn] = useState(isBinauralEnabled());
   const [hintOpen, setHintOpen] = useState(false);
-  // The recording-room bleed's own volume/mute (see spatialAudioEngine.js
-  // setRoomBleedVolume()/setRoomBleedMuted()) — entirely separate from the
-  // master mute and binaural toggle above. Initialized from the engine's
-  // module-level state so the slider reflects the right position even if
-  // this component remounts while a value was previously set.
-  const [bleedVolume, setBleedVolumeState] = useState(() =>
-    Math.round(getRoomBleedVolume() * 100),
-  );
-  const [bleedMuted, setBleedMutedState] = useState(() => isRoomBleedMuted());
-  // Gates the entire scene (viewer, doors, gear/interactive/volume hotspots
-  // and their panels) behind the Studio's power-up game, which lives in the
+  // Gates the entire scene (viewer, doors, gear/interactive hotspots and
+  // their panels) behind the Studio's power-up sequence, which lives in the
   // side panel — see StudioHotspotsPanel's onPoweredChange. Starts locked;
   // StudioHotspotsPanel flips this true live once every device in the
-  // Studio's chain is "on" (Game or Classic mode, either way — see that
-  // component), and false again the moment a device gets switched back off.
-  // Only the Studio room has a chain/panel today, so this is only ever
-  // driven from there — it simply carries over unchanged while the visitor
-  // is elsewhere (e.g. the Recording Room), and gets reset to locked below
-  // every time the Studio is (re-)entered, fresh load included.
+  // Studio's chain is "on", and false again the moment a device gets
+  // switched back off. Only the Studio room has a chain/panel today, so
+  // this is only ever driven from there — it simply carries over unchanged
+  // while the visitor is elsewhere (e.g. the Recording Room), and gets
+  // reset to locked below every time the Studio is (re-)entered, fresh load
+  // included.
   const [poweredOn, setPoweredOn] = useState(false);
 
   // First-time-visitor onboarding tour state (see src/tour/). `tourActive`
@@ -410,32 +349,31 @@ function PanoramaTour() {
   // marker click in the 3D scene (never by handlePanelSelectDevice, i.e.
   // never by clicking a device row in the side panel), so that step can't
   // be satisfied by the side-panel shortcut the tour specifically doesn't
-  // want used here; it holds the specific device id clicked (not just a
-  // boolean) so the step can require hotspot #1 specifically once
-  // gameModeToggledOn is true (see tourStepsForCard). `gameModeToggledOn`
-  // records whether the visitor flipped Game mode on during the mandatory
-  // "Try Game mode" step — see handleGameModeChange — which is what decides
-  // whether the extra "power the rig back up" step gets inserted and
-  // whether "select a hotspot" narrows to hotspot #1 (in practice, always,
-  // since that step can't be passed without flipping the switch).
+  // want used here; it holds the specific device id clicked, though a
+  // boolean would do just as well today since no step currently narrows
+  // the requirement beyond "any device" (see tourStepsForCard).
   const [tourActive, setTourActive] = useState(false);
   const [tourStepIndex, setTourStepIndex] = useState(0);
   const [selectedHotspotId, setSelectedHotspotId] = useState(null);
-  const [gameModeToggledOn, setGameModeToggledOn] = useState(false);
+  // Gates the guide card (and every .svr-tour-glow highlight it drives)
+  // behind an explicit "Start tour" welcome modal — see TourWelcomeModal.jsx
+  // and `currentTourStep` below, which stays null while this is true. Set
+  // alongside tourActive everywhere the tour (re)starts, so a fresh tour
+  // always opens on the welcome screen rather than dropping straight into
+  // step 1.
+  const [tourWelcomeOpen, setTourWelcomeOpen] = useState(false);
 
   // Forces the master output off for as long as the scene is locked, on top
-  // of whatever the visitor's own mute preference (audioMuted) is — the
-  // ambient bed and any room bleed both auto-start on room entry via
-  // activateRoomAudio() below regardless of lock state, so without this
-  // they'd stay audible even though everything is grayed out and silent to
-  // interaction. setMuted() drives a single output-stage gain shared by the
-  // ambient bed, room bleed, and hotspot narration (see spatialAudioEngine.js)
-  // — the DAW workstation deliberately opts OUT of this shared stage (see
-  // its own `independent: true` createStudioSpeakerBus() call) since it's a
-  // focused work surface with its own transport/mute controls, not part of
-  // this ambient mix, so this call never reaches in and silences it.
-  // Restores to the visitor's actual preference the moment the scene
-  // unlocks — this never touches audioMuted itself, only the engine.
+  // of whatever the visitor's own mute preference (audioMuted) is, so
+  // hotspot narration can't be heard while everything is grayed out and
+  // silent to interaction. setMuted() drives a single output-stage gain
+  // (see spatialAudioEngine.js) — the DAW workstation deliberately opts
+  // OUT of this shared stage (see its own `independent: true`
+  // createStudioSpeakerBus() call) since it's a focused work surface with
+  // its own transport/mute controls, so this call never reaches in and
+  // silences it. Restores to the visitor's actual preference the moment
+  // the scene unlocks — this never touches audioMuted itself, only the
+  // engine.
   useEffect(() => {
     setMuted(audioMuted || !poweredOn);
   }, [audioMuted, poweredOn]);
@@ -451,9 +389,9 @@ function PanoramaTour() {
   useEffect(() => {
     if (status === "ready" && !tourActive && !hasCompletedTour()) {
       setTourActive(true);
+      setTourWelcomeOpen(true);
       setTourStepIndex(0);
       setSelectedHotspotId(null);
-      setGameModeToggledOn(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
@@ -461,10 +399,6 @@ function PanoramaTour() {
   useEffect(() => {
     activeModuleRef.current = activeModule;
   }, [activeModule]);
-
-  useEffect(() => {
-    activeVolumeControlRef.current = activeVolumeControl;
-  }, [activeVolumeControl]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -530,25 +464,6 @@ function PanoramaTour() {
     const markers = viewer.getPlugin(MarkersPlugin);
     markersRef.current = markers;
 
-    // Crossfades the ambient bed to this room's own character. Called on
-    // every room change. The bed's audibility is governed solely by master
-    // mute (setMuted()/isMuted()) further down the signal chain, so this
-    // always re-tunes regardless of mute or binaural state.
-    //
-    // Also starts/stops this room's `roomBleed` loop, if it defines one — a
-    // bleed source belongs to whichever room defined it (see roomsData.js),
-    // so leaving that room stops it rather than letting it keep playing
-    // wherever the student walks to next.
-    const activateRoomAudio = (room) => {
-      if (!room) return;
-      setRoomAmbience(room.ambience ?? DEFAULT_AMBIENCE);
-      if (room.roomBleed) {
-        startRoomBleed(room.roomBleed.audio, room.roomBleed.yaw, room.roomBleed.pitch);
-      } else {
-        stopRoomBleed();
-      }
-    };
-
     const onNodeChanged = (e) => {
       setCurrentRoomName(e.node.name || e.node.id);
       setCurrentRoomId(e.node.id);
@@ -562,30 +477,9 @@ function PanoramaTour() {
       setLfEmitterLabOpen(false);
       setDiffuserPanelLabOpen(false);
       setActiveModule(null);
-      setActiveVolumeControl(null);
       latestRequestRef.current = null;
       clearSelectedMarkerEl();
       setStatus("ready");
-
-      // Every (re-)arrival at the Studio — the fresh page load included,
-      // since the virtual-tour plugin fires node-changed for the initial
-      // node too — re-locks the scene *while the room is in Game mode*, so
-      // powering up the shuffle challenge isn't a one-time unlock for the
-      // whole session: walking to the Recording Room and back is exactly
-      // how a visitor would trigger this mid-session.
-      //
-      // In Classic mode (game mode off) this is deliberately skipped: once
-      // the rig is powered up in Classic mode, it's meant to stay on
-      // through every scenario — including this same walk to the Recording
-      // Room and back — until the visitor either logs out (which unmounts
-      // this whole screen, so poweredOn resets on its own next visit) or
-      // explicitly hits Power down in the panel (which already reports
-      // itself through here via onPoweredChange/allDevicesOn, no special
-      // case needed). See studioGameModeRef's own comment for how this
-      // stays live despite onNodeChanged being set up once on mount.
-      if (e.node.id === START_NODE_ID && studioGameModeRef.current) {
-        setPoweredOn(false);
-      }
 
       // Walking through a doorway should land the student facing into the
       // new room with the door they just came through behind them, not
@@ -622,8 +516,6 @@ function PanoramaTour() {
         hasArrivedRef.current = true;
         viewer.animate({ zoom: REST_ZOOM_LVL, speed: "10rpm" });
       }
-
-      activateRoomAudio(ROOMS.find((r) => r.id === e.node.id));
     };
     virtualTour.addEventListener("node-changed", onNodeChanged);
 
@@ -650,7 +542,6 @@ function PanoramaTour() {
         // click can pop in and show the wrong hotspot's info.
         if (latestRequestRef.current !== markerId) return;
         setActiveModule(null);
-        setActiveVolumeControl(null);
         // Selecting a hotspot always opens straight to its "choose how to
         // start" panel (Test your knowledge / Start course) — the optional
         // quiz is a detour the student opts into from there, not something
@@ -697,42 +588,11 @@ function PanoramaTour() {
         setPreampRackLabOpen(false);
         setLfEmitterLabOpen(false);
         setDiffuserPanelLabOpen(false);
-        setActiveVolumeControl(null);
         setActiveModule(data);
         setSelectedMarkerEl(markerId);
       });
     };
     goToInteractiveMarkerRef.current = goToInteractiveMarker;
-
-    // Unlike goToMarker/goToInteractiveMarker above, a `kind: "volume"`
-    // hotspot (see roomsData.js `volumeControls`) does NOT walk the camera
-    // up to it — it's a UI control for an audio bed, not a piece of gear or
-    // a room feature to "arrive at", so the slider + mute panel opens
-    // immediately in place, with no camera movement. Clicking the SAME
-    // control's marker again still closes it, matching
-    // goToInteractiveMarker's toggle behavior above.
-    const goToVolumeMarker = (markerId, data) => {
-      const marker = markers.getMarker(markerId);
-      if (!marker) return;
-      if (activeVolumeControlRef.current?.id === data.id) {
-        setActiveVolumeControl(null);
-        clearSelectedMarkerEl();
-        return;
-      }
-      latestRequestRef.current = markerId;
-      setActiveGear(null);
-      setQuizActive(false);
-      setListeningLabOpen(false);
-      setMixingConsoleLabOpen(false);
-      setSoundCardLabOpen(false);
-      setPatchbayLabOpen(false);
-      setPreampRackLabOpen(false);
-      setLfEmitterLabOpen(false);
-      setDiffuserPanelLabOpen(false);
-      setActiveModule(null);
-      setActiveVolumeControl(data);
-      setSelectedMarkerEl(markerId);
-    };
 
     const onSelectMarker = (e) => {
       if (e.marker.data?.kind === "door") {
@@ -746,14 +606,10 @@ function PanoramaTour() {
         // routing a side-panel click through goToInteractiveMarker instead.
         setSelectedHotspotId(e.marker.id);
         goToInteractiveMarker(e.marker.id, e.marker.data);
-      } else if (e.marker.data?.kind === "volume") {
-        goToVolumeMarker(e.marker.id, e.marker.data);
       } else {
         // Same "clicked directly in the scene" recording as the
         // "interactive" branch above, for ordinary gear hotspots — this is
-        // also how the tour's "select a hotspot" step recognizes hotspot #1
-        // specifically once gameModeToggledOn is true (see
-        // tourRequiredHotspotId in the derived state below).
+        // also how the tour's "select a hotspot" step is satisfied.
         setSelectedHotspotId(e.marker.id);
         goToMarker(e.marker.id);
       }
@@ -789,13 +645,6 @@ function PanoramaTour() {
       window.removeEventListener("keydown", onKeyDown);
       clearInterval(orientationInterval);
       stopHotspotNarration();
-      // The ambient bed and room-bleed loop both live in a module-level
-      // singleton (spatialAudioEngine), not React state, so they otherwise
-      // keep playing after this screen unmounts — e.g. following "Start
-      // course" into /course. Stop them here so leaving the VR tour
-      // actually silences the room.
-      stopAmbientBed();
-      stopRoomBleed();
       viewer.destroy();
     };
   }, []);
@@ -874,19 +723,9 @@ function PanoramaTour() {
     viewerRef.current?.animate({ zoom: REST_ZOOM_LVL, speed: "10rpm" });
   };
 
-  // Closes the volume-control panel. Unlike closeGearPanel/closeModulePanel
-  // there's no camera animation to undo here — opening this panel never
-  // moved the camera in the first place (see goToVolumeMarker above), so
-  // closing it doesn't either. The room-bleed source itself keeps playing
-  // (per its current volume/mute) — this only hides the slider.
-  const closeVolumePanel = () => {
-    setActiveVolumeControl(null);
-    clearSelectedMarkerEl();
-  };
-
-  // Master mute — silences everything (ambient bed + narration, spatial or
-  // not) via the single output stage in spatialAudioEngine. Fully
-  // independent of the binaural toggle below.
+  // Master mute — silences hotspot narration (spatial or not) via the
+  // single output stage in spatialAudioEngine. Fully independent of the
+  // binaural toggle below.
   //
   // Only flips the visitor's own preference — the effect above is what
   // actually calls setMuted(), combining this with the scene's lock state,
@@ -900,30 +739,11 @@ function PanoramaTour() {
 
   // Binaural/spatial toggle — does NOT mute or unmute anything. It only
   // decides whether the *next* hotspot narration plays HRTF-spatialized or
-  // as plain stereo (see spatialAudioEngine.playHotspotNarration). The
-  // ambient bed is unaffected either way.
+  // as plain stereo (see spatialAudioEngine.playHotspotNarration).
   const toggleBinaural = () => {
     const next = !isBinauralEnabled();
     setBinauralEnabled(next);
     setBinauralOn(next);
-  };
-
-  // Drag handler for the recording-room bleed's volume slider (see the
-  // `activeVolumeControl` panel below). Entirely separate from the master
-  // mute/binaural toggle above — this only ever changes how loud this one
-  // background bed is.
-  const handleBleedVolumeChange = (e) => {
-    const nextPercent = Number(e.target.value);
-    setBleedVolumeState(nextPercent);
-    setRoomBleedVolume(nextPercent / 100);
-  };
-
-  // Mutes/unmutes just the recording-room bleed — independent of the master
-  // mute button in the toolbar, which still silences this too regardless.
-  const toggleBleedMute = () => {
-    const next = !bleedMuted;
-    setRoomBleedMuted(next);
-    setBleedMutedState(next);
   };
 
   // Selecting a door hotspot: walk through to the linked room. The
@@ -941,7 +761,6 @@ function PanoramaTour() {
     setLfEmitterLabOpen(false);
     setDiffuserPanelLabOpen(false);
     setActiveModule(null);
-    setActiveVolumeControl(null);
     clearSelectedMarkerEl();
     virtualTourRef.current?.setCurrentNode(nodeId);
   };
@@ -992,7 +811,7 @@ function PanoramaTour() {
   // pointer-events: none, see svr-tour-locked) viewer — so without this
   // check, a visitor could still "walk over" to a hotspot and pop its panel
   // open from the panel while the rest of the scene reads as locked, which
-  // would defeat the point of gating it behind the power-up game.
+  // would defeat the point of gating it behind the power-up sequence.
   const handlePanelSelectDevice = (kind, id) => {
     if (!poweredOn) return;
     // Deliberately does NOT record this as satisfying the onboarding tour's
@@ -1052,29 +871,6 @@ function PanoramaTour() {
     // stable per-render function, not state; only these three should re-run it.
   }, [status, currentRoomId, poweredOn]);
 
-  // Reports the Studio's actual current Game/Classic mode from
-  // StudioHotspotsPanel — fired on every change (initial load, per-room
-  // switch, and manual toggles; see that effect's own comment). Two
-  // separate concerns live here:
-  //
-  // 1. studioGameModeRef always mirrors the live value, so onNodeChanged
-  //    (mount-only, can't read state directly — see that ref's comment)
-  //    knows whether to re-lock the scene on Studio re-entry.
-  //
-  // 2. gameModeToggledOn only cares about flips to Game mode ON, and only
-  //    while the tour is actually on the "Try Game mode" step — guarding on
-  //    currentTourStep here (rather than just tourActive) means a visitor
-  //    who's already moved past that step can't retroactively change which
-  //    steps get inserted ahead of where they currently are by fiddling
-  //    with the switch later on. Once set, this is never reset back to
-  //    false by toggling off again — "did they try it" is a one-time fact
-  //    for the rest of this tour, not a live reflection of the switch's
-  //    current position (see tourStepsForCard).
-  const handleGameModeChange = (isOn) => {
-    studioGameModeRef.current = isOn;
-    if (isOn && currentTourStep?.id === "game-mode") setGameModeToggledOn(true);
-  };
-
   // Advances the onboarding tour to its next step — only ever called by the
   // tour card's own "Next"/"Continue" button, which is itself disabled for
   // a pending mandatory step (see tourCanContinue below), so this never
@@ -1094,6 +890,16 @@ function PanoramaTour() {
     markTourCompleted();
   };
 
+  // "Start tour" on the welcome modal — just closes the modal so the guide
+  // card (already sitting at stepIndex 0 from the auto-start/replay effect
+  // above) takes over. Skipping from the welcome modal itself reuses
+  // handleTourSkip directly (same "dismiss and mark completed" behavior);
+  // no separate handler needed since tourActive flipping false already
+  // hides the welcome modal too (see its render guard below).
+  const handleTourWelcomeStart = () => {
+    setTourWelcomeOpen(false);
+  };
+
   // Ends the tour from its own last step's "Finish tour" button (see
   // OnboardingTour's `isLast` branch) — functionally identical to
   // handleTourSkip above (same "dismiss and mark completed" behavior), kept
@@ -1111,9 +917,10 @@ function PanoramaTour() {
   // and wants a refresher.
   const handleTourReplay = () => {
     setSelectedHotspotId(null);
-    setGameModeToggledOn(false);
     setTourStepIndex(0);
+    setTourWelcomeOpen(true);
     setTourActive(true);
+    setPowerDownSignal((n) => n + 1);
   };
 
   // Called from every "Start course" click site below (the gear panel's
@@ -1193,162 +1000,103 @@ function PanoramaTour() {
 
   // Onboarding tour derived state — see src/tour/tourSteps.js for the step
   // script and the state block above for tourActive/tourStepIndex/
-  // selectedHotspotId/gameModeToggledOn. Kept here, alongside the rest of
-  // this component's derived render values, since every mandatory step's
-  // "has this actually happened yet" check reads state that only
-  // PanoramaTour has — OnboardingTour itself stays a dumb display
-  // component driven entirely by the `steps`/`canContinue` props built here.
+  // selectedHotspotId. Kept here, alongside the rest of this component's
+  // derived render values, since every mandatory step's "has this actually
+  // happened yet" check reads state that only PanoramaTour has —
+  // OnboardingTour itself stays a dumb display component driven entirely by
+  // the `steps`/`canContinue` props built here. Every visitor sees the same
+  // fixed TOUR_STEPS sequence — nothing here branches the step list itself.
+  const tourStepsForCard = TOUR_STEPS;
 
-  // The "Bring the rig back online" step's correct power-on order, spelled
-  // out for the tour card (as a real ordered list — see hintSteps below,
-  // rendered by OnboardingTour's .svr-onb-tour__hint-list — rather than one
-  // dense arrow-joined sentence) so resetting the rig to all-off when Game
-  // mode gets switched on (see toggleGameMode in StudioHotspotsPanel — Game
-  // mode always powers the rig down now, tour step or not) doesn't leave
-  // the visitor guessing blind — Game mode's own hint button only reveals
-  // one station at a time, which
-  // is deliberately slow for a real playthrough but not what a brief tour
-  // detour needs. Built fresh per room from the same device list
-  // StudioHotspotsPanel itself uses, so it can't drift out of sync with the
-  // actual signal chain.
-  const gameModeSequenceDevices = buildDeviceList(currentRoom).map((d) => d.title);
-  // "Hotspot #1" for whichever room the tour is running in — the numbered
-  // badge seen in the scene is assigned by iterating each room's raw
-  // `markers` array in order (see buildNodes()'s hotspotNumber counter
-  // above), so the first entry of that array is always the one labeled
-  // "1". Used only once the visitor has toggled Game mode on (see
-  // tourRequiredHotspotId below) — that branch asks for hotspot #1
-  // specifically instead of "any device".
-  const firstHotspot = currentRoom?.markers?.[0] ?? null;
-  const tourRequiredHotspotId = gameModeToggledOn && firstHotspot ? firstHotspot.id : null;
-  const tourRequiredHotspotLabel = firstHotspot
-    ? `hotspot #1 (${firstHotspot.title})`
-    : "hotspot #1";
-
-  // The actual per-visit step sequence handed to the tour card — branches
-  // on gameModeToggledOn (see tourSteps.js's own header comment for the
-  // full rationale). Once toggled on, "power-up-sequence" is inserted right
-  // after "game-mode" and carries the correct-order hint (deliberately NOT
-  // shown on "game-mode" itself — see that step's comment in tourSteps.js),
-  // and "select-hotspot" narrows to hotspot #1 specifically — and since the
-  // "game-mode" step can't be passed without flipping the switch (it's
-  // mandatory), this is what every visitor sees by the time they reach
-  // those later steps. Still read off the live state rather than assumed,
-  // though: at earlier steps (e.g. still on "power-up") gameModeToggledOn
-  // is genuinely still false, so this array is shorter until it flips, and
-  // a room with no markers at all (tourRequiredHotspotId null) still falls
-  // back to the plain, unnarrowed "select-hotspot" copy below. Built fresh
-  // every render (a handful of small objects, not worth memoizing) rather
-  // than mutating TOUR_STEPS itself, which stays plain, static,
-  // per-room-agnostic copy.
-  const tourStepsById = Object.fromEntries(TOUR_STEPS.map((s) => [s.id, s]));
-  const tourStepsForCard = [
-    tourStepsById["power-up"],
-    tourStepsById["game-mode"],
-    ...(gameModeToggledOn
-      ? [
-          {
-            ...tourStepsById["power-up-sequence"],
-            hint: gameModeSequenceDevices.length ? "Correct power-on order" : undefined,
-            hintSteps: gameModeSequenceDevices.length ? gameModeSequenceDevices : undefined,
-          },
-        ]
-      : []),
-    tourRequiredHotspotId
-      ? {
-          ...tourStepsById["select-hotspot"],
-          body: `Click ${tourRequiredHotspotLabel} — the one marked "1" — directly in the studio to walk the camera over to it and open its info panel.`,
-          pendingHint: `Click ${tourRequiredHotspotLabel} in the studio scene to continue.`,
-        }
-      : tourStepsById["select-hotspot"],
-    tourStepsById["test-knowledge"],
-    tourStepsById["start-course"],
-  ];
-
-  const currentTourStep = tourActive ? tourStepsForCard[tourStepIndex] : null;
+  const currentTourStep = tourActive && !tourWelcomeOpen ? tourStepsForCard[tourStepIndex] : null;
   const tourCanContinue = currentTourStep
-    ? currentTourStep.id === "power-up" || currentTourStep.id === "power-up-sequence"
+    ? currentTourStep.id === "power-up"
       ? poweredOn
-      : currentTourStep.id === "game-mode"
-        ? gameModeToggledOn
-        : currentTourStep.id === "select-hotspot"
-          ? tourRequiredHotspotId
-            ? selectedHotspotId === tourRequiredHotspotId
-            : selectedHotspotId !== null
-          : currentTourStep.id === "start-course"
-            ? // Never "done" via this flag — the last step has no Continue
-              // button (see OnboardingTour's `isLast` branch), so this only
-              // controls whether its pendingHint text shows, not any button
-              // state. The real completion is finishTourIfActive() firing
-              // when the actual "Start course" button is clicked.
-              false
-            : true
+      : currentTourStep.id === "select-hotspot"
+        ? selectedHotspotId !== null
+        : currentTourStep.id === "start-course"
+          ? // Never "done" via this flag — the last step has no Continue
+            // button (see OnboardingTour's `isLast` branch), so this only
+            // controls whether its pendingHint text shows, not any button
+            // state. The real completion is finishTourIfActive() firing
+            // when the actual "Start course" button is clicked.
+            false
+          : true
     : true;
   // Which real element the current step should glow (see .svr-tour-glow in
   // src/tour/onboardingTour.css) — null outside the tour or on a step that
-  // doesn't point at the side panel at all. "power-button" is specifically
-  // the "Power up in order" button rather than the whole rail — with Game
-  // mode locked off for this step (see tourForceClassicMode below), that
-  // button is the one and only thing on the panel this step actually asks
-  // the visitor to click, so the glow points at it directly instead of the
-  // panel as a whole. "game-mode" points at the mode switch itself, since
-  // flipping it is the one action that step asks for. "power-up-sequence"
-  // points at "devices" instead — the device grid/list at the bottom of the
-  // panel, where the actual power-on clicks happen once Game mode is
-  // already on — rather than the switch above it, which was already used a
-  // step ago and isn't the target of this one. "select-hotspot" no longer
-  // highlights anything on this panel at all — see the tourGlowMarkerId
-  // effect below, which glows the actual hotspot marker in the scene
-  // instead, since that step now asks the visitor to click directly in the
-  // studio rather than use this panel.
-  const tourPanelHighlight = currentTourStep
-    ? currentTourStep.id === "power-up"
-      ? "power-button"
-      : currentTourStep.id === "game-mode"
-        ? "mode"
-        : currentTourStep.id === "power-up-sequence"
-          ? "devices"
-          : null
-    : null;
-  // Locks StudioHotspotsPanel's Game/Classic switch to Classic mode for
-  // exactly the "power up the rig" step — see tourForceClassicMode's own
-  // comment in that component for why (Game mode defaults on and would
-  // turn this mandatory first step into an unintroduced guessing game).
-  const tourForceClassicMode = tourPanelHighlight === "power-button";
-  // The one hotspot marker the "select-hotspot" step wants the visitor to
-  // click directly in the scene, or null the rest of the time.
-  const tourGlowMarkerId =
-    currentTourStep?.id === "select-hotspot" ? tourRequiredHotspotId : null;
+  // doesn't point at the side panel at all. "power-button" — the "power-up"
+  // step's target — is the only value used today: it's the "Power up
+  // Control Room" button, the one control that step actually asks the
+  // visitor to click. Stays "power-button" for the whole step, even once
+  // poweredOn flips true (the step itself doesn't advance until the guide
+  // card's "Continue" is clicked, see tourCanContinue) — OnboardingTour
+  // anchors its position off whatever carries .svr-tour-glow, so clearing
+  // this the moment the rig powers on made the card jump straight to its
+  // bottom-right fallback corner instead of staying put. StudioHotspotsPanel
+  // is the one that drops the *pulsing* halo once the rig's on (via its own
+  // allDevicesOn check, see svr-tour-glow--done in onboardingTour.css)
+  // — the button still needs to be findable here, it just stops animating.
+  const tourPanelHighlight = currentTourStep?.id === "power-up" ? "power-button" : null;
 
-  // Applies the same `.svr-tour-glow` class (see onboardingTour.css) used
-  // everywhere else in this tour to the actual marker element for
-  // tourGlowMarkerId, so the guide card comes to rest right beside the real
-  // hotspot in the panorama instead of a side-panel row — this step now
-  // asks the visitor to find it in the studio, not in a list. Marker DOM
-  // elements are owned by the photo-sphere-viewer markers plugin, not
-  // React (same as setSelectedMarkerEl above), so this reaches into them
-  // directly rather than through props/className. Polls briefly rather
-  // than measuring once, in case the target marker hasn't rendered yet the
-  // instant this step becomes current (e.g. right after a room change).
-  useEffect(() => {
-    if (!tourGlowMarkerId) return undefined;
-    let glowedEl = null;
-    const applyGlow = () => {
-      const marker = markersRef.current?.getMarker(tourGlowMarkerId);
-      const el = marker?.domElement?.querySelector(".hotspot-marker");
-      if (el && el !== glowedEl) {
-        glowedEl?.classList.remove("svr-tour-glow");
-        el.classList.add("svr-tour-glow");
-        glowedEl = el;
-      }
-    };
-    applyGlow();
-    const id = setInterval(applyGlow, 150);
+  // Which single hotspot marker in the 3D scene (if any) should carry the
+  // same glow highlight, for the one step that points at the scene itself
+  // rather than the side panel — mirrors tourPanelHighlight above, just
+  // reaching into the marker's own rendered DOM (via
+  // markers.getMarker().domElement, same as setSelectedMarkerEl above)
+  // instead of a React ref, since the markers plugin renders marker `html`
+  // outside React's tree (see buildNodes() above). OnboardingTour.jsx
+  // doesn't care which of these two mechanisms put the class there — it
+  // just polls the whole page for whatever single element currently
+  // carries ".svr-tour-glow" (see its own comment). Always the Speakers
+  // hotspot (hotspot #1): "select-hotspot" is the only step that targets a
+  // marker, and the very next step's copy ("test-knowledge") already
+  // hard-assumes the visitor ends up on Speakers (see the comment on that
+  // step in tourSteps.js) — glowing anything else here would point at a
+  // hotspot the tour's own next line doesn't discuss. Deliberately stays
+  // glowing for the rest of this step even after the visitor clicks it
+  // (selectedHotspotId flips, its gear panel opens, but the step itself
+  // doesn't advance until "Continue" is clicked) — clearing it right on
+  // selection made the guide card jump away to the bottom-right fallback
+  // corner the instant the hotspot was clicked, which read as the card
+  // abandoning the very thing the visitor just did what it asked. Only
+  // clears once the step actually changes, below.
+  const tourGlowHotspotId = currentTourStep?.id === "select-hotspot" ? "speaker" : null;
+
+  // Applies/removes the glow class above as its target changes. This has to
+  // be a layout effect, not a plain one: OnboardingTour positions itself off
+  // whatever element already carries ".svr-tour-glow" the moment *its own*
+  // effect first runs (see its measure() poll), and React flushes every
+  // layout effect in the tree before any plain effect runs. A plain effect
+  // here would sometimes lose that race — the card's first measure() would
+  // find no glowing element yet, rest in the bottom-right fallback corner,
+  // and only snap to the marker on the next 80ms poll tick, which reads as
+  // the step-2 card briefly appearing in two different places. Otherwise
+  // mirrors the pendingFocusHotspot effect further up: reads
+  // markersRef/currentRoomId directly rather than through a ref+event
+  // pattern since this only ever needs to add one class to one element and
+  // clean it back up.
+  useLayoutEffect(() => {
+    if (!tourGlowHotspotId) return undefined;
+    const target = findHotspotLocation(tourGlowHotspotId);
+    if (!target || currentRoomId !== target.roomId) return undefined;
+    const marker = markersRef.current?.getMarker(tourGlowHotspotId);
+    const el = marker?.domElement?.querySelector(".hotspot-marker");
+    if (!el) return undefined;
+    // .svr-tour-glow itself always stays on — OnboardingTour anchors the
+    // card's position off whatever carries that class (see its own
+    // comment), so removing it the instant the marker is clicked would
+    // send the card to its fallback corner, same issue as the power-up
+    // button (see tourPanelHighlight above). .svr-tour-glow--done just
+    // switches off the pulsing halo once the click this step actually
+    // asks for (selectedHotspotId) has already happened — nothing left to
+    // draw the eye toward here until "Continue" moves the tour on.
+    el.classList.add("svr-tour-glow");
+    el.classList.toggle("svr-tour-glow--done", selectedHotspotId !== null);
     return () => {
-      clearInterval(id);
-      glowedEl?.classList.remove("svr-tour-glow");
+      el.classList.remove("svr-tour-glow", "svr-tour-glow--done");
     };
-  }, [tourGlowMarkerId, currentRoomId]);
+  }, [tourGlowHotspotId, currentRoomId, status, selectedHotspotId]);
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
@@ -1653,6 +1401,8 @@ function PanoramaTour() {
           open={Boolean(activeGear && listeningLabOpen)}
           onClose={closeGearPanel}
           onBackToOverview={backToGearOverview}
+          tourAnchorPanel={currentTourStep?.id === "test-knowledge"}
+          tourHighlightStartCourse={currentTourStep?.id === "start-course"}
           onStartCourse={() => {
             finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });
@@ -1667,6 +1417,8 @@ function PanoramaTour() {
           open={Boolean(activeGear && mixingConsoleLabOpen)}
           onClose={closeGearPanel}
           onBackToOverview={backToGearOverview}
+          tourAnchorPanel={currentTourStep?.id === "test-knowledge"}
+          tourHighlightStartCourse={currentTourStep?.id === "start-course"}
           onStartCourse={() => {
             finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });
@@ -1676,6 +1428,8 @@ function PanoramaTour() {
           open={Boolean(activeGear && soundCardLabOpen)}
           onClose={closeGearPanel}
           onBackToOverview={backToGearOverview}
+          tourAnchorPanel={currentTourStep?.id === "test-knowledge"}
+          tourHighlightStartCourse={currentTourStep?.id === "start-course"}
           onStartCourse={() => {
             finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });
@@ -1690,6 +1444,8 @@ function PanoramaTour() {
           open={Boolean(activeGear && patchbayLabOpen)}
           onClose={closeGearPanel}
           onBackToOverview={backToGearOverview}
+          tourAnchorPanel={currentTourStep?.id === "test-knowledge"}
+          tourHighlightStartCourse={currentTourStep?.id === "start-course"}
           onStartCourse={() => {
             finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });
@@ -1699,6 +1455,8 @@ function PanoramaTour() {
           open={Boolean(activeGear && preampRackLabOpen)}
           onClose={closeGearPanel}
           onBackToOverview={backToGearOverview}
+          tourAnchorPanel={currentTourStep?.id === "test-knowledge"}
+          tourHighlightStartCourse={currentTourStep?.id === "start-course"}
           onStartCourse={() => {
             finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });
@@ -1708,6 +1466,8 @@ function PanoramaTour() {
           open={Boolean(activeGear && lfEmitterLabOpen)}
           onClose={closeGearPanel}
           onBackToOverview={backToGearOverview}
+          tourAnchorPanel={currentTourStep?.id === "test-knowledge"}
+          tourHighlightStartCourse={currentTourStep?.id === "start-course"}
           onStartCourse={() => {
             finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });
@@ -1717,65 +1477,13 @@ function PanoramaTour() {
           open={Boolean(activeGear && diffuserPanelLabOpen)}
           onClose={closeGearPanel}
           onBackToOverview={backToGearOverview}
+          tourAnchorPanel={currentTourStep?.id === "test-knowledge"}
+          tourHighlightStartCourse={currentTourStep?.id === "start-course"}
           onStartCourse={() => {
             finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });
           }}
         />
-
-        {activeVolumeControl && (
-          <div className="svr-tour-volume-panel">
-            <div className="svr-tour-volume-panel__head">
-              <span className="svr-tour-volume-panel__icon" aria-hidden="true">
-                🔊
-              </span>
-              <div className="svr-tour-volume-panel__title">
-                {activeVolumeControl.title || "Volume"}
-              </div>
-              <button
-                onClick={closeVolumePanel}
-                className="svr-tour-gear-panel__close"
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="svr-tour-volume-panel__body">
-              <div className="svr-tour-volume-panel__desc">
-                Faint audio bleeding through from a session in the recording
-                room. This slider only adjusts how audible it is
-                here.
-              </div>
-
-              <div className="svr-tour-volume-row">
-                <button
-                  onClick={toggleBleedMute}
-                  className="svr-tour-icon-btn active"
-                  aria-pressed={bleedMuted}
-                  aria-label={bleedMuted ? "Unmute recording room bleed" : "Mute recording room bleed"}
-                  title={bleedMuted ? "Unmute" : "Mute"}
-                >
-                  {bleedMuted ? "🔇" : "🔊"}
-                </button>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={bleedVolume}
-                  onChange={handleBleedVolumeChange}
-                  disabled={bleedMuted}
-                  className="svr-tour-volume-slider"
-                  aria-label="Recording room bleed volume"
-                />
-                <div className="svr-tour-volume-val">
-                  {bleedMuted ? "Muted" : `${bleedVolume}%`}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         <DawWorkstationScreen open={activeModule} onClose={closeModulePanel} />
       </div>
@@ -1792,9 +1500,8 @@ function PanoramaTour() {
           onSelectDevice={handlePanelSelectDevice}
           onPoweredChange={setPoweredOn}
           tourHighlight={tourPanelHighlight}
-          tourForceClassicMode={tourForceClassicMode}
-          onGameModeChange={handleGameModeChange}
           autoPowerUp={autoPowerUp}
+          powerDownSignal={powerDownSignal}
         />
       )}
 
@@ -1802,6 +1509,14 @@ function PanoramaTour() {
         <div className="svr-tour-locked-banner">
           Power up the Control Room rig in the panel to explore →
         </div>
+      )}
+
+      {/* Welcome modal — the very first thing a first-time visitor sees on
+          this screen, gating the guide card below behind an explicit
+          "Start tour" choice (see TourWelcomeModal.jsx). Its own backdrop
+          (z-index 95) fully blurs the whole scene while it's up. */}
+      {status === "ready" && tourActive && tourWelcomeOpen && (
+        <TourWelcomeModal onStart={handleTourWelcomeStart} onSkip={handleTourSkip} />
       )}
 
       {/* Onboarding tour guide card — see src/tour/. Deliberately rendered

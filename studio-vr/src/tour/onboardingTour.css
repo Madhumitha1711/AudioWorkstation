@@ -20,16 +20,25 @@
   left: 0;
   width: 300px;
   max-width: calc(100vw - 24px);
-  background: var(--shell-bg);
-  border: 1px solid var(--shell-border);
+  /* A green-tinted gradient wash over --shell-bg, not a flat fill — the
+     plain near-black --shell-bg (see index.css) reads as inert chrome, and
+     this card needs to be the loudest thing on screen, not blend into the
+     rest of the UI shell. */
+  background: linear-gradient(165deg, rgba(34, 255, 85, 0.14), var(--shell-bg) 60%);
+  border: 1px solid rgba(34, 255, 85, 0.35);
   border-radius: 14px;
   backdrop-filter: blur(14px);
-  box-shadow: var(--shadow);
-  padding: 16px 18px 14px;
+  box-shadow:
+    var(--shadow),
+    0 0 0 1px rgba(34, 255, 85, 0.1),
+    0 0 34px rgba(34, 255, 85, 0.16);
+  padding: 18px 18px 14px;
   font-family: sans-serif;
   color: var(--shell-text);
-  /* Above every other floating panel here (all z-index: 60) so the guide
-     card is never hidden behind whatever it's currently pointing at. */
+  overflow: hidden;
+  /* Above every other floating panel here (all z-index: 60) and the
+     spotlight overlay (z-index 70, below) so the guide card is never
+     hidden behind whatever it's currently pointing at. */
   z-index: 80;
   visibility: hidden;
   opacity: 0;
@@ -38,9 +47,36 @@
   transition: top 0.2s ease, left 0.2s ease, opacity 0.2s ease;
 }
 
+/* Bright accent bar along the top edge — the one thing on the card that
+   isn't muted, so the eye lands there first. */
+.svr-onb-tour::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--shell-gradient-accent, #22ff55);
+}
+
 .svr-onb-tour.is-positioned {
   visibility: visible;
   opacity: 1;
+  /* Replays on every step (is-positioned is removed then re-added each
+     time stepIndex/target changes, see OnboardingTour.jsx), so each new
+     step announces itself instead of silently sliding into place. */
+  animation: svr-onb-tour-pop 0.32s cubic-bezier(0.2, 0.9, 0.25, 1.2) both;
+}
+
+@keyframes svr-onb-tour-pop {
+  from { transform: scale(0.94); }
+  to { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .svr-onb-tour.is-positioned {
+    animation: none;
+  }
 }
 
 /* Small diamond pointing from the card toward whatever it's anchored next
@@ -145,12 +181,10 @@
   color: var(--shell-text-dim);
 }
 
-/* Per-step callout for concrete, ready-reference info (currently only the
-   "Bring the rig back online" step's correct power-on order — see
-   PanoramaTour's gameModeSequenceDevices) — set apart from the plain body
-   copy above with its own box so it reads as "look here" rather than more
-   prose to read through. Optional (step.hint and/or step.hintSteps); most
-   steps don't set either. */
+/* Per-step callout for concrete, ready-reference info — set apart from the
+   plain body copy above with its own box so it reads as "look here" rather
+   than more prose to read through. Optional (step.hint and/or
+   step.hintSteps); not currently used by any step in tourSteps.js. */
 .svr-onb-tour__hint {
   margin: 10px 0 0;
   padding: 10px 12px;
@@ -335,4 +369,45 @@
 }
 .svr-tour-glow {
   animation: svr-tour-glow-pulse 1.7s ease-in-out infinite;
+}
+
+/* Modifier for a target that still has to stay findable (see the
+   .svr-tour-glow selector in OnboardingTour.jsx's measure(), which the
+   guide card positions itself off of) but shouldn't visually pulse
+   anymore — e.g. the "Power up Control Room" button once the rig is
+   already on: the card stays anchored there for the rest of that step
+   instead of jumping to its fallback corner, but the button itself stops
+   drawing the eye toward an action that's already done. */
+.svr-tour-glow--done {
+  animation: none;
+  box-shadow: none;
+}
+
+
+/* Per-step spotlight — dims and blurs the whole scene except the current
+   step's .svr-tour-glow target (see the `spot`-driven panes rendered in
+   OnboardingTour.jsx). Sits above the panorama viewer/panels (z-index up
+   to 60) but below the guide card itself (z-index 80), and only ever
+   covers the area *around* the target rect, so the target stays sharp and
+   fully interactive without needing any special z-index of its own. */
+.svr-tour-spotlight {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+}
+
+.svr-tour-spotlight__pane {
+  position: fixed;
+  background: rgba(4, 5, 8, 0.5);
+  backdrop-filter: blur(6px) saturate(0.9);
+  -webkit-backdrop-filter: blur(6px) saturate(0.9);
+  transition: top 0.2s ease, left 0.2s ease, right 0.2s ease, bottom 0.2s ease,
+    width 0.2s ease, height 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .svr-tour-spotlight__pane {
+    transition: none;
+  }
 }

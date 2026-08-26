@@ -88,25 +88,6 @@ export const TRACK_CHAIN_SCOPE = "__track__";
 // scopes — see outerScopeId/isOuterScope/baseRegionId in trackHelpers.js.
 export const OUTER_CHAIN_SUFFIX = "::outer";
 
-// Fallback room-tone profile used to restore the ambient bed when this
-// screen closes — this screen doesn't know which room's own custom ambience
-// (see roomsData.js) was playing before it opened, so it restores the same
-// generic default PanoramaTour.jsx itself falls back to, rather than
-// silence forever. Mirrors spatialAudioEngine's own (unexported)
-// DEFAULT_AMBIENCE.
-export const DEFAULT_AMBIENCE = { filterFreq: 500, gain: 0.03, gustDepth: 0.015 };
-
-// Same fallback reasoning as DEFAULT_AMBIENCE above, for the recording-room
-// bleed (see startRoomBleed()/stopRoomBleed() in spatialAudioEngine.js and
-// the `roomBleed` field in roomsData.js) — this screen doesn't know which
-// room's bleed was playing, but the DAW hotspot only ever exists in the
-// Studio room (see `interactiveMarkers` in roomsData.js), so this just
-// mirrors that room's own roomBleed profile.
-export const ROOM_BLEED = {
-  audio: "/audio/AndresGuazzelli_FloresDeAbril_Full/02_Piano.wav",
-  yaw: 127.7,
-  pitch: 0.4,
-};
 
 // ── Demo audio: real multitrack stems from a recording of Dvořák's
 // "Hungarian Dance No. 5" (arr. Bolz & Knecht) — see

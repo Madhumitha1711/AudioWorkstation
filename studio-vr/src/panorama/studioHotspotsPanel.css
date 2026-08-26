@@ -1,8 +1,8 @@
-/* Left-docked "Studio Hotspots" panel (see StudioHotspotsPanel.jsx). Now the
-   full power-up challenge from design/studio-hotspots-panel.html — mute
-   button, Game/Classic mode switch, stats, hints, timer, best score, and
-   the confetti completion overlay — permanently docked instead of hidden
-   behind a separate launcher.
+/* Left-docked "Studio Hotspots" panel (see StudioHotspotsPanel.jsx). The
+   Control Room's power-up flow from design/studio-hotspots-panel.html —
+   mute button, the "Power up in order" sequence, and the confetti
+   completion overlay — permanently docked instead of hidden behind a
+   separate launcher.
 
    Colour and type match the app's other floating chrome in shape: same
    glass look (translucent background + blur, same border/text treatment,
@@ -74,34 +74,6 @@
   transform: translateX(-100%);
 }
 
-@keyframes svrHotspotShake {
-
-  10%,
-  90% {
-    transform: translateX(-1px);
-  }
-
-  20%,
-  80% {
-    transform: translateX(2px);
-  }
-
-  30%,
-  50%,
-  70% {
-    transform: translateX(-4px);
-  }
-
-  40%,
-  60% {
-    transform: translateX(4px);
-  }
-}
-
-.svr-hotspot-panel.shake {
-  animation: svrHotspotShake 0.45s;
-}
-
 .svr-hotspot-panel__toggle {
   position: absolute;
   top: 16px;
@@ -153,16 +125,6 @@
   background: var(--hsp-on);
   box-shadow: 0 0 8px var(--hsp-on-glow);
   flex-shrink: 0;
-}
-
-.svr-hotspot-panel__eyebrow.fault::before {
-  background: var(--hsp-err);
-  box-shadow: 0 0 8px var(--hsp-err-glow);
-}
-
-.svr-hotspot-panel__eyebrow.complete::before {
-  background: var(--hsp-gold);
-  box-shadow: 0 0 8px var(--hsp-gold-glow);
 }
 
 .svr-hotspot-mute-btn {
@@ -223,146 +185,6 @@
   margin: 0 0 14px;
 }
 
-.svr-hotspot-mode-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin: 2px 0 14px;
-  padding: 8px 10px;
-  border: 1px solid var(--hsp-hair);
-  border-radius: 2px;
-  background: rgba(var(--hsp-tint-rgb), 0.015);
-}
-
-.svr-hotspot-mode-label {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--hsp-text-dim);
-}
-
-.svr-hotspot-mode-label b {
-  color: var(--hsp-text);
-  font-weight: 600;
-}
-
-.svr-hotspot-mode-switch {
-  width: 38px;
-  height: 20px;
-  border-radius: 20px;
-  background: var(--hsp-off-bg);
-  border: 1px solid var(--hsp-hair);
-  position: relative;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background 0.2s ease, border-color 0.2s ease;
-}
-
-.svr-hotspot-mode-switch:focus-visible {
-  outline: 2px solid var(--hsp-gold);
-  outline-offset: 2px;
-}
-
-.svr-hotspot-mode-switch__knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #9aa39c;
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s ease;
-}
-
-.svr-hotspot-mode-switch.on {
-  background: rgba(201, 168, 110, 0.18);
-  border-color: var(--hsp-gold);
-}
-
-.svr-hotspot-mode-switch.on .svr-hotspot-mode-switch__knob {
-  transform: translateX(18px);
-  background: var(--hsp-gold);
-}
-
-/* Locked for the onboarding tour's "power up the rig" step (see
-   tourForceClassicMode in StudioHotspotsPanel.jsx) — reads as dimmed/
-   unclickable rather than a normal live switch, since the click handler is
-   a no-op while this class is present. */
-.svr-hotspot-mode-switch.is-locked {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.svr-hotspot-stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-}
-
-.svr-hotspot-stat {
-  border: 1px solid var(--hsp-hair);
-  border-radius: 2px;
-  background: rgba(var(--hsp-tint-rgb), 0.015);
-  padding: 7px 8px;
-}
-
-.svr-hotspot-stat-label {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--hsp-text-faint);
-  margin: 0 0 3px;
-}
-
-.svr-hotspot-stat-value {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--hsp-text);
-  margin: 0;
-}
-
-.svr-hotspot-stat-value.has-faults {
-  color: var(--hsp-err);
-}
-
-.svr-hotspot-best-line {
-  margin: 8px 0 0;
-  font-family: "JetBrains Mono", monospace;
-  font-size: 10px;
-  color: var(--hsp-text-faint);
-  text-align: right;
-}
-
-.svr-hotspot-best-line b {
-  color: var(--hsp-gold-dim);
-  font-weight: 600;
-}
-
-.svr-hotspot-progress-track {
-  display: flex;
-  gap: 4px;
-  padding: 14px 22px;
-  border-bottom: 1px solid var(--hsp-hair);
-  flex-shrink: 0;
-}
-
-.svr-hotspot-seg {
-  flex: 1;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--hsp-off-bg);
-  transition: background 0.3s ease, box-shadow 0.3s ease;
-}
-
-.svr-hotspot-seg.filled {
-  background: var(--hsp-on);
-  box-shadow: 0 0 6px var(--hsp-on-glow);
-}
-
 .svr-hotspot-panel__actions {
   display: flex;
   gap: 8px;
@@ -397,25 +219,19 @@
   opacity: 0.65;
 }
 
-.svr-hotspot-qbtn--hint:hover {
-  color: var(--hsp-gold);
-  border-color: rgba(201, 168, 110, 0.4);
-}
-
 .svr-hotspot-qbtn--danger:hover {
   color: var(--hsp-err);
   border-color: rgba(240, 102, 92, 0.4);
 }
 
-/* Primary call-to-action treatment for "Power up in order" (Classic mode)
-   while the rig is still off — see the !allDevicesOn check in
-   StudioHotspotsPanel.jsx. Without this it looked exactly like the neutral
-   Hint/New round/Power down utility buttons next to it, so a first-time
-   visitor had no visual cue that *this* is the one control that actually
-   brings the studio online. Filled + glowing + a slow pulse make it read
-   as "click me" at a glance; cleared the instant every device is on, or
-   while the power-up animation is already mid-run (see the .svr-hotspot-
-   qbtn:disabled rule above for that state instead). */
+/* Primary call-to-action treatment for "Power up in order" while the rig is
+   still off — see the !allDevicesOn check in StudioHotspotsPanel.jsx.
+   Without this it looked exactly like the neutral Power down button next
+   to it, so a first-time visitor had no visual cue that *this* is the one
+   control that actually brings the studio online. Filled + glowing + a
+   slow pulse make it read as "click me" at a glance; cleared the instant
+   every device is on, or while the power-up animation is already mid-run
+   (see the .svr-hotspot-qbtn:disabled rule above for that state instead). */
 .svr-hotspot-qbtn--power-cta {
   color: #06120b;
   font-weight: 700;
@@ -484,172 +300,11 @@
   background: var(--hsp-off);
 }
 
-.svr-hotspot-dot--error {
-  background: var(--hsp-err);
-  box-shadow: 0 0 6px var(--hsp-err-glow);
-}
-
 .svr-hotspot-panel__list {
   padding: 6px 10px 14px;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
-}
-
-/* Game mode: a fixed grid of box+switch tiles that all land on one screen,
-   instead of the tall rail list below (which Classic mode still uses). The
-   grid is sized to be dense — small icons, clamped titles, no per-row
-   dependency line — specifically so 6-10 devices fit without the panel
-   needing to scroll to see them all. overflow-y stays as a safety net for
-   very short windows rather than clipping content outright. */
-.svr-hotspot-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  gap: 8px;
-  align-content: start;
-}
-
-.svr-hotspot-box {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  padding: 9px 9px 8px;
-  border-radius: 4px;
-  border: 1px solid var(--hsp-hair);
-  background: rgba(var(--hsp-tint-rgb), 0.015);
-  cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
-}
-
-.svr-hotspot-box:hover {
-  background: rgba(var(--hsp-tint-rgb), 0.035);
-}
-
-.svr-hotspot-box:focus-visible {
-  outline: 1px solid var(--hsp-gold);
-  outline-offset: -1px;
-}
-
-.svr-hotspot-box--current {
-  background: rgba(201, 168, 110, 0.08);
-  box-shadow: inset 0 0 0 1px var(--hsp-gold);
-}
-
-.svr-hotspot-box.hint-pulse {
-  animation: svrHotspotHintGlow 1.6s ease;
-}
-
-.svr-hotspot-box.success-pulse .svr-hotspot-icon {
-  animation: svrHotspotPulseRing 0.6s ease-out;
-}
-
-.svr-hotspot-box.error-flash {
-  animation: svrHotspotErrorFlash 0.5s ease-out;
-}
-
-.svr-hotspot-box[data-state="on"] {
-  border-color: rgba(63, 213, 131, 0.3);
-}
-
-.svr-hotspot-box[data-state="error"] {
-  border-color: rgba(240, 102, 92, 0.3);
-}
-
-.svr-hotspot-box__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-}
-
-.svr-hotspot-box .svr-hotspot-icon-wrap {
-  position: relative;
-  flex-shrink: 0;
-}
-
-.svr-hotspot-box .svr-hotspot-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 3px;
-  border: 1px solid var(--hsp-hair);
-  background: rgba(var(--hsp-tint-rgb), 0.02);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--hsp-gold-dim);
-  transition: color 0.2s ease, border-color 0.2s ease;
-}
-
-.svr-hotspot-box .svr-hotspot-icon svg {
-  width: 15px;
-  height: 15px;
-}
-
-.svr-hotspot-box[data-state="on"] .svr-hotspot-icon {
-  color: var(--hsp-on);
-  border-color: rgba(63, 213, 131, 0.3);
-}
-
-.svr-hotspot-box[data-state="error"] .svr-hotspot-icon {
-  color: var(--hsp-err);
-  border-color: rgba(240, 102, 92, 0.3);
-}
-
-.svr-hotspot-box .svr-hotspot-switch {
-  margin-top: 0;
-  flex-shrink: 0;
-}
-
-.svr-hotspot-box__name {
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--hsp-text);
-  margin: 0;
-  line-height: 1.25;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.svr-hotspot-box__status {
-  font-size: 9.5px;
-  font-family: "JetBrains Mono", monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--hsp-off);
-}
-
-.svr-hotspot-box[data-state="on"] .svr-hotspot-box__status {
-  color: var(--hsp-on);
-}
-
-.svr-hotspot-box[data-state="error"] .svr-hotspot-box__status {
-  color: var(--hsp-err);
-}
-
-.svr-hotspot-box__hint {
-  font-size: 9px;
-  font-family: "JetBrains Mono", monospace;
-  color: var(--hsp-text-faint);
-  margin: 0;
-  line-height: 1.3;
-}
-
-.svr-hotspot-box__warn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 9px;
-  color: var(--hsp-err);
-  font-family: "JetBrains Mono", monospace;
-}
-
-.svr-hotspot-box__warn svg {
-  width: 10px;
-  height: 10px;
-  flex-shrink: 0;
 }
 
 .svr-hotspot-row {
@@ -677,24 +332,6 @@
   box-shadow: inset 2px 0 0 var(--hsp-gold);
 }
 
-@keyframes svrHotspotHintGlow {
-
-  0%,
-  100% {
-    box-shadow: none;
-    border-color: transparent;
-  }
-
-  50% {
-    box-shadow: 0 0 16px rgba(201, 168, 110, 0.35);
-    border-color: var(--hsp-gold);
-  }
-}
-
-.svr-hotspot-row.hint-pulse {
-  animation: svrHotspotHintGlow 1.6s ease;
-}
-
 @keyframes svrHotspotPulseRing {
   0% {
     box-shadow: 0 0 0 0 var(--hsp-on-glow);
@@ -711,22 +348,6 @@
 
 .svr-hotspot-row.success-pulse .svr-hotspot-rail__node {
   animation: svrHotspotPulseRing 0.6s ease-out;
-}
-
-@keyframes svrHotspotErrorFlash {
-
-  0%,
-  100% {
-    background: transparent;
-  }
-
-  30% {
-    background: rgba(240, 102, 92, 0.1);
-  }
-}
-
-.svr-hotspot-row.error-flash {
-  animation: svrHotspotErrorFlash 0.5s ease-out;
 }
 
 .svr-hotspot-rail {
@@ -780,15 +401,7 @@
   box-shadow: 0 0 10px var(--hsp-on-glow);
 }
 
-.svr-hotspot-row[data-state="error"] .svr-hotspot-rail__node {
-  color: #2a0d0b;
-  background: var(--hsp-err);
-  border-color: var(--hsp-err);
-  box-shadow: 0 0 10px var(--hsp-err-glow);
-}
-
-.svr-hotspot-row[data-state="on"] .svr-hotspot-rail__line--bottom,
-.svr-hotspot-row[data-state="error"] .svr-hotspot-rail__line--bottom {
+.svr-hotspot-row[data-state="on"] .svr-hotspot-rail__line--bottom {
   background: var(--hsp-hair-strong);
 }
 
@@ -816,11 +429,6 @@
   border-color: rgba(63, 213, 131, 0.3);
 }
 
-.svr-hotspot-row[data-state="error"] .svr-hotspot-icon {
-  color: var(--hsp-err);
-  border-color: rgba(240, 102, 92, 0.3);
-}
-
 .svr-hotspot-icon svg {
   width: 18px;
   height: 18px;
@@ -828,7 +436,7 @@
 
 /* Tiny per-device power LED, docked to the icon's top-right corner like a
    real gear front-panel indicator. Independent of (and in addition to) the
-   fuller status text + switch further along the row. */
+   fuller status text further along the row. */
 .svr-hotspot-led {
   position: absolute;
   top: -3px;
@@ -873,11 +481,6 @@
   color: var(--hsp-text-faint);
   font-family: "JetBrains Mono", monospace;
   margin: 2px 0 0;
-  display: none;
-}
-
-.svr-hotspot-row.hint-revealed .svr-hotspot-req {
-  display: block;
 }
 
 .svr-hotspot-status {
@@ -892,94 +495,6 @@
 
 .svr-hotspot-row[data-state="on"] .svr-hotspot-status {
   color: var(--hsp-on);
-}
-
-.svr-hotspot-row[data-state="error"] .svr-hotspot-status {
-  color: var(--hsp-err);
-}
-
-.svr-hotspot-warn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 6px;
-  font-size: 10.5px;
-  color: var(--hsp-err);
-  font-family: "JetBrains Mono", monospace;
-}
-
-.svr-hotspot-warn svg {
-  width: 11px;
-  height: 11px;
-}
-
-.svr-hotspot-switch {
-  width: 38px;
-  height: 20px;
-  border-radius: 20px;
-  background: var(--hsp-off-bg);
-  border: 1px solid var(--hsp-hair);
-  position: relative;
-  cursor: pointer;
-  flex-shrink: 0;
-  margin-top: 2px;
-  transition: background 0.2s ease, border-color 0.2s ease;
-}
-
-.svr-hotspot-switch:focus-visible {
-  outline: 2px solid var(--hsp-gold);
-  outline-offset: 2px;
-}
-
-.svr-hotspot-switch__knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #9aa39c;
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s ease;
-}
-
-.svr-hotspot-row[data-state="on"] .svr-hotspot-switch {
-  background: rgba(63, 213, 131, 0.18);
-  border-color: var(--hsp-on);
-}
-
-.svr-hotspot-row[data-state="on"] .svr-hotspot-switch__knob {
-  transform: translateX(18px);
-  background: var(--hsp-on);
-}
-
-.svr-hotspot-row[data-state="error"] .svr-hotspot-switch {
-  background: rgba(240, 102, 92, 0.18);
-  border-color: var(--hsp-err);
-}
-
-.svr-hotspot-row[data-state="error"] .svr-hotspot-switch__knob {
-  transform: translateX(18px);
-  background: var(--hsp-err);
-}
-
-.svr-hotspot-box[data-state="on"] .svr-hotspot-switch {
-  background: rgba(63, 213, 131, 0.18);
-  border-color: var(--hsp-on);
-}
-
-.svr-hotspot-box[data-state="on"] .svr-hotspot-switch__knob {
-  transform: translateX(18px);
-  background: var(--hsp-on);
-}
-
-.svr-hotspot-box[data-state="error"] .svr-hotspot-switch {
-  background: rgba(240, 102, 92, 0.18);
-  border-color: var(--hsp-err);
-}
-
-.svr-hotspot-box[data-state="error"] .svr-hotspot-switch__knob {
-  transform: translateX(18px);
-  background: var(--hsp-err);
 }
 
 .svr-hotspot-panel__footer {

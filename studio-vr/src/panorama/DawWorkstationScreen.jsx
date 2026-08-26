@@ -6,10 +6,6 @@ import {
   resumeAudio,
   getAudioContext,
   createStudioSpeakerBus,
-  stopAmbientBed,
-  setRoomAmbience,
-  stopRoomBleed,
-  startRoomBleed,
 } from "../audio/spatialAudioEngine";
 import { ADDR as DEESS_ADDR, pushFaustParams as pushDeEsserParams, analyserPeakDb } from "../chapters/deEsserEngine";
 import { pushFaustParams as pushGateParams } from "../chapters/gateEngine";
@@ -33,7 +29,7 @@ import "./dawWorkstationScreen.css";
 // EditorDock, MixerView, AddTrackDialog, PluginEditorPopup). This file keeps
 // the state/audio-engine "controller" — the tracks/transport/chain
 // management hooks below — and composes those pieces in its render.
-import { PLUGIN_DEFS, TRACK_COLORS, MIN_REGION_LEN, TRACK_CHAIN_SCOPE, DEFAULT_AMBIENCE, ROOM_BLEED, DEMO_CLIPS } from "./daw/constants";
+import { PLUGIN_DEFS, TRACK_COLORS, MIN_REGION_LEN, TRACK_CHAIN_SCOPE, DEMO_CLIPS } from "./daw/constants";
 import { clamp, pickRulerStep } from "./daw/format";
 import { trackIsAudible, computeDryScale, outerScopeId, isOuterScope, baseRegionId } from "./daw/trackHelpers";
 import { createDemoLoopBuffer, computePeaks } from "./daw/audioBuffers";
@@ -527,9 +523,9 @@ function DawWorkstationScreen({ open, onClose }) {
       // turns with the student's head), but skips the shared masterGain/
       // outputGain stage the panorama tour's own master mute button
       // controls (see setMuted() in spatialAudioEngine.js and
-      // toggleMasterMute in PanoramaTour.jsx) — muting the ambient
-      // bed/room bleed/narration from the tour's toolbar shouldn't also
-      // reach in and silence whatever's playing on this screen.
+      // toggleMasterMute in PanoramaTour.jsx) — muting hotspot narration
+      // from the tour's toolbar shouldn't also reach in and silence
+      // whatever's playing on this screen.
       const speakerBus = createStudioSpeakerBus({ independent: true });
       if (speakerBus) masterGain.connect(speakerBus.input);
       else masterGain.connect(ctx.destination);
@@ -1536,26 +1532,6 @@ function DawWorkstationScreen({ open, onClose }) {
       setDownloadingMix(false);
     }
   }, [ensureContext]);
-
-  // The panorama's ambient "mild air" room tone AND the recording-room
-  // bleed (both spatialAudioEngine module-level singletons — see
-  // PanoramaTour.jsx) play continuously underneath the whole VR tour and
-  // keep running even while this overlay is open on top of them, since
-  // opening the DAW doesn't unmount PanoramaTour. Left alone, either would
-  // bleed into the mix the whole time you're working here (ironic, for the
-  // bleed one) — silence both for the duration the DAW is open, and restore
-  // them (to generic defaults; see DEFAULT_AMBIENCE/ROOM_BLEED above — this
-  // screen doesn't know the current room's own custom profiles) once you
-  // exit back to the studio.
-  useEffect(() => {
-    if (isOpen) {
-      stopAmbientBed();
-      stopRoomBleed();
-    } else {
-      setRoomAmbience(DEFAULT_AMBIENCE);
-      startRoomBleed(ROOM_BLEED.audio, ROOM_BLEED.yaw, ROOM_BLEED.pitch);
-    }
-  }, [isOpen]);
 
   // Seed the mix with all three Hungarian Dance No. 5 stems as its default
   // tracks the first time the screen opens — fetched in parallel (they're

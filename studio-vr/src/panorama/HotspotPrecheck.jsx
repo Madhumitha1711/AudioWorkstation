@@ -47,7 +47,10 @@ function HotspotKnowledgeCheck({
   // panoramaTour.css), so the two would overlap. Glowing the header bar
   // instead (full panel width, so "place the card to its left" clears the
   // whole panel, not just this strip) gives the card something real to
-  // rest beside on both the question view and the results view below.
+  // rest beside on both the question view and the results view below —
+  // paired with svr-tour-glow--done (see onboardingTour.css) so it's a
+  // static ring, not the pulsing animation, since (per above) there's
+  // nothing left to click here.
   tourAnchorPanel,
 }) {
   const [step, setStep] = useState(0);
@@ -96,7 +99,7 @@ function HotspotKnowledgeCheck({
     return (
       <div className="svr-tour-gear-panel svr-tour-precheck-panel">
         <div
-          className={"svr-tour-gear-panel__head" + (tourAnchorPanel ? " svr-tour-glow" : "")}
+          className={"svr-tour-gear-panel__head" + (tourAnchorPanel ? " svr-tour-glow svr-tour-glow--done" : "")}
         >
           <span className="svr-tour-gear-badge">{gear.number}</span>
           <div className="svr-tour-gear-panel__titles">
@@ -158,7 +161,7 @@ function HotspotKnowledgeCheck({
   return (
     <div className="svr-tour-gear-panel svr-tour-precheck-panel">
       <div
-        className={"svr-tour-gear-panel__head" + (tourAnchorPanel ? " svr-tour-glow" : "")}
+        className={"svr-tour-gear-panel__head" + (tourAnchorPanel ? " svr-tour-glow svr-tour-glow--done" : "")}
       >
         <span className="svr-tour-gear-badge">{gear.number}</span>
         <div className="svr-tour-gear-panel__titles">

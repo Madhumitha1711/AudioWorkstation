@@ -1081,7 +1081,7 @@
 
 /* Gates the whole scene — the panorama viewer (drag-to-look, scroll-to-zoom)
    plus every marker and panel it can open — behind the Studio's power-up
-   game in the left-docked side panel (StudioHotspotsPanel), which is
+   panel (StudioHotspotsPanel), which is
    deliberately rendered as a sibling *outside* .svr-tour-lockable so it
    stays usable while everything else here is locked. See the onPoweredChange
    wiring in PanoramaTour.jsx. */
