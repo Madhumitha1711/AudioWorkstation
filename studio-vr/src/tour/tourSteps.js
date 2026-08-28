@@ -21,11 +21,17 @@
 export const TOUR_STEPS = [
   {
     id: "power-up",
-    title: "Power up the rig",
-    body: "Click \"Power up Control Room\" in the panel on the left to bring the rig online and start the control room. The rest of the control room stays locked until it's powered up.",
+    // Simple, plain-language copy on purpose — "turn on the studio" reads
+    // instantly, where "power up the rig" needs a beat to parse for anyone
+    // who isn't already studio-gear-literate. The button itself still says
+    // "Power up Control Room" (see StudioHotspotsPanel.jsx), so the body
+    // text below still names it exactly so there's no mismatch between
+    // what this says and what's actually on screen.
+    title: "Turn on the studio",
+    body: "Click \"Power up Control Room\" in the panel on the left to turn the studio on. Everything else stays locked until it is.",
     mandatory: true,
-    pendingHint: "Click \"Power up Control Room\" in the panel to continue.",
-    doneHint: "Rig powered — nice work.",
+    pendingHint: "Click \"Power up Control Room\" to continue.",
+    doneHint: "Studio's on — nice work.",
   },
   {
     id: "select-hotspot",

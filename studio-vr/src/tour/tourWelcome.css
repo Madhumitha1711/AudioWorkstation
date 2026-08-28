@@ -73,6 +73,50 @@
   color: var(--shell-text-dim);
 }
 
+/* The "how this works" checklist — left-aligned against the rest of the
+   card's centered text, since a numbered list reads better ragged-left
+   than centered. Same numbered-badge treatment as .svr-onb-tour__hint-list
+   in onboardingTour.css (the guide card's own per-step callout list), so
+   the two pieces of tour chrome read as one system. */
+.svr-tour-welcome__steps {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: svr-tour-welcome-step;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+
+.svr-tour-welcome__steps li {
+  counter-increment: svr-tour-welcome-step;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--shell-text-dim);
+}
+
+.svr-tour-welcome__steps li::before {
+  content: counter(svr-tour-welcome-step);
+  flex-shrink: 0;
+  margin-top: 1px;
+  width: 19px;
+  height: 19px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(34, 255, 85, 0.14);
+  border: 1px solid rgba(34, 255, 85, 0.45);
+  color: #22ff55;
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 .svr-tour-welcome__actions {
   display: flex;
   flex-direction: column;

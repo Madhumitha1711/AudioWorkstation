@@ -21,11 +21,15 @@ function TourWelcomeModal({ onStart, onSkip }) {
           ✦
         </div>
         <h2 className="svr-tour-welcome__title">Welcome to Studio VR</h2>
-        <p className="svr-tour-welcome__body">
-          Take a quick guided tour of the control room — power up the rig,
-          meet the gear, and see how it all connects before you start a
-          lesson.
-        </p>
+        <p className="svr-tour-welcome__body">Here's how to get around:</p>
+        <ol className="svr-tour-welcome__steps">
+          <li>Turn on the studio to unlock the control room.</li>
+          <li>
+            Go through your course topics in order — the next topic unlocks
+            once you finish the one before it.
+          </li>
+          <li>Have a question? Use the Discussion tab any time.</li>
+        </ol>
         <div className="svr-tour-welcome__actions">
           <button
             type="button"
