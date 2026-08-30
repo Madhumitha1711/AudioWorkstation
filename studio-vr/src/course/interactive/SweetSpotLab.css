@@ -17,9 +17,12 @@
   --sslab-text-dim: #8a8175;
   --sslab-text-faint: #55504a;
   --sslab-amber: #e8934a;
+  --sslab-amber-rgb: 232, 147, 74;
   --sslab-amber-dim: #6b4826;
   --sslab-green: #5fd9a0;
+  --sslab-green-rgb: 95, 217, 160;
   --sslab-green-dim: #2c5c48;
+  --sslab-danger: #ff8080;
   /* Fixed dark ink for text on a bright accent fill (e.g. the "playing"
      audio button) — stays readable regardless of theme, since --sslab-bg
      itself flips light/dark below. */
@@ -158,7 +161,7 @@
      mode, a darker "console" tone matching the EQ chapter's graph in light
      mode). */
   background:
-    radial-gradient(ellipse at 50% 15%, rgba(232, 147, 74, 0.05), transparent 55%),
+    radial-gradient(ellipse at 50% 15%, rgba(var(--sslab-amber-rgb), 0.05), transparent 55%),
     var(--sslab-room-bg);
   overflow: hidden;
 }
@@ -383,7 +386,7 @@
 .sslab-upload-error {
   margin-top: 10px;
   font-size: 11px;
-  color: #ff8080;
+  color: var(--sslab-danger);
 }
 
 .sslab-legend {
@@ -428,7 +431,7 @@
   margin: 0 28px 24px;
   border: 1px solid var(--sslab-border);
   border-radius: 14px;
-  background: linear-gradient(135deg, rgba(95, 217, 160, 0.05), rgba(232, 147, 74, 0.04));
+  background: linear-gradient(135deg, rgba(var(--sslab-green-rgb), 0.05), rgba(var(--sslab-amber-rgb), 0.04));
   padding: 20px 22px;
   display: flex;
   align-items: center;
@@ -475,7 +478,7 @@
   padding: 12px 20px;
   border-radius: 999px;
   border: 1px solid var(--sslab-green-dim);
-  background: rgba(95, 217, 160, 0.08);
+  background: rgba(var(--sslab-green-rgb), 0.08);
   color: var(--sslab-green);
   cursor: pointer;
   white-space: nowrap;

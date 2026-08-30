@@ -1,3 +1,5 @@
+@import "./hardwareTokens.css";
+
 /* Styles for PatchbayLab.jsx — ported from design/patchbay-lab.html.
    Reuses the shared `.llab-*` base (panel shell width/height, tabs, card,
    seg toggle, curve visual, playbar, trigger row, take-away chip/pop, audio
@@ -89,7 +91,7 @@
   background: var(--llab-green);
 }
 .pblab-jack.source.armed .pblab-jack-dot {
-  box-shadow: 0 0 0 3px rgba(232, 147, 74, 0.35);
+  box-shadow: 0 0 0 3px rgba(var(--led-amber-rgb), 0.35);
   border-color: var(--llab-amber);
 }
 .pblab-jack.dest.armable {

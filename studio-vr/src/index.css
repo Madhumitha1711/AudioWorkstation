@@ -25,8 +25,21 @@
   --shell-text-dim: rgba(255, 255, 255, 0.65);
   --shell-text-dimmer: rgba(255, 255, 255, 0.45);
   --shell-page-bg: radial-gradient(ellipse at center, #16181d 0%, #08090b 100%);
-  --shell-accent-ink: #04160a;
-  --shell-gradient-accent: radial-gradient(circle at 32% 28%, #7dffb8, #17c76a 70%);
+  /* --shell-accent-ink / --shell-gradient-accent read the generic brand
+     palette (src/theme/palettes.js, set at runtime by PaletteContext) so
+     they automatically track both the current palette AND the current
+     light/dark theme - no separate light-theme override needed below. */
+  --shell-accent-ink: var(--brand-accent-ink);
+  --shell-gradient-accent: radial-gradient(circle at 32% 28%, var(--brand-accent), var(--brand-accent-2) 70%);
+
+  /* Shared neutral wash tokens: a dark ink-tinted overlay (used for
+     light-theme hover/pressed surfaces across the page-level stylesheets)
+     and a light page-tint overlay (used for light-theme backdrop blurs on
+     the same pages). Same literal value was being repeated verbatim in
+     LandingPage.css/CoursePage.css/PaymentPage.css/DiscussionPage.css/
+     AssessmentSection.css/labs.css - pulled out here once instead. */
+  --ink-tint-rgb: 4, 20, 12;
+  --page-tint-rgb: 246, 248, 246;
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -84,8 +97,6 @@
   --shell-text-dim: rgba(12, 19, 15, 0.7);
   --shell-text-dimmer: rgba(12, 19, 15, 0.5);
   --shell-page-bg: radial-gradient(ellipse at center, #ffffff 0%, #edf1ee 100%);
-  --shell-accent-ink: #ffffff;
-  --shell-gradient-accent: radial-gradient(circle at 32% 28%, #047857, #10b981 70%);
 }
 
 #social .button-icon {

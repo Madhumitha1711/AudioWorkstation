@@ -5,6 +5,37 @@
    the app's own --shell-* tokens (see index.css) so this screen follows the
    light/dark theme toggle instead of hardcoding its own black. */
 
+/* Fixed marker-category colors (hotspot "legend" colors: info/warning/
+   danger dots, plus the always-dark ink text drawn on top of them). These
+   are intentionally NOT wired to the brand palette (src/theme/palettes.js)
+   - a category legend shouldn't reshuffle when someone test-drives a
+   different site palette, the same way a map's blue-for-water doesn't
+   change with the site theme. The green "default" hotspot marker further
+   down *does* use var(--brand-accent) etc. instead of these, because it's
+   literally the site's brand color, not a category color. */
+:root {
+  --marker-ink: #0a0a0a;
+  --marker-blue: #9fd3ff;
+  --marker-blue-2: #2e7fe0;
+  --marker-blue-rgb: 90, 170, 255;
+  --marker-blue-glow-rgb: 70, 150, 255;
+  --marker-amber: #ffd699;
+  --marker-amber-2: #e08a1e;
+  --marker-amber-rgb: 255, 176, 59;
+  --marker-orange: #ffb877;
+  --marker-orange-2: #e0631e;
+  --marker-orange-rgb: 255, 130, 40;
+  --marker-danger: #ff5c5c;
+  --marker-danger-soft: #ff9d9d;
+  --marker-danger-rgb: 255, 92, 92;
+  --marker-warning: #ffb03b;
+  --marker-warning-rgb: 255, 176, 59;
+  --marker-highlight: #F5A623;
+  --marker-dark: #0a0a0a;
+  --marker-dark-2: #141418;
+  --marker-red-alt: #f66;
+}
+
 /* The virtual-tour plugin's own floating 3D doorway arrows are hidden —
    they drift across the screen as the camera turns. Doorways are instead
    rendered as regular hotspot markers (.hotspot-marker--door below),
@@ -30,7 +61,7 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 2px solid rgba(58, 255, 140, 0.85);
+  border: 2px solid rgba(var(--brand-accent-rgb), 0.85);
   animation: hotspot-pulse 2.2s ease-out infinite;
   transition: animation-duration 0.15s ease;
 }
@@ -47,11 +78,11 @@
   align-items: center;
   justify-content: center;
   font: 700 13px/1 sans-serif;
-  color: #04160a;
-  background: radial-gradient(circle at 32% 28%, #7dffb8, #17c76a 70%);
+  color: var(--brand-accent-ink);
+  background: radial-gradient(circle at 32% 28%, var(--brand-accent), var(--brand-accent-2) 70%);
   border: 2px solid rgba(255, 255, 255, 0.9);
   box-shadow:
-    0 0 10px rgba(34, 255, 130, 0.75),
+    0 0 10px rgba(var(--brand-glow-rgb), 0.75),
     inset 0 0 5px rgba(255, 255, 255, 0.5);
   animation: hotspot-breathe 2.2s ease-in-out infinite;
   transition: transform 0.15s ease, filter 0.15s ease;
@@ -142,14 +173,14 @@
    a door icon instead of a number, so they read as "go to another room"
    at a glance. */
 .hotspot-marker__ring--door {
-  border-color: rgba(90, 170, 255, 0.85);
+  border-color: rgba(var(--marker-blue-rgb), 0.85);
 }
 
 .hotspot-marker__dot--door {
   font-size: 15px;
-  background: radial-gradient(circle at 32% 28%, #9fd3ff, #2e7fe0 70%);
+  background: radial-gradient(circle at 32% 28%, var(--marker-blue), var(--marker-blue-2) 70%);
   box-shadow:
-    0 0 10px rgba(70, 150, 255, 0.75),
+    0 0 10px rgba(var(--marker-blue-glow-rgb), 0.75),
     inset 0 0 5px rgba(255, 255, 255, 0.5);
 }
 
@@ -157,14 +188,14 @@
    pulsing-badge shape again, in amber with a speaker icon, so they read
    as "adjust audio" rather than "gear info" or "go to another room". */
 .hotspot-marker__ring--volume {
-  border-color: rgba(255, 176, 59, 0.85);
+  border-color: rgba(var(--marker-amber-rgb), 0.85);
 }
 
 .hotspot-marker__dot--volume {
   font-size: 14px;
-  background: radial-gradient(circle at 32% 28%, #ffd699, #e08a1e 70%);
+  background: radial-gradient(circle at 32% 28%, var(--marker-amber), var(--marker-amber-2) 70%);
   box-shadow:
-    0 0 10px rgba(255, 176, 59, 0.75),
+    0 0 10px rgba(var(--marker-amber-rgb), 0.75),
     inset 0 0 5px rgba(255, 255, 255, 0.5);
 }
 
@@ -175,13 +206,13 @@
    another room), and amber volume controls (adjust audio) at a glance. See
    interactiveMarkerHtml's `variant` param in PanoramaTour.jsx. */
 .hotspot-marker__ring--interactive {
-  border-color: rgba(255, 130, 40, 0.85);
+  border-color: rgba(var(--marker-orange-rgb), 0.85);
 }
 
 .hotspot-marker__dot--interactive {
-  background: radial-gradient(circle at 32% 28%, #ffb877, #e0631e 70%);
+  background: radial-gradient(circle at 32% 28%, var(--marker-orange), var(--marker-orange-2) 70%);
   box-shadow:
-    0 0 10px rgba(255, 130, 40, 0.75),
+    0 0 10px rgba(var(--marker-orange-rgb), 0.75),
     inset 0 0 5px rgba(255, 255, 255, 0.5);
 }
 
@@ -303,8 +334,8 @@
 }
 
 .svr-tour-room-toggle__opt.current {
-  background: #22ff88;
-  color: #0a0a0a;
+  background: var(--brand-glow);
+  color: var(--marker-ink);
 }
 
 .svr-tour-room-toggle__opt.current:hover {
@@ -343,9 +374,9 @@
 }
 
 .svr-tour-binaural-btn.on {
-  background: #22ff55;
+  background: var(--brand-glow);
   border: 1px solid transparent;
-  color: #0a0a0a;
+  color: var(--marker-ink);
 }
 
 .svr-tour-binaural-btn.on:hover {
@@ -409,7 +440,10 @@
 
 .svr-tour-hint-placement {
   margin-top: 4px;
-  color: #7cfc9a;
+  /* Same brand-accent green as .svr-quick-help's border (see the comment
+     there) so both "dev mode is on" indicators track the chosen palette
+     together. */
+  color: var(--brand-accent);
 }
 
 /* ---------- Gear info panel ---------- */
@@ -488,8 +522,8 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: radial-gradient(circle at 32% 28%, #7dffb8, #17c76a 70%);
-  color: #04160a;
+  background: radial-gradient(circle at 32% 28%, var(--brand-accent), var(--brand-accent-2) 70%);
+  color: var(--brand-accent-ink);
   font-size: 12px;
   font-weight: 700;
   flex-shrink: 0;
@@ -630,23 +664,23 @@
    below, same intent as the old svr-tour-btn-quiz footer button this
    replaced. */
 .svr-tour-choice-card--quiz {
-  background: rgba(34, 255, 85, 0.06);
-  border: 1px dashed rgba(34, 255, 85, 0.35);
+  background: rgba(var(--brand-glow-rgb), 0.06);
+  border: 1px dashed rgba(var(--brand-glow-rgb), 0.35);
 }
 
 .svr-tour-choice-card--quiz:hover {
-  background: rgba(34, 255, 85, 0.12);
-  border-color: rgba(34, 255, 85, 0.55);
+  background: rgba(var(--brand-glow-rgb), 0.12);
+  border-color: rgba(var(--brand-glow-rgb), 0.55);
 }
 
 .svr-tour-choice-card--quiz .svr-tour-choice-card-icon {
-  background: rgba(34, 255, 85, 0.14);
+  background: rgba(var(--brand-glow-rgb), 0.14);
 }
 
 /* "Start course" — the direct/default path, solid green to match
    svr-tour-btn-primary's weight elsewhere in this file. */
 .svr-tour-choice-card--course {
-  background: #22ff55;
+  background: var(--brand-glow);
   border: 1px solid transparent;
 }
 
@@ -656,12 +690,12 @@
 
 .svr-tour-choice-card--course .svr-tour-choice-card-icon {
   background: rgba(10, 10, 10, 0.12);
-  color: #0a0a0a;
+  color: var(--marker-ink);
 }
 
 .svr-tour-choice-card--course .svr-tour-choice-card-title,
 .svr-tour-choice-card--course .svr-tour-choice-card-sub {
-  color: #0a0a0a;
+  color: var(--marker-ink);
 }
 
 .svr-tour-choice-card--course .svr-tour-choice-card-sub {
@@ -697,8 +731,8 @@
 }
 
 .svr-tour-btn-primary {
-  background: #22ff55;
-  color: #0a0a0a;
+  background: var(--brand-glow);
+  color: var(--marker-ink);
   border: none;
 }
 
@@ -749,13 +783,13 @@
 }
 
 .svr-tour-precheck-progress-seg.correct {
-  background: #22c76a;
-  box-shadow: 0 0 6px rgba(34, 199, 106, 0.4);
+  background: var(--brand-accent-2);
+  box-shadow: 0 0 6px rgba(var(--brand-accent-2-rgb), 0.4);
 }
 
 .svr-tour-precheck-progress-seg.incorrect {
-  background: #ff5c5c;
-  box-shadow: 0 0 6px rgba(255, 92, 92, 0.4);
+  background: var(--marker-danger);
+  box-shadow: 0 0 6px rgba(var(--marker-danger-rgb), 0.4);
 }
 
 .svr-tour-precheck-progress-seg.current:not(.correct):not(.incorrect) {
@@ -828,13 +862,13 @@
 }
 
 .svr-tour-precheck-recap li.good .svr-tour-precheck-recap-mark {
-  background: rgba(34, 199, 106, 0.15);
-  color: #22c76a;
+  background: rgba(var(--brand-accent-2-rgb), 0.15);
+  color: var(--brand-accent-2);
 }
 
 .svr-tour-precheck-recap li.bad .svr-tour-precheck-recap-mark {
-  background: rgba(255, 92, 92, 0.15);
-  color: #ff5c5c;
+  background: rgba(var(--marker-danger-rgb), 0.15);
+  color: var(--marker-danger);
 }
 
 .svr-tour-precheck-lede {
@@ -891,32 +925,32 @@
 }
 
 .svr-tour-precheck-option.selected {
-  border-color: #22ff55;
+  border-color: var(--brand-glow);
 }
 
 .svr-tour-precheck-option.selected .svr-tour-precheck-option-mark {
-  border-color: #22ff55;
-  background: #22ff55;
+  border-color: var(--brand-glow);
+  background: var(--brand-glow);
 }
 
 .svr-tour-precheck-option.correct {
-  border-color: #22c76a;
-  background: rgba(34, 199, 106, 0.12);
+  border-color: var(--brand-accent-2);
+  background: rgba(var(--brand-accent-2-rgb), 0.12);
 }
 
 .svr-tour-precheck-option.correct .svr-tour-precheck-option-mark {
-  border-color: #22c76a;
-  background: #22c76a;
+  border-color: var(--brand-accent-2);
+  background: var(--brand-accent-2);
 }
 
 .svr-tour-precheck-option.incorrect {
-  border-color: #ff5c5c;
-  background: rgba(255, 92, 92, 0.1);
+  border-color: var(--marker-danger);
+  background: rgba(var(--marker-danger-rgb), 0.1);
 }
 
 .svr-tour-precheck-option.incorrect .svr-tour-precheck-option-mark {
-  border-color: #ff5c5c;
-  background: #ff5c5c;
+  border-color: var(--marker-danger);
+  background: var(--marker-danger);
 }
 
 .svr-tour-precheck-feedback {
@@ -928,13 +962,13 @@
 }
 
 .svr-tour-precheck-feedback.good {
-  background: rgba(34, 199, 106, 0.12);
-  color: #7dffb8;
+  background: rgba(var(--brand-accent-2-rgb), 0.12);
+  color: var(--brand-accent);
 }
 
 .svr-tour-precheck-feedback.bad {
-  background: rgba(255, 92, 92, 0.1);
-  color: #ff9d9d;
+  background: rgba(var(--marker-danger-rgb), 0.1);
+  color: var(--marker-danger-soft);
 }
 
 /* ---------- Volume-control panel (roomsData.js volumeControls) ------
@@ -1017,20 +1051,20 @@
   width: 15px;
   height: 15px;
   border-radius: 50%;
-  background: #ffb03b;
-  box-shadow: 0 0 6px rgba(255, 176, 59, 0.65);
+  background: var(--marker-warning);
+  box-shadow: 0 0 6px rgba(var(--marker-warning-rgb), 0.65);
   cursor: pointer;
-  border: 2px solid #0a0a0a;
+  border: 2px solid var(--marker-dark);
 }
 
 .svr-tour-volume-slider::-moz-range-thumb {
   width: 15px;
   height: 15px;
   border-radius: 50%;
-  background: #ffb03b;
-  box-shadow: 0 0 6px rgba(255, 176, 59, 0.65);
+  background: var(--marker-warning);
+  box-shadow: 0 0 6px rgba(var(--marker-warning-rgb), 0.65);
   cursor: pointer;
-  border: 2px solid #0a0a0a;
+  border: 2px solid var(--marker-dark);
 }
 
 .svr-tour-volume-val {
@@ -1060,7 +1094,7 @@
   height: 32px;
   border-radius: 50%;
   border: 3px solid var(--shell-border);
-  border-top-color: #22ff88;
+  border-top-color: var(--brand-glow);
   animation: svr-tour-spin 0.9s linear infinite;
 }
 
@@ -1076,7 +1110,7 @@
 }
 
 .svr-tour-error-text {
-  color: #f66;
+  color: var(--marker-red-alt);
 }
 
 /* Gates the whole scene — the panorama viewer (drag-to-look, scroll-to-zoom)
@@ -1132,7 +1166,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #F5A623;
+  background: var(--marker-highlight);
   border: 1px solid var(--shell-border);
   border-radius: 999px;
   padding: 8px 16px;
@@ -1140,7 +1174,7 @@
   box-shadow: var(--shadow);
   font-family: sans-serif;
   font-size: 13px;
-  color: #141418;
+  color: var(--marker-dark-2);
   max-width: calc(100vw - 32px);
   text-align: center;
   pointer-events: none;

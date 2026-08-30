@@ -1,3 +1,5 @@
+@import "./hardwareTokens.css";
+
 /* Styles for SpeakerListeningLab.jsx — ported from
    design/speakek-listening-lab.html. Docks inside the same
    .svr-tour-gear-panel shell as the gear choice panel and
@@ -35,7 +37,7 @@
 
 .llab-badge {
   font-size: 13px;
-  background: rgba(95, 217, 160, 0.16);
+  background: rgba(var(--led-green-rgb), 0.16);
 }
 
 /* ---------- tab bar ----------
@@ -299,7 +301,7 @@
   align-items: center;
   gap: 5px;
   margin-top: 12px;
-  background: rgba(95, 217, 160, 0.1);
+  background: rgba(var(--led-green-rgb), 0.1);
   border: 1px solid var(--llab-green-dim);
   color: var(--llab-green);
   font-family: 'JetBrains Mono', monospace;
@@ -312,7 +314,7 @@
 }
 
 .llab-aha-chip:hover {
-  background: rgba(95, 217, 160, 0.18);
+  background: rgba(var(--led-green-rgb), 0.18);
 }
 
 @keyframes llab-chip-in {

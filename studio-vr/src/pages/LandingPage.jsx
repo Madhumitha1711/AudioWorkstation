@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { ThemeToggle } from "../theme/ThemeToggle";
+import { PaletteSwitcher } from "../theme/PaletteSwitcher";
 import { logOff } from "../store/sessionSlice";
 import "./LandingPage.css";
 
@@ -106,6 +107,8 @@ function LandingPage() {
               </button>
             </>
           )}
+          {/* TEMPORARY: palette switcher - see PaletteContext.jsx */}
+          <PaletteSwitcher />
           <ThemeToggle className="theme-toggle-btn" />
         </div>
       </header>

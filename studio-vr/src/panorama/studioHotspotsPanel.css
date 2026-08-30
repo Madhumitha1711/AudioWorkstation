@@ -36,19 +36,30 @@
   --hsp-panel-2: rgba(8, 9, 12, 0.92);
   --hsp-hair: rgba(255, 255, 255, 0.08);
   --hsp-hair-strong: rgba(255, 255, 255, 0.12);
-  --hsp-gold: #22c76a;
-  --hsp-gold-dim: #1a9c56;
-  --hsp-gold-glow: rgba(34, 199, 106, 0.35);
+  /* --hsp-gold/--hsp-on read the generic brand palette (despite the "gold"
+     name - this predates a design change to green and was never renamed)
+     so the "power is on" indicator tracks the chosen palette like the
+     panorama hotspot markers do. --hsp-err/--hsp-gold-wash are fixed
+     status/warm-wash colors, not brand-tied. */
+  --hsp-gold: var(--brand-accent-2);
+  /* Dimmed/off-state version of --hsp-gold - was a fixed dark green
+     (#1a9c56) so powered-down icons stayed green no matter which palette
+     was selected, instead of a muted version of the current accent. */
+  --hsp-gold-dim: color-mix(in srgb, var(--brand-accent-2) 55%, black);
+  --hsp-gold-glow: rgba(var(--brand-accent-2-rgb), 0.35);
+  --hsp-gold-wash-rgb: 201, 168, 110;
   --hsp-text: #ffffff;
   --hsp-text-dim: rgba(255, 255, 255, 0.65);
   --hsp-text-faint: rgba(255, 255, 255, 0.45);
-  --hsp-on: #22c76a;
-  --hsp-on-glow: rgba(34, 199, 106, 0.35);
+  --hsp-on: var(--brand-accent-2);
+  --hsp-on-glow: rgba(var(--brand-accent-2-rgb), 0.35);
   --hsp-off: rgba(255, 255, 255, 0.45);
   --hsp-off-bg: rgba(255, 255, 255, 0.04);
   --hsp-err: #ff6b6b;
+  --hsp-err-rgb: 255, 107, 107;
   --hsp-err-glow: rgba(255, 107, 107, 0.3);
   --hsp-tint-rgb: 255, 255, 255;
+  --hsp-ink: var(--brand-accent-ink);
 
   position: absolute;
   top: 0;
@@ -221,7 +232,7 @@
 
 .svr-hotspot-qbtn--danger:hover {
   color: var(--hsp-err);
-  border-color: rgba(240, 102, 92, 0.4);
+  border-color: rgba(var(--hsp-err-rgb), 0.4);
 }
 
 /* Primary call-to-action treatment for "Power up in order" while the rig is
@@ -233,7 +244,7 @@
    every device is on, or while the power-up animation is already mid-run
    (see the .svr-hotspot-qbtn:disabled rule above for that state instead). */
 .svr-hotspot-qbtn--power-cta {
-  color: #06120b;
+  color: var(--hsp-ink);
   font-weight: 700;
   background: var(--hsp-on);
   border-color: var(--hsp-on);
@@ -242,7 +253,7 @@
 }
 
 .svr-hotspot-qbtn--power-cta:hover {
-  color: #06120b;
+  color: var(--hsp-ink);
   background: var(--hsp-on);
   border-color: var(--hsp-on);
   filter: brightness(1.1);
@@ -328,7 +339,7 @@
 }
 
 .svr-hotspot-row--current {
-  background: rgba(201, 168, 110, 0.08);
+  background: rgba(var(--hsp-gold-wash-rgb), 0.08);
   box-shadow: inset 2px 0 0 var(--hsp-gold);
 }
 
@@ -338,11 +349,11 @@
   }
 
   70% {
-    box-shadow: 0 0 0 9px rgba(63, 213, 131, 0);
+    box-shadow: 0 0 0 9px rgba(var(--brand-accent-2-rgb), 0);
   }
 
   100% {
-    box-shadow: 0 0 0 0 rgba(63, 213, 131, 0);
+    box-shadow: 0 0 0 0 rgba(var(--brand-accent-2-rgb), 0);
   }
 }
 
@@ -395,7 +406,7 @@
 }
 
 .svr-hotspot-row[data-state="on"] .svr-hotspot-rail__node {
-  color: #0b1a11;
+  color: var(--hsp-ink);
   background: var(--hsp-on);
   border-color: var(--hsp-on);
   box-shadow: 0 0 10px var(--hsp-on-glow);
@@ -426,7 +437,7 @@
 
 .svr-hotspot-row[data-state="on"] .svr-hotspot-icon {
   color: var(--hsp-on);
-  border-color: rgba(63, 213, 131, 0.3);
+  border-color: rgba(var(--brand-accent-2-rgb), 0.3);
 }
 
 .svr-hotspot-icon svg {

@@ -1,0 +1,40 @@
+/* TEMPORARY: styling for the palette-testing switcher - see the comment in
+   PaletteContext.jsx. Deliberately minimal/neutral so it drops into any
+   header (shell, landing, payment) without fighting that header's own
+   button chrome, the same way ThemeToggle.css stays animation-only. */
+
+.svr-palette-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--shell-border-soft, rgba(255, 255, 255, 0.12));
+  background: var(--shell-panel, rgba(255, 255, 255, 0.06));
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.svr-palette-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+.svr-palette-switcher select {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding-right: 2px;
+}
+
+.svr-palette-switcher select:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}

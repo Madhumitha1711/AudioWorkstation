@@ -22,6 +22,15 @@
   --green-deep: #3fae7c;
   --green-dim: #1c3a2e;
   --green-glow: rgba(95, 217, 160, 0.35);
+  /* Fixed red "muted/error" accent - separate from the amber/green duo
+     above, same reasoning as --danger elsewhere in the app. */
+  --danger: #c94f4f;
+  --danger-soft: #e88a8a;
+  --danger-rgb: 224, 92, 92;
+  /* Dark ink for text sitting on a solid amber/green fill (mic mute icon,
+     unread badge, etc). */
+  --ink-on-amber: #1a1108;
+  --ink-on-green: #0c231a;
   --text: #f0ece3;
   --text-dim: #9a9aa0;
   --text-faint: #55545c;
@@ -276,7 +285,7 @@
     }
 
     &.danger:hover {
-      color: #e88a8a;
+      color: var(--danger-soft);
     }
 
     &:disabled {
@@ -350,9 +359,9 @@
     margin: -8px 0 20px;
     padding: 10px 14px;
     border-radius: 8px;
-    background: rgba(224, 92, 92, 0.12);
-    border: 1px solid rgba(224, 92, 92, 0.3);
-    color: #e88a8a;
+    background: rgba(var(--danger-rgb), 0.12);
+    border: 1px solid rgba(var(--danger-rgb), 0.3);
+    color: var(--danger-soft);
     font-size: 12.5px;
     line-height: 1.5;
   }
@@ -425,7 +434,7 @@
     transition: color 0.2s ease;
 
     &:hover {
-      color: #e88a8a;
+      color: var(--danger-soft);
     }
 
     &:disabled {
@@ -598,12 +607,12 @@
     }
 
     &:not(.talkback) .disc-switch-opt.main {
-      color: #1a1108;
+      color: var(--ink-on-amber);
       font-weight: 600;
     }
 
     &.talkback .disc-switch-opt.tb {
-      color: #0c231a;
+      color: var(--ink-on-green);
       font-weight: 600;
     }
   }
@@ -620,7 +629,7 @@
     border-radius: 8px;
     border: none;
     background: linear-gradient(180deg, var(--amber), var(--amber-deep));
-    color: #1a1108;
+    color: var(--ink-on-amber);
     font-family: "Space Grotesk", sans-serif;
     font-weight: 600;
     font-size: 12.5px;
@@ -645,7 +654,7 @@
 
   .disc-composer.talkback-mode .disc-send-btn {
     background: linear-gradient(180deg, var(--green), var(--green-deep));
-    color: #0c231a;
+    color: var(--ink-on-green);
   }
 
   @media (max-width: 600px) {
@@ -739,8 +748,8 @@
     }
 
     &.danger {
-      background: #c94f4f;
-      border-color: #c94f4f;
+      background: var(--danger);
+      border-color: var(--danger);
       color: #fff;
     }
 
@@ -763,9 +772,9 @@
    light background. */
 :root[data-theme='light'] .svr-discussion {
   --bg: #f6f8f6;
-  --panel: rgba(4, 20, 12, 0.045);
-  --panel-2: rgba(4, 20, 12, 0.06);
-  --line: rgba(4, 20, 12, 0.13);
+  --panel: rgba(var(--ink-tint-rgb), 0.045);
+  --panel-2: rgba(var(--ink-tint-rgb), 0.06);
+  --line: rgba(var(--ink-tint-rgb), 0.13);
   --amber: #b35f1c;
   --amber-deep: #8f4a15;
   --amber-dim: rgba(179, 95, 28, 0.14);
@@ -784,16 +793,16 @@
   --modal-panel-2: #eef0ee;
 
   .disc-avatar {
-    background: linear-gradient(135deg, rgba(4, 20, 12, 0.14), rgba(4, 20, 12, 0.05));
+    background: linear-gradient(135deg, rgba(var(--ink-tint-rgb), 0.14), rgba(var(--ink-tint-rgb), 0.05));
     color: var(--text-dim);
   }
 
   .disc-switch {
-    background: rgba(4, 20, 12, 0.07);
+    background: rgba(var(--ink-tint-rgb), 0.07);
   }
 
   .disc-switch:hover {
-    box-shadow: 0 4px 14px rgba(4, 20, 12, 0.1);
+    box-shadow: 0 4px 14px rgba(var(--ink-tint-rgb), 0.1);
   }
 
   /* The thumb's amber/green gradient + glow already repaint via the

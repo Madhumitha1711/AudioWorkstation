@@ -5,6 +5,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google'
 import { BrowserRouter } from 'react-router-dom'
 import { store } from './store'
 import { ThemeProvider } from './theme/ThemeContext'
+import { PaletteProvider } from './theme/PaletteContext'
 import './index.css'
 import App from './App.jsx'
 
@@ -17,11 +18,14 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <Provider store={store}>
       <ThemeProvider>
-        <GoogleOAuthProvider clientId={googleClientId}>
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
-        </GoogleOAuthProvider>
+        {/* TEMPORARY: palette switcher - see PaletteContext.jsx */}
+        <PaletteProvider>
+          <GoogleOAuthProvider clientId={googleClientId}>
+            <BrowserRouter>
+              <App />
+            </BrowserRouter>
+          </GoogleOAuthProvider>
+        </PaletteProvider>
       </ThemeProvider>
     </Provider>
   </StrictMode>,

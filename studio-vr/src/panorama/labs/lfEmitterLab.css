@@ -1,3 +1,5 @@
+@import "./hardwareTokens.css";
+
 /* Styles for LfEmitterLab.jsx — ported from design/lf-emitter-lab.html.
    Reuses the shared `.llab-*` base (panel shell width/height, tabs, card,
    seg toggle, trigger row, take-away chip/pop, audio note) from
@@ -88,13 +90,13 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 1px solid #a78bfa;
+  border: 1px solid var(--led-purple);
   opacity: 0;
 }
 .lfelab-rumble-row.on .lfelab-rumble-dot {
-  background: #a78bfa;
-  border-color: #a78bfa;
-  box-shadow: 0 0 8px #a78bfa;
+  background: var(--led-purple);
+  border-color: var(--led-purple);
+  box-shadow: 0 0 8px var(--led-purple);
 }
 .lfelab-rumble-row.on .lfelab-rumble-dot::before {
   animation: lfelab-rumble-ring 1.4s ease-out infinite;
@@ -119,7 +121,7 @@
   color: var(--llab-text-muted);
 }
 .lfelab-rumble-row.on .lfelab-rumble-text {
-  color: #a78bfa;
+  color: var(--led-purple);
 }
 .lfelab-rumble-status {
   font-size: 9.5px;
@@ -129,9 +131,9 @@
   color: var(--llab-text-muted);
 }
 .lfelab-rumble-row.on .lfelab-rumble-status {
-  color: #a78bfa;
-  border-color: #4a3a6b;
-  background: rgba(167, 139, 250, 0.1);
+  color: var(--led-purple);
+  border-color: var(--led-purple-dim);
+  background: rgba(var(--led-purple-rgb), 0.1);
 }
 
 .lfelab-spectrum-caption {

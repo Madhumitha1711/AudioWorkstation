@@ -1,3 +1,5 @@
+@import "./hardwareTokens.css";
+
 /* Styles for PreampRackLab.jsx — ported from design/preamp-rack-lab.html.
    Reuses the shared `.llab-*` base (panel shell width/height, tabs, card,
    seg toggle, curve visual, playbar, take-away chip/pop, audio note) from
@@ -36,9 +38,9 @@
   top: 8px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(232, 97, 95, 0.15);
-  border: 1px solid #6b2c2c;
-  color: #e8615f;
+  background: rgba(var(--led-red-rgb), 0.15);
+  border: 1px solid var(--led-red-dim);
+  color: var(--led-red);
   font-family: 'JetBrains Mono', monospace;
   font-size: 8.5px;
   letter-spacing: 0.06em;
@@ -96,10 +98,10 @@
   background: rgba(139, 136, 144, 0.15);
 }
 .prlab-gain-meter-zones .z-sweet {
-  background: rgba(95, 217, 160, 0.15);
+  background: rgba(var(--led-green-rgb), 0.15);
 }
 .prlab-gain-meter-zones .z-high {
-  background: rgba(232, 97, 95, 0.15);
+  background: rgba(var(--led-red-rgb), 0.15);
 }
 .prlab-gain-meter-fill {
   position: absolute;

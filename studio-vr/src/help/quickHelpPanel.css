@@ -1,0 +1,99 @@
+/* ---------- Quick Help popup (help mode) ---------- */
+/* Anchored top-right, next to .svr-tour-toolbar (centered, top: 16px — see
+   panoramaTour.css) at the same top edge, and clear of the gear info
+   panel below it (which only starts at top: 74px — see
+   .svr-tour-gear-panel there) — that's just its resting spot though, see
+   QuickHelpPanel.jsx: it's draggable by its header, and once dragged this
+   position is overridden by an inline `top`/`left` in exact viewport
+   pixels. */
+.svr-quick-help {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 260px;
+  max-width: calc(100vw - 32px);
+  background: var(--shell-bg);
+  /* Always-on brand-accent border/glow so the popup reads as highlighted
+     the whole time help mode is on, rather than blending into the scene
+     like an ordinary panel — same var(--brand-accent) the placement-mode
+     hint uses elsewhere on this screen (see .svr-tour-hint-placement in
+     panoramaTour.css) for "this is on", so both track the chosen palette
+     together instead of drifting apart as separately-hand-picked greens. */
+  border: 1.5px solid var(--brand-accent);
+  border-radius: 12px;
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow), 0 0 0 3px rgba(var(--brand-accent-rgb), 0.18);
+  padding: 10px 12px;
+  font-family: sans-serif;
+  /* Same reasoning as every other floating panel in panoramaTour.css
+     (see the z-index: 60 comment on .svr-tour-toolbar there) — comfortably
+     above Photo Sphere Viewer's own marker layer (z-index 30). Unlike a
+     plain tooltip this needs to accept pointer input itself (dragging the
+     header), so it's NOT pointer-events: none — it can end up sitting over
+     the very thing a visitor wants to interact with next, which is exactly
+     why dragging it out of the way matters here. */
+  z-index: 65;
+  animation: svr-quick-help-in 0.15s ease-out;
+}
+
+@keyframes svr-quick-help-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.svr-quick-help__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  cursor: grab;
+  /* Prevents the browser's own touch-scroll/pan gesture from hijacking a
+     drag started on a touchscreen, and stops the header's own text from
+     highlighting mid-drag on a mouse. */
+  touch-action: none;
+  user-select: none;
+}
+
+.svr-quick-help__head:active {
+  cursor: grabbing;
+}
+
+.svr-quick-help__icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.svr-quick-help__title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--shell-text-dim);
+}
+
+.svr-quick-help__grip {
+  margin-left: auto;
+  color: var(--shell-text-dim);
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0.6;
+}
+
+.svr-quick-help__body {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--shell-text);
+}
+
+@media (max-width: 720px) {
+  .svr-quick-help {
+    width: 220px;
+  }
+}

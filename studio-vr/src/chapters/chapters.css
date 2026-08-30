@@ -25,19 +25,26 @@
   --border-bright:#3D3D52;
 
   --amber:        #F5A623;
+  --amber-rgb:    245, 166, 35;
   --amber-dim:    rgba(245,166,35,0.15);
   --amber-glow:   rgba(245,166,35,0.4);
+  --amber-bright: #FFB83D;
 
   --green:        #00FF87;
+  --green-rgb:    0, 255, 135;
   --green-dim:    rgba(0,255,135,0.12);
 
   --blue:         #4D9EFF;
+  --blue-rgb:     77, 158, 255;
   --blue-dim:     rgba(77,158,255,0.15);
+  --blue-bright:  #7DB8FF;
 
   --red:          #FF4D6A;
+  --red-rgb:      255, 77, 106;
   --red-dim:      rgba(255,77,106,0.15);
 
   --purple:       #A78BFA;
+  --purple-rgb:   167, 139, 250;
   --purple-dim:   rgba(167,139,250,0.15);
 
   --sat:          #FF7A45;
@@ -51,6 +58,15 @@
   --text:         #E8E8EC;
   --text-dim:     #8A8A9A;
   --text-faint:   #4A4A5A;
+
+  --knob-cream-1:  #fbfcf8;
+  --knob-cream-2:  #ccd2c2;
+  --knob-warm-1:   #fdf8f3;
+  --knob-warm-2:   #ddc9b6;
+  --knob-cool-2:   #cfd3d9;
+  --knob-shadow-rgb: 18, 20, 15;
+  --strip-navy:    #2E2E40;
+  --strip-wood:    #5C2E1A;
 
   --mono:    'JetBrains Mono', monospace;
   --display: 'Space Grotesk', sans-serif;
@@ -84,10 +100,17 @@
      rack — as text or borders on the new light chassis they're too low
      contrast, so each gets a deeper, more saturated equivalent here. */
   --amber:  #ad6a12;
+  --amber-rgb: 173, 106, 18;
+  --amber-bright: #ad6a12;
   --green:  #0f9d58;
+  --green-rgb: 15, 157, 88;
   --blue:   #2563eb;
+  --blue-rgb: 37, 99, 235;
+  --blue-bright: #2563eb;
   --red:    #c0293f;
+  --red-rgb: 192, 41, 63;
   --purple: #7c3aed;
+  --purple-rgb: 124, 58, 237;
   --sat:    #c2521f;
   --teal:   #0f9488;
 
@@ -117,19 +140,19 @@
      dark plastic/metal one (same call as the shared Knob.jsx component and
      Equalizer.jsx's own local Knob) — matches a light-mode DAW's knurled
      aluminum knobs rather than leaving them as black discs on a light rack. */
-  .big-knob { background: radial-gradient(circle at 35% 35%, #fbfcf8, #ccd2c2); box-shadow: 0 2px 6px rgba(18,20,15,0.18), inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -3px 5px rgba(18,20,15,0.08); }
-  .sat-knob { background: radial-gradient(circle at 35% 35%, #fdf8f3, #ddc9b6); box-shadow: 0 2px 6px rgba(18,20,15,0.18), inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -3px 5px rgba(18,20,15,0.08); }
-  .pan-knob { background: radial-gradient(circle at 35% 35%, #fbfcf8, #cfd3d9); }
+  .big-knob { background: radial-gradient(circle at 35% 35%, var(--knob-cream-1), var(--knob-cream-2)); box-shadow: 0 2px 6px rgba(var(--knob-shadow-rgb),0.18), inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -3px 5px rgba(var(--knob-shadow-rgb),0.08); }
+  .sat-knob { background: radial-gradient(circle at 35% 35%, var(--knob-warm-1), var(--knob-warm-2)); box-shadow: 0 2px 6px rgba(var(--knob-shadow-rgb),0.18), inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -3px 5px rgba(var(--knob-shadow-rgb),0.08); }
+  .pan-knob { background: radial-gradient(circle at 35% 35%, var(--knob-cream-1), var(--knob-cool-2)); }
 
   /* .btn-primary pairs a near-black label with a bright amber fill — keep
      that fill at full brightness even though --amber itself was darkened
      above for text/border contrast elsewhere, so the dark label stays
      legible on it. */
   .btn-primary {
-    background: #f5a623;
+    background: var(--amber);
   }
   .btn-primary:hover {
-    background: #ffb83d;
+    background: var(--amber-bright);
   }
 }
 
@@ -335,11 +358,11 @@
 
 .chapter-lab .vu-bar { flex: 1; border-radius: 2px 2px 0 0; min-height: 2px; }
 
-.chapter-lab .vu-bar.green { background: var(--green); box-shadow: 0 0 4px rgba(0,255,135,0.4); }
+.chapter-lab .vu-bar.green { background: var(--green); box-shadow: 0 0 4px rgba(var(--green-rgb),0.4); }
 
-.chapter-lab .vu-bar.amber { background: var(--amber); box-shadow: 0 0 4px rgba(245,166,35,0.4); }
+.chapter-lab .vu-bar.amber { background: var(--amber); box-shadow: 0 0 4px rgba(var(--amber-rgb),0.4); }
 
-.chapter-lab .vu-bar.red { background: var(--red);   box-shadow: 0 0 4px rgba(255,77,106,0.4); }
+.chapter-lab .vu-bar.red { background: var(--red);   box-shadow: 0 0 4px rgba(var(--red-rgb),0.4); }
 
 .chapter-lab .meter-sublabel { color: var(--text-faint); font-size: 0.5rem; font-weight: 400; }
 
@@ -381,7 +404,7 @@
 
 .chapter-lab .concept-callout {
   background: var(--green-dim);
-  border: 1px solid rgba(0,255,135,0.2);
+  border: 1px solid rgba(var(--green-rgb),0.2);
   border-radius: 4px;
   padding: 0.75rem;
   font-size: 0.75rem;
@@ -572,12 +595,12 @@
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  box-shadow: 0 0 6px rgba(77,158,255,0.5);
+  box-shadow: 0 0 6px rgba(var(--blue-rgb),0.5);
   cursor: ns-resize;
   transition: background 0.1s;
 }
 
-.chapter-lab .eq-fader-thumb:hover { background: #7DB8FF; }
+.chapter-lab .eq-fader-thumb:hover { background: var(--blue-bright); }
 
 .chapter-lab .eq-gain-val {
   font-family: var(--mono);
@@ -692,7 +715,7 @@
 
 .chapter-lab .tip-box {
   background: var(--blue-dim);
-  border: 1px solid rgba(77,158,255,0.25);
+  border: 1px solid rgba(var(--blue-rgb),0.25);
   border-radius: 4px;
   padding: 0.6rem 0.75rem;
   font-size: 0.7rem;
@@ -731,7 +754,7 @@
   transition: all 0.15s;
 }
 
-.chapter-lab .btn-primary:hover { background: #FFB83D; box-shadow: 0 0 16px var(--amber-glow); }
+.chapter-lab .btn-primary:hover { background: var(--amber-bright); box-shadow: 0 0 16px var(--amber-glow); }
 
 /* ── Badge ────────────────────────────────────────────────────────────────── */
 
@@ -793,7 +816,7 @@
 
 .chapter-lab .big-knob {
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #2E2E40, var(--console));
+  background: radial-gradient(circle at 35% 35%, var(--strip-navy), var(--console));
   border: 2px solid var(--border-bright);
   position: relative;
   box-shadow: 0 2px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
@@ -802,7 +825,7 @@
 
 .chapter-lab .big-knob:hover { border-color: var(--purple); }
 
-.chapter-lab .big-knob:active { border-color: var(--purple); box-shadow: 0 0 12px rgba(167,139,250,0.3); }
+.chapter-lab .big-knob:active { border-color: var(--purple); box-shadow: 0 0 12px rgba(var(--purple-rgb),0.3); }
 
 .chapter-lab .knob-name {
   font-family: var(--mono);
@@ -964,7 +987,7 @@
 .chapter-lab .gr-meter-fill-v {
   width: 100%;
   border-radius: 4px;
-  background: linear-gradient(180deg, #00FF87 0%, #F5A623 65%, #FF4D6A 100%);
+  background: linear-gradient(180deg, var(--green) 0%, var(--amber) 65%, var(--red) 100%);
   transition: height 0.1s ease;
 }
 
@@ -1180,7 +1203,7 @@
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #5C2E1A, var(--console));
+  background: radial-gradient(circle at 35% 35%, var(--strip-wood), var(--console));
   border: 2px solid var(--border-bright);
   position: relative;
   box-shadow: 0 2px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
@@ -1300,7 +1323,7 @@
 
 .chapter-lab .channel-strip:hover { border-color: var(--border-bright); }
 
-.chapter-lab .channel-strip.selected { border-color: var(--blue); box-shadow: 0 0 12px rgba(77,158,255,0.15); }
+.chapter-lab .channel-strip.selected { border-color: var(--blue); box-shadow: 0 0 12px rgba(var(--blue-rgb),0.15); }
 
 .chapter-lab .channel-name {
   font-family: var(--mono);
@@ -1333,9 +1356,9 @@
 
 .chapter-lab .ch-btn:hover { border-color: var(--border-bright); color: var(--text-dim); }
 
-.chapter-lab .ch-btn.m-active { background: rgba(255,77,106,0.2); border-color: var(--red); color: var(--red); }
+.chapter-lab .ch-btn.m-active { background: rgba(var(--red-rgb),0.2); border-color: var(--red); color: var(--red); }
 
-.chapter-lab .ch-btn.s-active { background: rgba(0,255,135,0.15); border-color: var(--green); color: var(--green); }
+.chapter-lab .ch-btn.s-active { background: rgba(var(--green-rgb),0.15); border-color: var(--green); color: var(--green); }
 
 /* Pan knob */
 
@@ -1358,7 +1381,7 @@
 
 .chapter-lab .pan-knob:hover { border-color: var(--amber); }
 
-.chapter-lab .pan-knob:active { border-color: var(--amber); box-shadow: 0 0 8px rgba(245,166,35,0.3); cursor: grabbing; }
+.chapter-lab .pan-knob:active { border-color: var(--amber); box-shadow: 0 0 8px rgba(var(--amber-rgb),0.3); cursor: grabbing; }
 
 /* Smooth rotating needle — controlled via inline transform */
 
@@ -1372,7 +1395,7 @@
   border-radius: 1px 1px 0 0;
   transform-origin: bottom center;
   pointer-events: none;
-  box-shadow: 0 0 4px rgba(245,166,35,0.6);
+  box-shadow: 0 0 4px rgba(var(--amber-rgb),0.6);
 }
 
 .chapter-lab .pan-label {
@@ -1436,11 +1459,11 @@
   border-radius: 1px;
 }
 
-.chapter-lab .level-seg.g { background: var(--green); box-shadow: 0 0 3px rgba(0,255,135,0.4); }
+.chapter-lab .level-seg.g { background: var(--green); box-shadow: 0 0 3px rgba(var(--green-rgb),0.4); }
 
-.chapter-lab .level-seg.a { background: var(--amber); box-shadow: 0 0 3px rgba(245,166,35,0.4); }
+.chapter-lab .level-seg.a { background: var(--amber); box-shadow: 0 0 3px rgba(var(--amber-rgb),0.4); }
 
-.chapter-lab .level-seg.r { background: var(--red);   box-shadow: 0 0 3px rgba(255,77,106,0.4); }
+.chapter-lab .level-seg.r { background: var(--red);   box-shadow: 0 0 3px rgba(var(--red-rgb),0.4); }
 
 /* Master strip */
 
@@ -1851,7 +1874,7 @@
   background: var(--blue-dim);
   border: 2px solid var(--blue);
   border-radius: 50%;
-  box-shadow: 0 0 12px rgba(77,158,255,0.4);
+  box-shadow: 0 0 12px rgba(var(--blue-rgb),0.4);
   font-size: 0.6rem;
   display: flex;
   align-items: center;
@@ -1890,7 +1913,7 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 1px dashed rgba(77,158,255,0.15);
+  border: 1px dashed rgba(var(--blue-rgb),0.15);
   pointer-events: none;
 }
 
@@ -2031,7 +2054,7 @@
   width: 10px; height: 10px;
   border-radius: 50%;
   background: var(--purple);
-  box-shadow: 0 0 6px rgba(167,139,250,0.5);
+  box-shadow: 0 0 6px rgba(var(--purple-rgb),0.5);
   cursor: pointer;
 }
 

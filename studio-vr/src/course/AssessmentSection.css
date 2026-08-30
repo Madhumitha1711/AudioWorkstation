@@ -30,8 +30,8 @@
   display: inline-block;
   padding: 10px 16px;
   border-radius: 10px;
-  background: rgba(125, 255, 184, 0.08);
-  border: 1px solid rgba(125, 255, 184, 0.3);
+  background: rgba(var(--brand-accent-rgb), 0.08);
+  border: 1px solid rgba(var(--brand-accent-rgb), 0.3);
   color: var(--text);
   font-size: 13.5px;
   margin-bottom: 24px;
@@ -94,12 +94,12 @@
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 .assess-audio-btn:hover {
-  border-color: rgba(125, 255, 184, 0.35);
+  border-color: rgba(var(--brand-accent-rgb), 0.35);
   color: var(--text);
 }
 .assess-audio-btn.playing {
   border-color: var(--accent);
-  background: rgba(125, 255, 184, 0.1);
+  background: rgba(var(--brand-accent-rgb), 0.1);
   color: var(--text);
 }
 
@@ -145,7 +145,7 @@
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 .assess-option:hover:not(:disabled) {
-  border-color: rgba(125, 255, 184, 0.35);
+  border-color: rgba(var(--brand-accent-rgb), 0.35);
   color: var(--text);
 }
 .assess-option:disabled {
@@ -153,17 +153,17 @@
 }
 .assess-option.selected {
   border-color: var(--accent);
-  background: rgba(125, 255, 184, 0.06);
+  background: rgba(var(--brand-accent-rgb), 0.06);
   color: var(--text);
 }
 .assess-option.correct {
-  border-color: rgba(125, 255, 184, 0.6);
-  background: rgba(125, 255, 184, 0.1);
+  border-color: rgba(var(--brand-accent-rgb), 0.6);
+  background: rgba(var(--brand-accent-rgb), 0.1);
   color: var(--text);
 }
 .assess-option.incorrect {
-  border-color: rgba(255, 107, 107, 0.6);
-  background: rgba(255, 107, 107, 0.08);
+  border-color: rgba(var(--danger-rgb), 0.6);
+  background: rgba(var(--danger-rgb), 0.08);
   color: var(--text);
 }
 
@@ -179,12 +179,12 @@
   background: var(--accent);
 }
 .assess-option.correct .assess-option-mark {
-  border-color: #7dffb8;
-  background: #7dffb8;
+  border-color: var(--accent);
+  background: var(--accent);
 }
 .assess-option.incorrect .assess-option-mark {
-  border-color: #ff6b6b;
-  background: #ff6b6b;
+  border-color: var(--danger);
+  background: var(--danger);
 }
 
 .assess-feedback {
@@ -195,12 +195,12 @@
   border-radius: 8px;
 }
 .assess-feedback.good {
-  color: rgba(125, 255, 184, 0.9);
-  background: rgba(125, 255, 184, 0.06);
+  color: rgba(var(--brand-accent-rgb), 0.9);
+  background: rgba(var(--brand-accent-rgb), 0.06);
 }
 .assess-feedback.bad {
-  color: rgba(255, 150, 150, 0.9);
-  background: rgba(255, 107, 107, 0.06);
+  color: rgba(var(--danger-rgb), 0.9);
+  background: rgba(var(--danger-rgb), 0.06);
 }
 
 .assess-actions {
@@ -212,19 +212,25 @@
    background — too washed out on white, so they get darker equivalents
    here instead of just inheriting the variable swap. */
 :root[data-theme='light'] .svr-course .assess {
+  /* Pastel green/red text (rgba(var(--brand-accent-rgb)/--danger-rgb), 0.9)
+     is tuned for a dark background and washes out on white, so light
+     mode gets its own darker solid inks here instead. */
+  --success-ink: #0e7a45;
+  --danger-ink: #c23a3a;
+
   .assess-q-num {
-    background: rgba(4, 20, 12, 0.06);
+    background: rgba(var(--ink-tint-rgb), 0.06);
   }
   .assess-option {
-    background: rgba(4, 20, 12, 0.03);
+    background: rgba(var(--ink-tint-rgb), 0.03);
   }
   .assess-audio-btn {
-    background: rgba(4, 20, 12, 0.03);
+    background: rgba(var(--ink-tint-rgb), 0.03);
   }
   .assess-feedback.good {
-    color: #0e7a45;
+    color: var(--success-ink);
   }
   .assess-feedback.bad {
-    color: #c23a3a;
+    color: var(--danger-ink);
   }
 }

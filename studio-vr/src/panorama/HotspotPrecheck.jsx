@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { quickHelpHoverProps } from "../help/helpHover";
 
 // NOTE: this file is still named HotspotPrecheck.jsx even though the export
 // below is HotspotKnowledgeCheck — it started life as a single-question
@@ -26,32 +27,11 @@ function HotspotKnowledgeCheck({
   onBackToOverview,
   onStartCourse,
   onClose,
-  // True while the onboarding tour's "Start the course" step is pointing at
-  // this quiz's results screen — see src/tour/OnboardingTour.jsx, wired up
-  // from PanoramaTour.jsx. Only relevant here because this results screen's
-  // own "Start course →" button is one of two places that action can live
-  // (the other being the gear panel's "choose how to start" view, which
-  // PanoramaTour highlights directly since it renders that view itself).
-  tourHighlightStartCourse,
-  // True while the onboarding tour's "Test your knowledge" step is current.
-  // That step's actual mandatory action (opening this quiz) is already done
-  // by the time this component is even mounted — there's nothing further in
-  // here for the visitor to click for the tour's sake — so this isn't a
-  // "click here" glow like tourHighlightStartCourse above. It's purely a
-  // stable anchor for OnboardingTour's own position tracking: without a
-  // `.svr-tour-glow` element to measure against, the guide card falls back
-  // to resting in the viewport's bottom-right corner (see
-  // OnboardingTour.jsx's own comment on that fallback) — which is exactly
-  // where this panel itself sits (top: 74px, right: 16px, and tall enough
-  // to reach the bottom on shorter viewports — see .svr-tour-gear-panel in
-  // panoramaTour.css), so the two would overlap. Glowing the header bar
-  // instead (full panel width, so "place the card to its left" clears the
-  // whole panel, not just this strip) gives the card something real to
-  // rest beside on both the question view and the results view below —
-  // paired with svr-tour-glow--done (see onboardingTour.css) so it's a
-  // static ring, not the pulsing animation, since (per above) there's
-  // nothing left to click here.
-  tourAnchorPanel,
+  // Reports whatever's currently hovered/focused in this quiz up to
+  // PanoramaTour's Quick Help popup (help mode) — see helpHover.js and
+  // QuickHelpPanel.jsx. Called with a short description on hover/focus and
+  // `null` on leave/blur.
+  onQuickHelp,
 }) {
   const [step, setStep] = useState(0);
   const [responses, setResponses] = useState(() =>
@@ -98,15 +78,18 @@ function HotspotKnowledgeCheck({
 
     return (
       <div className="svr-tour-gear-panel svr-tour-precheck-panel">
-        <div
-          className={"svr-tour-gear-panel__head" + (tourAnchorPanel ? " svr-tour-glow svr-tour-glow--done" : "")}
-        >
+        <div className="svr-tour-gear-panel__head">
           <span className="svr-tour-gear-badge">{gear.number}</span>
           <div className="svr-tour-gear-panel__titles">
             <div className="svr-tour-gear-panel__title">{gear.title}</div>
             <div className="svr-tour-gear-panel__kicker">Test your knowledge · Results</div>
           </div>
-          <button onClick={onClose} className="svr-tour-gear-panel__close" aria-label="Close">
+          <button
+            onClick={onClose}
+            className="svr-tour-gear-panel__close"
+            aria-label="Close"
+            {...quickHelpHoverProps(onQuickHelp, "Close this panel and return to the control room.")}
+          >
             ×
           </button>
         </div>
@@ -136,15 +119,17 @@ function HotspotKnowledgeCheck({
 
         <div className="svr-tour-gear-panel__footer">
           <div className="svr-tour-gear-panel__footer-row">
-            <button onClick={onBackToOverview} className="svr-tour-btn svr-tour-btn-secondary">
+            <button
+              onClick={onBackToOverview}
+              className="svr-tour-btn svr-tour-btn-secondary"
+              {...quickHelpHoverProps(onQuickHelp, "Go back to the choose-how-to-start overview.")}
+            >
               ← Back
             </button>
             <button
               onClick={onStartCourse}
-              className={
-                "svr-tour-btn svr-tour-btn-primary" +
-                (tourHighlightStartCourse ? " svr-tour-glow" : "")
-              }
+              className="svr-tour-btn svr-tour-btn-primary"
+              {...quickHelpHoverProps(onQuickHelp, "Jump straight into the full lesson for this topic.")}
             >
               Start course →
             </button>
@@ -160,9 +145,7 @@ function HotspotKnowledgeCheck({
 
   return (
     <div className="svr-tour-gear-panel svr-tour-precheck-panel">
-      <div
-        className={"svr-tour-gear-panel__head" + (tourAnchorPanel ? " svr-tour-glow svr-tour-glow--done" : "")}
-      >
+      <div className="svr-tour-gear-panel__head">
         <span className="svr-tour-gear-badge">{gear.number}</span>
         <div className="svr-tour-gear-panel__titles">
           <div className="svr-tour-gear-panel__title">{gear.title}</div>
@@ -170,7 +153,12 @@ function HotspotKnowledgeCheck({
             Test your knowledge · {step + 1} of {total}
           </div>
         </div>
-        <button onClick={onClose} className="svr-tour-gear-panel__close" aria-label="Close">
+        <button
+          onClick={onClose}
+          className="svr-tour-gear-panel__close"
+          aria-label="Close"
+          {...quickHelpHoverProps(onQuickHelp, "Close this panel and return to the control room.")}
+        >
           ×
         </button>
       </div>
@@ -236,7 +224,12 @@ function HotspotKnowledgeCheck({
       </div>
 
       <div className="svr-tour-gear-panel__footer">
-        <button type="button" onClick={onSkip} className="svr-tour-precheck-skip">
+        <button
+          type="button"
+          onClick={onSkip}
+          className="svr-tour-precheck-skip"
+          {...quickHelpHoverProps(onQuickHelp, "Skip the quiz and go back to the choose-how-to-start overview.")}
+        >
           Skip questions
         </button>
         <div className="svr-tour-gear-panel__footer-row">
@@ -245,11 +238,16 @@ function HotspotKnowledgeCheck({
               onClick={checkAnswer}
               disabled={currentResponse.selected === null}
               className="svr-tour-btn svr-tour-btn-primary"
+              {...quickHelpHoverProps(onQuickHelp, "Check your answer to this question.")}
             >
               Check answer
             </button>
           ) : (
-            <button onClick={advance} className="svr-tour-btn svr-tour-btn-primary">
+            <button
+              onClick={advance}
+              className="svr-tour-btn svr-tour-btn-primary"
+              {...quickHelpHoverProps(onQuickHelp, "Move on to the next question.")}
+            >
               {step === total - 1 ? "See results →" : "Next question →"}
             </button>
           )}

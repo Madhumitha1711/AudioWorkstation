@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import "./studioHotspotsPanel.css";
 import { ICONS, buildDeviceList } from "./hotspotDevices";
 import { powerUp, powerDown } from "../store/controlRoomSlice";
+import { quickHelpHoverProps } from "../help/helpHover";
 
 // The left-docked "Studio Hotspots" panel — the Control Room's power-up
 // flow from design/studio-hotspots-panel.html, ported in full: mute
@@ -63,17 +64,6 @@ function StudioHotspotsPanel({
   // it if a device gets switched back off (e.g. Power down) — the lock
   // state simply mirrors "are all devices currently on" live.
   onPoweredChange,
-  // Which real element on this panel the onboarding tour (see
-  // src/tour/OnboardingTour.jsx, wired up from PanoramaTour.jsx) wants
-  // highlighted right now, or null/undefined outside of the tour:
-  // "devices" glows the device list, and "power-button" glows the "Power
-  // up in order" button specifically. Purely a `.svr-tour-glow` class
-  // toggle — no other behavior here changes based on the tour. The "select
-  // a hotspot" step doesn't highlight anything on this panel — it points at
-  // the hotspot marker directly in the scene instead (see PanoramaTour's
-  // tourGlowMarkerId), since it asks the visitor to click there rather than
-  // use this panel.
-  tourHighlight,
   // True while PanoramaTour has a pending "focus this hotspot" request (see
   // its own focus-hotspot effect) and the rig isn't powered yet — a visitor
   // routed here from a specific chapter (CoursePage's "← Back to the
@@ -81,12 +71,12 @@ function StudioHotspotsPanel({
   // sequence first. Runs the same instant sequence as clicking "Power up
   // Control Room" — see the effect below.
   autoPowerUp,
-  // Bumped (to a new, distinct number each time — see PanoramaTour's own
-  // comment on powerDownSignal) whenever the visitor restarts the tour
-  // from the toolbar's replay button. Powers everything back off so the
-  // tour's first step ("power up the rig") isn't asking the visitor to
-  // click a button that's already lit — see the effect below.
-  powerDownSignal,
+  // Reports whatever's currently hovered/focused on this panel up to
+  // PanoramaTour's Quick Help popup (help mode) — see helpHover.js and
+  // QuickHelpPanel.jsx. Called with a short description on hover/focus and
+  // `null` on leave/blur; safe to spread onto any element via
+  // quickHelpHoverProps even while help mode is off.
+  onQuickHelp,
 }) {
   const [collapsed, setCollapsed] = useState(false);
   // Tracks whether the panel was auto-collapsed by the effect below (as
@@ -154,17 +144,6 @@ function StudioHotspotsPanel({
     }
   }, [activeModule]);
 
-  // The onboarding tour (see src/tour/, wired up from PanoramaTour.jsx)
-  // points at something on this panel — force it open. Without this, a
-  // visitor who collapsed the panel (or hit it while still auto-collapsed
-  // from a just-closed DAW module, see the effect above) would land on the
-  // tour's very first, mandatory "power up the rig" step with no way to
-  // even see the power switches. The className guard below backs this up
-  // for the same frame the tour starts targeting this panel, before this
-  // effect's setCollapsed(false) has had a chance to commit.
-  useEffect(() => {
-    if (tourHighlight) setCollapsed(false);
-  }, [tourHighlight]);
 
   // Re-derive the round whenever the room (and therefore its device list)
   // changes — e.g. the visitor walks into a different room.
@@ -221,17 +200,6 @@ function StudioHotspotsPanel({
     // only re-runs on autoPowerUp itself; allDevicesOn is read live.
   }, [autoPowerUp, devices.length]);
 
-  // Powers everything back off on request (see powerDownSignal's own
-  // comment above). powerDownSignal starts at 0 in PanoramaTour and only
-  // ever counts up from there, so 0 always means "never requested" —
-  // skipping it here means mounting this panel never power-cycles a rig
-  // the visitor already had running.
-  useEffect(() => {
-    if (!powerDownSignal) return;
-    powerDownAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires only on
-    // powerDownSignal changing; powerDownAll itself doesn't need to be a dep.
-  }, [powerDownSignal]);
 
   if (devices.length === 0) return null;
 
@@ -332,16 +300,7 @@ function StudioHotspotsPanel({
   const handleRowActivate = (device) => onSelectDevice(device.kind, device.id);
 
   return (
-    <div
-      className={
-        "svr-hotspot-panel" +
-        // "force open for the tour" intent as the effect above, enforced
-        // directly in render too: whatever `collapsed` currently holds,
-        // this panel never actually *renders* collapsed while the tour has
-        // it (or something on it) highlighted.
-        (collapsed && !tourHighlight ? " is-collapsed" : "")
-      }
-    >
+    <div className={"svr-hotspot-panel" + (collapsed ? " is-collapsed" : "")}>
       <div className="svr-hotspot-panel__header">
         <div className="svr-hotspot-panel__eyebrow">{eyebrowText}</div>
         <button
@@ -350,6 +309,7 @@ function StudioHotspotsPanel({
           aria-label="Toggle sound"
           title="Toggle sound"
           type="button"
+          {...quickHelpHoverProps(onQuickHelp, "Mutes or unmutes the power-up sound effects on this panel.")}
         >
           <svg
             viewBox="0 0 24 24"
@@ -391,15 +351,7 @@ function StudioHotspotsPanel({
             // while the sequence is already animating (sequencing), since
             // the "Powering up…"/disabled state already communicates that
             // on its own.
-            (!allDevicesOn && !sequencing ? " svr-hotspot-qbtn--power-cta" : "") +
-            (tourHighlight === "power-button" ? " svr-tour-glow" : "") +
-            // Keeps the guide card anchored here for the rest of the
-            // "power-up" step (see tourPanelHighlight in PanoramaTour.jsx —
-            // .svr-tour-glow has to stay on this element or the card jumps
-            // to its fallback corner) but drops the pulsing halo itself the
-            // instant the rig is actually on — there's nothing left to
-            // click here, so a still-pulsing button reads as a stale cue.
-            (tourHighlight === "power-button" && allDevicesOn ? " svr-tour-glow--done" : "")
+            (!allDevicesOn && !sequencing ? " svr-hotspot-qbtn--power-cta" : "")
           }
           onClick={classicPowerUpSequence}
           disabled={sequencing}
@@ -408,6 +360,10 @@ function StudioHotspotsPanel({
           aria-label={
             !allDevicesOn ? "Power up Control Room — click to power on the control room" : undefined
           }
+          {...quickHelpHoverProps(
+            onQuickHelp,
+            "Powers up every device in the signal chain, in order, so you can explore the rest of the room."
+          )}
         >
           {sequencing ? "Powering up…" : "Power up Control Room"}
         </button>
@@ -415,6 +371,7 @@ function StudioHotspotsPanel({
           className="svr-hotspot-qbtn svr-hotspot-qbtn--danger"
           onClick={powerDownAll}
           type="button"
+          {...quickHelpHoverProps(onQuickHelp, "Powers the whole rig back down.")}
         >
           Power down
         </button>
@@ -431,11 +388,7 @@ function StudioHotspotsPanel({
         </span>
       </div>
 
-      <div
-        className={
-          "svr-hotspot-panel__list" + (tourHighlight === "devices" ? " svr-tour-glow" : "")
-        }
-      >
+      <div className="svr-hotspot-panel__list">
         {devices.map((d, i) => {
           const nodeLabel = String(i + 1).padStart(2, "0");
           const state = round.status[d.id] || "off";
@@ -464,6 +417,7 @@ function StudioHotspotsPanel({
                   handleRowActivate(d);
                 }
               }}
+              {...quickHelpHoverProps(onQuickHelp, `${d.title} — click to walk over and read about it.`)}
             >
               <div className="svr-hotspot-rail">
                 <div
@@ -504,6 +458,7 @@ function StudioHotspotsPanel({
         type="button"
         aria-label={collapsed ? "Show hotspots panel" : "Hide hotspots panel"}
         title={collapsed ? "Show hotspots panel" : "Hide hotspots panel"}
+        {...quickHelpHoverProps(onQuickHelp, collapsed ? "Show the hotspots panel." : "Hide the hotspots panel.")}
       >
         {collapsed ? "›" : "‹"}
       </button>

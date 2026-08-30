@@ -11,6 +11,7 @@ import {
   createScannerNodes,
   teardownScannerNodes,
 } from "./soundCardLabSynthAudio";
+import { quickHelpHoverProps } from "../../help/helpHover";
 
 // Sound Card hotspot's "Sound Card Lab" — same treatment as the Speakers
 // hotspot's Listening Lab (see SpeakerListeningLab.jsx): replaces the
@@ -55,27 +56,11 @@ function SoundCardLab({
   onClose,
   onBackToOverview,
   onStartCourse,
-  // True while the onboarding tour's "Test your knowledge" step is
-  // current (see src/tour/OnboardingTour.jsx, wired up from
-  // PanoramaTour.jsx). That step's action (opening this lab) is already
-  // done by the time this component is even open, so this isn't a
-  // "click here" glow — it's purely a stable anchor for the guide
-  // card's own position tracking. Without a .svr-tour-glow element to
-  // measure against once the choice panel's own glowing button unmounts
-  // (this lab replaces it), the card falls back to the viewport's
-  // bottom-right corner — which is exactly where this panel itself
-  // docks, so the two would overlap and the card would visibly jump
-  // there. Paired with svr-tour-glow--done (see onboardingTour.css) so
-  // it's a static ring, not the pulsing animation — there's nothing left
-  // to click here. See HotspotPrecheck.jsx's tourAnchorPanel for the
-  // same pattern.
-  tourAnchorPanel,
-  // True while the onboarding tour's "Start the course" step is current
-  // (see src/tour/OnboardingTour.jsx). Unlike tourAnchorPanel above, this
-  // really is a "click here" cue — it's the one remaining action that
-  // step asks for — so it gets the full pulsing svr-tour-glow, same as
-  // HotspotKnowledgeCheck's tourHighlightStartCourse.
-  tourHighlightStartCourse,
+  // Reports whatever's currently hovered/focused in this lab up to
+  // PanoramaTour's Quick Help popup (help mode) — see helpHover.js and
+  // QuickHelpPanel.jsx. Called with a short description on hover/focus
+  // and `null` on leave/blur.
+  onQuickHelp,
 }) {
   const [activeTab, setActiveTab] = useState(0);
 
@@ -91,7 +76,7 @@ function SoundCardLab({
 
   return (
     <div className="svr-tour-gear-panel llab-panel-shell">
-      <div className={"svr-tour-gear-panel__head" + (tourAnchorPanel ? " svr-tour-glow svr-tour-glow--done" : "")}>
+      <div className="svr-tour-gear-panel__head">
         <span className="svr-tour-gear-badge llab-badge" aria-hidden="true">
           🔌
         </span>
@@ -106,6 +91,7 @@ function SoundCardLab({
           className="svr-tour-gear-panel__close"
           aria-label="Close Sound Card Lab"
           type="button"
+          {...quickHelpHoverProps(onQuickHelp, "Close this lab and go back to the panel.")}
         >
           ×
         </button>
@@ -149,17 +135,16 @@ function SoundCardLab({
             type="button"
             className="svr-tour-btn svr-tour-btn-secondary"
             onClick={onBackToOverview}
+            {...quickHelpHoverProps(onQuickHelp, "Go back to the choose-how-to-start overview.")}
           >
             ← Back
           </button>
           {onStartCourse && (
             <button
               type="button"
-              className={
-                "svr-tour-btn svr-tour-btn-primary" +
-                (tourHighlightStartCourse ? " svr-tour-glow" : "")
-              }
+              className="svr-tour-btn svr-tour-btn-primary"
               onClick={onStartCourse}
+              {...quickHelpHoverProps(onQuickHelp, "Jump straight into the full lesson for this topic.")}
             >
               Start course →
             </button>

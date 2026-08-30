@@ -1,0 +1,179 @@
+/* Styles for WelcomeVideoDialog (see WelcomeVideoDialog.jsx) — the
+   first-landing "how to use this app" walkthrough. Built on the app's own
+   --shell-* tokens (see index.css) so it follows the light/dark theme
+   toggle like the rest of the tour screen. */
+
+@keyframes svr-welcome-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes svr-welcome-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Covers the entire PanoramaTour root (the positioned ancestor
+   PanoramaTour.jsx renders into is 100% of the studio view, not the
+   browser viewport) and blurs/dims everything behind it — the panorama,
+   toolbar, hotspots, side panel — while the video plays. Sits above every
+   other piece of tour chrome (toolbar/hint/gear-panel z-index 60,
+   QuickHelpPanel 65, the power-up side panel 40) since this is the very
+   first thing a visitor should see and has to block interaction with all
+   of it until dismissed — but still under the ~90+ layer Photo Sphere
+   Viewer reserves for its own navbar/notifications, which this never
+   needs to sit above. */
+.svr-welcome-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 88;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  animation: svr-welcome-fade-in 0.2s ease;
+}
+
+/* 80% of the studio's own width/height — i.e. 80% of .svr-welcome-overlay,
+   which is itself sized to the full studio view (see the comment above). */
+.svr-welcome-dialog {
+  width: 80%;
+  height: 80%;
+  display: flex;
+  flex-direction: column;
+  background: var(--shell-bg);
+  border: 1px solid var(--shell-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  animation: svr-welcome-pop-in 0.22s ease;
+}
+
+.svr-welcome-dialog__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--shell-border-soft);
+  flex-shrink: 0;
+}
+
+.svr-welcome-dialog__kicker {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--shell-text-dim);
+  margin-bottom: 4px;
+}
+
+.svr-welcome-dialog__title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--shell-text);
+}
+
+.svr-welcome-dialog__close {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--shell-text-dim);
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.svr-welcome-dialog__close:hover {
+  background: var(--shell-panel-hover);
+  color: var(--shell-text);
+}
+
+.svr-welcome-dialog__video-wrap {
+  flex: 1;
+  min-height: 0;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.svr-welcome-dialog__video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.svr-welcome-dialog__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px;
+  text-align: center;
+  color: var(--shell-text-dim);
+  max-width: 420px;
+}
+
+.svr-welcome-dialog__placeholder-icon {
+  font-size: 40px;
+}
+
+.svr-welcome-dialog__placeholder code {
+  background: var(--shell-panel);
+  border: 1px solid var(--shell-border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 12px;
+}
+
+.svr-welcome-dialog__footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 22px 18px;
+  flex-shrink: 0;
+  border-top: 1px solid var(--shell-border-soft);
+}
+
+.svr-welcome-dialog__hint {
+  margin: 0;
+  flex: 1;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--shell-text-dim);
+}
+
+.svr-welcome-dialog__footer .svr-tour-btn {
+  flex: 0 0 auto;
+  padding: 10px 20px;
+}
+
+@media (max-width: 640px) {
+  .svr-welcome-dialog {
+    width: 92%;
+    height: 86%;
+  }
+
+  .svr-welcome-dialog__footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

@@ -7,10 +7,24 @@
   --text: #ffffff;
   --text-dim: rgba(255, 255, 255, 0.65);
   --text-dimmer: rgba(255, 255, 255, 0.45);
-  --accent: #7dffb8;
-  --accent2: #17c76a;
-  --accent-ink: #04160a;
+  /* See the matching comment in LandingPage.css: these three now read the
+     generic brand palette (src/theme/palettes.js) instead of a hardcoded
+     green, and already track light/dark theme via PaletteContext. */
+  --accent: var(--brand-accent);
+  --accent2: var(--brand-accent-2);
+  --accent-ink: var(--brand-accent-ink);
   --gradient-accent: radial-gradient(circle at 32% 28%, var(--accent), var(--accent2) 70%);
+
+  /* Semantic status colors for assessment feedback (AssessmentSection.css)
+     and lab results (interactive/labs.css) - fixed red/amber regardless of
+     the chosen brand palette, the same way a real UI's error/warning colors
+     don't change with a theme switch. "Good/correct" states reuse --accent
+     above instead of a separate token. */
+  --danger: #ff6b6b;
+  --danger-rgb: 255, 107, 107;
+  --danger-soft: #ff8080;
+  --warning: #ffb86b;
+  --warning-rgb: 255, 184, 107;
 
   width: 100%;
   height: 100%;
@@ -319,7 +333,7 @@
   }
   .topic-head.current {
     color: var(--accent);
-    background: rgba(125, 255, 184, 0.06);
+    background: rgba(var(--brand-accent-rgb), 0.06);
     border-left-color: var(--accent);
   }
   .topic-head.locked {
@@ -355,7 +369,7 @@
     color: var(--text-dimmer);
   }
   .topic-head .tloc.anchored {
-    color: rgba(125, 255, 184, 0.7);
+    color: rgba(var(--brand-accent-rgb), 0.7);
   }
   .topic-head .tcount {
     font-size: 10.5px;
@@ -402,8 +416,8 @@
     color: #fff;
   }
   .lesson-item.active {
-    background: rgba(125, 255, 184, 0.09);
-    border-color: rgba(125, 255, 184, 0.3);
+    background: rgba(var(--brand-accent-rgb), 0.09);
+    border-color: rgba(var(--brand-accent-rgb), 0.3);
     color: #fff;
   }
 
@@ -500,8 +514,8 @@
   }
   .loc-chip.anchored {
     color: var(--accent);
-    background: rgba(125, 255, 184, 0.08);
-    border-color: rgba(125, 255, 184, 0.3);
+    background: rgba(var(--brand-accent-rgb), 0.08);
+    border-color: rgba(var(--brand-accent-rgb), 0.3);
   }
 
   .topic-intro {
@@ -652,9 +666,9 @@
     cursor: pointer;
     font-weight: 700;
     font-size: 13px;
-    background: rgba(125, 255, 184, 0.1);
+    background: rgba(var(--brand-accent-rgb), 0.1);
     color: var(--accent);
-    border: 1px solid rgba(125, 255, 184, 0.4);
+    border: 1px solid rgba(var(--brand-accent-rgb), 0.4);
     font-family: inherit;
   }
   .complete-btn.done {
@@ -670,8 +684,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: linear-gradient(90deg, rgba(125, 255, 184, 0.1), rgba(125, 255, 184, 0.02));
-    border: 1px solid rgba(125, 255, 184, 0.25);
+    background: linear-gradient(90deg, rgba(var(--brand-accent-rgb), 0.1), rgba(var(--brand-accent-rgb), 0.02));
+    border: 1px solid rgba(var(--brand-accent-rgb), 0.25);
     gap: 16px;
     flex-wrap: wrap;
   }
@@ -755,25 +769,22 @@
 /* ── Light theme ─────────────────────────────────────────────────────────── */
 :root[data-theme='light'] .svr-course {
   --bg: #f6f8f6;
-  --panel: rgba(4, 20, 12, 0.04);
-  --panel-hover: rgba(4, 20, 12, 0.07);
-  --border: rgba(4, 20, 12, 0.14);
-  --border-soft: rgba(4, 20, 12, 0.09);
+  --panel: rgba(var(--ink-tint-rgb), 0.04);
+  --panel-hover: rgba(var(--ink-tint-rgb), 0.07);
+  --border: rgba(var(--ink-tint-rgb), 0.14);
+  --border-soft: rgba(var(--ink-tint-rgb), 0.09);
   --text: #0c130f;
   --text-dim: rgba(12, 19, 15, 0.7);
   --text-dimmer: rgba(12, 19, 15, 0.5);
-  --accent: #047857;
-  --accent2: #10b981;
-  --accent-ink: #ffffff;
 
   .course-topbar {
-    background: rgba(246, 248, 246, 0.92);
+    background: rgba(var(--page-tint-rgb), 0.92);
   }
   .btn-secondary {
-    background: rgba(4, 20, 12, 0.05);
+    background: rgba(var(--ink-tint-rgb), 0.05);
   }
   .progress-track {
-    background: rgba(4, 20, 12, 0.08);
+    background: rgba(var(--ink-tint-rgb), 0.08);
   }
   .topic-head:hover,
   .lesson-item:hover,
@@ -782,6 +793,6 @@
     color: var(--text);
   }
   .tsoon {
-    background: rgba(4, 20, 12, 0.06);
+    background: rgba(var(--ink-tint-rgb), 0.06);
   }
 }

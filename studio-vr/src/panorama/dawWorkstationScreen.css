@@ -25,6 +25,11 @@
   --lime: #a3e635;
   --lime-dim: rgba(163, 230, 53, 0.15);
   --lime-glow: rgba(163, 230, 53, 0.4);
+  /* Dark ink for text sitting on top of a solid bright module color (e.g.
+     the "is-playing" transport button below) - not part of the brand
+     palette, just a fixed readable ink for this DAW screen's own hardware
+     LED colors, same idea as chapters.css's module-color system. */
+  --ink-on-bright: #04160a;
   /* Single source of truth for a tracklist row's height, shared by
      .track-row (left pane) and .arr-row (right pane, its waveform lane) —
      see the long comment on .track-row below for why these two MUST stay
@@ -261,7 +266,7 @@
 }
 .transport-btn.play.is-playing {
   background: var(--green);
-  color: #04160a;
+  color: var(--ink-on-bright);
 }
 .transport-btn.loop.is-on {
   background: var(--blue-dim);
@@ -292,7 +297,7 @@
   font-family: inherit;
   font-size: 10px;
   font-weight: 700;
-  color: #1a1200;
+  color: var(--ink-on-bright);
   background: var(--amber);
   border: none;
   border-radius: 999px;

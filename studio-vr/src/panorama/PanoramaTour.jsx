@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Viewer } from "@photo-sphere-viewer/core";
 import { VirtualTourPlugin } from "@photo-sphere-viewer/virtual-tour-plugin";
@@ -30,37 +30,21 @@ import StudioHotspotsPanel from "./StudioHotspotsPanel";
 // HotspotPrecheck.jsx — see the note at the top of that file.
 import HotspotKnowledgeCheck from "./HotspotPrecheck";
 import { TOPICS } from "../course/courseData";
-import OnboardingTour from "../tour/OnboardingTour";
-import TourWelcomeModal from "../tour/TourWelcomeModal";
-import { TOUR_STEPS } from "../tour/tourSteps";
+import QuickHelpPanel from "../help/QuickHelpPanel";
+import { quickHelpHoverProps } from "../help/helpHover";
+import WelcomeVideoDialog from "./WelcomeVideoDialog";
 import "./panoramaTour.css";
-
-// First-time-visitor onboarding tour (see src/tour/). One flag for the
-// whole tour, not per-room/per-topic — walking through the Studio's rig
-// once is enough to have "seen" the tour, so this never re-triggers itself
-// on later visits or room changes. A visitor can still restart it any time
-// via the toolbar's replay button (see handleTourReplay below).
-const TOUR_STORAGE_KEY = "studioVrTourCompleted";
-function hasCompletedTour() {
-  try {
-    return localStorage.getItem(TOUR_STORAGE_KEY) === "true";
-  } catch (e) {
-    return false;
-  }
-}
-function markTourCompleted() {
-  try {
-    localStorage.setItem(TOUR_STORAGE_KEY, "true");
-  } catch (e) {
-    /* storage unavailable */
-  }
-}
 
 // The wide, "standing in the middle of the room" resting view — used both
 // for the first-arrival reveal and to zoom back out whenever a hotspot's
 // gear panel is closed, so the camera doesn't just stay parked at whatever
 // hotspot zoomLvl it walked up to.
 const REST_ZOOM_LVL = 5;
+
+// localStorage flag for WelcomeVideoDialog (see that file) — set once the
+// visitor closes/finishes the first-landing walkthrough video, so it only
+// ever auto-opens once per browser rather than on every visit.
+const WELCOME_VIDEO_SEEN_KEY = "svr-welcome-video-seen";
 
 const deg = (value) => `${value}deg`;
 
@@ -215,6 +199,21 @@ function findHotspotLocation(hotspotId) {
   return null;
 }
 
+// Quick Help copy for a hovered hotspot marker (see the enter-marker
+// listener in the viewer-setup effect below) — reuses each marker's own
+// title/description from roomsData.js rather than maintaining a second,
+// separate copy of the same information just for help mode.
+function describeMarkerHelp(data) {
+  if (!data) return null;
+  if (data.kind === "door") {
+    return "Doorway — click to walk through to the next room.";
+  }
+  if (data.kind === "interactive") {
+    return `${data.title} — click to open this interactive module.`;
+  }
+  return data.description ? `${data.title} — ${data.description}` : data.title;
+}
+
 function PanoramaTour() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -260,15 +259,6 @@ function PanoramaTour() {
   // to redo the power-up sequence first. See the focus-hotspot effect
   // below and StudioHotspotsPanel's own autoPowerUp prop.
   const [autoPowerUp, setAutoPowerUp] = useState(false);
-  // Bumped by the toolbar's replay button (handleTourReplay below) to ask
-  // StudioHotspotsPanel to power the rig back down — see its own
-  // powerDownSignal prop/effect. Restarting the tour always opens on the
-  // "power up the rig" step; if the rig were left powered on from an
-  // earlier visit, that first step's own instruction ("Power up Control
-  // Room to bring the rig online") wouldn't line up with what's already on
-  // screen, so the replay needs the rig back in its "off" starting state
-  // for the tour to make sense again.
-  const [powerDownSignal, setPowerDownSignal] = useState(0);
 
   const [currentRoomName, setCurrentRoomName] = useState("");
   const [currentRoomId, setCurrentRoomId] = useState(START_NODE_ID);
@@ -341,27 +331,50 @@ function PanoramaTour() {
   // included.
   const [poweredOn, setPoweredOn] = useState(false);
 
-  // First-time-visitor onboarding tour state (see src/tour/). `tourActive`
-  // is whether the guide card is currently showing at all; `tourStepIndex`
-  // is which step (of the dynamically-built tourStepsForCard, see below)
-  // it's on. `selectedHotspotId` tracks the "select a hotspot" mandatory
-  // step — it's only ever set inside onSelectMarker below, on a genuine
-  // marker click in the 3D scene (never by handlePanelSelectDevice, i.e.
-  // never by clicking a device row in the side panel), so that step can't
-  // be satisfied by the side-panel shortcut the tour specifically doesn't
-  // want used here; it holds the specific device id clicked, though a
-  // boolean would do just as well today since no step currently narrows
-  // the requirement beyond "any device" (see tourStepsForCard).
-  const [tourActive, setTourActive] = useState(false);
-  const [tourStepIndex, setTourStepIndex] = useState(0);
-  const [selectedHotspotId, setSelectedHotspotId] = useState(null);
-  // Gates the guide card (and every .svr-tour-glow highlight it drives)
-  // behind an explicit "Start tour" welcome modal — see TourWelcomeModal.jsx
-  // and `currentTourStep` below, which stays null while this is true. Set
-  // alongside tourActive everywhere the tour (re)starts, so a fresh tour
-  // always opens on the welcome screen rather than dropping straight into
-  // step 1.
-  const [tourWelcomeOpen, setTourWelcomeOpen] = useState(false);
+  // First-landing "how to use this studio" walkthrough video — see
+  // WelcomeVideoDialog.jsx. Opens automatically the first time a visitor
+  // reaches a `status === "ready"` studio screen (tracked via the
+  // WELCOME_VIDEO_SEEN_KEY localStorage flag, since PanoramaTour re-mounts
+  // per room/route and a plain useState(true) would show it again on that
+  // alone rather than genuinely once per visitor) and stays reopenable any
+  // time after from the toolbar's "🎬" button, which does not touch that
+  // flag.
+  const [welcomeVideoOpen, setWelcomeVideoOpen] = useState(false);
+
+  useEffect(() => {
+    if (status !== "ready") return;
+    let alreadySeen = false;
+    try {
+      alreadySeen = window.localStorage.getItem(WELCOME_VIDEO_SEEN_KEY) === "1";
+    } catch {
+      // localStorage can throw in private-browsing/storage-blocked
+      // contexts — fail open rather than crash; worst case the video just
+      // shows again next time instead of being remembered.
+    }
+    if (!alreadySeen) setWelcomeVideoOpen(true);
+  }, [status]);
+
+  const closeWelcomeVideo = () => {
+    setWelcomeVideoOpen(false);
+    try {
+      window.localStorage.setItem(WELCOME_VIDEO_SEEN_KEY, "1");
+    } catch {
+      // ignore — see the comment above
+    }
+  };
+
+  // Help mode: an on-demand alternative to the old onboarding tour.
+  // Turning it on (the toolbar's help-mode toggle, see toggleHelpMode
+  // below) keeps a small "Quick Help" popup pinned on screen for as long as
+  // it's on (see QuickHelpPanel.jsx); hovering — or keyboard-focusing — any
+  // control or piece of gear on this screen updates that popup with a
+  // message about whatever's under the pointer, via the `onQuickHelp`
+  // callback (really just setHelpMessage) handed down to every panel
+  // below. `helpMessage` stays null whenever nothing is currently
+  // hovered/focused, in which case the popup shows its own standing prompt
+  // instead.
+  const [helpModeOn, setHelpModeOn] = useState(false);
+  const [helpMessage, setHelpMessage] = useState(null);
 
   // Forces the master output off for as long as the scene is locked, on top
   // of whatever the visitor's own mute preference (audioMuted) is, so
@@ -378,23 +391,6 @@ function PanoramaTour() {
     setMuted(audioMuted || !poweredOn);
   }, [audioMuted, poweredOn]);
 
-  // Auto-starts the onboarding tour the first time this screen ever
-  // reaches "ready" for a visitor who hasn't completed (or skipped) it
-  // before. `status` flips to "ready" on every room change (see
-  // onNodeChanged below), not just the very first load, so this is guarded
-  // on `!tourActive` too — otherwise walking through a doorway mid-tour
-  // would reset it back to step 1. Once the tour is completed or skipped,
-  // markTourCompleted() persists that immediately, so this simply never
-  // fires again on later visits.
-  useEffect(() => {
-    if (status === "ready" && !tourActive && !hasCompletedTour()) {
-      setTourActive(true);
-      setTourWelcomeOpen(true);
-      setTourStepIndex(0);
-      setSelectedHotspotId(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status]);
 
   useEffect(() => {
     activeModuleRef.current = activeModule;
@@ -598,23 +594,26 @@ function PanoramaTour() {
       if (e.marker.data?.kind === "door") {
         goToRoom(e.marker.data.nodeId);
       } else if (e.marker.data?.kind === "interactive") {
-        // Records which device the onboarding tour's "select a hotspot"
-        // step actually got clicked directly in the scene — this event
-        // only fires from a genuine click on a marker's own rendered icon
-        // (see the markers-plugin source), never from gotoMarker()'s camera
-        // animation, so this can't be satisfied by handlePanelSelectDevice
-        // routing a side-panel click through goToInteractiveMarker instead.
-        setSelectedHotspotId(e.marker.id);
         goToInteractiveMarker(e.marker.id, e.marker.data);
       } else {
-        // Same "clicked directly in the scene" recording as the
-        // "interactive" branch above, for ordinary gear hotspots — this is
-        // also how the tour's "select a hotspot" step is satisfied.
-        setSelectedHotspotId(e.marker.id);
         goToMarker(e.marker.id);
       }
     };
     markers.addEventListener("select-marker", onSelectMarker);
+
+    // Feeds the Quick Help popup (see help mode's state above and
+    // QuickHelpPanel.jsx) while a visitor hovers any hotspot marker in the
+    // scene — the markers plugin renders marker `html` outside of React, so
+    // this is the only way to know when the pointer is over one. Reports
+    // unconditionally rather than checking helpModeOn: setHelpMessage is
+    // harmless to call whenever the Quick Help popup isn't mounted to read
+    // it, and this effect only ever runs once (mount-only `[]` dependency
+    // list below), so reading helpModeOn here directly would just close
+    // over its very first value.
+    const onEnterMarker = (e) => setHelpMessage(describeMarkerHelp(e.marker.data));
+    const onLeaveMarker = () => setHelpMessage(null);
+    markers.addEventListener("enter-marker", onEnterMarker);
+    markers.addEventListener("leave-marker", onLeaveMarker);
 
     const onClick = (e) => {
       if (!placementModeRef.current) return;
@@ -814,12 +813,6 @@ function PanoramaTour() {
   // would defeat the point of gating it behind the power-up sequence.
   const handlePanelSelectDevice = (kind, id) => {
     if (!poweredOn) return;
-    // Deliberately does NOT record this as satisfying the onboarding tour's
-    // "select a hotspot" step — that step now specifically asks the visitor
-    // to click a device directly in the studio scene (see onSelectMarker
-    // above, the only place selectedHotspotId gets set), not to use this
-    // side-panel shortcut. The panel click still works normally otherwise —
-    // it just doesn't count toward the tour.
     if (kind === "interactive") {
       const marker = markersRef.current?.getMarker(id);
       if (marker) goToInteractiveMarkerRef.current?.(id, marker.data);
@@ -871,68 +864,12 @@ function PanoramaTour() {
     // stable per-render function, not state; only these three should re-run it.
   }, [status, currentRoomId, poweredOn]);
 
-  // Advances the onboarding tour to its next step — only ever called by the
-  // tour card's own "Next"/"Continue" button, which is itself disabled for
-  // a pending mandatory step (see tourCanContinue below), so this never
-  // needs to re-check that here.
-  const handleTourAdvance = () => {
-    setTourStepIndex((i) => Math.min(i + 1, tourStepsForCard.length - 1));
-  };
-
-  // Dismisses the tour entirely (the card's "Skip tour" link) and marks it
-  // completed so it doesn't auto-start again on a later visit or room
-  // change. Deliberately always available, even mid-mandatory-step — a
-  // guided tour that traps the visitor until they perform an action isn't
-  // a good look, mandatory here only means "the Continue button won't
-  // enable on its own", not "there's no way out".
-  const handleTourSkip = () => {
-    setTourActive(false);
-    markTourCompleted();
-  };
-
-  // "Start tour" on the welcome modal — just closes the modal so the guide
-  // card (already sitting at stepIndex 0 from the auto-start/replay effect
-  // above) takes over. Skipping from the welcome modal itself reuses
-  // handleTourSkip directly (same "dismiss and mark completed" behavior);
-  // no separate handler needed since tourActive flipping false already
-  // hides the welcome modal too (see its render guard below).
-  const handleTourWelcomeStart = () => {
-    setTourWelcomeOpen(false);
-  };
-
-  // Ends the tour from its own last step's "Finish tour" button (see
-  // OnboardingTour's `isLast` branch) — functionally identical to
-  // handleTourSkip above (same "dismiss and mark completed" behavior), kept
-  // as its own named handler because at this point it isn't a skip: the
-  // visitor has been through every step, and this is the tour's own
-  // intended finish line for anyone who doesn't go on to click "Start
-  // course" itself (which ends it too, via finishTourIfActive below).
-  const handleTourFinish = () => {
-    setTourActive(false);
-    markTourCompleted();
-  };
-
-  // Restarts the tour from the toolbar's replay button, any time — most
-  // useful for a visitor who skipped it earlier (or completed it long ago)
-  // and wants a refresher.
-  const handleTourReplay = () => {
-    setSelectedHotspotId(null);
-    setTourStepIndex(0);
-    setTourWelcomeOpen(true);
-    setTourActive(true);
-    setPowerDownSignal((n) => n + 1);
-  };
-
-  // Called from every "Start course" click site below (the gear panel's
-  // choice card, and the quiz results screen's own button) — starting the
-  // course is the natural finish line for the tour regardless of which
-  // step it's currently on, so this always ends it rather than only doing
-  // so if the visitor happened to reach the final step first.
-  const finishTourIfActive = () => {
-    if (tourActive) {
-      setTourActive(false);
-      markTourCompleted();
-    }
+  // Toolbar's help-mode toggle. Turning help mode off also clears whatever
+  // message happens to be showing, so switching it back on later starts
+  // from the popup's own standing prompt instead of a stale leftover one.
+  const toggleHelpMode = () => {
+    setHelpModeOn((v) => !v);
+    setHelpMessage(null);
   };
 
   const currentRoom = ROOMS.find((room) => room.id === currentRoomId);
@@ -998,106 +935,6 @@ function PanoramaTour() {
   // preference alone.
   const effectiveAudioMuted = audioMuted || !poweredOn;
 
-  // Onboarding tour derived state — see src/tour/tourSteps.js for the step
-  // script and the state block above for tourActive/tourStepIndex/
-  // selectedHotspotId. Kept here, alongside the rest of this component's
-  // derived render values, since every mandatory step's "has this actually
-  // happened yet" check reads state that only PanoramaTour has —
-  // OnboardingTour itself stays a dumb display component driven entirely by
-  // the `steps`/`canContinue` props built here. Every visitor sees the same
-  // fixed TOUR_STEPS sequence — nothing here branches the step list itself.
-  const tourStepsForCard = TOUR_STEPS;
-
-  const currentTourStep = tourActive && !tourWelcomeOpen ? tourStepsForCard[tourStepIndex] : null;
-  const tourCanContinue = currentTourStep
-    ? currentTourStep.id === "power-up"
-      ? poweredOn
-      : currentTourStep.id === "select-hotspot"
-        ? selectedHotspotId !== null
-        : currentTourStep.id === "start-course"
-          ? // Never "done" via this flag — the last step has no Continue
-            // button (see OnboardingTour's `isLast` branch), so this only
-            // controls whether its pendingHint text shows, not any button
-            // state. The real completion is finishTourIfActive() firing
-            // when the actual "Start course" button is clicked.
-            false
-          : true
-    : true;
-  // Which real element the current step should glow (see .svr-tour-glow in
-  // src/tour/onboardingTour.css) — null outside the tour or on a step that
-  // doesn't point at the side panel at all. "power-button" — the "power-up"
-  // step's target — is the only value used today: it's the "Power up
-  // Control Room" button, the one control that step actually asks the
-  // visitor to click. Stays "power-button" for the whole step, even once
-  // poweredOn flips true (the step itself doesn't advance until the guide
-  // card's "Continue" is clicked, see tourCanContinue) — OnboardingTour
-  // anchors its position off whatever carries .svr-tour-glow, so clearing
-  // this the moment the rig powers on made the card jump straight to its
-  // bottom-right fallback corner instead of staying put. StudioHotspotsPanel
-  // is the one that drops the *pulsing* halo once the rig's on (via its own
-  // allDevicesOn check, see svr-tour-glow--done in onboardingTour.css)
-  // — the button still needs to be findable here, it just stops animating.
-  const tourPanelHighlight = currentTourStep?.id === "power-up" ? "power-button" : null;
-
-  // Which single hotspot marker in the 3D scene (if any) should carry the
-  // same glow highlight, for the one step that points at the scene itself
-  // rather than the side panel — mirrors tourPanelHighlight above, just
-  // reaching into the marker's own rendered DOM (via
-  // markers.getMarker().domElement, same as setSelectedMarkerEl above)
-  // instead of a React ref, since the markers plugin renders marker `html`
-  // outside React's tree (see buildNodes() above). OnboardingTour.jsx
-  // doesn't care which of these two mechanisms put the class there — it
-  // just polls the whole page for whatever single element currently
-  // carries ".svr-tour-glow" (see its own comment). Always the Speakers
-  // hotspot (hotspot #1): "select-hotspot" is the only step that targets a
-  // marker, and the very next step's copy ("test-knowledge") already
-  // hard-assumes the visitor ends up on Speakers (see the comment on that
-  // step in tourSteps.js) — glowing anything else here would point at a
-  // hotspot the tour's own next line doesn't discuss. Deliberately stays
-  // glowing for the rest of this step even after the visitor clicks it
-  // (selectedHotspotId flips, its gear panel opens, but the step itself
-  // doesn't advance until "Continue" is clicked) — clearing it right on
-  // selection made the guide card jump away to the bottom-right fallback
-  // corner the instant the hotspot was clicked, which read as the card
-  // abandoning the very thing the visitor just did what it asked. Only
-  // clears once the step actually changes, below.
-  const tourGlowHotspotId = currentTourStep?.id === "select-hotspot" ? "speaker" : null;
-
-  // Applies/removes the glow class above as its target changes. This has to
-  // be a layout effect, not a plain one: OnboardingTour positions itself off
-  // whatever element already carries ".svr-tour-glow" the moment *its own*
-  // effect first runs (see its measure() poll), and React flushes every
-  // layout effect in the tree before any plain effect runs. A plain effect
-  // here would sometimes lose that race — the card's first measure() would
-  // find no glowing element yet, rest in the bottom-right fallback corner,
-  // and only snap to the marker on the next 80ms poll tick, which reads as
-  // the step-2 card briefly appearing in two different places. Otherwise
-  // mirrors the pendingFocusHotspot effect further up: reads
-  // markersRef/currentRoomId directly rather than through a ref+event
-  // pattern since this only ever needs to add one class to one element and
-  // clean it back up.
-  useLayoutEffect(() => {
-    if (!tourGlowHotspotId) return undefined;
-    const target = findHotspotLocation(tourGlowHotspotId);
-    if (!target || currentRoomId !== target.roomId) return undefined;
-    const marker = markersRef.current?.getMarker(tourGlowHotspotId);
-    const el = marker?.domElement?.querySelector(".hotspot-marker");
-    if (!el) return undefined;
-    // .svr-tour-glow itself always stays on — OnboardingTour anchors the
-    // card's position off whatever carries that class (see its own
-    // comment), so removing it the instant the marker is clicked would
-    // send the card to its fallback corner, same issue as the power-up
-    // button (see tourPanelHighlight above). .svr-tour-glow--done just
-    // switches off the pulsing halo once the click this step actually
-    // asks for (selectedHotspotId) has already happened — nothing left to
-    // draw the eye toward here until "Continue" moves the tour on.
-    el.classList.add("svr-tour-glow");
-    el.classList.toggle("svr-tour-glow--done", selectedHotspotId !== null);
-    return () => {
-      el.classList.remove("svr-tour-glow", "svr-tour-glow--done");
-    };
-  }, [tourGlowHotspotId, currentRoomId, status, selectedHotspotId]);
-
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
       {/* Everything below except StudioHotspotsPanel lives inside this
@@ -1157,6 +994,7 @@ function PanoramaTour() {
                       onClick={() => goToRoom(room.id)}
                       aria-pressed={room.id === currentRoomId}
                       title={`Go to ${room.name}`}
+                      {...quickHelpHoverProps(setHelpMessage, `Walk to the ${room.name}.`)}
                     >
                       {room.name}
                     </button>
@@ -1173,6 +1011,10 @@ function PanoramaTour() {
               aria-pressed={binauralOn}
               aria-label={binauralOn ? "Turn off binaural audio" : "Turn on binaural audio"}
               title={binauralOn ? "Binaural: on — click to turn off" : "Binaural: off — click to turn on"}
+              {...quickHelpHoverProps(
+                setHelpMessage,
+                "Toggles spatial (HRTF binaural) audio for hotspot narration on or off."
+              )}
             >
               <span className="svr-tour-binaural-icon" aria-hidden="true">🎧</span>
               <span className="svr-tour-binaural-label">
@@ -1184,16 +1026,34 @@ function PanoramaTour() {
               className="svr-tour-icon-btn"
               aria-label={effectiveAudioMuted ? "Unmute audio" : "Mute audio"}
               title={effectiveAudioMuted ? "Unmute" : "Mute"}
+              {...quickHelpHoverProps(setHelpMessage, "Mutes or unmutes all studio audio.")}
             >
               {effectiveAudioMuted ? "🔇" : "🔊"}
             </button>
             <button
-              onClick={handleTourReplay}
-              className={"svr-tour-icon-btn svr-tour-replay-btn" + (tourActive ? " active" : "")}
-              aria-label="Restart the studio tour"
-              title="Restart the studio tour"
+              onClick={() => setWelcomeVideoOpen(true)}
+              className="svr-tour-icon-btn"
+              aria-label="Watch the welcome video again"
+              title="Watch the welcome video again"
+              {...quickHelpHoverProps(
+                setHelpMessage,
+                "Replays the welcome video that explains how to use this studio."
+              )}
             >
-              🧭
+              🎬
+            </button>
+            <button
+              onClick={toggleHelpMode}
+              className={"svr-tour-icon-btn" + (helpModeOn ? " active" : "")}
+              aria-pressed={helpModeOn}
+              aria-label={helpModeOn ? "Turn off help mode" : "Turn on help mode"}
+              title={helpModeOn ? "Help mode: on — click to turn off" : "Help mode: off — click to turn on"}
+              {...quickHelpHoverProps(
+                setHelpMessage,
+                helpModeOn ? "Turn off help mode." : "Turn on help mode to get hints on hover."
+              )}
+            >
+              🛟
             </button>
           </div>
         )}
@@ -1248,6 +1108,7 @@ function PanoramaTour() {
                 onClick={closeGearPanel}
                 className="svr-tour-gear-panel__close"
                 aria-label="Close"
+                {...quickHelpHoverProps(setHelpMessage, "Close this panel and return to the control room.")}
               >
                 ×
               </button>
@@ -1297,10 +1158,8 @@ function PanoramaTour() {
                 <button
                   type="button"
                   onClick={GEAR_LAB[activeGear.id].onOpen}
-                  className={
-                    "svr-tour-choice-card svr-tour-choice-card--quiz" +
-                    (currentTourStep?.id === "test-knowledge" ? " svr-tour-glow" : "")
-                  }
+                  className="svr-tour-choice-card svr-tour-choice-card--quiz"
+                  {...quickHelpHoverProps(setHelpMessage, GEAR_LAB[activeGear.id].subtitle)}
                 >
                   <span className="svr-tour-choice-card-icon" aria-hidden="true">
                     {GEAR_LAB[activeGear.id].icon}
@@ -1319,10 +1178,11 @@ function PanoramaTour() {
                   <button
                     type="button"
                     onClick={() => setQuizActive(true)}
-                    className={
-                      "svr-tour-choice-card svr-tour-choice-card--quiz" +
-                      (currentTourStep?.id === "test-knowledge" ? " svr-tour-glow" : "")
-                    }
+                    className="svr-tour-choice-card svr-tour-choice-card--quiz"
+                    {...quickHelpHoverProps(
+                      setHelpMessage,
+                      `${quizQuestions.length} quick questions on ${activeGear.title.toLowerCase()} — optional.`
+                    )}
                   >
                     <span className="svr-tour-choice-card-icon" aria-hidden="true">🧠</span>
                     <span className="svr-tour-choice-card-text">
@@ -1339,20 +1199,14 @@ function PanoramaTour() {
                 <button
                   type="button"
                   onClick={() => {
-                    // Ends the onboarding tour (if it's running) before
-                    // navigating away — starting the course is the natural
-                    // finish line for it regardless of which step it's on.
-                    finishTourIfActive();
                     // activeGear.id is the hotspot's marker id (e.g. "speaker"),
                     // which is also the topic id in src/course/courseData.js —
                     // CoursePage reads this route state to open directly on
                     // the right topic instead of the default one.
                     navigate("/course", { state: { topicId: activeGear.id } });
                   }}
-                  className={
-                    "svr-tour-choice-card svr-tour-choice-card--course" +
-                    (currentTourStep?.id === "start-course" ? " svr-tour-glow" : "")
-                  }
+                  className="svr-tour-choice-card svr-tour-choice-card--course"
+                  {...quickHelpHoverProps(setHelpMessage, "Jump straight into the full lesson for this topic.")}
                 >
                   <span className="svr-tour-choice-card-icon" aria-hidden="true">▶</span>
                   <span className="svr-tour-choice-card-text">
@@ -1367,6 +1221,7 @@ function PanoramaTour() {
               <button
                 onClick={goToNextMarker}
                 className="svr-tour-btn svr-tour-btn-secondary"
+                {...quickHelpHoverProps(setHelpMessage, "Jump to the next piece of gear in this room.")}
               >
                 Next →
               </button>
@@ -1382,12 +1237,10 @@ function PanoramaTour() {
             onSkip={() => setQuizActive(false)}
             onBackToOverview={() => setQuizActive(false)}
             onStartCourse={() => {
-              finishTourIfActive();
               navigate("/course", { state: { topicId: activeGear.id } });
             }}
             onClose={closeGearPanel}
-            tourHighlightStartCourse={currentTourStep?.id === "start-course"}
-            tourAnchorPanel={currentTourStep?.id === "test-knowledge"}
+            onQuickHelp={setHelpMessage}
           />
         )}
 
@@ -1401,10 +1254,8 @@ function PanoramaTour() {
           open={Boolean(activeGear && listeningLabOpen)}
           onClose={closeGearPanel}
           onBackToOverview={backToGearOverview}
-          tourAnchorPanel={currentTourStep?.id === "test-knowledge"}
-          tourHighlightStartCourse={currentTourStep?.id === "start-course"}
+          onQuickHelp={setHelpMessage}
           onStartCourse={() => {
-            finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });
           }}
         />
@@ -1417,10 +1268,8 @@ function PanoramaTour() {
           open={Boolean(activeGear && mixingConsoleLabOpen)}
           onClose={closeGearPanel}
           onBackToOverview={backToGearOverview}
-          tourAnchorPanel={currentTourStep?.id === "test-knowledge"}
-          tourHighlightStartCourse={currentTourStep?.id === "start-course"}
+          onQuickHelp={setHelpMessage}
           onStartCourse={() => {
-            finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });
           }}
         />
@@ -1428,10 +1277,8 @@ function PanoramaTour() {
           open={Boolean(activeGear && soundCardLabOpen)}
           onClose={closeGearPanel}
           onBackToOverview={backToGearOverview}
-          tourAnchorPanel={currentTourStep?.id === "test-knowledge"}
-          tourHighlightStartCourse={currentTourStep?.id === "start-course"}
+          onQuickHelp={setHelpMessage}
           onStartCourse={() => {
-            finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });
           }}
         />
@@ -1444,10 +1291,8 @@ function PanoramaTour() {
           open={Boolean(activeGear && patchbayLabOpen)}
           onClose={closeGearPanel}
           onBackToOverview={backToGearOverview}
-          tourAnchorPanel={currentTourStep?.id === "test-knowledge"}
-          tourHighlightStartCourse={currentTourStep?.id === "start-course"}
+          onQuickHelp={setHelpMessage}
           onStartCourse={() => {
-            finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });
           }}
         />
@@ -1455,10 +1300,8 @@ function PanoramaTour() {
           open={Boolean(activeGear && preampRackLabOpen)}
           onClose={closeGearPanel}
           onBackToOverview={backToGearOverview}
-          tourAnchorPanel={currentTourStep?.id === "test-knowledge"}
-          tourHighlightStartCourse={currentTourStep?.id === "start-course"}
+          onQuickHelp={setHelpMessage}
           onStartCourse={() => {
-            finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });
           }}
         />
@@ -1466,10 +1309,8 @@ function PanoramaTour() {
           open={Boolean(activeGear && lfEmitterLabOpen)}
           onClose={closeGearPanel}
           onBackToOverview={backToGearOverview}
-          tourAnchorPanel={currentTourStep?.id === "test-knowledge"}
-          tourHighlightStartCourse={currentTourStep?.id === "start-course"}
+          onQuickHelp={setHelpMessage}
           onStartCourse={() => {
-            finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });
           }}
         />
@@ -1477,10 +1318,8 @@ function PanoramaTour() {
           open={Boolean(activeGear && diffuserPanelLabOpen)}
           onClose={closeGearPanel}
           onBackToOverview={backToGearOverview}
-          tourAnchorPanel={currentTourStep?.id === "test-knowledge"}
-          tourHighlightStartCourse={currentTourStep?.id === "start-course"}
+          onQuickHelp={setHelpMessage}
           onStartCourse={() => {
-            finishTourIfActive();
             navigate("/course", { state: { topicId: activeGear?.id } });
           }}
         />
@@ -1499,9 +1338,8 @@ function PanoramaTour() {
           activeModule={activeModule}
           onSelectDevice={handlePanelSelectDevice}
           onPoweredChange={setPoweredOn}
-          tourHighlight={tourPanelHighlight}
           autoPowerUp={autoPowerUp}
-          powerDownSignal={powerDownSignal}
+          onQuickHelp={setHelpMessage}
         />
       )}
 
@@ -1511,27 +1349,23 @@ function PanoramaTour() {
         </div>
       )}
 
-      {/* Welcome modal — the very first thing a first-time visitor sees on
-          this screen, gating the guide card below behind an explicit
-          "Start tour" choice (see TourWelcomeModal.jsx). Its own backdrop
-          (z-index 95) fully blurs the whole scene while it's up. */}
-      {status === "ready" && tourActive && tourWelcomeOpen && (
-        <TourWelcomeModal onStart={handleTourWelcomeStart} onSkip={handleTourSkip} />
-      )}
 
-      {/* Onboarding tour guide card — see src/tour/. Deliberately rendered
-          at the very end, outside every other panel/wrapper here, so its
-          z-index: 80 (see onboardingTour.css) always wins and it's never
-          hidden behind whatever it's currently pointing at. */}
-      {status === "ready" && tourActive && currentTourStep && (
-        <OnboardingTour
-          steps={tourStepsForCard}
-          stepIndex={tourStepIndex}
-          canContinue={tourCanContinue}
-          onAdvance={handleTourAdvance}
-          onSkip={handleTourSkip}
-          onFinish={handleTourFinish}
-        />
+      {/* Quick Help popup — see help mode's state above and
+          QuickHelpPanel.jsx. Rendered at the very end, outside every other
+          panel/wrapper here, so it always stays on top of whatever it's
+          currently describing. */}
+      {status === "ready" && helpModeOn && <QuickHelpPanel message={helpMessage} />}
+
+      {/* First-landing "how to use this studio" video — see
+          WelcomeVideoDialog.jsx and the welcomeVideoOpen state above.
+          Rendered outside .svr-tour-lockable (and after everything else
+          here) so it sits above the whole studio view — panorama,
+          toolbar, hotspots, the power-up side panel — blurring all of it
+          behind the dialog while the video plays, rather than being
+          grayscaled/click-blocked along with the rest of the scene
+          whenever the rig isn't powered on yet. */}
+      {status === "ready" && (
+        <WelcomeVideoDialog open={welcomeVideoOpen} onClose={closeWelcomeVideo} />
       )}
     </div>
   );

@@ -1,3 +1,5 @@
+@import "./hardwareTokens.css";
+
 /* Styles for DiffuserPanelLab.jsx — ported from
    design/diffuser-panel-lab.html. Reuses the shared `.llab-*` base (panel
    shell width/height, tabs, card, seg toggle, decay bars, trigger row,
@@ -95,7 +97,7 @@
   height: 26px;
   margin: -13px 0 0 -13px;
   border-radius: 50%;
-  border: 2px solid #e8615f;
+  border: 2px solid var(--led-red);
   opacity: 0;
   z-index: 1;
   animation: dflab-flash-pulse 0.6s ease-out;

@@ -1,3 +1,5 @@
+@import "./hardwareTokens.css";
+
 /* Styles for SoundCardLab.jsx — ported from design/sound-card-lab.html.
    Reuses the shared `.llab-*` base (panel shell width/height, tabs, card,
    seg toggle, playbar, curve visual, take-away chip/pop, audio note) from
@@ -92,15 +94,15 @@
 .sclab-delay-status.seamless {
   color: var(--llab-green);
   border-color: var(--llab-green-dim);
-  background: rgba(95, 217, 160, 0.08);
+  background: rgba(var(--led-green-rgb), 0.08);
 }
 .sclab-delay-status.noticeable {
   color: var(--llab-amber);
   border-color: var(--llab-amber-dim);
-  background: rgba(232, 147, 74, 0.08);
+  background: rgba(var(--led-amber-rgb), 0.08);
 }
 .sclab-delay-status.distracting {
-  color: #e8615f;
-  border-color: #6b2c2c;
-  background: rgba(232, 97, 95, 0.08);
+  color: var(--led-red);
+  border-color: var(--led-red-dim);
+  background: rgba(var(--led-red-rgb), 0.08);
 }

@@ -6,6 +6,7 @@ import { setStudentName, setHasPaid, markPaid } from "../store/sessionSlice";
 import { createOrder, verifyPayment, getPaymentStatus } from "../api/payments";
 import { initAudio, resumeAudio } from "../audio/spatialAudioEngine";
 import { ThemeToggle } from "../theme/ThemeToggle";
+import { PaletteSwitcher } from "../theme/PaletteSwitcher";
 import "./PaymentPage.css";
 
 const RAZORPAY_SCRIPT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
@@ -167,6 +168,8 @@ function PaymentPage() {
           <span>Start course</span>
         </div>
         <div className="pay-topbar-right">
+          {/* TEMPORARY: palette switcher - see PaletteContext.jsx */}
+          <PaletteSwitcher />
           <ThemeToggle className="theme-toggle-btn" />
           <span className="brand-mark">◎</span>
         </div>
