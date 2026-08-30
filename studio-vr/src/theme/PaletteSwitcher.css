@@ -34,7 +34,16 @@
   padding-right: 2px;
 }
 
+/* Focus ring lives on the pill wrapper, not the <select> itself - a plain
+   outline on the select renders as a harsh rectangular box that doesn't
+   follow the pill's rounded corners, and read as a stark "white border"
+   in the dark header since it was using currentColor (the header's light
+   text color). box-shadow follows border-radius, and the brand accent
+   keeps the ring on-theme instead of plain white. */
 .svr-palette-switcher select:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 2px;
+  outline: none;
+}
+
+.svr-palette-switcher:focus-within {
+  box-shadow: 0 0 0 2px var(--brand-accent, currentColor);
 }
