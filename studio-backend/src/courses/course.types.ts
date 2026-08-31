@@ -8,12 +8,7 @@ export interface StrapiMedia {
   id?: number;
   url?: string;
   mime?: string | null;
-}
-
-export interface StrapiModelAsset {
-  id?: number;
-  kind?: string | null;
-  file?: StrapiMedia | null;
+  alternativeText?: string | null;
 }
 
 export interface StrapiCloudflareVideo {
@@ -69,8 +64,56 @@ export interface StrapiBlockNode {
   children?: StrapiBlockNode[];
 }
 
+// --- Section `blocks` dynamic zone (api::section.section's `blocks` field) -
+// A Section's content is an ordered, mixed list of these four component
+// shapes — see studio-cms's STRAPI_SCHEMA_NOTES.md "Section `blocks`
+// dynamic zone" section. `__component` is Strapi 5's discriminant for a
+// dynamic zone entry's type; array position is display order (no separate
+// `order` field on each block — see the mapper's mapSectionBlock).
+
+export interface StrapiVideoBlock {
+  __component: 'course.video-block';
+  id?: number;
+  title?: string | null;
+  caption?: string | null;
+  video?: StrapiCloudflareVideo | null;
+}
+
+export interface StrapiImageTextBlock {
+  __component: 'course.image-text-block';
+  id?: number;
+  heading?: string | null;
+  content?: StrapiBlockNode[];
+  images?: StrapiMedia[];
+  imagePosition?: 'left' | 'right' | 'top' | 'text-only';
+}
+
+export interface StrapiInteractiveBlock {
+  __component: 'course.interactive-block';
+  id?: number;
+  enabled?: boolean;
+  activity?: StrapiInteractiveActivity | null;
+}
+
+export interface StrapiCustomEmbedBlock {
+  __component: 'course.custom-embed-block';
+  id?: number;
+  componentKey?: string;
+  title?: string | null;
+  enabled?: boolean;
+  config?: unknown;
+}
+
+export type StrapiSectionBlock =
+  | StrapiVideoBlock
+  | StrapiImageTextBlock
+  | StrapiInteractiveBlock
+  | StrapiCustomEmbedBlock;
+
 // A Section (api::section.section — renamed from "Lesson"; see
-// STRAPI_SCHEMA_NOTES.md). One narrated section within a Chapter.
+// STRAPI_SCHEMA_NOTES.md). One narrated section within a Chapter. Its
+// content lives entirely in `blocks` (the dynamic zone) — see
+// course.mapper.ts's mapSectionBlock.
 export interface StrapiSection {
   id?: number;
   documentId?: string;
@@ -78,9 +121,7 @@ export interface StrapiSection {
   title?: string;
   duration?: string | null;
   order?: number;
-  content?: StrapiBlockNode[];
-  video?: StrapiCloudflareVideo | null;
-  model3d?: StrapiModelAsset | null;
+  blocks?: StrapiSectionBlock[];
 }
 
 // A Main Topic (api::main-topic.main-topic) — one of the curriculum modules
@@ -120,20 +161,6 @@ export interface StrapiCollectionResponse<T> {
 
 // --- Reshaped output, matching studio-vr's src/course/courseData.js TOPICS[] ---
 
-// `type` tells studio-vr's CoursePage.jsx whether to render this asset with
-// GearModelViewer (3D) or as a plain <img> — derived server-side from the
-// uploaded file's mime type / extension (see course.mapper.ts's
-// deriveAssetType), since the CMS's `shared.model-asset` component now
-// accepts either a .glb/.gltf scan or any image. `url` is a presigned,
-// time-limited S3 URL (see ../assets/asset-url.service.ts), not the raw
-// studio-cms media URL.
-export interface CourseModel {
-  kind: string | null;
-  url: string | null;
-  mime: string | null;
-  type: 'model' | 'image' | null;
-}
-
 // `playbackToken` is a short-lived, signed Cloudflare Stream token (see
 // ../assets/cloudflare-stream-token.service.ts), NOT the raw Stream
 // videoUid — studio-vr's VideoPlayer embeds it as
@@ -147,15 +174,6 @@ export interface CourseVideo {
   thumbnailUrl: string | null;
   captionsUrl: string | null;
   status: string | null;
-}
-
-export interface CourseLesson {
-  id: string;
-  title: string;
-  duration: string | null;
-  paragraphs: string[];
-  video?: CourseVideo;
-  model?: CourseModel;
 }
 
 export interface CourseAudioClip {
@@ -185,6 +203,72 @@ export interface CourseInteractive {
   kind: string;
 }
 
+// --- Reshaped section blocks, matching studio-vr's SectionBlocks.jsx -------
+// Mirrors StrapiSectionBlock 1:1 (see course.mapper.ts's mapSectionBlock)
+// but with server-derived fields (presigned URLs, signed video tokens)
+// swapped in and Strapi-internal shape (media objects, __component) reduced
+// to what the frontend actually renders. `id` is a stable string derived
+// from the component's own Strapi id (falling back to its array index) —
+// safe to use as a React list key.
+
+export interface CourseVideoBlock {
+  type: 'video';
+  id: string;
+  title: string | null;
+  caption: string | null;
+  video?: CourseVideo;
+}
+
+export interface CourseImageTextBlock {
+  type: 'image-text';
+  id: string;
+  heading: string | null;
+  paragraphs: string[];
+  images: { url: string | null; alt: string | null }[];
+  imagePosition: 'left' | 'right' | 'top' | 'text-only';
+}
+
+export interface CourseInteractiveBlock {
+  type: 'interactive';
+  id: string;
+  // Whether this interactive activity is turned on — see studio-cms's
+  // course.interactive-block. studio-vr shows a disabled placeholder in
+  // this block's position rather than mounting the lab when false.
+  enabled: boolean;
+  interactive?: CourseInteractive;
+}
+
+export interface CourseEmbedBlock {
+  type: 'embed';
+  id: string;
+  // Free-text key studio-vr's customEmbedRegistry.js looks up to find the
+  // React component to mount here — see studio-cms's
+  // course.custom-embed-block. No component registered for this key yet ==
+  // studio-vr renders a "not built yet" placeholder instead of this block's
+  // real content.
+  componentKey: string;
+  title: string | null;
+  enabled: boolean;
+  config: unknown;
+}
+
+export type CourseSectionBlock =
+  | CourseVideoBlock
+  | CourseImageTextBlock
+  | CourseInteractiveBlock
+  | CourseEmbedBlock;
+
+export interface CourseLesson {
+  id: string;
+  title: string;
+  duration: string | null;
+  // Ordered, mixed content for this section — replaces the old fixed
+  // `paragraphs`/`video`/`model3d` fields (see STRAPI_SCHEMA_NOTES.md's
+  // `blocks` dynamic zone). Render in array order; that order IS the
+  // CMS-configured placement.
+  blocks: CourseSectionBlock[];
+}
+
 export interface CourseTopic {
   id: string;
   room: string | null;
@@ -200,7 +284,6 @@ export interface CourseTopic {
   moduleOrder: number | null;
   number: number | null;
   hotspotId: string | null;
-  model?: CourseModel;
   // Field name kept as `lessons` (rather than renaming to `sections`) so
   // studio-vr's CoursePage.jsx/courseData.js don't need to change what they
   // read — only the CMS-side name changed (Lesson -> Section; see

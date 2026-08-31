@@ -47,6 +47,22 @@ import { useFetchClient, useNotification } from '@strapi/strapi/admin';
  * "create" in place of an id for a brand-new, unsaved entry — so reading
  * useParams().id and treating "create" as "no id yet" is a simpler, stable
  * substitute.
+ *
+ * `video` now lives inside a `course.video-block` entry of the section's
+ * `blocks` dynamic zone (see studio-cms's section schema and
+ * ../../../api/section/controllers/section.ts's findVideoBlock), not at a
+ * single top-level path, so the upload/status routes also need to know
+ * *which* block. Rather than reach for the same unstable context hook to
+ * find that block's position, this reads it straight off `name` — Strapi
+ * passes this custom field its full form path, e.g.
+ * "blocks.2.video.videoUid", so the number between "blocks." and
+ * ".video.videoUid" is exactly the block's index in the array. That's the
+ * same array position the section-video routes expect as `:blockIndex`
+ * (see routes/video-upload.ts and index.ts's admin mirror). If the editor
+ * reorders the Blocks zone in the form without saving first, this index
+ * reflects the reordered-but-unsaved position while the backend still has
+ * the old order — so, same as the "save before uploading" rule below,
+ * reorder-then-save before uploading a video.
  */
 
 type CloudflareVideoStatus = 'pending' | 'processing' | 'ready' | 'error';
@@ -154,6 +170,23 @@ const ErrorText = styled.p`
   margin: 0;
 `;
 
+const BLOCK_INDEX_PATTERN = /^blocks\.(\d+)\.video\.videoUid$/;
+
+/**
+ * Pulls the `course.video-block` array index out of this field's form
+ * path (see the file-level comment above for why). Returns null if `name`
+ * doesn't match the expected shape — e.g. this widget somehow got attached
+ * to a `video-upload` customField field outside of blocks[].video.videoUid
+ * — so callers can disable uploading rather than hitting a route that will
+ * 400/404.
+ */
+function blockIndexFromFieldName(name: string): number | null {
+  const match = BLOCK_INDEX_PATTERN.exec(name);
+  if (!match) return null;
+  const index = Number(match[1]);
+  return Number.isInteger(index) && index >= 0 ? index : null;
+}
+
 const VideoUploadInput = ({
   name,
   value,
@@ -168,6 +201,7 @@ const VideoUploadInput = ({
   // A brand-new, unsaved entry's edit view uses the literal URL segment
   // "create" instead of a real documentId.
   const documentId = routeId && routeId !== 'create' ? routeId : undefined;
+  const blockIndex = blockIndexFromFieldName(name);
 
   const { post, get } = useFetchClient();
   const { toggleNotification } = useNotification();
@@ -178,7 +212,7 @@ const VideoUploadInput = ({
   const [localError, setLocalError] = React.useState<string | null>(null);
   const [status, setStatus] = React.useState<CloudflareVideoStatus | undefined>();
 
-  const canUpload = Boolean(documentId) && !disabled && !isUploading;
+  const canUpload = Boolean(documentId) && blockIndex !== null && !disabled && !isUploading;
 
   const handlePickFile = () => {
     if (!canUpload) return;
@@ -191,7 +225,7 @@ const VideoUploadInput = ({
     // fixing something) — without this, choosing the same filename twice in
     // a row wouldn't fire onChange the second time.
     event.target.value = '';
-    if (!file || !documentId) return;
+    if (!file || !documentId || blockIndex === null) return;
 
     setLocalError(null);
     setIsUploading(true);
@@ -200,7 +234,10 @@ const VideoUploadInput = ({
       const formData = new FormData();
       formData.append('file', file);
 
-      const { data } = await post<SectionResponse>(`/admin/section-video/${documentId}`, formData);
+      const { data } = await post<SectionResponse>(
+        `/admin/section-video/${documentId}/${blockIndex}`,
+        formData,
+      );
       const video = data?.data?.video;
 
       if (video?.videoUid) {
@@ -228,11 +265,13 @@ const VideoUploadInput = ({
   };
 
   const handleCheckStatus = async () => {
-    if (!documentId) return;
+    if (!documentId || blockIndex === null) return;
     setIsChecking(true);
     setLocalError(null);
     try {
-      const { data } = await get<SectionResponse>(`/admin/section-video/${documentId}/status`);
+      const { data } = await get<SectionResponse>(
+        `/admin/section-video/${documentId}/${blockIndex}/status`,
+      );
       const video = data?.data?.video;
       if (video?.status) {
         setStatus(video.status);
@@ -262,6 +301,11 @@ const VideoUploadInput = ({
 
       {!documentId ? (
         <HelpText>Save this section first, then come back here to upload its video.</HelpText>
+      ) : blockIndex === null ? (
+        <ErrorText>
+          Couldn't determine which Video Block this field belongs to. Save this Video Block once
+          (even as a draft) and reload the page before uploading.
+        </ErrorText>
       ) : (
         <>
           <Row>

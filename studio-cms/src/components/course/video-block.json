@@ -1,0 +1,25 @@
+{
+  "collectionName": "components_course_video_blocks",
+  "info": {
+    "displayName": "Video Block",
+    "icon": "play-circle",
+    "description": "Lesson video for a position within a Section's Blocks zone (see api::section.section's `blocks` dynamic zone). Wraps shared.cloudflare-video so a section can carry more than one video, each independently placed alongside other block types (image+text, interactive, custom embed)."
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "description": "Optional heading shown above the video (useful when a section has more than one video block). Falls back to the section's own title in studio-vr when left blank."
+    },
+    "caption": {
+      "type": "string",
+      "description": "Optional line shown under the video player. Defaults to a generic \"watch first\" prompt in studio-vr when left blank."
+    },
+    "video": {
+      "type": "component",
+      "repeatable": false,
+      "component": "shared.cloudflare-video",
+      "required": true
+    }
+  }
+}

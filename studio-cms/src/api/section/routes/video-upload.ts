@@ -4,6 +4,11 @@
  * this lives alongside the auto-generated CRUD routes rather than replacing
  * them.
  *
+ * `:blockIndex` is the zero-based position of a `course.video-block` entry
+ * within the section's `blocks` dynamic zone (see
+ * ../controllers/section.ts's findVideoBlock for why the video lives there
+ * now instead of a single top-level field).
+ *
  * Both routes are plain content-API routes — same auth model as the rest of
  * this project (no users-permissions plugin; callers authenticate with a
  * Strapi API token as `Authorization: Bearer <token>`, per
@@ -25,7 +30,7 @@ export default {
   routes: [
     {
       method: 'POST',
-      path: '/sections/:id/video',
+      path: '/sections/:id/video/:blockIndex',
       handler: 'section.uploadVideo',
       config: {
         policies: [],
@@ -33,7 +38,7 @@ export default {
     },
     {
       method: 'GET',
-      path: '/sections/:id/video/status',
+      path: '/sections/:id/video/:blockIndex/status',
       handler: 'section.refreshVideoStatus',
       config: {
         policies: [],

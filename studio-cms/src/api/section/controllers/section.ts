@@ -7,6 +7,7 @@ import {
 } from '../../../utils/cloudflare-stream';
 
 const VIDEO_MIME_PREFIX = 'video/';
+const VIDEO_BLOCK_COMPONENT = 'course.video-block';
 
 type UploadedFile = {
   filepath: string;
@@ -16,9 +17,17 @@ type UploadedFile = {
 };
 
 type SectionVideoComponent = {
+  id?: number;
   videoUid?: string;
   durationSeconds?: number;
   status?: CloudflareVideoStatus;
+  [key: string]: unknown;
+};
+
+type SectionVideoBlock = {
+  __component: string;
+  id?: number;
+  video?: SectionVideoComponent | null;
   [key: string]: unknown;
 };
 
@@ -28,27 +37,87 @@ function pickUploadedFile(ctx: any): UploadedFile | undefined {
   return Array.isArray(candidate) ? candidate[0] : candidate;
 }
 
+/**
+ * `blocks` is a dynamic zone now (see api::section.section's schema), so a
+ * section's video no longer lives at a single well-known path — it's the
+ * `video` component nested inside whichever `course.video-block` entry the
+ * caller means. `:blockIndex` (from the route) is that entry's position in
+ * the `blocks` array, which is also exactly the array index the admin's
+ * upload widget reads off its own field path (see
+ * ../../../admin/extensions/video-upload/Input.tsx) — so both the
+ * server-to-server content-API route and the admin-panel route address a
+ * block the same way.
+ *
+ * This only shallow-populates `blocks` down to each video-block's `video`
+ * component (not every block type's full nested content) on purpose: the
+ * update below writes directly to the `shared.cloudflare-video` component
+ * row via its own id (see uploadVideo/refreshVideoStatus), never by
+ * resending the whole `blocks` array — so there's no need (and no risk of
+ * accidentally clobbering sibling blocks' media/relations) in populating
+ * anything else here.
+ */
+async function findVideoBlock(
+  strapi: any,
+  documentId: string,
+  blockIndex: number,
+): Promise<{ section: any; block: SectionVideoBlock | null }> {
+  const section = await strapi.documents('api::section.section').findOne({
+    documentId,
+    populate: {
+      blocks: {
+        on: {
+          [VIDEO_BLOCK_COMPONENT]: { populate: { video: true } },
+        },
+      },
+    },
+  });
+
+  if (!section) return { section: null, block: null };
+
+  const blocks: SectionVideoBlock[] = Array.isArray(section.blocks) ? section.blocks : [];
+  const block = blocks[blockIndex];
+  if (!block || block.__component !== VIDEO_BLOCK_COMPONENT) {
+    return { section, block: null };
+  }
+  return { section, block };
+}
+
 export default factories.createCoreController('api::section.section', ({ strapi }) => ({
   /**
-   * POST /api/sections/:id/video
+   * POST /api/sections/:id/video/:blockIndex
    * multipart/form-data with the video under a `file` (or `video`) field.
    *
+   * `:id` is the section's documentId (Strapi 5 Document Service API).
+   * `:blockIndex` is the zero-based position of a `course.video-block`
+   * entry within that section's `blocks` dynamic zone — add a Video Block
+   * to the section in the admin and save (as a draft is fine; draftAndPublish
+   * skips required-field validation until Publish) before uploading, same
+   * as the section itself previously had to be saved once before its old
+   * single `video` field could be uploaded to.
+   *
    * Uploads the file straight to Cloudflare Stream (server-to-server) and
-   * writes the resulting UID/status/duration onto this section's `video`
-   * (shared.cloudflare-video) component. Strapi's media library / S3
+   * writes the resulting UID/status/duration directly onto that block's
+   * `video` (shared.cloudflare-video) component row — see the comment on
+   * findVideoBlock for why this updates the component row in place instead
+   * of resending the whole `blocks` array. Strapi's media library / S3
    * provider is intentionally NOT involved — video never becomes a Strapi
    * upload-plugin asset, matching how this project's other media (images,
    * narration audio, .glb scans) goes to S3 while video goes to Stream.
-   *
-   * `:id` is the section's documentId (Strapi 5 Document Service API).
    */
   async uploadVideo(ctx: any) {
-    const { id: documentId } = ctx.params;
+    const { id: documentId, blockIndex: blockIndexParam } = ctx.params;
+    const blockIndex = Number(blockIndexParam);
+
+    if (!Number.isInteger(blockIndex) || blockIndex < 0) {
+      return ctx.badRequest(
+        'blockIndex must be a non-negative integer — the position of the Video Block within this section\'s blocks list.',
+      );
+    }
 
     const file = pickUploadedFile(ctx);
     if (!file) {
       return ctx.badRequest(
-        'No video file provided. Send it as multipart/form-data under the "file" field.'
+        'No video file provided. Send it as multipart/form-data under the "file" field.',
       );
     }
 
@@ -57,103 +126,115 @@ export default factories.createCoreController('api::section.section', ({ strapi 
       return ctx.badRequest(`Expected a video file, got "${file.mimetype}".`);
     }
 
-    const existing = await strapi.documents('api::section.section').findOne({
-      documentId,
-      populate: ['video'],
-    });
+    const { section, block } = await findVideoBlock(strapi, documentId, blockIndex);
 
-    if (!existing) {
+    if (!section) {
       await fs.unlink(file.filepath).catch(() => {});
       return ctx.notFound(`Section ${documentId} not found.`);
+    }
+    if (!block) {
+      await fs.unlink(file.filepath).catch(() => {});
+      return ctx.badRequest(
+        `No Video Block found at blocks[${blockIndex}] on section ${documentId}. Add a Video Block to this section's Blocks list and save it first.`,
+      );
+    }
+    if (!block.video?.id) {
+      await fs.unlink(file.filepath).catch(() => {});
+      return ctx.badRequest(
+        `blocks[${blockIndex}] has no video component yet — add the video field inside the Video Block and save before uploading.`,
+      );
     }
 
     let streamResult;
     try {
       streamResult = await uploadVideoToCloudflareStream(
         file.filepath,
-        file.originalFilename ?? file.newFilename ?? 'video.mp4'
+        file.originalFilename ?? file.newFilename ?? 'video.mp4',
       );
     } catch (error) {
       strapi.log.error('[section.uploadVideo] Cloudflare Stream upload failed', error);
       return ctx.internalServerError(
-        error instanceof Error ? error.message : 'Cloudflare Stream upload failed.'
+        error instanceof Error ? error.message : 'Cloudflare Stream upload failed.',
       );
     } finally {
       await fs.unlink(file.filepath).catch(() => {});
     }
 
-    const existingVideo = (existing.video ?? {}) as SectionVideoComponent;
-
-    const updated = await strapi.documents('api::section.section').update({
-      documentId,
+    const updatedVideo = await strapi.db.query('shared.cloudflare-video').update({
+      where: { id: block.video.id },
       data: {
-        video: {
-          ...existingVideo,
-          videoUid: streamResult.uid,
-          status: streamResult.status,
-          ...(streamResult.durationSeconds !== undefined
-            ? { durationSeconds: streamResult.durationSeconds }
-            : {}),
-        },
+        videoUid: streamResult.uid,
+        status: streamResult.status,
+        ...(streamResult.durationSeconds !== undefined
+          ? { durationSeconds: streamResult.durationSeconds }
+          : {}),
       },
-      populate: ['video'],
     });
 
-    ctx.body = { data: updated };
+    ctx.body = { data: { video: updatedVideo } };
   },
 
   /**
-   * GET /api/sections/:id/video/status
+   * GET /api/sections/:id/video/:blockIndex/status
    *
    * Cloudflare Stream encodes asynchronously, so the status written at
    * upload time is usually still "pending"/"processing". Call this to
-   * re-check with Cloudflare and sync the section's `video.status` (and
+   * re-check with Cloudflare and sync that block's `video.status` (and
    * duration, once available) — poll it after upload, or wire it to a cron
    * job / admin action later.
    */
   async refreshVideoStatus(ctx: any) {
-    const { id: documentId } = ctx.params;
+    const { id: documentId, blockIndex: blockIndexParam } = ctx.params;
+    const blockIndex = Number(blockIndexParam);
 
-    const existing = await strapi.documents('api::section.section').findOne({
-      documentId,
-      populate: ['video'],
-    });
-
-    if (!existing) {
-      return ctx.notFound(`Section ${documentId} not found.`);
+    if (!Number.isInteger(blockIndex) || blockIndex < 0) {
+      return ctx.badRequest(
+        'blockIndex must be a non-negative integer — the position of the Video Block within this section\'s blocks list.',
+      );
     }
 
-    const existingVideo = (existing.video ?? {}) as SectionVideoComponent;
-    const videoUid = existingVideo.videoUid;
+    const { section, block } = await findVideoBlock(strapi, documentId, blockIndex);
+
+    if (!section) {
+      return ctx.notFound(`Section ${documentId} not found.`);
+    }
+    if (!block) {
+      return ctx.badRequest(
+        `No Video Block found at blocks[${blockIndex}] on section ${documentId}.`,
+      );
+    }
+    if (!block.video?.id) {
+      return ctx.badRequest(`blocks[${blockIndex}] has no video component yet.`);
+    }
+
+    const videoUid = block.video.videoUid;
     if (!videoUid) {
-      return ctx.badRequest('This section has no video.videoUid to look up yet.');
+      return ctx.badRequest('This block has no video.videoUid to look up yet.');
     }
 
     let streamResult;
     try {
       streamResult = await getCloudflareStreamStatus(videoUid);
     } catch (error) {
-      strapi.log.error('[section.refreshVideoStatus] Cloudflare Stream status lookup failed', error);
+      strapi.log.error(
+        '[section.refreshVideoStatus] Cloudflare Stream status lookup failed',
+        error,
+      );
       return ctx.internalServerError(
-        error instanceof Error ? error.message : 'Cloudflare Stream status lookup failed.'
+        error instanceof Error ? error.message : 'Cloudflare Stream status lookup failed.',
       );
     }
 
-    const updated = await strapi.documents('api::section.section').update({
-      documentId,
+    const updatedVideo = await strapi.db.query('shared.cloudflare-video').update({
+      where: { id: block.video.id },
       data: {
-        video: {
-          ...existingVideo,
-          videoUid,
-          status: streamResult.status,
-          ...(streamResult.durationSeconds !== undefined
-            ? { durationSeconds: streamResult.durationSeconds }
-            : {}),
-        },
+        status: streamResult.status,
+        ...(streamResult.durationSeconds !== undefined
+          ? { durationSeconds: streamResult.durationSeconds }
+          : {}),
       },
-      populate: ['video'],
     });
 
-    ctx.body = { data: updated };
+    ctx.body = { data: { video: updatedVideo } };
   },
 }));

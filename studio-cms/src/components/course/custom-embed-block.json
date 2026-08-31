@@ -1,0 +1,29 @@
+{
+  "collectionName": "components_course_custom_embed_blocks",
+  "info": {
+    "displayName": "Custom Embed Block",
+    "icon": "plug",
+    "description": "Generic placeholder block for a position within a Section's Blocks zone, for embedding a frontend component that doesn't exist yet (or is too app-specific to warrant its own CMS schema). Editors set a componentKey + freeform config now; studio-vr looks componentKey up in src/course/customEmbedRegistry.js and renders whatever's registered there, so new embed types ship as a frontend-only change — no CMS migration needed."
+  },
+  "options": {},
+  "attributes": {
+    "componentKey": {
+      "type": "string",
+      "required": true,
+      "description": "Identifies which frontend component to mount, e.g. \"before-after-slider\". Free text, matching the pattern of course.interactive-activity's `kind` — studio-vr's registry maps this string to a real React component once one is built."
+    },
+    "title": {
+      "type": "string",
+      "description": "Optional heading/label passed through to the embedded component (and shown by the \"not built yet\" placeholder before one is registered)."
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this embed is live. When off, studio-vr shows a disabled placeholder instead of mounting the component."
+    },
+    "config": {
+      "type": "json",
+      "description": "Arbitrary configuration handed to the embedded component as props once one is registered for componentKey. Shape is whatever that component expects — intentionally not validated by this schema."
+    }
+  }
+}

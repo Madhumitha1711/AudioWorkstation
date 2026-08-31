@@ -32,25 +32,23 @@ the 7 curriculum modules) has many **Chapters**; each **Chapter** has many
   existing content carried over. Has a `number` (chapter number in the
   25-chapter syllabus) and `hotspotId` (VR-tour hotspot anchor) field —
   both used to only live in studio-vr's hardcoded `courseData.js` and are
-  now part of this schema — plus a `model3d` component (the `.glb` gear
-  scan, actually stored on the chapter's first Section), a many-to-one
-  relation to **Main Topic**, a one-to-many relation to **Section**, a
-  nested `assessment` component, and a nested `interactive` component.
+  now part of this schema — plus a many-to-one relation to **Main Topic**,
+  a one-to-many relation to **Section**, a nested `assessment` component,
+  and a nested `interactive` component.
 - **Section** (`section`) — one narrated section within a Chapter. Matches
   `TOPICS[].lessons[]`. Renamed from "Lesson"; the underlying `lessons` DB
-  table/API is unchanged so existing content carried over. `content` is a
-  rich-text (blocks) field replacing `paragraphs[]`; `video` is a
-  `shared.cloudflare-video` component holding the Cloudflare Stream UID +
-  S3 thumbnail.
+  table/API is unchanged so existing content carried over. Its content is
+  the `blocks` **dynamic zone**: an ordered, mixed list of `course.video-
+  block`, `course.image-text-block`, `course.interactive-block`, and
+  `course.custom-embed-block` entries — a section can now carry any
+  combination of lesson video, image + text, and an interactive activity,
+  in whatever order an editor drags them into in the admin (drag order IS
+  display order — studio-backend's mapper doesn't re-sort `blocks`).
 
 ## Components (`src/components/`)
 
 - `shared/cloudflare-video` — `videoUid`, `durationSeconds`, `thumbnail`
   (S3 image), `captionsUrl`, `status`.
-- `shared/model-asset` — `kind` + a file that's either a `.glb`/`.gltf`
-  scan or a plain image (S3, `allowedTypes: ["files", "images"]`);
-  studio-vr picks which one to render off the file's mime type (see
-  studio-backend's `course.mapper.ts` `deriveAssetType`).
 - `shared/audio-asset` — `label` + an audio file (S3, `allowedTypes:
   ["audios"]`). Used by `course/question.audioClips` for ear-training-style
   questions that need the student to listen to something before answering
@@ -62,16 +60,50 @@ the 7 curriculum modules) has many **Chapters**; each **Chapter** has many
 - `course/interactive-activity` — `kind` is free text (`speaker-lab`,
   `equalizer-lab`, …) so new labs don't require a schema change.
 
+### Section `blocks` dynamic zone
+
+Four components, any of which can appear any number of times, in any
+order, inside a Section's `blocks` field:
+
+- `course/video-block` — optional `title`/`caption` + a required nested
+  `shared.cloudflare-video`. A section can now carry more than one video,
+  each in its own position.
+- `course/image-text-block` — optional `heading`, required rich-text
+  `content` (same "blocks" type Section's old `content` field used), an
+  optional repeatable `images` (S3), and an `imagePosition` enum
+  (`left`/`right`/`top`/`text-only`) controlling how studio-vr lays the
+  image(s) out next to the text.
+- `course/interactive-block` — wraps `course/interactive-activity` with an
+  `enabled` boolean (default `true`). This is the on/off switch for "the
+  interactive part" of a section: turning it off keeps the block (and its
+  configured activity) in place in the CMS but tells studio-vr to render a
+  disabled placeholder instead of mounting the lab — useful for authoring
+  an activity ahead of time, or pulling one temporarily, without losing its
+  position in the section.
+- `course/custom-embed-block` — `componentKey` (free text, same pattern as
+  `interactive-activity.kind`), optional `title`, an `enabled` boolean, and
+  a freeform `config` JSON field. This is the escape hatch for a frontend
+  component that doesn't exist yet: an editor can place it in a section's
+  block order and configure it now, and studio-vr's
+  `src/course/customEmbedRegistry.js` maps `componentKey` to a real React
+  component once one is built — until then studio-vr renders a visible
+  "not built yet" placeholder rather than silently dropping the block.
+
+Placement is inherent to the zone: there's no separate `order` field on
+each block, because a dynamic zone's array position *is* its display
+position — reordering in the admin (drag-and-drop) is reordering in the
+rendered page.
+
 ## Media storage
 
-- **Images, narration audio, `.glb` scans, docs** go through Strapi's
-  upload plugin into **S3** — wired up in `config/plugins.ts` via
+- **Images, narration audio, docs** go through Strapi's upload plugin into
+  **S3** — wired up in `config/plugins.ts` via
   `@strapi/provider-upload-aws-s3` (added to `package.json`). Fill in
   `AWS_ACCESS_KEY_ID` / `AWS_ACCESS_SECRET` / `AWS_REGION` / `AWS_BUCKET` in
   `.env` (see `.env.example`). `AWS_ENDPOINT` is only needed for an
   S3-compatible service (R2, MinIO, etc.) instead of real AWS. Strapi's raw
   media `url` is never handed to the browser directly — studio-backend
-  rewrites `model3d.file.url` into a short-lived presigned URL before
+  presigns it (e.g. a `course.image-text-block`'s `images`) before
   returning course data (see `studio-backend/src/assets/asset-url.service.ts`),
   so the S3 bucket itself doesn't need to be publicly readable.
 - **Video** is *not* run through Strapi's upload plugin — there's no
@@ -81,17 +113,23 @@ the 7 curriculum modules) has many **Chapters**; each **Chapter** has many
   `src/utils/cloudflare-stream.ts`) push the file to Cloudflare
   server-to-server and write the result onto the section automatically:
 
-  - `POST /api/sections/:documentId/video` — send the video file as
-    `multipart/form-data` under a `file` field (`video` also works). The
-    route uploads it to Cloudflare Stream, then updates that section's
-    `video` component with the returned `videoUid`, `status`, and
+  - `POST /api/sections/:documentId/video/:blockIndex` — send the video
+    file as `multipart/form-data` under a `file` field (`video` also
+    works). `:blockIndex` is the zero-based position of a
+    `course.video-block` entry in that section's `blocks` array (add one
+    via the admin's Blocks zone and save — even as a draft, since
+    draftAndPublish skips required-field validation until Publish — before
+    uploading, so the block exists to upload into). The route uploads the
+    file to Cloudflare Stream, then updates that block's nested `video`
+    component with the returned `videoUid`, `status`, and
     `durationSeconds` (once Cloudflare reports one). Requires
     `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_STREAM_API_TOKEN` to be set.
-  - `GET /api/sections/:documentId/video/status` — re-checks encoding status
-    with Cloudflare and syncs `video.status`/`video.durationSeconds` onto
-    the section. Cloudflare encodes asynchronously, so a video usually stays
-    `pending`/`processing` for a bit after upload — poll this (or call it
-    from a cron job later) until it flips to `ready`.
+  - `GET /api/sections/:documentId/video/:blockIndex/status` — re-checks
+    encoding status with Cloudflare and syncs that block's
+    `video.status`/`video.durationSeconds`. Cloudflare encodes
+    asynchronously, so a video usually stays `pending`/`processing` for a
+    bit after upload — poll this (or call it from a cron job later) until
+    it flips to `ready`.
 
   Both are plain content-API routes, so they use the same auth as everything
   else here — an API token as `Authorization: Bearer <token>` (see "Setup"
@@ -147,37 +185,57 @@ relations added, nothing is dropped). Then in the admin:
    in `studio-backend/.env` as `STRAPI_API_TOKEN` (that service proxies
    Strapi for studio-vr — see `studio-backend/src/courses` — so the token
    never has to reach the browser).
-2. Enter content for each main topic/chapter/section by hand in the admin,
-   **or** run `scripts/seed-course-content.mjs` to bulk-import the existing
-   `courseData.js` objects — see that script's header comment for setup.
-   It needs its own token with *write* access (Full access is simplest for
-   a one-off migration run); that can be a separate, temporary token from
-   the read-only one studio-backend uses, or the same token if you gave it
-   broader access. **If chapters were already seeded before this Main
-   Topic / `number` / `hotspotId` schema migration**, re-running this
-   script backfills those fields onto the existing chapters instead of
-   skipping them — see the script's "Safe to re-run" note.
+2. Enter content for each main topic/chapter/section by hand in the admin
+   — Main Topics and Chapters first (Chapters connect to their Main Topic),
+   then each Chapter's Sections, adding `blocks` (video/image+text/
+   interactive/custom-embed) to each Section as needed.
 
 ## Fetching from studio-vr
 
 studio-vr no longer calls Strapi directly — it fetches from
 studio-backend's `/courses` endpoint (`src/course/useCourseTopics.js`),
-which proxies Strapi with this populate query:
+which proxies Strapi with the same REST content-API querystring approach as
+before (`StrapiService.get()` serializes the populate object with `qs`).
+The one change is that `sections.blocks` is now a dynamic zone, and Strapi
+5's `populate` for a dynamic zone's per-component-type fields needs the
+polymorphic `on` form rather than a flat `populate[...]` chain. The
+populate object (see `studio-backend/src/courses/courses.service.ts`'s
+`CHAPTER_POPULATE`) is:
 
-```
-GET /api/chapters?populate[mainTopic]=*
-                  &populate[sections][populate][model3d][populate]=*
-                  &populate[sections][populate][video]=*
-                  &populate[assessment][populate][questions][populate][options]=*
-                  &populate[assessment][populate][questions][populate][audioClips][populate]=*
-                  &populate[interactive]=*
-                  &sort=order:asc
+```js
+{
+  mainTopic: true,
+  sections: {
+    populate: {
+      blocks: {
+        on: {
+          'course.video-block': { populate: { video: { populate: '*' } } },
+          'course.image-text-block': { populate: { images: { populate: '*' } } },
+          'course.interactive-block': { populate: { activity: { populate: '*' } } },
+          'course.custom-embed-block': { populate: '*' },
+        },
+      },
+    },
+  },
+  assessment: {
+    populate: {
+      questions: {
+        populate: {
+          options: { populate: '*' },
+          audioClips: { populate: '*' },
+        },
+      },
+    },
+  },
+  interactive: { populate: '*' },
+}
 ```
 
-Note the explicit `[audioClips][populate]=*` — a bare `populate=*` on
+Note the explicit `[audioClips][populate]` — a bare `populate: '*'` on
 `questions` populates the `audioClips` components themselves but not the
 media file nested one level further inside each one, so it has to be
-spelled out.
+spelled out. Same idea for `blocks.on['course.video-block']`'s nested
+`video` populate.
 
 `studio-backend/src/courses/course.mapper.ts` reshapes the response back
 into the same `TOPICS[]` shape `courseData.js` used to hardcode (plus

@@ -461,9 +461,7 @@
     padding: 36px 48px 90px;
     box-sizing: border-box;
     /* Scrolls independently of the sidebar now — see .course-layout and
-       .course-sidebar above. The sticky "stays in view while lesson text
-       scrolls past it" 3D model box further down (.topic-model-box) sticks
-       relative to this scroll, which is exactly the effect it's after. */
+       .course-sidebar above. */
     height: 100%;
     overflow-y: auto;
     /* Same fix as .course-sidebar: without this, this column's min-width
@@ -534,33 +532,8 @@
     width: 120px;
   }
 
-  /* Video is always its own full-width row (see course/VideoPlayer.css for
-     the player itself). The 3D model, when present, pairs with the lesson
-     text instead — see .lesson-body-row below. */
-  .topic-model-box {
-    position: relative;
-    border-radius: 14px;
-    overflow: hidden;
-    border: 1px solid var(--border-soft);
-  }
-  /* Reference-image variant of .topic-model-box's content — shown instead
-     of GearModelViewer when the section's model3d asset is a plain image
-     rather than a .glb/.gltf scan (see CoursePage.jsx). Matches
-     GearModelViewer's own inline height (320px) and fill behavior so the
-     two are interchangeable inside the same box. */
-  .topic-model-image {
-    display: block;
-    width: 100%;
-    height: 320px;
-    object-fit: cover;
-    background: radial-gradient(
-      circle at 50% 40%,
-      rgba(255, 255, 255, 0.08),
-      rgba(0, 0, 0, 0.25)
-    );
-  }
-  /* Shared duration/label pill — used by both VideoPlayer and the 3D model
-     box below it. */
+  /* Shared duration/label pill — used by VideoPlayer's "coming soon"
+     placeholder and its metadata row. */
   .vtag {
     position: absolute;
     left: 16px;
@@ -577,25 +550,6 @@
     font-size: 11.5px;
     color: var(--text-dimmer);
     margin: 0 0 30px;
-  }
-
-  .lesson-body-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 28px;
-  }
-  .lesson-body-row > * {
-    min-width: 0;
-  }
-  .lesson-body-row.has-model .topic-model-box {
-    flex: 0 0 320px;
-    /* Stays in view while the (often much longer) lesson text scrolls
-       past it — same sticky pattern as .course-sidebar. */
-    position: sticky;
-    top: 94px;
-  }
-  .lesson-body-row .lesson-text-col {
-    flex: 1 1 0;
   }
 
   .lesson-kicker,
@@ -754,14 +708,6 @@
       height: auto;
       overflow-y: visible;
       padding: 28px 22px 70px;
-    }
-    .lesson-body-row {
-      flex-direction: column;
-    }
-    .lesson-body-row.has-model .topic-model-box {
-      flex: 1 1 auto;
-      width: 100%;
-      position: static;
     }
   }
 }

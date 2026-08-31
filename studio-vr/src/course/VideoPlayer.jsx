@@ -38,15 +38,16 @@ const STATUS_LABEL = {
  * hls.js/<video> player — it already handles adaptive bitrate, a poster
  * frame, fullscreen/PiP, and Cloudflare's own "still encoding" state, so
  * there's no need to reimplement that here. `video.status` (kept in sync by
- * studio-cms's `GET /api/sections/:documentId/video/status` route) only
- * drives the small badge text below — the embed itself is left to render
- * regardless, since Cloudflare's player already degrades gracefully while a
- * fresh upload is still processing.
+ * studio-cms's `GET /api/sections/:documentId/video/:blockIndex/status`
+ * route) only drives the small badge text below — the embed itself is left
+ * to render regardless, since Cloudflare's player already degrades
+ * gracefully while a fresh upload is still processing.
  *
  * Most sections don't have a video yet — `video`/`video.playbackToken` is
  * undefined until a content editor uploads one via the CMS admin's "Upload
- * video" button (or `POST /api/sections/:documentId/video` directly) — so
- * the common case is the "coming soon" placeholder below, not the embed.
+ * video" button (or `POST /api/sections/:documentId/video/:blockIndex`
+ * directly) — so the common case is the "coming soon" placeholder below,
+ * not the embed.
  */
 function VideoPlayer({ video, fallbackDuration, posterSrc = "/paranoma.png", title }) {
   const playbackToken = video?.playbackToken;

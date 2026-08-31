@@ -9,9 +9,6 @@ const allowedMediaTypes = [
   'application/vnd.openxmlformats-officedocument.*',
   'text/plain',
   'text/csv',
-  // .glb/.gltf 3D gear scans (shared.model-asset component)
-  'model/gltf-binary',
-  'model/gltf+json',
 ];
 
 const deniedExecutableTypes = [

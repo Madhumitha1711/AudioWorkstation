@@ -1,0 +1,33 @@
+{
+  "collectionName": "components_course_image_text_blocks",
+  "info": {
+    "displayName": "Image + Text Block",
+    "icon": "picture",
+    "description": "Rich-text content, optionally paired with one or more images, for a position within a Section's Blocks zone. Replaces the old fixed `content` field on Section — a section can now carry several of these, interleaved with video/interactive/embed blocks in whatever order editors arrange them."
+  },
+  "options": {},
+  "attributes": {
+    "heading": {
+      "type": "string",
+      "description": "Optional heading shown above this block's text."
+    },
+    "content": {
+      "type": "blocks",
+      "required": true,
+      "description": "Body text. studio-vr renders each top-level block as a paragraph, same as Section's old `content` field did."
+    },
+    "images": {
+      "type": "media",
+      "multiple": true,
+      "required": false,
+      "allowedTypes": ["images"],
+      "description": "Zero or more images shown alongside the text, uploaded via the S3 provider."
+    },
+    "imagePosition": {
+      "type": "enumeration",
+      "enum": ["left", "right", "top", "text-only"],
+      "default": "right",
+      "description": "Where the image(s) sit relative to the text. \"text-only\" hides images even if some are attached, letting this block double as a plain text block."
+    }
+  }
+}

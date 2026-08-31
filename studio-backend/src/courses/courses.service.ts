@@ -21,8 +21,23 @@ const CHAPTER_POPULATE = {
     mainTopic: true,
     sections: {
       populate: {
-        model3d: { populate: '*' },
-        video: { populate: '*' },
+        // `blocks` is a dynamic zone (course.video-block |
+        // course.image-text-block | course.interactive-block |
+        // course.custom-embed-block — see studio-cms's
+        // STRAPI_SCHEMA_NOTES.md), so each component type's own nested
+        // fields have to be populated explicitly via Strapi 5's
+        // polymorphic `on` populate rather than a single flat `populate:
+        // '*'` (that only shallow-populates each block's own scalar
+        // fields, not a video-block's nested `video` component or an
+        // image-text-block's `images` media).
+        blocks: {
+          on: {
+            'course.video-block': { populate: { video: { populate: '*' } } },
+            'course.image-text-block': { populate: { images: { populate: '*' } } },
+            'course.interactive-block': { populate: { activity: { populate: '*' } } },
+            'course.custom-embed-block': { populate: '*' },
+          },
+        },
       },
     },
     assessment: {

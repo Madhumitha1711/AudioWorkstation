@@ -13,7 +13,6 @@
     "strapi": "strapi",
     "upgrade": "npx @strapi/upgrade latest",
     "upgrade:dry": "npx @strapi/upgrade latest --dry",
-    "seed:course": "node scripts/seed-course-content.mjs",
     "secure:videos": "node scripts/secure-existing-videos.mjs",
     "create:stream-key": "node scripts/create-stream-signing-key.mjs"
   },

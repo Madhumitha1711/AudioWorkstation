@@ -1,0 +1,137 @@
+/* Styles for SectionBlocks.jsx — the ordered, CMS-configurable mix of
+   video / image+text / interactive / custom-embed blocks that make up a
+   section's body. Reuses CoursePage.css's shared tokens (--panel,
+   --border-soft, --text, --text-dim, --accent, ...) and its existing
+   .lesson-article / .video-caption / .interactive-kicker classes so a
+   block's content still matches the rest of the lesson typographically —
+   only the block-level layout (heading, spacing between blocks, disabled/
+   placeholder states) lives here. */
+
+.section-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 34px;
+  margin: 26px 0 6px;
+}
+
+.section-block {
+  min-width: 0;
+}
+
+.block-heading {
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0 0 12px;
+  letter-spacing: -0.005em;
+}
+
+/* --- Image + text block -------------------------------------------- */
+
+.image-text-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 26px;
+}
+.image-text-row > * {
+  min-width: 0;
+}
+
+.section-block-image-text.pos-left .image-text-row {
+  flex-direction: row-reverse;
+}
+.section-block-image-text.pos-top .image-text-row {
+  flex-direction: column;
+}
+.section-block-image-text.pos-text-only .image-text-row,
+.section-block-image-text.pos-right .image-text-row {
+  flex-direction: row;
+}
+
+.image-text-media {
+  flex: 0 0 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.section-block-image-text.pos-top .image-text-media {
+  flex: 1 1 auto;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.image-text-media img {
+  display: block;
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--border-soft);
+  object-fit: cover;
+}
+
+.image-text-copy {
+  flex: 1 1 0;
+}
+
+/* --- Interactive / custom-embed disabled state ----------------------- */
+
+.block-disabled-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px dashed var(--border-soft);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-dimmer);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+.block-disabled-tag {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+/* --- Custom-embed "not built yet" placeholder ------------------------ */
+
+.block-embed-placeholder {
+  padding: 18px 20px;
+  border-radius: 12px;
+  border: 1px dashed rgba(var(--brand-accent-rgb), 0.35);
+  background: rgba(var(--brand-accent-rgb), 0.05);
+  color: var(--text-dim);
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+.block-embed-placeholder p {
+  margin: 0;
+}
+.block-embed-placeholder code {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.95em;
+}
+.block-embed-placeholder-tag {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+@media (max-width: 720px) {
+  .image-text-row {
+    flex-direction: column !important;
+  }
+  .image-text-media {
+    flex: 1 1 auto;
+  }
+}

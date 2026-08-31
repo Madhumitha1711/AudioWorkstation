@@ -25,6 +25,39 @@ export interface CourseAssessment extends Struct.ComponentSchema {
   };
 }
 
+export interface CourseCustomEmbedBlock extends Struct.ComponentSchema {
+  collectionName: 'components_course_custom_embed_blocks';
+  info: {
+    description: "Generic placeholder block for a position within a Section's Blocks zone, for embedding a frontend component that doesn't exist yet (or is too app-specific to warrant its own CMS schema). Editors set a componentKey + freeform config now; studio-vr looks componentKey up in src/course/customEmbedRegistry.js and renders whatever's registered there, so new embed types ship as a frontend-only change \u2014 no CMS migration needed.";
+    displayName: 'Custom Embed Block';
+    icon: 'plug';
+  };
+  attributes: {
+    componentKey: Schema.Attribute.String & Schema.Attribute.Required;
+    config: Schema.Attribute.JSON;
+    enabled: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    title: Schema.Attribute.String;
+  };
+}
+
+export interface CourseImageTextBlock extends Struct.ComponentSchema {
+  collectionName: 'components_course_image_text_blocks';
+  info: {
+    description: "Rich-text content, optionally paired with one or more images, for a position within a Section's Blocks zone. Replaces the old fixed `content` field on Section \u2014 a section can now carry several of these, interleaved with video/interactive/embed blocks in whatever order editors arrange them.";
+    displayName: 'Image + Text Block';
+    icon: 'picture';
+  };
+  attributes: {
+    content: Schema.Attribute.Blocks & Schema.Attribute.Required;
+    heading: Schema.Attribute.String;
+    imagePosition: Schema.Attribute.Enumeration<
+      ['left', 'right', 'top', 'text-only']
+    > &
+      Schema.Attribute.DefaultTo<'right'>;
+    images: Schema.Attribute.Media<'images', true>;
+  };
+}
+
 export interface CourseInteractiveActivity extends Struct.ComponentSchema {
   collectionName: 'components_course_interactive_activities';
   info: {
@@ -36,6 +69,20 @@ export interface CourseInteractiveActivity extends Struct.ComponentSchema {
     activityKey: Schema.Attribute.String;
     kind: Schema.Attribute.String & Schema.Attribute.Required;
     title: Schema.Attribute.String & Schema.Attribute.Required;
+  };
+}
+
+export interface CourseInteractiveBlock extends Struct.ComponentSchema {
+  collectionName: 'components_course_interactive_blocks';
+  info: {
+    description: "Wraps a course.interactive-activity for placement inside a Section's Blocks zone, with an `enabled` toggle so editors can position an interactive activity in the section's content while keeping it turned off (e.g. still being built, or temporarily pulled) without removing it or losing its place in the ordering.";
+    displayName: 'Interactive Block';
+    icon: 'puzzle-piece';
+  };
+  attributes: {
+    activity: Schema.Attribute.Component<'course.interactive-activity', false> &
+      Schema.Attribute.Required;
+    enabled: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
   };
 }
 
@@ -53,6 +100,21 @@ export interface CourseQuestion extends Struct.ComponentSchema {
       Schema.Attribute.Required;
     prompt: Schema.Attribute.Text & Schema.Attribute.Required;
     questionKey: Schema.Attribute.String;
+  };
+}
+
+export interface CourseVideoBlock extends Struct.ComponentSchema {
+  collectionName: 'components_course_video_blocks';
+  info: {
+    description: "Lesson video for a position within a Section's Blocks zone (see api::section.section's `blocks` dynamic zone). Wraps shared.cloudflare-video so a section can carry more than one video, each independently placed alongside other block types (image+text, interactive, custom embed).";
+    displayName: 'Video Block';
+    icon: 'play-circle';
+  };
+  attributes: {
+    caption: Schema.Attribute.String;
+    title: Schema.Attribute.String;
+    video: Schema.Attribute.Component<'shared.cloudflare-video', false> &
+      Schema.Attribute.Required;
   };
 }
 
@@ -90,29 +152,19 @@ export interface SharedCloudflareVideo extends Struct.ComponentSchema {
   };
 }
 
-export interface SharedModelAsset extends Struct.ComponentSchema {
-  collectionName: 'components_shared_model_assets';
-  info: {
-    description: "Rotatable 3D preview for a piece of gear (e.g. photogrammetry-scanned speaker.glb) OR a plain reference image, matching TOPICS[].model in studio-vr's courseData.js. studio-vr picks which one to render off the uploaded file's mime type (see studio-backend's course.mapper.ts deriveAssetType).";
-    displayName: '3D Model Asset';
-    icon: 'cube';
-  };
-  attributes: {
-    file: Schema.Attribute.Media<'files' | 'images'>;
-    kind: Schema.Attribute.String;
-  };
-}
-
 declare module '@strapi/strapi' {
   export namespace Public {
     export interface ComponentSchemas {
       'course.answer-option': CourseAnswerOption;
       'course.assessment': CourseAssessment;
+      'course.custom-embed-block': CourseCustomEmbedBlock;
+      'course.image-text-block': CourseImageTextBlock;
       'course.interactive-activity': CourseInteractiveActivity;
+      'course.interactive-block': CourseInteractiveBlock;
       'course.question': CourseQuestion;
+      'course.video-block': CourseVideoBlock;
       'shared.audio-asset': SharedAudioAsset;
       'shared.cloudflare-video': SharedCloudflareVideo;
-      'shared.model-asset': SharedModelAsset;
     }
   }
 }

@@ -1,0 +1,22 @@
+{
+  "collectionName": "components_course_interactive_blocks",
+  "info": {
+    "displayName": "Interactive Block",
+    "icon": "puzzle-piece",
+    "description": "Wraps a course.interactive-activity for placement inside a Section's Blocks zone, with an `enabled` toggle so editors can position an interactive activity in the section's content while keeping it turned off (e.g. still being built, or temporarily pulled) without removing it or losing its place in the ordering."
+  },
+  "options": {},
+  "attributes": {
+    "enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this interactive activity is live. When off, studio-vr shows a disabled placeholder in this block's position instead of mounting the lab."
+    },
+    "activity": {
+      "type": "component",
+      "repeatable": false,
+      "component": "course.interactive-activity",
+      "required": true
+    }
+  }
+}

@@ -67,7 +67,7 @@ export default {
       routes: [
         {
           method: 'POST',
-          path: '/section-video/:id',
+          path: '/section-video/:id/:blockIndex',
           handler: (ctx: any) => sectionController.uploadVideo(ctx),
           config: {
             policies: ['admin::isAuthenticatedAdmin'],
@@ -75,7 +75,7 @@ export default {
         },
         {
           method: 'GET',
-          path: '/section-video/:id/status',
+          path: '/section-video/:id/:blockIndex/status',
           handler: (ctx: any) => sectionController.refreshVideoStatus(ctx),
           config: {
             policies: ['admin::isAuthenticatedAdmin'],

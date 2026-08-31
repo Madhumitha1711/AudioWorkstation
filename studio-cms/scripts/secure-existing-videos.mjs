@@ -10,9 +10,12 @@
 // studio-backend/src/assets/cloudflare-stream-token.service.ts).
 //
 // Talks to two APIs:
-//   1. studio-cms's own Strapi REST API, to enumerate every section that
-//      has a video.videoUid (same auth model as scripts/seed-course-content.mjs
-//      — a Strapi API token as `Authorization: Bearer <token>`).
+//   1. studio-cms's own Strapi REST API, to enumerate every `course.video-
+//      block` entry (inside each section's `blocks` dynamic zone — see
+//      STRAPI_SCHEMA_NOTES.md's "Section `blocks` dynamic zone") that has
+//      a video.videoUid. Auth is a Strapi API token as
+//      `Authorization: Bearer <token>`, same as everything else in this
+//      project (no users-permissions plugin here).
 //   2. Cloudflare Stream's REST API, to flip `requireSignedURLs` to true
 //      for each of those UIDs.
 //
@@ -44,7 +47,7 @@ const DRY_RUN = process.argv.includes('--dry-run');
 
 if (!API_TOKEN) {
   console.error(
-    'STRAPI_API_TOKEN is not set. Add it to studio-cms/.env (see scripts/seed-course-content.mjs header) before running this script.',
+    'STRAPI_API_TOKEN is not set. Add it to studio-cms/.env (see STRAPI_SCHEMA_NOTES.md\'s "Setup" section) before running this script.',
   );
   process.exit(1);
 }
@@ -87,24 +90,35 @@ async function strapiFetch(path) {
   return body;
 }
 
-/** Every section that has a video with a videoUid, paginating through Strapi's default page size. */
-async function findSectionsWithVideo() {
-  const sections = [];
+/**
+ * Every `course.video-block` with a videoUid, across every section,
+ * paginating through Strapi's default page size. Video moved from a single
+ * top-level `video` field on Section into `course.video-block` entries
+ * inside the `blocks` dynamic zone (see STRAPI_SCHEMA_NOTES.md) — a
+ * section can now carry more than one, so this returns one entry per video
+ * block rather than one per section.
+ */
+async function findVideoBlocksWithVideo() {
+  const videoBlocks = [];
   let page = 1;
   for (;;) {
     const params = new URLSearchParams();
-    params.set('populate', 'video');
+    params.set('populate[blocks][on][course.video-block][populate]', 'video');
     params.set('pagination[page]', String(page));
     params.set('pagination[pageSize]', '100');
     const body = await strapiFetch(`/api/sections?${params.toString()}`);
     for (const section of body.data ?? []) {
-      if (section.video?.videoUid) sections.push(section);
+      for (const block of section.blocks ?? []) {
+        if (block.__component === 'course.video-block' && block.video?.videoUid) {
+          videoBlocks.push({ section, video: block.video });
+        }
+      }
     }
     const pageCount = body.meta?.pagination?.pageCount ?? 1;
     if (page >= pageCount) break;
     page += 1;
   }
-  return sections;
+  return videoBlocks;
 }
 
 async function setRequireSignedUrls(videoUid) {
@@ -127,24 +141,25 @@ async function setRequireSignedUrls(videoUid) {
 }
 
 async function main() {
-  const sections = await findSectionsWithVideo();
-  if (!sections.length) {
-    console.log('No sections with a video.videoUid found — nothing to secure.');
+  const videoBlocks = await findVideoBlocksWithVideo();
+  if (!videoBlocks.length) {
+    console.log('No video blocks with a videoUid found — nothing to secure.');
     return;
   }
 
-  console.log(`Found ${sections.length} section(s) with a video:`);
-  for (const section of sections) {
-    const uid = section.video.videoUid;
+  console.log(`Found ${videoBlocks.length} video block(s) with a video:`);
+  for (const { section, video } of videoBlocks) {
+    const uid = video.videoUid;
+    const label = section.slug ?? section.documentId;
     if (DRY_RUN) {
-      console.log(`[dry-run] would set requireSignedURLs=true for "${section.slug ?? section.documentId}" (${uid})`);
+      console.log(`[dry-run] would set requireSignedURLs=true for "${label}" (${uid})`);
       continue;
     }
     try {
       await setRequireSignedUrls(uid);
-      console.log(`Secured "${section.slug ?? section.documentId}" (${uid})`);
+      console.log(`Secured "${label}" (${uid})`);
     } catch (error) {
-      console.error(`Failed to secure "${section.slug ?? section.documentId}" (${uid}):`, error.message);
+      console.error(`Failed to secure "${label}" (${uid}):`, error.message);
     }
   }
 }

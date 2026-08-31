@@ -522,7 +522,7 @@ export interface ApiMainTopicMainTopic extends Struct.CollectionTypeSchema {
 export interface ApiSectionSection extends Struct.CollectionTypeSchema {
   collectionName: 'lessons';
   info: {
-    description: 'A single narrated section within a Chapter (e.g. one video + text block), matching TOPICS[].lessons[] in studio-vr\'s courseData.js. Renamed from "Lesson"; collectionName kept as lessons so existing content isn\'t orphaned.';
+    description: 'A single narrated section within a Chapter, made up of an ordered, mixed set of content blocks (lesson video, image + text, interactive activity, custom embed \u2014 see `blocks`). Matches TOPICS[].lessons[] in studio-vr\'s courseData.js. Renamed from "Lesson"; collectionName kept as lessons so existing content isn\'t orphaned.';
     displayName: 'Section';
     pluralName: 'sections';
     singularName: 'section';
@@ -531,8 +531,15 @@ export interface ApiSectionSection extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
+    blocks: Schema.Attribute.DynamicZone<
+      [
+        'course.video-block',
+        'course.image-text-block',
+        'course.interactive-block',
+        'course.custom-embed-block',
+      ]
+    >;
     chapter: Schema.Attribute.Relation<'manyToOne', 'api::chapter.chapter'>;
-    content: Schema.Attribute.Blocks & Schema.Attribute.Required;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -543,7 +550,6 @@ export interface ApiSectionSection extends Struct.CollectionTypeSchema {
       'api::section.section'
     > &
       Schema.Attribute.Private;
-    model3d: Schema.Attribute.Component<'shared.model-asset', false>;
     order: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     publishedAt: Schema.Attribute.DateTime;
     slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
@@ -551,7 +557,6 @@ export interface ApiSectionSection extends Struct.CollectionTypeSchema {
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    video: Schema.Attribute.Component<'shared.cloudflare-video', false>;
   };
 }
 

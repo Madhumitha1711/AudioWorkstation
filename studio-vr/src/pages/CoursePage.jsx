@@ -4,8 +4,7 @@ import { buildStepList, firstStepIdForTopic } from "../course/courseData";
 import { useCourseTopics } from "../course/useCourseTopics";
 import AssessmentSection from "../course/AssessmentSection";
 import InteractiveSection from "../course/InteractiveSection";
-import VideoPlayer from "../course/VideoPlayer";
-import GearModelViewer from "../panorama/GearModelViewer";
+import SectionBlocks from "../course/SectionBlocks";
 import { ROOMS } from "../panorama/roomsData";
 import "./CoursePage.css";
 
@@ -373,67 +372,22 @@ function CoursePage() {
 
               {activeStep.kind === "lesson" && (
                 <>
-                  <VideoPlayer
-                    video={activeStep.data.video}
-                    fallbackDuration={activeStep.data.duration}
-                    title={activeStep.data.title}
-                  />
-                  <p className="video-caption">Watch first, then read the full lesson below.</p>
-
-                  <div className={`lesson-body-row${activeStep.data.model ? " has-model" : ""}`}>
-                    {activeStep.data.model && (
-                      <div className="topic-model-box">
-                        {/* The CMS's model3d asset can be either a .glb/.gltf
-                            scan or a plain reference image now (see
-                            studio-backend's course.mapper.ts
-                            deriveAssetType) — studio-backend tells us which
-                            one this is via `model.type`, so this box shows
-                            an <img> in place of the 3D viewer for an image
-                            asset instead of trying to load it as a scan.
-                            `type` is missing/null for older cached
-                            responses without it, so this still defaults to
-                            the 3D viewer in that case.
-
-                            Reads this off the *active lesson* (activeStep.data),
-                            not the chapter/topic — model3d lives on Section in
-                            the CMS so each section carries its own asset. Using
-                            the topic-level `model` here previously made every
-                            section in a chapter show whichever section's image
-                            happened to be first in order. */}
-                        {activeStep.data.model.type === "image" ? (
-                          <img
-                            className="topic-model-image"
-                            src={activeStep.data.model.url}
-                            alt={`${activeStep.data.title} reference`}
-                          />
-                        ) : (
-                          <GearModelViewer
-                            url={activeStep.data.model.url}
-                            kind={activeStep.data.model.kind}
-                            height={320}
-                          />
-                        )}
-                        <div className="vtag">
-                          {activeStep.data.model.type === "image"
-                            ? "Reference photo"
-                            : "Inspect in 3D · drag to rotate"}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="lesson-text-col">
-                      <div className="lesson-kicker">
-                        Lesson {lessonIndex + 1} of {activeTopic.lessons.length}
-                      </div>
-                      <h2 className="lesson-title">{activeStep.data.title}</h2>
-
-                      <div className="lesson-article">
-                        {activeStep.data.paragraphs.map((p, i) => (
-                          <p key={i}>{p}</p>
-                        ))}
-                      </div>
-                    </div>
+                  <div className="lesson-kicker">
+                    Lesson {lessonIndex + 1} of {activeTopic.lessons.length}
                   </div>
+                  <h2 className="lesson-title">{activeStep.data.title}</h2>
+
+                  {/* The section's CMS-configurable, ordered mix of video /
+                      image+text / interactive / custom-embed content — see
+                      SectionBlocks.jsx and studio-cms's STRAPI_SCHEMA_NOTES.md
+                      "Section `blocks` dynamic zone". Replaces what used to be
+                      a fixed VideoPlayer + paragraphs layout here. */}
+                  <SectionBlocks
+                    blocks={activeStep.data.blocks}
+                    fallbackDuration={activeStep.data.duration}
+                    sectionTitle={activeStep.data.title}
+                    onInteractiveComplete={() => markComplete(activeStep.id)}
+                  />
 
                   <div className="lesson-actions">
                     <div className="nav-arrows">
