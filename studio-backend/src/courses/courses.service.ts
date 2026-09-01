@@ -69,6 +69,16 @@ const CHAPTER_POPULATE = {
     interactive: { populate: '*' },
   },
   sort: ['order:asc'],
+  // Strapi's REST API defaults to 25 results per collection query
+  // (studio-cms's config/api.ts sets api.rest.defaultLimit = 25) when no
+  // `pagination` is specified. The full syllabus is 25 numbered chapters
+  // plus the bonus "Low Frequency Emitter" chapter = 26 total, one past
+  // that default — so without this, whichever chapter sorts last
+  // silently never comes back, and *which* chapter that is can shift
+  // any time content is edited/republished (ties in `order` fall back to
+  // Strapi's internal row order). 100 matches api.rest.maxLimit in
+  // studio-cms's config/api.ts, well above the current chapter count.
+  pagination: { pageSize: 100 },
 };
 
 @Injectable()
