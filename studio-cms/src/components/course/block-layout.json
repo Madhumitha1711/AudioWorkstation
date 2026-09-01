@@ -1,0 +1,28 @@
+{
+  "collectionName": "components_course_block_layouts",
+  "info": {
+    "displayName": "Block Layout",
+    "icon": "columns",
+    "description": "Optional side-by-side placement for a block within a Section's Blocks zone (see api::section.section's `blocks` dynamic zone). Every block in that zone stacks top-to-bottom by default; turning on `pairWithNext` on a block pairs it with the very next block in the list into one two-column row instead (e.g. an image-text block on the left, an interactive block on the right). Nested as a `layout` field on each of the four block types (course.video-block, course.image-text-block, course.interactive-block, course.custom-embed-block) rather than living on the zone itself, since a dynamic zone has no field of its own shared across every entry in it — see STRAPI_SCHEMA_NOTES.md's \"Side-by-side block layout\" section."
+  },
+  "options": {},
+  "attributes": {
+    "pairWithNext": {
+      "type": "boolean",
+      "default": false,
+      "description": "Lay this block and the block immediately after it in the Blocks list side by side as a two-column row, instead of stacking them top to bottom. Has no effect on the last block in the list (nothing after it to pair with) or when the next block is itself already the second half of an earlier pair — pairing only ever looks exactly one block ahead, so rows are always two columns."
+    },
+    "columnWidths": {
+      "type": "enumeration",
+      "enum": ["even", "this-wide", "this-narrow"],
+      "default": "even",
+      "description": "Only used when `pairWithNext` is on. How this block's column compares to the next block's column once they're side by side: \"even\" splits the row 50/50, \"this-wide\" gives this block more of the row, \"this-narrow\" gives the next block more."
+    },
+    "verticalAlign": {
+      "type": "enumeration",
+      "enum": ["top", "center", "stretch"],
+      "default": "top",
+      "description": "Only used when `pairWithNext` is on. How the two columns line up when they end up different heights: align both to the top, center them on each other, or stretch both to match the taller one."
+    }
+  }
+}

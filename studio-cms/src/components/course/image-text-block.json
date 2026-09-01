@@ -20,14 +20,27 @@
       "type": "media",
       "multiple": true,
       "required": false,
-      "allowedTypes": ["images"],
+      "allowedTypes": [
+        "images"
+      ],
       "description": "Zero or more images shown alongside the text, uploaded via the S3 provider."
     },
     "imagePosition": {
       "type": "enumeration",
-      "enum": ["left", "right", "top", "text-only"],
+      "enum": [
+        "left",
+        "right",
+        "top",
+        "text-only"
+      ],
       "default": "right",
       "description": "Where the image(s) sit relative to the text. \"text-only\" hides images even if some are attached, letting this block double as a plain text block."
+    },
+    "layout": {
+      "type": "component",
+      "repeatable": false,
+      "component": "course.block-layout",
+      "description": "Optional side-by-side placement for this block relative to the next one in the Section's Blocks list — see course.block-layout's own description and STRAPI_SCHEMA_NOTES.md's \"Side-by-side block layout\" section. Leave unset to keep this block stacked full-width, same as before this field existed."
     }
   }
 }

@@ -331,7 +331,20 @@ function CoursePage() {
                               <span className={`lesson-check${completed.has(step.id) ? " done" : ""}`}>
                                 {completed.has(step.id) ? "✓" : ""}
                               </span>
-                              <span className="lname">{step.data.title}</span>
+                              {/* Every step kind but "interactive" has a
+                                  required title (Section.title, and
+                                  AssessmentSection.title defaults itself
+                                  to "Knowledge Check" — see
+                                  course.mapper.ts's mapAssessment), so
+                                  this fallback only ever actually applies
+                                  to a topic's own standalone Lab step
+                                  (Chapter.interactive) whose title an
+                                  editor left blank in studio-cms — that
+                                  step still needs *a* clickable label in
+                                  this list even when it renders no
+                                  heading of its own in the content pane
+                                  (see InteractiveSection.jsx). */}
+                              <span className="lname">{step.data.title || "Untitled activity"}</span>
                               {STEP_TAG[step.kind] && <span className="ltag">{STEP_TAG[step.kind]}</span>}
                             </button>
                           ))}
@@ -348,10 +361,20 @@ function CoursePage() {
         <main className="course-main">
           {activeTopic && activeStep && (
             <div className="course-content">
-              <div className="topic-eyebrow">
-                {activeTopic.moduleTitle ?? "Control Room"}
-                {activeTopic.number ? ` · Chapter ${activeTopic.number}` : ""} · {activeTopic.title}
-              </div>
+              {/* The topbar just above (.course-crumb) already shows
+                  "{module} / {topic title}" for this exact topic, and
+                  .topic-heading right below repeats the topic title again
+                  as a big page heading — so this line used to just be a
+                  third restatement of the same "module / topic" pair,
+                  right at the top of the scroll area where it read as
+                  extra clutter rather than orientation. It only carries
+                  content the crumb doesn't: the chapter's syllabus number
+                  — so that's all it shows now, and it disappears entirely
+                  for chapters that don't have one instead of rendering an
+                  empty-ish line. */}
+              {activeTopic.number ? (
+                <div className="topic-eyebrow">Chapter {activeTopic.number}</div>
+              ) : null}
               <h1 className="topic-heading">{activeTopic.title}</h1>
               {activeTopic.hotspotId && (
                 <div className="loc-chip anchored">

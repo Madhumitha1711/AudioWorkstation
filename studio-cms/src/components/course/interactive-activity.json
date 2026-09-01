@@ -13,7 +13,7 @@
     },
     "title": {
       "type": "string",
-      "required": true
+      "description": "Optional heading shown above the activity — leave it blank to mount the activity with no heading at all (studio-vr treats a missing title the same way course.video-block/course.image-text-block treat their own optional heading fields: skip rendering it rather than showing an empty one). When set and this activity is a Section's interactive block (course.interactive-block, inside a Section's `blocks` zone), studio-vr already shows that Section's own `title` as a large lesson heading a couple of short paragraphs above this one — so this renders smaller, as a sub-heading for the activity, not a second page title. It only renders full-size when this activity is a Chapter's own standalone `interactive` field (a dedicated \"Lab\" step with no Section heading above it) — that's also the one place a blank title still shows up somewhere else: the course sidebar's nav label for that step falls back to \"Untitled activity\" rather than going blank. Keep this specific to the activity itself (e.g. \"Harmonics: The Stack Above the Fundamental\") rather than restating the Section title (e.g. \"Harmonics\") verbatim."
     },
     "kind": {
       "type": "string",

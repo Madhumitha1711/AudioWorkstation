@@ -14,7 +14,8 @@
     "upgrade": "npx @strapi/upgrade latest",
     "upgrade:dry": "npx @strapi/upgrade latest --dry",
     "secure:videos": "node scripts/secure-existing-videos.mjs",
-    "create:stream-key": "node scripts/create-stream-signing-key.mjs"
+    "create:stream-key": "node scripts/create-stream-signing-key.mjs",
+    "seed:what-is-sound": "node scripts/seed-what-is-sound-chapter.mjs"
   },
   "dependencies": {
     "@strapi/plugin-cloud": "5.50.2",

@@ -71,12 +71,24 @@ export interface StrapiBlockNode {
 // dynamic zone entry's type; array position is display order (no separate
 // `order` field on each block — see the mapper's mapSectionBlock).
 
+// A block's optional `layout` field (course.block-layout) — lets an editor
+// pair this block with the very next one in the zone into a two-column
+// row instead of stacking them. See STRAPI_SCHEMA_NOTES.md's "Side-by-side
+// block layout" and course.mapper.ts's `groupBlocksIntoRows`.
+export interface StrapiBlockLayout {
+  id?: number;
+  pairWithNext?: boolean;
+  columnWidths?: 'even' | 'this-wide' | 'this-narrow';
+  verticalAlign?: 'top' | 'center' | 'stretch';
+}
+
 export interface StrapiVideoBlock {
   __component: 'course.video-block';
   id?: number;
   title?: string | null;
   caption?: string | null;
   video?: StrapiCloudflareVideo | null;
+  layout?: StrapiBlockLayout | null;
 }
 
 export interface StrapiImageTextBlock {
@@ -86,6 +98,7 @@ export interface StrapiImageTextBlock {
   content?: StrapiBlockNode[];
   images?: StrapiMedia[];
   imagePosition?: 'left' | 'right' | 'top' | 'text-only';
+  layout?: StrapiBlockLayout | null;
 }
 
 export interface StrapiInteractiveBlock {
@@ -93,6 +106,7 @@ export interface StrapiInteractiveBlock {
   id?: number;
   enabled?: boolean;
   activity?: StrapiInteractiveActivity | null;
+  layout?: StrapiBlockLayout | null;
 }
 
 export interface StrapiCustomEmbedBlock {
@@ -102,8 +116,15 @@ export interface StrapiCustomEmbedBlock {
   title?: string | null;
   enabled?: boolean;
   config?: unknown;
+  layout?: StrapiBlockLayout | null;
 }
 
+// The four "leaf" block types an editor actually places in a Section's
+// `blocks` zone — i.e. everything `blocks` can hold, before
+// groupBlocksIntoRows folds `pairWithNext`-flagged pairs together. There's
+// no `StrapiRowBlock` counterpart: a row isn't something an editor adds to
+// the zone directly, it's assembled from two of these afterwards (see
+// STRAPI_SCHEMA_NOTES.md's "Side-by-side block layout").
 export type StrapiSectionBlock =
   | StrapiVideoBlock
   | StrapiImageTextBlock
@@ -199,7 +220,15 @@ export interface CourseAssessment {
 
 export interface CourseInteractive {
   id: string;
-  title: string;
+  // Optional in studio-cms (course.interactive-activity's `title`) —
+  // `null` when an editor left it blank. studio-vr skips rendering a
+  // heading over the activity in that case, same as it already does for
+  // CourseVideoBlock.title/CourseImageTextBlock.heading (see
+  // InteractiveSection.jsx) — the one exception is a Chapter's own
+  // standalone `interactive` step, where this also doubles as the course
+  // sidebar's nav label; CoursePage.jsx falls that back to "Untitled
+  // activity" rather than rendering a blank nav row.
+  title: string | null;
   kind: string;
 }
 
@@ -252,11 +281,33 @@ export interface CourseEmbedBlock {
   config: unknown;
 }
 
-export type CourseSectionBlock =
+// The four block shapes an editor actually authors (see
+// StrapiSectionBlock) — what `CourseRowBlock.columns` below always holds
+// exactly two of. There's no matching Strapi component for a row itself
+// (rows are assembled from these, one level deep — see
+// groupBlocksIntoRows), so a row can never contain another row.
+export type CourseLeafSectionBlock =
   | CourseVideoBlock
   | CourseImageTextBlock
   | CourseInteractiveBlock
   | CourseEmbedBlock;
+
+// Synthesized by course.mapper.ts's `groupBlocksIntoRows` from two
+// consecutive leaf blocks where the first had `layout.pairWithNext` set —
+// there's no matching Strapi component; see STRAPI_SCHEMA_NOTES.md's
+// "Side-by-side block layout". `columnWidths`/`verticalAlign` are read off
+// that first block's `layout` (columnWidths translated from its
+// "this-wide"/"this-narrow" — relative to "this" block — to this row's own
+// "first-wide"/"first-narrow" — relative to the row's first column).
+export interface CourseRowBlock {
+  type: 'row';
+  id: string;
+  columnWidths: 'even' | 'first-wide' | 'first-narrow';
+  verticalAlign: 'top' | 'center' | 'stretch';
+  columns: CourseLeafSectionBlock[];
+}
+
+export type CourseSectionBlock = CourseLeafSectionBlock | CourseRowBlock;
 
 export interface CourseLesson {
   id: string;

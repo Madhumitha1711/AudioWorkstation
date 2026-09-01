@@ -392,3 +392,270 @@
     background: rgba(var(--ink-tint-rgb), 0.04);
   }
 }
+
+/* ── "What Is Sound?" concept labs ───────────────────────────────────────
+   Shared chrome for FrequencyLab / AmplitudeLab / WavelengthLab / PhaseLab /
+   HarmonicsLab / TimbreLab (design/what-is-sound-chapter.html's per-lesson
+   panels — canvas-frame, readout-row, slider-row, knob, instrument-grid).
+   Chrome (labels, borders, buttons) follows the app's light/dark CSS
+   variables like the rest of this file; the canvas itself stays a fixed
+   near-black "screen" with fixed trace colors in both themes, matching
+   every other chapter's oscilloscope/meter (see soundLabShared.js). */
+
+.sound-lab-frame {
+  background: #0e0e11;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 16px;
+}
+.sound-lab-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.sound-lab-readout-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.sound-lab-readout {
+  flex: 1;
+  min-width: 110px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.sound-lab-readout .rl {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dimmer);
+  margin-bottom: 4px;
+}
+.sound-lab-readout .rv {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.sound-lab-readout .rv.accent {
+  color: var(--accent);
+}
+.sound-lab-readout .rv.warn {
+  color: var(--warning);
+}
+.sound-lab-readout .rv.danger {
+  color: var(--danger-soft);
+}
+
+.sound-lab-vu {
+  height: 16px;
+  background: #0e0e11;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+.sound-lab-vu-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--warning));
+  transition: width 0.08s;
+}
+
+.sound-lab-slider-row {
+  margin-bottom: 16px;
+}
+.sound-lab-slider-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.5px;
+  color: var(--text-dimmer);
+  margin-bottom: 8px;
+  letter-spacing: 0.03em;
+}
+
+.sound-lab-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-dimmer);
+  display: inline-block;
+}
+.sound-lab-live-dot.on {
+  background: var(--danger-soft);
+  box-shadow: 0 0 8px rgba(var(--brand-accent-rgb), 0.4);
+  animation: sound-lab-pulse 1.1s infinite;
+}
+@keyframes sound-lab-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+.sound-lab-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dimmer);
+  margin-bottom: 14px;
+}
+
+.lab-play-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--brand-accent-rgb), 0.3);
+  background: rgba(var(--brand-accent-rgb), 0.08);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s ease;
+}
+.lab-play-btn:hover {
+  background: rgba(var(--brand-accent-rgb), 0.14);
+}
+.lab-play-btn.playing {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.lab-play-btn.ghost {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-dim);
+}
+.lab-play-btn.ghost:hover {
+  border-color: var(--border-soft);
+  color: var(--text);
+}
+.lab-play-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* --- Harmonics knob --- */
+.sound-lab-knob-wrap {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-bottom: 18px;
+}
+.sound-lab-knob {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  position: relative;
+  cursor: grab;
+  flex: 0 0 auto;
+  background: radial-gradient(circle at 35% 30%, #26262c, #17171b 70%);
+  border: 1px solid var(--border-soft);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  touch-action: none;
+}
+.sound-lab-knob:active {
+  cursor: grabbing;
+}
+.sound-lab-knob-indicator {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--accent);
+  transform-origin: 50% 32px;
+  transform: translateX(-50%) rotate(-135deg);
+}
+.sound-lab-knob-center {
+  position: absolute;
+  inset: 24px;
+  border-radius: 50%;
+  background: #0e0e11;
+  border: 1px solid var(--border-soft);
+}
+.sound-lab-knob-meta .l {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dimmer);
+  margin-bottom: 6px;
+}
+.sound-lab-knob-meta .v {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.sound-lab-knob-meta .sub {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+/* --- Timbre instrument grid --- */
+.sound-lab-instrument-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.sound-lab-inst-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.sound-lab-inst-card:hover {
+  border-color: var(--border);
+}
+.sound-lab-inst-card.active {
+  border-color: var(--accent);
+  background: rgba(var(--brand-accent-rgb), 0.08);
+}
+.sound-lab-inst-card .iname {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.sound-lab-inst-card.active .iname {
+  color: var(--accent);
+}
+.sound-lab-inst-card .idesc {
+  font-size: 11px;
+  color: var(--text-dimmer);
+  line-height: 1.45;
+}
+.sound-lab-wave-icon {
+  width: 100%;
+  height: 24px;
+  margin-bottom: 8px;
+  color: var(--text-dim);
+}
+.sound-lab-inst-card.active .sound-lab-wave-icon {
+  color: var(--accent);
+}
+
+:root[data-theme='light'] .svr-course .lab {
+  .sound-lab-inst-card {
+    background: rgba(var(--ink-tint-rgb), 0.04);
+  }
+}

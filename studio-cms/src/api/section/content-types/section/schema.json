@@ -20,7 +20,8 @@
     },
     "title": {
       "type": "string",
-      "required": true
+      "required": true,
+      "description": "Shown in the course sidebar's lesson list AND, in studio-vr, as the large heading at the top of this Section's content (\"Lesson N of M\" + this title) — above the Section's own `blocks`. If one of those blocks is a course.interactive-block, its own interactive-activity.title renders as a smaller sub-heading below this one (see that field's description), so this title doesn't need to be repeated or expanded on there."
     },
     "duration": {
       "type": "string",

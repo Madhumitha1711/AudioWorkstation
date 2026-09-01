@@ -5,12 +5,15 @@ import {
   CourseImageTextBlock,
   CourseInteractive,
   CourseInteractiveBlock,
+  CourseLeafSectionBlock,
   CourseLesson,
+  CourseRowBlock,
   CourseSectionBlock,
   CourseTopic,
   CourseVideo,
   CourseVideoBlock,
   StrapiAssessment,
+  StrapiBlockLayout,
   StrapiBlockNode,
   StrapiChapter,
   StrapiCustomEmbedBlock,
@@ -114,7 +117,12 @@ function mapInteractive(
   if (!interactive) return undefined;
   return {
     id: interactive.activityKey ?? fallbackId,
-    title: interactive.title ?? '',
+    // `title` is optional in studio-cms now — pass a real `null` through
+    // rather than defaulting to `''`, so studio-vr can treat "no title
+    // set" the same way it already treats a missing video/image-text
+    // block heading and skip rendering it, instead of showing an empty
+    // heading element.
+    title: interactive.title ?? null,
     kind: interactive.kind ?? '',
   };
 }
@@ -188,44 +196,117 @@ function mapCustomEmbedBlock(block: StrapiCustomEmbedBlock, index: number): Cour
   };
 }
 
+/** A leaf block (see course.types.ts's CourseLeafSectionBlock) together
+ * with its own `layout` field, resolved to concrete defaults — carried as
+ * a side channel through mapLeafBlock rather than left on the mapped
+ * block itself, since `pairWithNext`/`columnWidths`/`verticalAlign` are
+ * only ever consumed by groupBlocksIntoRows immediately after, and
+ * shouldn't leak onto the block objects the frontend actually renders. */
+interface MappedBlock {
+  block: CourseLeafSectionBlock;
+  pairWithNext: boolean;
+  columnWidths: 'even' | 'this-wide' | 'this-narrow';
+  verticalAlign: 'top' | 'center' | 'stretch';
+}
+
+function resolveLayout(layout: StrapiBlockLayout | null | undefined) {
+  return {
+    pairWithNext: layout?.pairWithNext ?? false,
+    columnWidths: layout?.columnWidths ?? 'even',
+    verticalAlign: layout?.verticalAlign ?? 'top',
+  } as const;
+}
+
 /**
  * Dispatches a single `blocks[]` entry to its type-specific mapper by
- * `__component` — Strapi 5's discriminant field for a dynamic zone entry.
- * Array position (`index`) becomes part of each block's fallback id and is
- * otherwise left untouched: the frontend renders `blocks` in the order
- * this function is mapped over, which is exactly the order a content
+ * `__component` — Strapi 5's discriminant field for a dynamic zone entry —
+ * and resolves its optional `layout` field alongside it. Array position
+ * (`index`) becomes part of each block's fallback id and is otherwise
+ * left untouched: `mapLesson` below folds the returned list into
+ * `blocks[]` in this same order, which is exactly the order a content
  * editor arranged them in in the Strapi admin (see STRAPI_SCHEMA_NOTES.md).
  */
-async function mapSectionBlock(
+async function mapLeafBlock(
   block: StrapiSectionBlock,
   index: number,
   assets: AssetUrlService,
   streamTokens: CloudflareStreamTokenService,
-): Promise<CourseSectionBlock> {
+): Promise<MappedBlock> {
+  const layout = resolveLayout(block.layout);
   switch (block.__component) {
     case 'course.video-block':
-      return mapVideoBlock(block, index, assets, streamTokens);
+      return { block: await mapVideoBlock(block, index, assets, streamTokens), ...layout };
     case 'course.image-text-block':
-      return mapImageTextBlock(block, index, assets);
+      return { block: await mapImageTextBlock(block, index, assets), ...layout };
     case 'course.interactive-block':
-      return mapInteractiveBlock(block, index);
+      return { block: mapInteractiveBlock(block, index), ...layout };
     case 'course.custom-embed-block':
-      return mapCustomEmbedBlock(block, index);
+      return { block: mapCustomEmbedBlock(block, index), ...layout };
     default:
       // Exhaustiveness guard: a new component was added to the `blocks`
       // dynamic zone in Strapi without a matching case here. Surface it as
       // a disabled embed placeholder (visible in the CMS/admin as "not
       // built yet") instead of throwing and taking the whole /courses
-      // response down with it.
+      // response down with it. It can't carry a real `layout` (the
+      // fallback shape doesn't have one), so it never pairs with a
+      // neighbor even if one was configured before this component existed.
       return {
-        type: 'embed',
-        id: `unknown-${index}`,
-        componentKey: (block as { __component?: string }).__component ?? 'unknown',
-        title: null,
-        enabled: false,
-        config: null,
+        block: {
+          type: 'embed',
+          id: `unknown-${index}`,
+          componentKey: (block as { __component?: string }).__component ?? 'unknown',
+          title: null,
+          enabled: false,
+          config: null,
+        },
+        pairWithNext: false,
+        columnWidths: 'even',
+        verticalAlign: 'top',
       };
   }
+}
+
+const COLUMN_WIDTHS_TO_ROW: Record<MappedBlock['columnWidths'], CourseRowBlock['columnWidths']> = {
+  even: 'even',
+  'this-wide': 'first-wide',
+  'this-narrow': 'first-narrow',
+};
+
+/**
+ * Folds a flat, already-mapped, already-ordered block list into
+ * `blocks[]` as the frontend renders it: a block whose `pairWithNext` is
+ * set is combined with the block right after it into one two-column
+ * `CourseRowBlock`, everything else stays a standalone full-width block.
+ * See STRAPI_SCHEMA_NOTES.md's "Side-by-side block layout" for why this
+ * lives here (a synthesized grouping step) rather than as a
+ * `course.row-block` component in the CMS itself.
+ *
+ * Pairing only ever looks exactly one block ahead: `pairWithNext` on the
+ * last block (nothing after it) or on a block that's itself just been
+ * consumed as the second half of an earlier pair is a no-op — a row is
+ * always exactly two columns, and a block that can't pair just renders
+ * full-width like normal instead of erroring.
+ */
+function groupBlocksIntoRows(mapped: MappedBlock[]): CourseSectionBlock[] {
+  const out: CourseSectionBlock[] = [];
+  for (let i = 0; i < mapped.length; i++) {
+    const current = mapped[i];
+    const next = mapped[i + 1];
+    if (current.pairWithNext && next) {
+      const row: CourseRowBlock = {
+        type: 'row',
+        id: `row-${current.block.id}`,
+        columnWidths: COLUMN_WIDTHS_TO_ROW[current.columnWidths],
+        verticalAlign: current.verticalAlign,
+        columns: [current.block, next.block],
+      };
+      out.push(row);
+      i++; // next has been consumed as this row's second column
+    } else {
+      out.push(current.block);
+    }
+  }
+  return out;
 }
 
 // Output type/field name (`CourseLesson`) kept as-is even though the
@@ -236,14 +317,15 @@ async function mapLesson(
   assets: AssetUrlService,
   streamTokens: CloudflareStreamTokenService,
 ): Promise<CourseLesson> {
-  const blocks = section.blocks ?? [];
+  const rawBlocks = section.blocks ?? [];
+  const mapped = await Promise.all(
+    rawBlocks.map((block, index) => mapLeafBlock(block, index, assets, streamTokens)),
+  );
   return {
     id: section.slug ?? String(section.id ?? ''),
     title: section.title ?? '',
     duration: section.duration ?? null,
-    blocks: await Promise.all(
-      blocks.map((block, index) => mapSectionBlock(block, index, assets, streamTokens)),
-    ),
+    blocks: groupBlocksIntoRows(mapped),
   };
 }
 

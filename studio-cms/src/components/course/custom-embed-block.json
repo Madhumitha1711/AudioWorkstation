@@ -24,6 +24,12 @@
     "config": {
       "type": "json",
       "description": "Arbitrary configuration handed to the embedded component as props once one is registered for componentKey. Shape is whatever that component expects — intentionally not validated by this schema."
+    },
+    "layout": {
+      "type": "component",
+      "repeatable": false,
+      "component": "course.block-layout",
+      "description": "Optional side-by-side placement for this block relative to the next one in the Section's Blocks list — see course.block-layout's own description and STRAPI_SCHEMA_NOTES.md's \"Side-by-side block layout\" section. Leave unset to keep this block stacked full-width, same as before this field existed."
     }
   }
 }

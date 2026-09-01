@@ -2,7 +2,7 @@
    video / image+text / interactive / custom-embed blocks that make up a
    section's body. Reuses CoursePage.css's shared tokens (--panel,
    --border-soft, --text, --text-dim, --accent, ...) and its existing
-   .lesson-article / .video-caption / .interactive-kicker classes so a
+   .lesson-article / .video-caption classes so a
    block's content still matches the rest of the lesson typographically —
    only the block-level layout (heading, spacing between blocks, disabled/
    placeholder states) lives here. */
@@ -11,15 +11,86 @@
   display: flex;
   flex-direction: column;
   gap: 34px;
-  margin: 26px 0 6px;
+  /* Every other spacing rule on the lesson page (CoursePage.css) works by
+     giving each element its own bottom margin only, so consecutive
+     elements never stack two margins into one oversized gap. This used to
+     break that convention with its own top+bottom margin on top of
+     .lesson-title's existing 18px bottom margin and .lesson-actions' own
+     30px top margin, producing an extra-wide 44px gap above the first
+     block and an odd 36px gap (6+30) below the last one — most visible
+     right around the interactive block, since it's usually the block sat
+     closest to those neighbors. Removing this margin restores the
+     page's normal single-margin rhythm above and below. */
+  margin: 0;
 }
 
 .section-block {
   min-width: 0;
 }
 
+/* --- Side-by-side block row ------------------------------------------ */
+/* A "row" entry in `blocks` (see SectionBlocks.jsx and studio-backend's
+   course.mapper.ts `groupBlocksIntoRows`) — two blocks an editor paired up
+   in studio-cms via the first one's `layout.pairWithNext`, laid out as
+   two columns instead of stacked. This is a peer of .section-block in
+   .section-blocks' own vertical list (same 34px gap above/below it as any
+   other block), and its own .section-block children sit in a nested row
+   flex context instead. */
+.section-block-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 26px;
+}
+.section-block-row > .section-block {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.section-block-row.align-center {
+  align-items: center;
+}
+.section-block-row.align-stretch {
+  align-items: stretch;
+}
+/* "this-wide"/"this-narrow" in the CMS (relative to the block that has
+   `pairWithNext` on) become "first-wide"/"first-narrow" here (relative to
+   the row's first column) — see course.types.ts's CourseRowBlock. */
+.section-block-row.widths-first-wide > .section-block:first-child {
+  flex: 1.6 1 0;
+}
+.section-block-row.widths-first-wide > .section-block:last-child {
+  flex: 1 1 0;
+}
+.section-block-row.widths-first-narrow > .section-block:first-child {
+  flex: 1 1 0;
+}
+.section-block-row.widths-first-narrow > .section-block:last-child {
+  flex: 1.6 1 0;
+}
+
 .block-heading {
   color: var(--text);
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0 0 12px;
+  letter-spacing: -0.005em;
+}
+
+/* An interactive block embedded in a section (InteractiveSection rendered
+   with variant="embedded" — see SectionBlocks.jsx) sits a couple of short
+   paragraphs below that section's own .lesson-title heading. Its
+   .interactive-title used to share CoursePage.css's full 23px/800
+   .lesson-title styling, so two near-identical-weight headings ended up
+   stacked back to back on the page (e.g. "Harmonics" immediately followed
+   by "Harmonics: The Stack Above the Fundamental"), reading as duplicate
+   titles. Bringing it down to the same weight as .block-heading — the
+   style every other block type in this list already uses for its own
+   optional heading — makes every block in a section read at one
+   consistent level, with only the lesson itself getting the large
+   heading treatment. Standalone interactive steps (a topic's own
+   dedicated Lab, with no lesson-title above them) are unaffected — they
+   keep the full-size heading from CoursePage.css's shared
+   ".lesson-title, .interactive-title" rule. */
+.interactive-section.embedded .interactive-title {
   font-size: 17px;
   font-weight: 700;
   margin: 0 0 12px;
@@ -132,6 +203,20 @@
     flex-direction: column !important;
   }
   .image-text-media {
+    flex: 1 1 auto;
+  }
+
+  /* A row's two columns don't have room to sit side by side once the
+     content column itself is this narrow (this is the same breakpoint
+     .image-text-row already stacks at, just above) — fall back to
+     stacking them, same as blocks not paired at all. */
+  .section-block-row {
+    flex-direction: column !important;
+  }
+  .section-block-row.widths-first-wide > .section-block:first-child,
+  .section-block-row.widths-first-wide > .section-block:last-child,
+  .section-block-row.widths-first-narrow > .section-block:first-child,
+  .section-block-row.widths-first-narrow > .section-block:last-child {
     flex: 1 1 auto;
   }
 }

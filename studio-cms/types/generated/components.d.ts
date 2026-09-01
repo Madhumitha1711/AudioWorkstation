@@ -25,6 +25,24 @@ export interface CourseAssessment extends Struct.ComponentSchema {
   };
 }
 
+export interface CourseBlockLayout extends Struct.ComponentSchema {
+  collectionName: 'components_course_block_layouts';
+  info: {
+    description: "Optional side-by-side placement for a block within a Section's Blocks zone (see api::section.section's `blocks` dynamic zone). Every block in that zone stacks top-to-bottom by default; turning on `pairWithNext` on a block pairs it with the very next block in the list into one two-column row instead (e.g. an image-text block on the left, an interactive block on the right). Nested as a `layout` field on each of the four block types (course.video-block, course.image-text-block, course.interactive-block, course.custom-embed-block) rather than living on the zone itself, since a dynamic zone has no field of its own shared across every entry in it \u2014 see STRAPI_SCHEMA_NOTES.md's \"Side-by-side block layout\" section.";
+    displayName: 'Block Layout';
+    icon: 'columns';
+  };
+  attributes: {
+    columnWidths: Schema.Attribute.Enumeration<
+      ['even', 'this-wide', 'this-narrow']
+    > &
+      Schema.Attribute.DefaultTo<'even'>;
+    pairWithNext: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    verticalAlign: Schema.Attribute.Enumeration<['top', 'center', 'stretch']> &
+      Schema.Attribute.DefaultTo<'top'>;
+  };
+}
+
 export interface CourseCustomEmbedBlock extends Struct.ComponentSchema {
   collectionName: 'components_course_custom_embed_blocks';
   info: {
@@ -36,6 +54,7 @@ export interface CourseCustomEmbedBlock extends Struct.ComponentSchema {
     componentKey: Schema.Attribute.String & Schema.Attribute.Required;
     config: Schema.Attribute.JSON;
     enabled: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    layout: Schema.Attribute.Component<'course.block-layout', false>;
     title: Schema.Attribute.String;
   };
 }
@@ -55,6 +74,7 @@ export interface CourseImageTextBlock extends Struct.ComponentSchema {
     > &
       Schema.Attribute.DefaultTo<'right'>;
     images: Schema.Attribute.Media<'images', true>;
+    layout: Schema.Attribute.Component<'course.block-layout', false>;
   };
 }
 
@@ -68,7 +88,7 @@ export interface CourseInteractiveActivity extends Struct.ComponentSchema {
   attributes: {
     activityKey: Schema.Attribute.String;
     kind: Schema.Attribute.String & Schema.Attribute.Required;
-    title: Schema.Attribute.String & Schema.Attribute.Required;
+    title: Schema.Attribute.String;
   };
 }
 
@@ -83,6 +103,7 @@ export interface CourseInteractiveBlock extends Struct.ComponentSchema {
     activity: Schema.Attribute.Component<'course.interactive-activity', false> &
       Schema.Attribute.Required;
     enabled: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    layout: Schema.Attribute.Component<'course.block-layout', false>;
   };
 }
 
@@ -112,6 +133,7 @@ export interface CourseVideoBlock extends Struct.ComponentSchema {
   };
   attributes: {
     caption: Schema.Attribute.String;
+    layout: Schema.Attribute.Component<'course.block-layout', false>;
     title: Schema.Attribute.String;
     video: Schema.Attribute.Component<'shared.cloudflare-video', false> &
       Schema.Attribute.Required;
@@ -157,6 +179,7 @@ declare module '@strapi/strapi' {
     export interface ComponentSchemas {
       'course.answer-option': CourseAnswerOption;
       'course.assessment': CourseAssessment;
+      'course.block-layout': CourseBlockLayout;
       'course.custom-embed-block': CourseCustomEmbedBlock;
       'course.image-text-block': CourseImageTextBlock;
       'course.interactive-activity': CourseInteractiveActivity;

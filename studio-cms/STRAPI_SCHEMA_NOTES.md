@@ -59,11 +59,18 @@ the 7 curriculum modules) has many **Chapters**; each **Chapter** has many
   (`shared.audio-asset`) field, empty for ordinary text-only questions.
 - `course/interactive-activity` — `kind` is free text (`speaker-lab`,
   `equalizer-lab`, …) so new labs don't require a schema change.
+- `course/block-layout` — `pairWithNext` + `columnWidths` + `verticalAlign`,
+  nested as an optional `layout` field on each of the four block
+  components below. Lets an editor lay a block side by side with the one
+  right after it instead of stacking them — see "Side-by-side block
+  layout" below.
 
 ### Section `blocks` dynamic zone
 
 Four components, any of which can appear any number of times, in any
-order, inside a Section's `blocks` field:
+order, inside a Section's `blocks` field. Each one also carries an
+optional `layout` field (`course.block-layout`) — see "Side-by-side block
+layout" below.
 
 - `course/video-block` — optional `title`/`caption` + a required nested
   `shared.cloudflare-video`. A section can now carry more than one video,
@@ -89,10 +96,68 @@ order, inside a Section's `blocks` field:
   component once one is built — until then studio-vr renders a visible
   "not built yet" placeholder rather than silently dropping the block.
 
+**Heading hierarchy inside a Section:** studio-vr renders a Section's own
+`title` as a large lesson heading above its `blocks` (see
+`studio-vr/src/pages/CoursePage.jsx`'s `.lesson-title`). A
+`course.interactive-block`'s nested `activity.title` used to reuse that
+same large-heading style, so a Section like "Harmonics" whose one block is
+an interactive activity titled "Harmonics: The Stack Above the
+Fundamental" rendered as two near-identical, equally-weighted headings
+back to back. `activity.title` now renders at `.block-heading` size — the
+same weight `video-block`/`image-text-block` already use for their own
+optional headings — whenever the activity is embedded in a Section's
+`blocks` (it still renders full-size when it's a Chapter's own standalone
+`interactive` field, i.e. a dedicated "Lab" step with no Section heading
+above it). See the field descriptions on `Section.title` and
+`interactive-activity.title` in the admin, and
+`studio-vr/src/course/InteractiveSection.jsx` / `SectionBlocks.css` for
+the frontend side of this.
+
+`interactive-activity.title` is optional, not required — leave it blank in
+the admin and studio-vr skips the heading entirely (same treatment as a
+blank `video-block.title`/`image-text-block.heading`) rather than showing
+an empty one. The one place this needs a fallback rather than just
+disappearing is the course sidebar: a Chapter's own standalone
+`interactive` field (a dedicated "Lab" step, not embedded in a Section) is
+also that step's nav-list entry, and a nav row can't just render nothing —
+`CoursePage.jsx` falls a blank title back to "Untitled activity" there.
+studio-backend passes a real `null` through for a blank title (see
+`course.mapper.ts`'s `mapInteractive`) rather than `''`, precisely so
+studio-vr can tell "left blank" apart from some future non-empty-but-
+falsy edge case and make that call.
+
 Placement is inherent to the zone: there's no separate `order` field on
 each block, because a dynamic zone's array position *is* its display
 position — reordering in the admin (drag-and-drop) is reordering in the
 rendered page.
+
+### Side-by-side block layout
+
+By default every block in a Section's `blocks` list stacks full-width, top
+to bottom — that's still what happens when a block's `layout` field is
+left empty. To put two blocks side by side instead (e.g. an image-text
+block on the left and its matching interactive activity on the right),
+turn on `layout.pairWithNext` on the *first* of the two blocks in the
+list. `layout.columnWidths` (`even` / `this-wide` / `this-narrow`) and
+`layout.verticalAlign` (`top` / `center` / `stretch`) — both also read off
+that first block — control the row's column split and how the two columns
+line up if they end up different heights.
+
+There's deliberately no separate "Row" component to add to the zone
+(Strapi's admin doesn't support a dynamic zone nested inside a component,
+so a `course.row-block` wrapping its own `columns` zone wasn't an option —
+see the Strapi forum thread on nesting dynamic zones). Instead,
+studio-backend's `course.mapper.ts` (`groupBlocksIntoRows`) walks the
+already-ordered `blocks` array after mapping each one individually and
+folds a `pairWithNext`-flagged block together with the block right after
+it into one `{ type: 'row', columns: [...] }` entry, so studio-vr's
+`SectionBlocks.jsx` only ever has to render one more flat block type
+("row", alongside "video"/"image-text"/"interactive"/"embed") rather than
+know anything about pairing. Pairing only ever looks exactly one block
+ahead: `pairWithNext` on the last block in the list, or on a block that's
+itself already the second half of an earlier pair, is a no-op — a row is
+always exactly two columns, and content simply falls back to stacking
+full-width instead of erroring.
 
 ## Media storage
 
@@ -130,6 +195,25 @@ rendered page.
     asynchronously, so a video usually stays `pending`/`processing` for a
     bit after upload — poll this (or call it from a cron job later) until
     it flips to `ready`.
+
+  **Gotcha — `on` populate is an allowlist, not a filter on nesting:**
+  `findVideoBlock()` in `controllers/section.ts` looks up
+  `blocks[blockIndex]` after populating with `on: { 'course.video-block':
+  {...} }`. If that `on` map only lists `course.video-block`, Strapi's
+  dynamic-zone populate resolver drops every OTHER block type from the
+  returned `blocks` array entirely (not just leaves it unpopulated) — so the
+  array comes back shorter/compacted, and `blockIndex` (computed from the
+  section's true, full blocks array by the admin widget) ends up pointing
+  at the wrong entry, or past the end, for any section with a non-video
+  block before the target video block. This caused real "No Video Block
+  found at blocks[N]... Add a Video Block ... and save it first" errors even
+  when the block clearly existed and was saved. The fix: `on` must list
+  every component type the dynamic zone can hold (`true` is enough for the
+  ones this controller doesn't otherwise care about) so Strapi keeps them
+  in the array and the indices stay aligned — see `OTHER_BLOCK_COMPONENTS`
+  in that file. `CHAPTER_POPULATE` below already does this correctly (all
+  four types are listed under `on`), which is why this only broke the
+  upload/status routes, not the normal course-rendering fetch.
 
   Both are plain content-API routes, so they use the same auth as everything
   else here — an API token as `Authorization: Bearer <token>` (see "Setup"
@@ -209,9 +293,9 @@ populate object (see `studio-backend/src/courses/courses.service.ts`'s
     populate: {
       blocks: {
         on: {
-          'course.video-block': { populate: { video: { populate: '*' } } },
-          'course.image-text-block': { populate: { images: { populate: '*' } } },
-          'course.interactive-block': { populate: { activity: { populate: '*' } } },
+          'course.video-block': { populate: { video: { populate: '*' }, layout: true } },
+          'course.image-text-block': { populate: { images: { populate: '*' }, layout: true } },
+          'course.interactive-block': { populate: { activity: { populate: '*' }, layout: true } },
           'course.custom-embed-block': { populate: '*' },
         },
       },
@@ -230,6 +314,17 @@ populate object (see `studio-backend/src/courses/courses.service.ts`'s
   interactive: { populate: '*' },
 }
 ```
+
+**Adding a field to one of these four block components later?** It has to be added
+to this populate object too, not just the component's schema — this `on`
+form only returns the nested fields named in it (unlike a bare
+`populate: '*'`, which `course.custom-embed-block` gets away with here
+because none of its own fields are themselves components/relations needing
+a second populate level). `layout` above learned this the hard way: it
+was added to all four block schemas but not to this query, so
+`pairWithNext`/`columnWidths`/`verticalAlign` silently came back
+`undefined` from Strapi — landing a paired block back as a normal
+full-width one with no error anywhere — until this query caught up.
 
 Note the explicit `[audioClips][populate]` — a bare `populate: '*'` on
 `questions` populates the `audioClips` components themselves but not the

@@ -32,9 +32,25 @@ const CHAPTER_POPULATE = {
         // image-text-block's `images` media).
         blocks: {
           on: {
-            'course.video-block': { populate: { video: { populate: '*' } } },
-            'course.image-text-block': { populate: { images: { populate: '*' } } },
-            'course.interactive-block': { populate: { activity: { populate: '*' } } },
+            // `layout` (course.block-layout — pairWithNext/columnWidths/
+            // verticalAlign, see STRAPI_SCHEMA_NOTES.md's "Side-by-side
+            // block layout") has to be listed explicitly here too, same as
+            // `video`/`images`/`activity` below: this object form of `on`
+            // populate only returns exactly the nested fields named in it,
+            // so any component field left out — `layout` included — comes
+            // back missing from Strapi's response no matter what's set (and
+            // published) on it in the admin. `course.custom-embed-block`
+            // doesn't need its own entry since its `populate: '*'` already
+            // covers every one of its first-level fields, `layout` included.
+            'course.video-block': {
+              populate: { video: { populate: '*' }, layout: true },
+            },
+            'course.image-text-block': {
+              populate: { images: { populate: '*' }, layout: true },
+            },
+            'course.interactive-block': {
+              populate: { activity: { populate: '*' }, layout: true },
+            },
             'course.custom-embed-block': { populate: '*' },
           },
         },

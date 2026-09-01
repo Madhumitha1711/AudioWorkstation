@@ -8,6 +8,17 @@ import {
 
 const VIDEO_MIME_PREFIX = 'video/';
 const VIDEO_BLOCK_COMPONENT = 'course.video-block';
+// Every OTHER component type that can appear in Section.blocks (course/section/schema.json's
+// `blocks` dynamic zone). Strapi's dynamic-zone populate resolver (@strapi/database's morphToMany
+// populate helper) treats the `on` map as an allowlist: any block whose `__component` is NOT a key
+// of `on` is silently dropped from the returned array entirely (not just left unpopulated) — see
+// findVideoBlock below. Add a new block type to the dynamic zone? Add its UID here too, or index
+// lookups here will drift out of sync with the true blocks[] position again.
+const OTHER_BLOCK_COMPONENTS = [
+  'course.image-text-block',
+  'course.interactive-block',
+  'course.custom-embed-block',
+];
 
 type UploadedFile = {
   filepath: string;
@@ -48,13 +59,25 @@ function pickUploadedFile(ctx: any): UploadedFile | undefined {
  * server-to-server content-API route and the admin-panel route address a
  * block the same way.
  *
- * This only shallow-populates `blocks` down to each video-block's `video`
- * component (not every block type's full nested content) on purpose: the
- * update below writes directly to the `shared.cloudflare-video` component
- * row via its own id (see uploadVideo/refreshVideoStatus), never by
- * resending the whole `blocks` array — so there's no need (and no risk of
- * accidentally clobbering sibling blocks' media/relations) in populating
- * anything else here.
+ * IMPORTANT: `on` must list every component type the `blocks` dynamic zone
+ * can hold (VIDEO_BLOCK_COMPONENT + OTHER_BLOCK_COMPONENTS), even though we
+ * only care about video-blocks. Strapi's dynamic-zone populate resolver
+ * uses the `on` map as an allowlist and silently drops any block whose
+ * `__component` isn't a key of it from the returned `blocks` array — so a
+ * populate that only listed VIDEO_BLOCK_COMPONENT would return a *filtered,
+ * compacted* array (only the video-blocks, in order), and `blockIndex`
+ * (the block's position in the section's true, full blocks array — see
+ * the admin widget) would then point at the wrong entry, or none, for any
+ * section where a non-video block appears before the target video block.
+ * This was a real bug (surfaced as "No Video Block found at blocks[N]"
+ * errors), so the non-video types above are given `true` — just enough to
+ * keep them in the result — while only the video-block gets its `video`
+ * component actually populated. The update below writes directly to the
+ * `shared.cloudflare-video` component row via its own id (see
+ * uploadVideo/refreshVideoStatus), never by resending the whole `blocks`
+ * array, so there's no need (and no risk of accidentally clobbering
+ * sibling blocks' media/relations) in populating those other types' own
+ * fields.
  */
 async function findVideoBlock(
   strapi: any,
@@ -67,6 +90,10 @@ async function findVideoBlock(
       blocks: {
         on: {
           [VIDEO_BLOCK_COMPONENT]: { populate: { video: true } },
+          // `true` is enough here — these are only present so Strapi keeps them in the returned
+          // `blocks` array (see the OTHER_BLOCK_COMPONENTS comment above); their own fields/nested
+          // relations are never read by this controller.
+          ...Object.fromEntries(OTHER_BLOCK_COMPONENTS.map((uid) => [uid, true])),
         },
       },
     },
