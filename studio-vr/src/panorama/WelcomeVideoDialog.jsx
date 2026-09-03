@@ -108,9 +108,7 @@ function WelcomeVideoDialog({
                 🎬
               </div>
               <p>
-                The walkthrough video isn't uploaded yet — drop it in at{" "}
-                <code>public/videos/welcome-tour.mp4</code> and it'll play
-                here automatically.
+                The walkthrough video isn't uploaded yet.
               </p>
             </div>
           ) : (

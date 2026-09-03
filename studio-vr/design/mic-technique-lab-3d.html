@@ -1,0 +1,1613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Microphone Techniques &amp; Stereo Recording — Studio VR Chapter 7 (3D Alternative)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!--
+  DESIGN MOCKUP — ALTERNATIVE 3D VERSION of design/mic-technique-lab.html.
+  Same courseData.js mapping (TOPICS[id="stereo-overheads"], Chapter 7,
+  module "capture-signal-path"). This file does not replace the 2D
+  top-down SVG version — it is a second, alternative treatment of the
+  same seven subtopics, requested specifically to render mic placement
+  in actual 3D space, and to fold Chapter 6's mic-type and polar-pattern
+  concepts into every technique instead of treating placement in
+  isolation.
+
+  WHAT CHANGED vs. the 2D version:
+   - Every technique's diagram is a real three.js scene (mic + source in
+     a 3D room) instead of a flat top-down SVG. Drag to orbit, scroll to
+     zoom. One shared <canvas> is re-parented between steps rather than
+     spinning up seven separate WebGL contexts.
+   - Predefined-spot semantics are kept (same rationale as the 2D file:
+     the brief calls for choosing among preset positions, not open drag
+     placement) — spots are just 3D coordinates now instead of SVG x/y.
+   - TWO NEW GLOBAL PICKERS sit under the source picker: Mic Type (the
+     same five types as design/mic-types-chapter.html — Dynamic,
+     Condenser FET, Condenser Tube, Ribbon, Contact) and Polar Pattern
+     (Omni / Cardioid / Figure-8, filtered to whichever patterns the
+     selected mic type actually supports, exactly like real gear).
+     Switching either updates every technique's on-screen pickup
+     strength, using the SAME gain math as Chapter 6's polar-pattern
+     step: cardioid=(1+cosθ)/2, fig8=|cosθ|, omni=1, θ = the spot's
+     recorded on/off-axis incidence angle.
+   - Close / Spot / Distant / Multi share one generic 3D panel builder
+     (mirrors buildTechniquePanel() in the 2D file). The selected spot
+     gets an actual 3D polar-pattern "lobe" mesh (a THREE.LatheGeometry
+     surface of revolution built from the real gain formula — the exact
+     3D analogue of Chapter 6's 2D lobePath()), oriented to the mic's
+     aim direction.
+   - Stereo / Proximity keep their bespoke controls from the 2D file
+     (preset segmented control; draggable fader) but now drive a 3D pair
+     of mics / a 3D sliding mic, rendered with the globally-selected mic
+     type.
+   - Overview gets a 3D direct-vs-reflected scene in place of the flat
+     SVG diagram, same slider mechanic.
+
+  AUDIO — placeholder path template, extended with mic type + pattern:
+  audio/ch07-3d-<technique>-<spotId>-<source>-<mictype>-<pattern>.mp3
+  (stereo: audio/ch07-3d-stereo-<preset>-<source>-<mictype>-<pattern>.mp3;
+  proximity keeps its own local cardioid/omni toggle, since A/B'ing those
+  two IS the lesson: audio/ch07-3d-proximity-<pattern>-<zone>-<source>.mp3).
+  Nothing here processes audio live, same ClipPlayer pattern as the rest
+  of the course.
+
+  THIRD-PARTY: three.js r128 (UMD build) from cdnjs — no OrbitControls
+  add-on is loaded (cdnjs only mirrors the three.js core build, not the
+  examples/ folder), so camera orbit/zoom is a small hand-rolled
+  pointer-drag + wheel controller instead. If three.js fails to load
+  (offline, CDN blocked), every stage3d panel falls back to a plain
+  message and the text/readout/audio parts of the lesson keep working.
+-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0b0d;
+    --panel:#16161a;
+    --panel-alt:#1c1c21;
+    --panel-raised:#1f1f25;
+    --border:#2a2a30;
+    --border-soft:#232328;
+    --text:#ede9e3;
+    --text-muted:#8b8890;
+    --text-faint:#54525a;
+    --amber:#e8934a;
+    --amber-dim:#6b4a2c;
+    --amber-glow:rgba(232,147,74,0.35);
+    --green:#5fd9a0;
+    --green-dim:#2c5f49;
+    --green-glow:rgba(95,217,160,0.35);
+    --blue:#5fa3d9;
+    --blue-dim:#2c4a5f;
+    --blue-glow:rgba(95,163,217,0.35);
+    --red:#e8615f;
+    --red-dim:#6b2c2c;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;}
+  ::selection{background:var(--amber-dim);}
+  @media (prefers-reduced-motion: reduce){ *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;} }
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .display{font-family:'Space Grotesk',sans-serif;}
+  a{color:inherit;}
+
+  /* ---------- header ---------- */
+  header{
+    position:sticky; top:0; z-index:20;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 28px; border-bottom:1px solid var(--border-soft);
+    background:linear-gradient(180deg,#0d0d0f,#0b0b0d);
+    backdrop-filter:blur(6px);
+  }
+  .crumb{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .crumb .sep{color:var(--text-faint);}
+  .crumb .cur{color:var(--green);}
+  .htitle{font-family:'Space Grotesk',sans-serif; font-size:19px; font-weight:600; margin-top:3px; letter-spacing:-.01em; display:flex; align-items:center; gap:9px;}
+  .htitle .tag3d{font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.08em; color:var(--blue); border:1px solid var(--blue-dim); background:rgba(95,163,217,0.1); padding:3px 8px; border-radius:6px;}
+  .head-right{display:flex; align-items:center; gap:14px; flex-shrink:0;}
+  .chip-num{
+    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--amber);
+    border:1px solid var(--amber-dim); background:rgba(232,147,74,0.08);
+    padding:4px 10px; border-radius:20px; letter-spacing:.06em; white-space:nowrap;
+  }
+  .close-btn{
+    width:32px; height:32px; border-radius:8px; border:1px solid var(--border);
+    background:var(--panel); color:var(--text-muted); display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:16px; line-height:1;
+  }
+  .close-btn:hover{color:var(--text); border-color:var(--border-soft);}
+
+  /* ---------- step nav ---------- */
+  .steps-nav{ display:flex; gap:6px; overflow-x:auto; padding:14px 28px 0; scrollbar-width:none; }
+  .steps-nav::-webkit-scrollbar{display:none;}
+  .step-chip{
+    flex:0 0 auto; display:flex; align-items:center; gap:8px;
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.05em;
+    color:var(--text-muted); background:var(--panel); border:1px solid var(--border);
+    padding:9px 14px; border-radius:20px; cursor:pointer; white-space:nowrap;
+    transition:border-color .15s, color .15s, background .15s;
+  }
+  .step-chip .n{color:var(--text-faint);}
+  .step-chip:hover{border-color:var(--border-soft); color:var(--text);}
+  .step-chip.active{background:var(--panel-raised); border-color:var(--amber-dim); color:var(--text);}
+  .step-chip.active .n{color:var(--amber);}
+  .step-chip.done .n::after{content:'✓'; margin-left:4px; color:var(--green);}
+
+  .progress-track{margin:12px 28px 0; height:3px; border-radius:3px; background:var(--border-soft); overflow:hidden;}
+  .progress-fill{height:100%; width:14.3%; background:linear-gradient(90deg,var(--amber),var(--green)); transition:width .3s ease;}
+
+  /* ---------- global picker bars ---------- */
+  .picker-bars{max-width:1080px; margin:18px auto 0; padding:0 28px; display:flex; flex-direction:column; gap:12px;}
+  .pick-row{display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
+  .pick-label{font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-faint); white-space:nowrap; min-width:108px;}
+  .pick-group{display:flex; gap:6px; flex-wrap:wrap;}
+  .pick-group button{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.03em;
+    background:var(--panel); border:1px solid var(--border); color:var(--text-muted);
+    padding:8px 13px; border-radius:20px; cursor:pointer; transition:all .15s ease; display:flex; align-items:center; gap:6px;
+  }
+  .pick-group button:hover{border-color:var(--border-soft); color:var(--text);}
+  .pick-group.source button.active{background:rgba(232,147,74,0.1); border-color:var(--amber-dim); color:var(--amber);}
+  .pick-group.mictype button.active{background:rgba(95,163,217,0.1); border-color:var(--blue-dim); color:var(--blue);}
+  .pick-group.pattern button.active{background:rgba(95,217,160,0.1); border-color:var(--green-dim); color:var(--green);}
+  .pick-group button.unavailable{opacity:.3; cursor:not-allowed; text-decoration:line-through;}
+  .pick-blurb{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint); padding-left:122px; margin-top:-4px; line-height:1.5;}
+  @media (max-width:640px){ .pick-blurb{padding-left:0;} .pick-label{min-width:0;} }
+
+  /* ---------- stage layout ---------- */
+  main{max-width:1080px; margin:0 auto; padding:24px 28px 60px;}
+  .stage{display:none;}
+  .stage.active{display:block; animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  .lesson-grid{display:grid; grid-template-columns:0.85fr 1.15fr; gap:36px; align-items:start;}
+  @media (max-width:900px){ .lesson-grid{grid-template-columns:1fr;} }
+
+  .kicker{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--green); display:flex; align-items:center; gap:8px; margin-bottom:14px;
+  }
+  .kicker::before{content:''; width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green-glow);}
+  h1.display{font-size:clamp(23px,3.6vw,30px); line-height:1.2; margin:0 0 14px; font-weight:600; letter-spacing:-.01em;}
+  .lede{color:var(--text-muted); font-size:14px; line-height:1.62; margin:0 0 14px; max-width:52ch;}
+  .lede strong{color:var(--text); font-weight:600;}
+
+  .pro-con-row{display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;}
+  .pc{flex:1; min-width:150px; border-radius:10px; padding:12px 14px; border:1px solid var(--border);}
+  .pc.pro{border-color:var(--green-dim); background:rgba(95,217,160,0.05);}
+  .pc.con{border-color:var(--red-dim); background:rgba(232,97,95,0.05);}
+  .pc .pcl{font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; margin-bottom:6px;}
+  .pc.pro .pcl{color:var(--green);}
+  .pc.con .pcl{color:var(--red);}
+  .pc ul{margin:0; padding-left:16px; font-size:12.5px; color:var(--text-muted); line-height:1.6;}
+
+  .spec-row{display:flex; flex-wrap:wrap; gap:8px; margin:16px 0;}
+  .spec-chip{
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.03em;
+    background:var(--panel); border:1px solid var(--border); border-radius:8px;
+    padding:7px 11px; color:var(--text-muted); display:flex; align-items:center; gap:6px;
+  }
+  .spec-chip b{color:var(--text); font-weight:600;}
+
+  /* ---------- interactive panel / stage ---------- */
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:20px;}
+  .panel-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; gap:10px; flex-wrap:wrap;}
+  .panel-title{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:8px;}
+  .panel-head-right{display:flex; align-items:center; gap:8px;}
+  .scale-tag{font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.06em; color:var(--text-faint); border:1px solid var(--border-soft); border-radius:20px; padding:3px 9px;}
+  .reset-view-btn{
+    font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.04em; color:var(--text-muted);
+    border:1px solid var(--border-soft); background:var(--panel-alt); border-radius:20px; padding:4px 10px; cursor:pointer;
+  }
+  .reset-view-btn:hover{color:var(--text); border-color:var(--border);}
+
+  /* ---------- 3D stage frame (shared canvas is re-parented here) ---------- */
+  .stage3d-frame{
+    position:relative; border:1px solid var(--border-soft); border-radius:10px; background:#0e0e11;
+    overflow:hidden; margin-bottom:14px; aspect-ratio:4/3; width:100%;
+  }
+  .stage3d-frame canvas{ display:block; width:100%; height:100%; touch-action:none; cursor:grab; }
+  .stage3d-frame canvas:active{ cursor:grabbing; }
+  .orbit-hint{
+    position:absolute; right:8px; bottom:8px; font-family:'JetBrains Mono',monospace; font-size:9px;
+    letter-spacing:.04em; color:var(--text-faint); background:rgba(11,11,13,0.55); padding:4px 8px; border-radius:6px;
+    pointer-events:none;
+  }
+  .three-fallback{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center;
+    font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text-faint); padding:24px; line-height:1.6; display:none;
+  }
+  body.three-missing .three-fallback{display:flex;}
+  body.three-missing .stage3d-frame canvas{display:none;}
+  body.three-missing .orbit-hint{display:none;}
+  body.three-missing .reset-view-btn{display:none;}
+
+  .spot-chip-row{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+  .spot-chip{
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.02em;
+    background:#0e0e11; border:1px solid var(--border-soft); color:var(--text-muted);
+    padding:8px 12px; border-radius:20px; cursor:pointer; transition:all .15s ease;
+  }
+  .spot-chip:hover{ border-color:var(--border); color:var(--text); }
+  .spot-chip.active{ border-color:var(--green-dim); background:rgba(95,217,160,0.08); color:var(--green); }
+  .spot-chip.layer.active{ border-color:var(--amber-dim); background:rgba(232,147,74,0.08); color:var(--amber); }
+  .spot-chip .db-tag{ opacity:.75; margin-left:5px; }
+
+  .readout-row{display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;}
+  .readout{
+    flex:1; min-width:110px; background:#0e0e11; border:1px solid var(--border-soft); border-radius:8px;
+    padding:10px 12px;
+  }
+  .readout .l{font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-faint); margin-bottom:4px;}
+  .readout .v{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--text);}
+  .readout .v.amber{color:var(--amber);}
+  .readout .v.green{color:var(--green);}
+  .readout .v.red{color:var(--red);}
+  .readout .v.muted{color:var(--text-faint);}
+  .readout .meter-track{height:5px; border-radius:3px; background:var(--border-soft); margin-top:8px; overflow:hidden;}
+  .readout .meter-fill{height:100%; border-radius:3px; background:linear-gradient(90deg,var(--green),var(--amber));}
+
+  .playbar{display:flex; align-items:center; gap:14px; margin-bottom:10px;}
+  .play-btn{
+    width:44px;height:44px;border-radius:50%; border:1px solid var(--amber-dim); background:var(--amber);
+    color:#1a1206; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+    transition:transform .15s ease, background .15s ease;
+  }
+  .play-btn:hover{transform:scale(1.04);}
+  .play-btn.playing{background:var(--red); border-color:var(--red-dim); color:#fff;}
+  .play-btn:disabled{opacity:.35; cursor:not-allowed; transform:none;}
+  .play-btn svg{width:17px;height:17px;}
+  .level{flex:1; height:44px; background:#0e0e11; border:1px solid var(--border); border-radius:8px; display:flex; align-items:center; gap:3px; padding:0 12px;}
+  .level span{flex:1; height:6px; background:var(--border); border-radius:2px; transition:height .12s ease, background .12s ease;}
+  .level.playing span{animation:lvlpulse 1.1s ease-in-out infinite; background:var(--amber);}
+  .level span:nth-child(1){animation-delay:0s;} .level span:nth-child(2){animation-delay:.08s;}
+  .level span:nth-child(3){animation-delay:.16s;} .level span:nth-child(4){animation-delay:.24s;}
+  .level span:nth-child(5){animation-delay:.32s;} .level span:nth-child(6){animation-delay:.4s;}
+  .level span:nth-child(7){animation-delay:.48s;} .level span:nth-child(8){animation-delay:.56s;}
+  .level span:nth-child(9){animation-delay:.64s;} .level span:nth-child(10){animation-delay:.72s;}
+  @keyframes lvlpulse{0%,100%{height:6px;} 50%{height:24px;}}
+  .now-playing{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint); margin:0 0 6px;}
+  .now-playing b{color:var(--amber);}
+  .hint{font-size:11.5px; color:var(--text-faint); margin-top:12px; line-height:1.5;}
+
+  .seg{display:flex; background:#0e0e11; border:1px solid var(--border); border-radius:8px; padding:4px; gap:4px; margin-bottom:14px; flex-wrap:wrap;}
+  .seg button{
+    flex:1 1 auto; min-width:80px; background:transparent; border:none; color:var(--text-muted); padding:9px 8px; border-radius:6px;
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.02em; cursor:pointer;
+    transition:background .15s, color .15s;
+  }
+  .seg button.active{background:var(--panel-raised); color:var(--text); box-shadow:inset 0 0 0 1px var(--border-soft);}
+
+  /* ---------- proximity slider ---------- */
+  .fader-track{position:relative; height:6px; background:#0e0e11; border:1px solid var(--border); border-radius:4px; margin:36px 13px 26px;}
+  .fader-fill{position:absolute; top:0; left:0; height:100%; background:linear-gradient(90deg,var(--amber),var(--border-soft)); border-radius:4px; opacity:.5;}
+  .fader-handle{
+    position:absolute; top:50%; width:26px; height:38px; margin-left:-13px; margin-top:-19px;
+    background:var(--panel-alt); border:1px solid var(--border); border-radius:6px; cursor:grab; touch-action:none;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .fader-handle::before{content:''; width:12px; height:2px; background:var(--text-muted); box-shadow:0 5px var(--text-muted), 0 -5px var(--text-muted);}
+  .fader-handle:active{cursor:grabbing; border-color:var(--amber);}
+  .fader-zones{display:flex; justify-content:space-between; margin-top:6px; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint);}
+  .fader-zones span.active{color:var(--amber);}
+
+  /* ---------- footer nav ---------- */
+  .stepper-footer{ max-width:1080px; margin:0 auto; padding:0 28px 40px; display:flex; justify-content:space-between; gap:12px; }
+  .btn{
+    font-family:'JetBrains Mono',monospace; font-size:11.5px; letter-spacing:.05em;
+    padding:10px 16px; border-radius:8px; border:1px solid var(--border); background:var(--panel-alt);
+    color:var(--text); cursor:pointer; display:flex; align-items:center; gap:8px; transition:border-color .15s, background .15s;
+  }
+  .btn:hover{border-color:var(--border-soft);}
+  .btn.primary{background:var(--amber); color:#1a1206; border-color:var(--amber); font-weight:600;}
+  .btn.primary:hover{background:#f0a05e;}
+  .btn:disabled{opacity:.4; cursor:not-allowed;}
+  .stepper-footer .btn{min-width:110px; justify-content:center;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="crumb">Studio VR <span class="sep">/</span> Course <span class="sep">/</span> Module 3 · Capture &amp; Signal Path <span class="sep">/</span> <span class="cur">Ch. 07</span></div>
+    <div class="htitle">Microphone Techniques &amp; Stereo Recording <span class="tag3d mono">3D ALT</span></div>
+  </div>
+  <div class="head-right">
+    <span class="chip-num mono">7 techniques</span>
+    <button class="close-btn" title="Back to studio">✕</button>
+  </div>
+</header>
+
+<nav class="steps-nav" id="stepsNav">
+  <div class="step-chip" data-step="overview"><span class="n">01</span> Placement Fundamentals</div>
+  <div class="step-chip" data-step="close"><span class="n">02</span> Close Miking</div>
+  <div class="step-chip" data-step="spot"><span class="n">03</span> Spot Miking</div>
+  <div class="step-chip" data-step="distant"><span class="n">04</span> Distant / Room Miking</div>
+  <div class="step-chip" data-step="stereo"><span class="n">05</span> Stereo Miking</div>
+  <div class="step-chip" data-step="multi"><span class="n">06</span> Multi Miking</div>
+  <div class="step-chip" data-step="proximity"><span class="n">07</span> Proximity Effect</div>
+</nav>
+<div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+
+<div class="picker-bars">
+  <div class="pick-row">
+    <span class="pick-label">Sound source</span>
+    <div class="pick-group source" id="sourcePick">
+      <button class="active" data-source="vocal">🎤 Vocal</button>
+      <button data-source="acoustic">🪕 Acoustic Guitar</button>
+      <button data-source="drum">🥁 Drum Kit</button>
+      <button data-source="amp">🎸 Guitar Amp</button>
+      <button data-source="piano">🎹 Piano</button>
+    </div>
+  </div>
+  <div class="pick-row">
+    <span class="pick-label">Mic type</span>
+    <div class="pick-group mictype" id="micTypePick">
+      <button class="active" data-mictype="dynamic">Dynamic</button>
+      <button data-mictype="condenser-fet">Condenser FET</button>
+      <button data-mictype="condenser-tube">Condenser Tube</button>
+      <button data-mictype="ribbon">Ribbon</button>
+      <button data-mictype="contact">Contact Mic</button>
+    </div>
+  </div>
+  <div class="pick-row">
+    <span class="pick-label">Polar pattern</span>
+    <div class="pick-group pattern" id="patternPick">
+      <button data-pattern="omni">Omni</button>
+      <button class="active" data-pattern="cardioid">Cardioid</button>
+      <button data-pattern="figure8">Figure-8</button>
+    </div>
+  </div>
+  <div class="pick-blurb mono" id="micBlurb">Rugged, forgiving, warm midrange — handles high SPL well.</div>
+</div>
+
+<main>
+
+  <!-- ============ 01 OVERVIEW ============ -->
+  <section class="stage active" data-stage="overview">
+    <div class="lesson-grid">
+      <div>
+        <div class="kicker">Technique 01 · Foundations</div>
+        <h1 class="display">The same mic, moved, is a different instrument</h1>
+        <p class="lede">Two things decide almost everything about how a mic captures a source: how <strong>far</strong> it sits from that source, and what <strong>angle</strong> it's aimed at. Move a mic six inches and the tone changes; rotate it 45° and the room around it changes. Every technique in this chapter is really just a deliberate choice about distance and angle — now in an actual 3D room you can orbit around.</p>
+        <p class="lede">The core trade-off underneath every technique is the ratio of <strong>direct sound</strong> (arriving straight from the source) to <strong>reflected sound</strong> (bouncing off the room first). Close in, direct sound dominates — detailed, present, isolated from the room. Pull back, and reflected sound catches up — more natural, more spacious, but less precise.</p>
+        <div class="spec-row">
+          <div class="spec-chip">Closer: <b>more direct, less room</b></div>
+          <div class="spec-chip">Farther: <b>more room, less detail</b></div>
+          <div class="spec-chip">On-axis: <b>brightest, fullest</b></div>
+          <div class="spec-chip">Off-axis: <b>darker, colored</b></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">DIRECT vs. REFLECTED SOUND — 3D</span>
+          <div class="panel-head-right"><button class="reset-view-btn mono" data-reset-view>RESET VIEW</button></div>
+        </div>
+        <div class="stage3d-frame" data-stage3d-mount="overview">
+          <div class="orbit-hint mono">drag to orbit · scroll to zoom</div>
+          <div class="three-fallback">3D engine didn't load (no internet reach to the CDN in this preview). Everything else on this page still works — try opening this file with an active connection.</div>
+        </div>
+        <div class="slider-row" style="margin-bottom:14px;">
+          <div class="readout-row" style="margin-bottom:8px;">
+            <div class="readout"><div class="l">Mic distance</div><div class="v amber" id="ovDistVal">2 ft</div></div>
+            <div class="readout"><div class="l">Direct : Reflected</div><div class="v green" id="ovRatioVal">85 : 15</div><div class="meter-track"><div class="meter-fill" id="ovRatioFill" style="width:85%"></div></div></div>
+          </div>
+          <input type="range" id="ovSlider" min="10" max="150" value="30">
+        </div>
+        <p class="hint">Drag to move the mic away from the source and watch the direct-to-reflected balance shift — orbit the 3D room to see the reflected path bounce off the back wall. This single relationship is what every technique on the following pages is built around.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 CLOSE MIKING ============ -->
+  <section class="stage" data-stage="close">
+    <div class="lesson-grid">
+      <div>
+        <div class="kicker">Technique 02 · Placement</div>
+        <h1 class="display">Close Miking</h1>
+        <p class="lede">The mic sits inches from the source — anywhere from about two inches to a foot. Direct sound completely dominates, room sound barely registers, and isolation from everything else in the room is close to total. It's the default for tracking sessions where every source needs its own clean channel.</p>
+        <div class="pro-con-row">
+          <div class="pc pro"><div class="pcl">Strengths</div><ul><li>Maximum detail &amp; presence</li><li>Near-total isolation from bleed</li><li>Strong proximity-effect warmth (directional mics)</li></ul></div>
+          <div class="pc con"><div class="pcl">Trade-offs</div><ul><li>Loses the room entirely</li><li>Very sensitive to small position changes</li><li>Plosives/breath noise up close</li></ul></div>
+        </div>
+      </div>
+      <div class="panel" data-technique="close">
+        <div class="panel-head">
+          <span class="panel-title">PREDEFINED SPOTS — 3D</span>
+          <div class="panel-head-right"><span class="scale-tag">SCALE: INCHES</span><button class="reset-view-btn mono" data-reset-view>RESET VIEW</button></div>
+        </div>
+        <div class="stage3d-frame" data-stage3d-mount="close">
+          <div class="orbit-hint mono">drag to orbit · scroll to zoom</div>
+          <div class="three-fallback">3D engine didn't load — the rest of this panel (spots, readouts, playback) still works.</div>
+        </div>
+        <div class="spot-chip-row" data-spot-chips></div>
+        <div class="readout-row" data-readouts>
+          <div class="readout"><div class="l">Distance</div><div class="v amber" data-r-distance>—</div></div>
+          <div class="readout"><div class="l">Axis</div><div class="v" data-r-axis>—</div></div>
+          <div class="readout"><div class="l">Character</div><div class="v" data-r-character>—</div></div>
+          <div class="readout"><div class="l">Pickup (mic + pattern)</div><div class="v green" data-r-pickup>—</div></div>
+        </div>
+        <div class="playbar">
+          <button class="play-btn" data-play disabled>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="level" data-level>
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="now-playing mono">Now playing: <b data-clip-label>Select a spot to place the mic</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 SPOT MIKING ============ -->
+  <section class="stage" data-stage="spot">
+    <div class="lesson-grid">
+      <div>
+        <div class="kicker">Technique 03 · Placement</div>
+        <h1 class="display">Spot Miking</h1>
+        <p class="lede">A dedicated close mic on one performer or section inside a larger ensemble, blended <em>underneath</em> a set of main/room mics rather than replacing them. The main mics still carry the overall picture — the spot mic just reinforces one part of it that would otherwise get buried.</p>
+        <p class="lede">Used sparingly and mixed low, a spot mic adds clarity without making the ensemble sound like a pile of close-miked instruments. Overused, it collapses the natural balance the main mics were capturing in the first place.</p>
+        <div class="pro-con-row">
+          <div class="pc pro"><div class="pcl">Strengths</div><ul><li>Reinforces a buried soloist/section</li><li>Gives the mix engineer a rescue channel</li><li>Keeps the main mics' overall balance intact</li></ul></div>
+          <div class="pc con"><div class="pcl">Trade-offs</div><ul><li>Can sound disconnected from the room if overused</li><li>Adds a bleed/phase relationship to manage</li></ul></div>
+        </div>
+      </div>
+      <div class="panel" data-technique="spot">
+        <div class="panel-head">
+          <span class="panel-title">PREDEFINED SPOTS — 3D</span>
+          <div class="panel-head-right"><span class="scale-tag">SCALE: FEET</span><button class="reset-view-btn mono" data-reset-view>RESET VIEW</button></div>
+        </div>
+        <div class="stage3d-frame" data-stage3d-mount="spot">
+          <div class="orbit-hint mono">drag to orbit · scroll to zoom</div>
+          <div class="three-fallback">3D engine didn't load — the rest of this panel (spots, readouts, playback) still works.</div>
+        </div>
+        <div class="spot-chip-row" data-spot-chips></div>
+        <div class="readout-row" data-readouts>
+          <div class="readout"><div class="l">Distance</div><div class="v amber" data-r-distance>—</div></div>
+          <div class="readout"><div class="l">Role</div><div class="v" data-r-axis>—</div></div>
+          <div class="readout"><div class="l">Blend</div><div class="v" data-r-character>—</div></div>
+          <div class="readout"><div class="l">Pickup (mic + pattern)</div><div class="v green" data-r-pickup>—</div></div>
+        </div>
+        <div class="playbar">
+          <button class="play-btn" data-play disabled>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="level" data-level>
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="now-playing mono">Now playing: <b data-clip-label>Select a spot to place the mic</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 04 DISTANT / ROOM MIKING ============ -->
+  <section class="stage" data-stage="distant">
+    <div class="lesson-grid">
+      <div>
+        <div class="kicker">Technique 04 · Placement</div>
+        <h1 class="display">Distant / Room Miking</h1>
+        <p class="lede">Pull a mic several feet — sometimes tens of feet — away from the source, and the room stops being background noise and becomes part of the instrument. What you gain is a natural, cohesive picture of the whole source at once; what you lose is up-close detail and control over how much room you're getting.</p>
+        <div class="pro-con-row">
+          <div class="pc pro"><div class="pcl">Strengths</div><ul><li>Natural, spacious, cohesive image</li><li>Captures how the source really sounds in the room</li><li>Great layered under closer mics</li></ul></div>
+          <div class="pc con"><div class="pcl">Trade-offs</div><ul><li>Room quality and treatment matter enormously</li><li>Little isolation from other sources</li><li>Loses fine transient detail</li></ul></div>
+        </div>
+      </div>
+      <div class="panel" data-technique="distant">
+        <div class="panel-head">
+          <span class="panel-title">PREDEFINED SPOTS — 3D</span>
+          <div class="panel-head-right"><span class="scale-tag">SCALE: FEET (WIDE)</span><button class="reset-view-btn mono" data-reset-view>RESET VIEW</button></div>
+        </div>
+        <div class="stage3d-frame" data-stage3d-mount="distant">
+          <div class="orbit-hint mono">drag to orbit · scroll to zoom</div>
+          <div class="three-fallback">3D engine didn't load — the rest of this panel (spots, readouts, playback) still works.</div>
+        </div>
+        <div class="spot-chip-row" data-spot-chips></div>
+        <div class="readout-row" data-readouts>
+          <div class="readout"><div class="l">Distance</div><div class="v amber" data-r-distance>—</div></div>
+          <div class="readout"><div class="l">Axis</div><div class="v" data-r-axis>—</div></div>
+          <div class="readout"><div class="l">Room presence</div><div class="v" data-r-character>—</div></div>
+          <div class="readout"><div class="l">Pickup (mic + pattern)</div><div class="v green" data-r-pickup>—</div></div>
+        </div>
+        <div class="playbar">
+          <button class="play-btn" data-play disabled>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="level" data-level>
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="now-playing mono">Now playing: <b data-clip-label>Select a spot to place the mic</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 05 STEREO MIKING ============ -->
+  <section class="stage" data-stage="stereo">
+    <div class="lesson-grid">
+      <div>
+        <div class="kicker">Technique 05 · Placement</div>
+        <h1 class="display">Stereo Miking</h1>
+        <p class="lede">Two mics, one stereo image. How they're spaced and angled relative to each other determines everything — get it right and the source translates as a wide, coherent picture that still sums cleanly to mono; get it wrong and instruments smear or partially cancel when the two channels combine.</p>
+        <p class="lede">Keep the <strong>3:1 rule</strong> in mind any time two mics can hear the same source: the second mic should be at least three times farther from the first mic than the first mic is from the source, or the two signals start to comb-filter each other.</p>
+        <div class="spec-row">
+          <div class="spec-chip">Spaced Pair: <b>widest, least mono-safe</b></div>
+          <div class="spec-chip">X-Y: <b>coincident, perfectly mono-safe</b></div>
+          <div class="spec-chip">ORTF: <b>near-coincident, natural width</b></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">STEREO PRESET — 3D</span>
+          <div class="panel-head-right"><span class="scale-tag">SCALE: FEET</span><button class="reset-view-btn mono" data-reset-view>RESET VIEW</button></div>
+        </div>
+        <div class="seg" id="stereoSeg">
+          <button class="active" data-preset="spaced">Spaced Pair</button>
+          <button data-preset="xy">X-Y</button>
+          <button data-preset="ortf">ORTF</button>
+        </div>
+        <div class="stage3d-frame" data-stage3d-mount="stereo">
+          <div class="orbit-hint mono">drag to orbit · scroll to zoom</div>
+          <div class="three-fallback">3D engine didn't load — the rest of this panel (preset, readouts, playback) still works.</div>
+        </div>
+        <div class="readout-row">
+          <div class="readout"><div class="l">Capsule spacing</div><div class="v amber" id="stereoSpacing">—</div></div>
+          <div class="readout"><div class="l">Angle apart</div><div class="v" id="stereoAngle">—</div></div>
+          <div class="readout"><div class="l">Mono compatibility</div><div class="v" id="stereoMono">—</div><div class="meter-track"><div class="meter-fill" id="stereoMonoFill" style="width:100%"></div></div></div>
+        </div>
+        <div class="playbar">
+          <button class="play-btn" data-play>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="level" data-level>
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="now-playing mono">Now playing: <b data-clip-label>Spaced Pair</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 06 MULTI MIKING ============ -->
+  <section class="stage" data-stage="multi">
+    <div class="lesson-grid">
+      <div>
+        <div class="kicker">Technique 06 · Placement</div>
+        <h1 class="display">Multi Miking</h1>
+        <p class="lede">Several mics on one source or ensemble at once, each on its own channel, mixed together afterward — a kick mic, a snare mic, an overhead pair, and a room mic all recording the same drum kit simultaneously. It trades simplicity for total control: every element can be balanced, processed, and panned independently at mixdown.</p>
+        <p class="lede">Toggle the layers on and off below to hear how a multi-miked source is really a small mix in itself — close mics for detail, distant mics for glue, all summing into one picture. Each layer's chip shows its own pickup strength for the mic type and pattern currently selected above.</p>
+      </div>
+      <div class="panel" data-technique="multi">
+        <div class="panel-head">
+          <span class="panel-title">MIC LAYERS — 3D, TOGGLE TO SOLO/MUTE</span>
+          <div class="panel-head-right"><span class="scale-tag">SCALE: FEET</span><button class="reset-view-btn mono" data-reset-view>RESET VIEW</button></div>
+        </div>
+        <div class="stage3d-frame" data-stage3d-mount="multi">
+          <div class="orbit-hint mono">drag to orbit · scroll to zoom</div>
+          <div class="three-fallback">3D engine didn't load — the rest of this panel (layers, playback) still works.</div>
+        </div>
+        <div class="spot-chip-row" data-spot-chips></div>
+        <div class="playbar">
+          <button class="play-btn" data-play disabled>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="level" data-level>
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="now-playing mono">Now playing: <b data-clip-label>Toggle at least one layer</b></div>
+        <p class="hint">Each active layer plays as its own audio element in sync — solo one to hear it alone, or stack several to hear the composite mix.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 07 PROXIMITY EFFECT ============ -->
+  <section class="stage" data-stage="proximity">
+    <div class="lesson-grid">
+      <div>
+        <div class="kicker">Technique 07 · Characteristics</div>
+        <h1 class="display">Proximity Effect</h1>
+        <p class="lede">Move a directional mic closer to a source and the low end swells — a bass boost with no EQ involved. It's a side effect of how pressure-<em>gradient</em> capsules work (anything with a rear opening: cardioid, bidirectional, ribbon), and it only happens up close, roughly within a foot or two of the diaphragm.</p>
+        <p class="lede">A true pressure-only capsule — an omnidirectional mic — has no rear opening to create that gradient, so it stays flat no matter how close it gets. Drag the fader below and toggle the pattern to feel the difference; the 3D mic (rendered as whichever mic type is selected above) slides along its stand to match.</p>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">DISTANCE vs. LOW-END BUILDUP — 3D</span>
+          <div class="panel-head-right"><button class="reset-view-btn mono" data-reset-view>RESET VIEW</button></div>
+        </div>
+        <div class="seg" id="proxPatternSeg">
+          <button class="active" data-pattern="cardioid">Cardioid (directional)</button>
+          <button data-pattern="omni">Omni (no proximity effect)</button>
+        </div>
+        <div class="stage3d-frame" data-stage3d-mount="proximity">
+          <div class="orbit-hint mono">drag to orbit · scroll to zoom</div>
+          <div class="three-fallback">3D engine didn't load — the rest of this panel (fader, readouts, playback) still works.</div>
+        </div>
+        <div class="fader-track" id="proxTrack">
+          <div class="fader-fill" id="proxFill" style="width:0%"></div>
+          <div class="fader-handle" id="proxHandle" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="2" aria-valuenow="2" style="left:100%"></div>
+        </div>
+        <div class="fader-zones">
+          <span data-zone="0">Very close · 2 in</span>
+          <span data-zone="1">Medium · 12 in</span>
+          <span class="active" data-zone="2">Far · 3 ft</span>
+        </div>
+        <div class="readout-row" style="margin-top:16px;">
+          <div class="readout"><div class="l">Low-end buildup</div><div class="v amber" id="proxMeterVal">+0 dB</div><div class="meter-track"><div class="meter-fill" id="proxMeterFill" style="width:5%"></div></div></div>
+        </div>
+        <div class="playbar">
+          <button class="play-btn" data-play-prox>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="level" data-level>
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="now-playing mono">Now playing: <b data-clip-label>Cardioid · Far</b></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div class="stepper-footer">
+  <button class="btn" id="prevBtn">← Back</button>
+  <button class="btn primary" id="nextBtn">Next →</button>
+</div>
+
+<script>
+/* ============================================================
+   SOURCE / MIC TYPE / PATTERN — GLOBAL STATE
+   ============================================================ */
+const SOURCE_LABELS = { vocal:'Vocal', acoustic:'Acoustic Guitar', drum:'Drum Kit', amp:'Guitar Amp', piano:'Piano' };
+const MIC_LABELS = { dynamic:'Dynamic', 'condenser-fet':'Condenser FET', 'condenser-tube':'Condenser Tube', ribbon:'Ribbon', contact:'Contact Mic' };
+const MIC_BLURB = {
+  dynamic: 'Rugged, forgiving, warm midrange — handles high SPL well. Fixed cardioid capsule.',
+  'condenser-fet': 'Fast, detailed, extended highs — needs phantom power. Often switchable between patterns.',
+  'condenser-tube': 'Same speed and detail as a FET condenser, with tube-driven warmth and gentle saturation. Multi-pattern.',
+  ribbon: 'Smooth, vintage-warm highs — naturally figure-8, fragile to plosives and wind.',
+  contact: 'Senses surface vibration directly through a transducer — no air-borne pickup pattern at all.',
+};
+// Which polar patterns each mic type can actually be switched to, mirroring real gear
+// (and design/mic-types-chapter.html's per-type descriptions).
+const MIC_PATTERNS = {
+  dynamic: ['cardioid'],
+  'condenser-fet': ['omni','cardioid','figure8'],
+  'condenser-tube': ['omni','cardioid','figure8'],
+  ribbon: ['figure8'],
+  contact: [],
+};
+const PATTERN_LABELS = { omni:'Omnidirectional', cardioid:'Cardioid', figure8:'Figure-8' };
+
+let currentSource = 'vocal';
+let currentMicType = 'dynamic';
+let currentPattern = 'cardioid';
+
+/* ---------- polar-pattern gain math (same formulas as mic-types-chapter.html) ---------- */
+function patternGain(pattern, thetaDeg){
+  if(!pattern) return null;
+  const rad = thetaDeg * Math.PI/180;
+  if(pattern === 'omni') return 1;
+  if(pattern === 'cardioid') return (1+Math.cos(rad))/2;
+  if(pattern === 'figure8') return Math.abs(Math.cos(rad));
+  return null;
+}
+function dbOf(gain){ return 20*Math.log10(Math.max(gain, 0.001)); }
+function tierOf(db){
+  if(db >= -3) return 'full';
+  if(db >= -9) return 'partial';
+  if(db >= -18) return 'heavy';
+  return 'null';
+}
+const TIER_LABEL = { full:'Full pickup', partial:'Partial pickup', heavy:'Heavy attenuation', null:'Null point (near-silent)' };
+const TIER_CSS = { full:'green', partial:'amber', heavy:'red', null:'muted' };
+const TIER_HEX = { full:0x5fd9a0, partial:0xe8934a, heavy:0xe8615f, null:0x54525a };
+
+function pickupFor(thetaDeg){
+  // Returns {db, tier, label} or null when the current mic type has no pattern (contact mic).
+  if(currentMicType === 'contact' || !currentPattern) return null;
+  const g = patternGain(currentPattern, thetaDeg);
+  const db = dbOf(g);
+  const tier = tierOf(db);
+  return { db, tier, gain:g };
+}
+function pickupText(thetaDeg){
+  const p = pickupFor(thetaDeg);
+  if(!p) return { text:'Direct coupling — pattern N/A', css:'muted' };
+  return { text:`${p.db>=0?'+':''}${p.db.toFixed(1)} dB · ${TIER_LABEL[p.tier]}`, css:TIER_CSS[p.tier] };
+}
+
+/* ---------- clip player ---------- */
+class ClipPlayer{
+  constructor(){ this.audio = new Audio(); this.audio.preload='auto'; }
+  setSrc(src){ if(this.audio.src.endsWith(src)) return; this.audio.src = src; }
+  play(){ this.audio.currentTime = 0; this.audio.play().catch(()=>{}); }
+  pause(){ this.audio.pause(); }
+  get playing(){ return !this.audio.paused; }
+}
+const PLAY_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+const PAUSE_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>';
+
+/* ---------- step navigation ---------- */
+const STEPS = ['overview','close','spot','distant','stereo','multi','proximity'];
+let currentStepIdx = 0;
+const stepsNav = document.getElementById('stepsNav');
+const progressFill = document.getElementById('progressFill');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const activePlayers = [];
+function stopAllAudio(){ activePlayers.forEach(fn=>fn()); }
+
+function goToStep(idx){
+  idx = Math.max(0, Math.min(STEPS.length-1, idx));
+  currentStepIdx = idx;
+  stopAllAudio();
+  const key = STEPS[idx];
+  document.querySelectorAll('.stage').forEach(s=>s.classList.toggle('active', s.dataset.stage===key));
+  document.querySelectorAll('.step-chip').forEach(c=>{
+    const isActive = c.dataset.step===key;
+    c.classList.toggle('active', isActive);
+    if(STEPS.indexOf(c.dataset.step) < idx) c.classList.add('done'); else if(!isActive) c.classList.remove('done');
+  });
+  progressFill.style.width = (((idx+1)/STEPS.length)*100) + '%';
+  prevBtn.disabled = idx===0;
+  nextBtn.textContent = idx===STEPS.length-1 ? 'Finish ✓' : 'Next →';
+  window.scrollTo({top:0, behavior:'smooth'});
+  mountSceneForStep(key); // 3D: re-parent the shared canvas + (re)build this step's scene
+}
+stepsNav.addEventListener('click', e=>{
+  const chip = e.target.closest('.step-chip');
+  if(!chip) return;
+  goToStep(STEPS.indexOf(chip.dataset.step));
+});
+prevBtn.addEventListener('click', ()=>goToStep(currentStepIdx-1));
+nextBtn.addEventListener('click', ()=>{
+  if(currentStepIdx===STEPS.length-1){ stopAllAudio(); return; }
+  goToStep(currentStepIdx+1);
+});
+
+/* ---------- global source / mic-type / pattern pickers ---------- */
+document.getElementById('sourcePick').addEventListener('click', e=>{
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  document.querySelectorAll('#sourcePick button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentSource = btn.dataset.source;
+  document.dispatchEvent(new CustomEvent('source-changed'));
+});
+
+const micTypePick = document.getElementById('micTypePick');
+const patternPick = document.getElementById('patternPick');
+const micBlurb = document.getElementById('micBlurb');
+
+function refreshPatternAvailability(){
+  const allowed = MIC_PATTERNS[currentMicType];
+  patternPick.querySelectorAll('button').forEach(b=>{
+    const ok = allowed.includes(b.dataset.pattern);
+    b.classList.toggle('unavailable', !ok);
+  });
+  if(!allowed.includes(currentPattern)){
+    currentPattern = allowed[0] || null;
+    patternPick.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b.dataset.pattern===currentPattern));
+  }
+}
+micTypePick.addEventListener('click', e=>{
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  micTypePick.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentMicType = btn.dataset.mictype;
+  micBlurb.textContent = MIC_BLURB[currentMicType];
+  refreshPatternAvailability();
+  document.dispatchEvent(new CustomEvent('mictype-changed'));
+  document.dispatchEvent(new CustomEvent('pattern-changed'));
+});
+patternPick.addEventListener('click', e=>{
+  const btn = e.target.closest('button');
+  if(!btn || btn.classList.contains('unavailable')) return;
+  patternPick.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentPattern = btn.dataset.pattern;
+  document.dispatchEvent(new CustomEvent('pattern-changed'));
+});
+refreshPatternAvailability();
+
+/* ============================================================
+   THREE.JS ENGINE — one shared canvas re-parented between steps
+   ============================================================ */
+const THREE_OK = (typeof THREE !== 'undefined');
+if(!THREE_OK) document.body.classList.add('three-missing');
+
+let renderer3d = null, scene3d = null, camera3d = null, contentGroup = null;
+let orbit = { target:new_Vector3Safe(0,3,0), radius:8, theta:0.6, phi:1.15, dragging:false, lastX:0, lastY:0, moved:0 };
+let raycaster3d = null, mouse3d = null;
+let mountedContainer = null;
+let hitTargets = []; // meshes with userData.spotId for the current scene
+let hoverCb = null, clickCb = null;
+
+function new_Vector3Safe(x,y,z){ return THREE_OK ? new THREE.Vector3(x,y,z) : {x,y,z}; }
+
+function initThree(){
+  if(!THREE_OK) return;
+  const canvas = document.createElement('canvas');
+  canvas.id = 'shared3dCanvas';
+  renderer3d = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+  renderer3d.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+  renderer3d.setClearColor(0x000000, 0);
+
+  scene3d = new THREE.Scene();
+  camera3d = new THREE.PerspectiveCamera(42, 4/3, 0.05, 500);
+
+  const ambient = new THREE.AmbientLight(0x9a9aa2, 0.9);
+  const key = new THREE.DirectionalLight(0xfff2e2, 0.9);
+  key.position.set(6, 10, 6);
+  const fill = new THREE.DirectionalLight(0x5fa3d9, 0.25);
+  fill.position.set(-6, 4, -4);
+  scene3d.add(ambient, key, fill);
+
+  contentGroup = new THREE.Group();
+  scene3d.add(contentGroup);
+
+  raycaster3d = new THREE.Raycaster();
+  mouse3d = new THREE.Vector2();
+
+  canvas.addEventListener('pointerdown', e=>{
+    orbit.dragging = true; orbit.moved = 0;
+    orbit.lastX = e.clientX; orbit.lastY = e.clientY;
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', e=>{
+    if(orbit.dragging){
+      const dx = e.clientX - orbit.lastX, dy = e.clientY - orbit.lastY;
+      orbit.moved += Math.abs(dx) + Math.abs(dy);
+      orbit.theta -= dx * 0.008;
+      orbit.phi = Math.max(0.25, Math.min(1.5, orbit.phi - dy*0.008));
+      orbit.lastX = e.clientX; orbit.lastY = e.clientY;
+      updateCameraFromOrbit();
+    } else {
+      handlePointerHover(e, canvas);
+    }
+  });
+  canvas.addEventListener('pointerup', e=>{
+    if(orbit.dragging && orbit.moved < 6) handlePointerClick(e, canvas);
+    orbit.dragging = false;
+  });
+  canvas.addEventListener('pointerleave', ()=>{ orbit.dragging = false; });
+  canvas.addEventListener('wheel', e=>{
+    e.preventDefault();
+    orbit.radius = Math.max(1.2, Math.min(60, orbit.radius * (1 + e.deltaY*0.001)));
+    updateCameraFromOrbit();
+  }, { passive:false });
+
+  window.addEventListener('resize', ()=>{ if(mountedContainer) fitRendererToContainer(mountedContainer); });
+
+  function tick(){
+    requestAnimationFrame(tick);
+    if(renderer3d && mountedContainer) renderer3d.render(scene3d, camera3d);
+  }
+  requestAnimationFrame(tick);
+}
+// Build the engine (canvas/renderer/scene/lights/contentGroup) immediately,
+// well before any technique panel's initial render — buildTechniquePanel()
+// below calls render3D() as part of setting up its default selection, and
+// that needs contentGroup/scene3d/camera3d to already exist.
+if(THREE_OK) initThree();
+
+function updateCameraFromOrbit(){
+  if(!THREE_OK) return;
+  const { target, radius, theta, phi } = orbit;
+  camera3d.position.set(
+    target.x + radius*Math.sin(phi)*Math.sin(theta),
+    target.y + radius*Math.cos(phi),
+    target.z + radius*Math.sin(phi)*Math.cos(theta)
+  );
+  camera3d.lookAt(target);
+}
+
+function frameOrbit(positions, opts){
+  opts = opts || {};
+  if(!positions.length){ orbit.target = new THREE.Vector3(0,3,0); orbit.radius = 8; }
+  else {
+    const box = new THREE.Box3();
+    positions.forEach(p=>box.expandByPoint(p instanceof THREE.Vector3 ? p : new THREE.Vector3(p[0],p[1],p[2])));
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const extent = Math.max(size.x, size.y, size.z, 0.6);
+    orbit.target = center.clone(); orbit.target.y = Math.max(0.6, center.y*0.6);
+    orbit.radius = Math.max(1.6, extent * (opts.radiusMult || 1.9));
+  }
+  orbit.theta = opts.theta !== undefined ? opts.theta : 0.6;
+  orbit.phi = opts.phi !== undefined ? opts.phi : 1.15;
+  updateCameraFromOrbit();
+}
+
+function fitRendererToContainer(container){
+  if(!THREE_OK || !renderer3d) return;
+  const rect = container.getBoundingClientRect();
+  const w = Math.max(1, Math.round(rect.width)), h = Math.max(1, Math.round(rect.height));
+  renderer3d.setSize(w, h, false);
+  camera3d.aspect = w/h;
+  camera3d.updateProjectionMatrix();
+}
+
+function clearContentGroup(){
+  if(!THREE_OK) return;
+  while(contentGroup.children.length){
+    const obj = contentGroup.children.pop();
+    disposeObject(obj);
+    contentGroup.remove(obj);
+  }
+  hitTargets = [];
+}
+function disposeObject(obj){
+  obj.traverse(n=>{
+    if(n.geometry) n.geometry.dispose();
+    if(n.material){
+      if(Array.isArray(n.material)) n.material.forEach(m=>m.dispose());
+      else n.material.dispose();
+    }
+  });
+}
+
+function handlePointerHover(e, canvas){
+  const target = raycastAt(e, canvas);
+  canvas.style.cursor = target ? 'pointer' : 'grab';
+}
+function handlePointerClick(e, canvas){
+  const target = raycastAt(e, canvas);
+  if(target && clickCb) clickCb(target.userData.spotId);
+}
+function raycastAt(e, canvas){
+  if(!THREE_OK || !hitTargets.length) return null;
+  const rect = canvas.getBoundingClientRect();
+  mouse3d.x = ((e.clientX-rect.left)/rect.width)*2-1;
+  mouse3d.y = -((e.clientY-rect.top)/rect.height)*2+1;
+  raycaster3d.setFromCamera(mouse3d, camera3d);
+  const hits = raycaster3d.intersectObjects(hitTargets, false);
+  return hits.length ? hits[0].object : null;
+}
+
+/* ---------- reusable 3D glyph builders ---------- */
+function makeLabelSprite(text, opts){
+  opts = opts || {};
+  const canvas = document.createElement('canvas');
+  canvas.width = 256; canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.font = '600 30px "JetBrains Mono", monospace';
+  ctx.fillStyle = opts.color || '#ede9e3';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 128, 34);
+  const texture = new THREE.CanvasTexture(canvas);
+  const material = new THREE.SpriteMaterial({ map:texture, transparent:true, depthWrite:false });
+  const sprite = new THREE.Sprite(material);
+  const scale = opts.scale || 1;
+  sprite.scale.set(1.6*scale, 0.4*scale, 1);
+  return sprite;
+}
+
+function makeFloorAndWall(halfSize, wallZ){
+  const group = new THREE.Group();
+  const floorGeo = new THREE.PlaneGeometry(halfSize*2, halfSize*2);
+  const floorMat = new THREE.MeshStandardMaterial({ color:0x18181c, roughness:0.95, metalness:0 });
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI/2;
+  group.add(floor);
+  const grid = new THREE.GridHelper(halfSize*2, Math.round(halfSize*2), 0x3a3a42, 0x232328);
+  grid.position.y = 0.005;
+  group.add(grid);
+  const wallGeo = new THREE.PlaneGeometry(halfSize*2, halfSize*1.2);
+  const wallMat = new THREE.MeshStandardMaterial({ color:0x141417, roughness:1, side:THREE.DoubleSide });
+  const wall = new THREE.Mesh(wallGeo, wallMat);
+  wall.position.set(0, halfSize*0.6, wallZ);
+  group.add(wall);
+  return group;
+}
+
+function makeSourceGlyph(pos, label, color){
+  const group = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({ color: color||0x1c1c21, roughness:0.5, metalness:0.2, emissive:color||0x1c1c21, emissiveIntensity:0.25 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), bodyMat);
+  group.add(body);
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.06,10,10), new THREE.MeshBasicMaterial({ color:0xe8934a }));
+  dot.position.y = 0.24;
+  group.add(dot);
+  const label3d = makeLabelSprite(label, { color:'#8b8890', scale:0.85 });
+  label3d.position.set(0, -0.55, 0);
+  group.add(label3d);
+  group.position.set(pos[0], pos[1], pos[2]);
+  return group;
+}
+
+// Mic model: vertical body + head, with a small aim indicator that yaws to
+// face the spot's recorded incidence angle. tierKey picks the head color;
+// `active` adds an emissive highlight + slightly larger scale.
+function makeMicMesh(spotId, pos, boresightYaw, tierKey, active){
+  const group = new THREE.Group();
+  group.name = 'mic-' + spotId;
+  const color = TIER_HEX[tierKey] !== undefined ? TIER_HEX[tierKey] : 0x8b8890;
+  const bodyMat = new THREE.MeshStandardMaterial({ color:0x1c1c21, roughness:0.4, metalness:0.5 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.42, 12), bodyMat);
+  body.position.y = 0.21;
+  group.add(body);
+  const headMat = new THREE.MeshStandardMaterial({
+    color, roughness:0.35, metalness:0.15,
+    emissive: active ? color : 0x000000, emissiveIntensity: active ? 0.65 : 0,
+  });
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.075, 14, 14), headMat);
+  head.position.y = 0.44;
+  head.name = 'head';
+  group.add(head);
+  // aim indicator: small cone offset from the head, yawed to show which way the capsule faces
+  const aim = new THREE.Group();
+  aim.rotation.y = boresightYaw;
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.13, 8), new THREE.MeshBasicMaterial({ color:0xede9e3 }));
+  cone.rotation.x = Math.PI/2;
+  cone.position.set(0, 0.44, 0.16);
+  aim.add(cone);
+  group.add(aim);
+  const scale = active ? 1.35 : 1;
+  group.scale.set(scale, scale, scale);
+  group.position.set(pos[0], pos[1], pos[2]);
+  // invisible larger hit sphere, easier to click than the thin mic body
+  const hit = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 8), new THREE.MeshBasicMaterial({ visible:false }));
+  hit.position.y = 0.3;
+  hit.userData.spotId = spotId;
+  group.add(hit);
+  group.userData.hit = hit;
+  group.userData.head = head;
+  return group;
+}
+
+// 3D polar-pattern lobe: a THREE.LatheGeometry surface of revolution built
+// from the real gain formula — the exact 3D analogue of Chapter 6's 2D
+// lobePath(). Revolves around local +Y, then the whole mesh is rotated so
+// +Y points along the mic's boresight (source) direction.
+function makeLobeMesh(pattern, maxRadius, colorHex){
+  if(!pattern) return null;
+  const steps = 28;
+  const pts = [];
+  for(let i=0; i<=steps; i++){
+    const thetaDeg = (i/steps) * 180;
+    const g = patternGain(pattern, thetaDeg);
+    const r = Math.max(0.001, g) * maxRadius;
+    const rad = thetaDeg * Math.PI/180;
+    pts.push(new THREE.Vector2(r*Math.sin(rad), r*Math.cos(rad)));
+  }
+  const geo = new THREE.LatheGeometry(pts, 28);
+  const mat = new THREE.MeshBasicMaterial({ color:colorHex, transparent:true, opacity:0.32, side:THREE.DoubleSide, depthWrite:false });
+  return new THREE.Mesh(geo, mat);
+}
+function orientToBoresight(obj, boresightDir){
+  const from = new THREE.Vector3(0,1,0);
+  const to = boresightDir.clone().normalize();
+  obj.quaternion.setFromUnitVectors(from, to);
+}
+
+/* ============================================================
+   TECHNIQUE DATA — 3D positions (feet), authored directly (not
+   parsed from text) so placement always looks intentional.
+   thetaDeg = incidence angle used for the gain formula AND for
+   yawing the mic's aim indicator (0 = pointed straight at the
+   source, 180 = pointed straight away from it).
+   ============================================================ */
+const TECHNIQUES_3D = {
+  close: {
+    sourceLabel:'SOURCE', sourcePos:[0, 4.5, -1.6], sourceColor:0x5fa3d9,
+    roomHalf:2.2, wallZ:-2.4,
+    spots: [
+      { id:'onaxis-2in', tag:'2"', pos:[0, 4.5, -1.4], thetaDeg:0, distance:'2 in', axis:'On-axis · 0°', character:'Maximum warmth, strong proximity effect' },
+      { id:'onaxis-6in', tag:'6"', pos:[0, 4.5, -1.1], thetaDeg:0, distance:'6 in', axis:'On-axis · 0°', character:'Full and present, moderate proximity effect' },
+      { id:'offaxis-4in', tag:'4"·45°', pos:[0.32, 4.5, -1.28], thetaDeg:45, distance:'4 in', axis:'Off-axis · 45°', character:'Softer top end, fewer plosives' },
+    ],
+  },
+  spot: {
+    sourceLabel:'ENSEMBLE', sourcePos:[0, 4.5, -3], sourceColor:0x5fa3d9,
+    roomHalf:11, wallZ:-13,
+    spots: [
+      { id:'soloist', tag:'Soloist', pos:[-0.9, 4.6, -2.4], thetaDeg:15, distance:'8 in', axis:'Featured performer', character:'Close, present — sits on top of the mix' },
+      { id:'section', tag:'Section', pos:[1.4, 4.7, -2.1], thetaDeg:35, distance:'14 in', axis:'Section reinforcement', character:'Adds clarity without dominating' },
+      { id:'room-ref', tag:'Room ref.', pos:[0, 8, -14.5], thetaDeg:90, distance:'18 ft', axis:'Main/room pair (context)', character:"What the spot mic gets blended under" },
+    ],
+  },
+  distant: {
+    sourceLabel:'SOURCE', sourcePos:[0, 4.5, -2], sourceColor:0x5fa3d9,
+    roomHalf:14, wallZ:-16,
+    spots: [
+      { id:'near', tag:'6 ft', pos:[0, 4.5, -8], thetaDeg:0, distance:'6 ft', axis:'On-axis · 0°', character:'Some room, still fairly direct' },
+      { id:'mid', tag:'12 ft', pos:[0, 5, -14], thetaDeg:0, distance:'12 ft', axis:'On-axis · 0°', character:'Balanced room/direct blend' },
+      { id:'far', tag:'20 ft · corner', pos:[-9.5, 6.2, -18], thetaDeg:60, distance:'20 ft', axis:'Off-axis, room corner', character:'Mostly ambience, minimal detail' },
+    ],
+  },
+  multi: {
+    sourceLabel:'DRUM KIT', sourcePos:[0, 2.2, -1.5], sourceColor:0xe8934a,
+    roomHalf:11, wallZ:-13,
+    spots: [
+      { id:'kick-in', tag:'Kick In', pos:[0, 0.75, -1.35], thetaDeg:0, distance:'2 in inside shell', axis:'On-axis into beater', character:'Punch & low-end attack' },
+      { id:'snare-top', tag:'Snare Top', pos:[-0.9, 2.35, -1.55], thetaDeg:45, distance:'2 in above rim', axis:'Angled off-axis', character:'Crack & body' },
+      { id:'oh-l', tag:'Overhead L', pos:[-2.6, 7, -3.2], thetaDeg:70, distance:'5 ft', axis:'Spaced pair (left)', character:'Cymbals & kit balance' },
+      { id:'oh-r', tag:'Overhead R', pos:[2.6, 7, -3.2], thetaDeg:70, distance:'5 ft', axis:'Spaced pair (right)', character:'Cymbals & kit balance' },
+      { id:'room', tag:'Room', pos:[6.5, 5, -12], thetaDeg:100, distance:'15 ft', axis:'Distant, off-axis', character:'Ambience & glue' },
+    ],
+  },
+};
+
+/* ---------- generic single/multi-select technique panel builder ---------- */
+function buildTechniquePanel(panel){
+  const key = panel.dataset.technique;
+  const cfg = TECHNIQUES_3D[key];
+  const chipRow = panel.querySelector('[data-spot-chips]');
+  const playBtn = panel.querySelector('[data-play]');
+  const level = panel.querySelector('[data-level]');
+  const label = panel.querySelector('[data-clip-label]');
+  const rDistance = panel.querySelector('[data-r-distance]');
+  const rAxis = panel.querySelector('[data-r-axis]');
+  const rCharacter = panel.querySelector('[data-r-character]');
+  const rPickup = panel.querySelector('[data-r-pickup]');
+  const isMulti = key === 'multi';
+  const players = {};
+  const activeIds = new Set();
+
+  cfg.spots.forEach(s=>{ players[s.id] = new ClipPlayer(); });
+
+  chipRow.innerHTML = cfg.spots.map(s=>
+    `<button class="spot-chip${isMulti?' layer':''}" data-chip-id="${s.id}">${s.tag}<span class="db-tag mono"></span></button>`
+  ).join('');
+
+  function audioSrc(spotId){
+    const patternSeg = currentPattern || 'none';
+    return `audio/ch07-3d-${key}-${spotId}-${currentSource}-${currentMicType}-${patternSeg}.mp3`;
+  }
+  function refreshSources(){ cfg.spots.forEach(s=>players[s.id].setSrc(audioSrc(s.id))); }
+  refreshSources();
+
+  function setPlayingUI(on){
+    playBtn.classList.toggle('playing', on);
+    level.classList.toggle('playing', on);
+    playBtn.innerHTML = on ? PAUSE_ICON : PLAY_ICON;
+  }
+  function stopAll(){ Object.values(players).forEach(p=>p.pause()); setPlayingUI(false); }
+  activePlayers.push(stopAll);
+
+  function updateDbTags(){
+    if(!rPickup) return; // multi has no single readout row; chips carry the info instead
+    chipRow.querySelectorAll('.spot-chip').forEach(chip=>{
+      const spot = cfg.spots.find(s=>s.id===chip.dataset.chipId);
+      const p = pickupFor(spot.thetaDeg);
+      chip.querySelector('.db-tag').textContent = p ? ` ${p.db>=0?'+':''}${p.db.toFixed(0)}dB` : '';
+    });
+  }
+  function updateMultiDbTags(){
+    chipRow.querySelectorAll('.spot-chip').forEach(chip=>{
+      const spot = cfg.spots.find(s=>s.id===chip.dataset.chipId);
+      const p = pickupFor(spot.thetaDeg);
+      chip.querySelector('.db-tag').textContent = p ? ` ${p.db>=0?'+':''}${p.db.toFixed(0)}dB` : '';
+    });
+  }
+
+  function updateReadoutsSingle(spot){
+    rDistance.textContent = spot.distance;
+    rAxis.textContent = spot.axis;
+    rCharacter.innerHTML = spot.character;
+    const pt = pickupText(spot.thetaDeg);
+    rPickup.textContent = pt.text;
+    rPickup.className = 'v ' + pt.css;
+    label.textContent = `${SOURCE_LABELS[currentSource]} · ${spot.tag} · ${MIC_LABELS[currentMicType]}`;
+  }
+
+  function render3D(){
+    if(!THREE_OK) return;
+    clearContentGroup();
+    contentGroup.add(makeFloorAndWall(cfg.roomHalf, cfg.wallZ));
+    contentGroup.add(makeSourceGlyph(cfg.sourcePos, cfg.sourceLabel, cfg.sourceColor));
+    hitTargets = [];
+    cfg.spots.forEach(spot=>{
+      const isActive = activeIds.has(spot.id);
+      const p = pickupFor(spot.thetaDeg);
+      const tierKey = p ? p.tier : 'null';
+      const yaw = Math.atan2(cfg.sourcePos[0]-spot.pos[0], cfg.sourcePos[2]-spot.pos[2]) + (spot.thetaDeg*Math.PI/180);
+      const micGroup = makeMicMesh(spot.id, spot.pos, yaw, tierKey, isActive);
+      contentGroup.add(micGroup);
+      hitTargets.push(micGroup.userData.hit);
+      if(isActive && currentPattern && !isMulti){
+        const dir = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+        const lobe = makeLobeMesh(currentPattern, 1.1, TIER_HEX[tierKey]);
+        if(lobe){
+          orientToBoresight(lobe, dir);
+          lobe.position.set(spot.pos[0], spot.pos[1]+0.44, spot.pos[2]);
+          contentGroup.add(lobe);
+        }
+      }
+    });
+  }
+
+  function selectSingle(spotId){
+    activeIds.clear();
+    activeIds.add(spotId);
+    chipRow.querySelectorAll('.spot-chip').forEach(c=>c.classList.toggle('active', c.dataset.chipId===spotId));
+    const spot = cfg.spots.find(s=>s.id===spotId);
+    updateReadoutsSingle(spot);
+    updateDbTags();
+    playBtn.disabled = false;
+    stopAll();
+    render3D();
+  }
+
+  function toggleLayer(spotId){
+    const wasOn = activeIds.has(spotId);
+    if(wasOn) activeIds.delete(spotId); else activeIds.add(spotId);
+    chipRow.querySelector(`.spot-chip[data-chip-id="${spotId}"]`).classList.toggle('active', !wasOn);
+    playBtn.disabled = activeIds.size === 0;
+    const names = cfg.spots.filter(s=>activeIds.has(s.id)).map(s=>s.tag);
+    label.textContent = names.length ? `${SOURCE_LABELS[currentSource]} · ${names.join(' + ')}` : 'Toggle at least one layer';
+    updateMultiDbTags();
+    const wasPlaying = playBtn.classList.contains('playing');
+    if(wasPlaying) Object.entries(players).forEach(([id,p])=>{ if(activeIds.has(id)) p.play(); else p.pause(); });
+    render3D();
+  }
+
+  chipRow.addEventListener('click', e=>{
+    const btn = e.target.closest('.spot-chip');
+    if(!btn) return;
+    if(isMulti) toggleLayer(btn.dataset.chipId); else selectSingle(btn.dataset.chipId);
+  });
+
+  playBtn.addEventListener('click', ()=>{
+    if(playBtn.classList.contains('playing')){ stopAll(); return; }
+    stopAllAudio();
+    if(isMulti) activeIds.forEach(id=>players[id].play());
+    else { const id = [...activeIds][0]; if(id) players[id].play(); }
+    setPlayingUI(true);
+  });
+  Object.values(players).forEach(p=>p.audio.addEventListener('ended', ()=>{
+    const anyPlaying = Object.values(players).some(pp=>pp.playing);
+    if(!anyPlaying) setPlayingUI(false);
+  }));
+
+  document.addEventListener('source-changed', ()=>{
+    const wasPlaying = playBtn.classList.contains('playing');
+    refreshSources();
+    if(wasPlaying){ stopAll(); setTimeout(()=>playBtn.click(), 0); }
+  });
+  document.addEventListener('mictype-changed', ()=>{
+    refreshSources();
+    if(!isMulti && activeIds.size) updateReadoutsSingle(cfg.spots.find(s=>activeIds.has(s.id)));
+    (isMulti?updateMultiDbTags:updateDbTags)();
+    render3D();
+  });
+  document.addEventListener('pattern-changed', ()=>{
+    refreshSources();
+    if(!isMulti && activeIds.size) updateReadoutsSingle(cfg.spots.find(s=>activeIds.has(s.id)));
+    (isMulti?updateMultiDbTags:updateDbTags)();
+    render3D();
+  });
+
+  panel.__enterStage = function(){
+    render3D();
+    const positions = cfg.spots.map(s=>s.pos).concat([cfg.sourcePos]);
+    frameOrbit(positions.map(p=>new THREE.Vector3(p[0],p[1],p[2])));
+    if(clickCb === panel.__clickHandler) return;
+    clickCb = spotId => { if(isMulti) toggleLayer(spotId); else selectSingle(spotId); };
+    panel.__clickHandler = clickCb;
+  };
+  panel.__resetView = function(){
+    const positions = cfg.spots.map(s=>s.pos).concat([cfg.sourcePos]);
+    frameOrbit(positions.map(p=>new THREE.Vector3(p[0],p[1],p[2])));
+  };
+
+  if(!isMulti) selectSingle(cfg.spots[0].id);
+  else { updateMultiDbTags(); render3D(); }
+}
+document.querySelectorAll('.panel[data-technique]').forEach(buildTechniquePanel);
+
+/* ============================================================
+   STEP <-> 3D SCENE MOUNTING
+   Each stage's .stage3d-frame[data-stage3d-mount] is a placeholder;
+   the single shared canvas is appended into whichever one is active,
+   sized to it, and that step's __enterStage()/bespoke loader runs.
+   ============================================================ */
+const stageLoaders = {}; // key -> function() called every time that step becomes active
+function mountSceneForStep(key){
+  if(!THREE_OK) return;
+  const mount = document.querySelector(`[data-stage3d-mount="${key}"]`);
+  if(!mount) return;
+  if(!renderer3d) initThree();
+  if(renderer3d.domElement.parentElement !== mount) mount.appendChild(renderer3d.domElement);
+  mountedContainer = mount;
+  fitRendererToContainer(mount);
+  const panel3d = document.querySelector(`.panel[data-technique="${key}"]`);
+  if(panel3d && panel3d.__enterStage) panel3d.__enterStage();
+  else if(stageLoaders[key]) stageLoaders[key]();
+  updateCameraFromOrbit();
+}
+document.querySelectorAll('[data-reset-view]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    if(!THREE_OK) return;
+    const key = STEPS[currentStepIdx];
+    const panel3d = document.querySelector(`.panel[data-technique="${key}"]`);
+    if(panel3d && panel3d.__resetView) panel3d.__resetView();
+    else if(stageLoaders[key+'__reset']) stageLoaders[key+'__reset']();
+  });
+});
+
+/* ============================================================
+   OVERVIEW — 3D direct vs reflected slider
+   ============================================================ */
+(function(){
+  const slider = document.getElementById('ovSlider');
+  const distVal = document.getElementById('ovDistVal');
+  const ratioVal = document.getElementById('ovRatioVal');
+  const ratioFill = document.getElementById('ovRatioFill');
+  const sourcePos = [0, 4.5, -6];
+  const wallX = -7;
+
+  function render3D(){
+    if(!THREE_OK) return;
+    clearContentGroup();
+    contentGroup.add(makeFloorAndWall(9, -9));
+    // side wall for the reflected path to "bounce" off, visually
+    const sideWallGeo = new THREE.PlaneGeometry(18, 7);
+    const sideWallMat = new THREE.MeshStandardMaterial({ color:0x141417, roughness:1, side:THREE.DoubleSide });
+    const sideWall = new THREE.Mesh(sideWallGeo, sideWallMat);
+    sideWall.rotation.y = Math.PI/2;
+    sideWall.position.set(wallX, 3.5, -6);
+    contentGroup.add(sideWall);
+
+    contentGroup.add(makeSourceGlyph(sourcePos, 'SOURCE', 0x5fa3d9));
+
+    const v = parseFloat(slider.value); // 10..150, same px-ish scale as the 2D version
+    const feet = v/15;
+    const micPos = [0, 4.5, sourcePos[2] + feet];
+    const mic = makeMicMesh('ov', micPos, 0, 'full', true);
+    contentGroup.add(mic);
+    hitTargets = [];
+
+    const directGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(sourcePos[0], sourcePos[1], sourcePos[2]),
+      new THREE.Vector3(micPos[0], micPos[1], micPos[2]),
+    ]);
+    const directLine = new THREE.Line(directGeo, new THREE.LineBasicMaterial({ color:0xe8934a }));
+    contentGroup.add(directLine);
+
+    const reflectGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(sourcePos[0], sourcePos[1], sourcePos[2]),
+      new THREE.Vector3(wallX+0.02, sourcePos[1]-0.6, sourcePos[2]+feet*0.4),
+      new THREE.Vector3(micPos[0], micPos[1], micPos[2]),
+    ]);
+    const reflectLine = new THREE.Line(reflectGeo, new THREE.LineDashedMaterial({ color:0x5fa3d9, dashSize:0.18, gapSize:0.12 }));
+    reflectLine.computeLineDistances();
+    contentGroup.add(reflectLine);
+
+    distVal.textContent = feet.toFixed(1) + ' ft';
+    const directPct = Math.max(20, Math.min(95, Math.round(95 - (v/150)*70)));
+    ratioVal.textContent = `${directPct} : ${100-directPct}`;
+    ratioFill.style.width = directPct + '%';
+  }
+  slider.addEventListener('input', render3D);
+
+  stageLoaders['overview'] = function(){
+    render3D();
+    frameOrbit([new THREE.Vector3(sourcePos[0],sourcePos[1],sourcePos[2]), new THREE.Vector3(0,4.5,sourcePos[2]+10)], { theta:0.5 });
+  };
+  stageLoaders['overview__reset'] = stageLoaders['overview'];
+  document.addEventListener('mictype-changed', ()=>{ if(STEPS[currentStepIdx]==='overview') render3D(); });
+})();
+
+/* ============================================================
+   STEREO MIKING — 3D preset selector (paired mics as one unit)
+   ============================================================ */
+(function(){
+  const seg = document.getElementById('stereoSeg');
+  const spacingEl = document.getElementById('stereoSpacing');
+  const angleEl = document.getElementById('stereoAngle');
+  const monoEl = document.getElementById('stereoMono');
+  const monoFill = document.getElementById('stereoMonoFill');
+  const label = document.querySelector('.stage[data-stage="stereo"] [data-clip-label]');
+  const playBtn = document.querySelector('.stage[data-stage="stereo"] [data-play]');
+  const level = document.querySelector('.stage[data-stage="stereo"] [data-level]');
+  const player = new ClipPlayer();
+  let preset = 'spaced';
+  const sourcePos = [0, 4.5, -8];
+
+  const PRESETS = {
+    spaced: { name:'Spaced Pair', spacing:'3 ft apart', angle:'0° (parallel)', mono:'Weak — check for cancellation', monoPct:40,
+      micA:[-1.5, 4.5, -1.5], micB:[1.5, 4.5, -1.5], yawA:0, yawB:0 },
+    xy: { name:'X-Y', spacing:'~0 in (coincident)', angle:'90–135° crossed', mono:'Excellent — phase-coherent', monoPct:98,
+      micA:[-0.05, 4.5, -1.5], micB:[0.05, 4.5, -1.5], yawA:-0.65, yawB:0.65 },
+    ortf: { name:'ORTF', spacing:'6.7 in (17 cm)', angle:'110° apart', mono:'Very good — near-coincident', monoPct:85,
+      micA:[-0.28, 4.5, -1.5], micB:[0.28, 4.5, -1.5], yawA:-0.96, yawB:0.96 },
+  };
+
+  function render3D(){
+    if(!THREE_OK) return;
+    clearContentGroup();
+    contentGroup.add(makeFloorAndWall(10, -10));
+    contentGroup.add(makeSourceGlyph(sourcePos, 'SOURCE', 0x5fa3d9));
+    const p = PRESETS[preset];
+    const pat = pickupFor(0); // both mics on-axis to the source by design
+    const tierKey = pat ? pat.tier : 'null';
+    const micA = makeMicMesh('stereoA', p.micA, p.yawA, tierKey, true);
+    const micB = makeMicMesh('stereoB', p.micB, p.yawB, tierKey, true);
+    contentGroup.add(micA, micB);
+    hitTargets = [];
+    if(currentPattern){
+      [ [p.micA,p.yawA], [p.micB,p.yawB] ].forEach(([pos,yaw])=>{
+        const dir = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+        const lobe = makeLobeMesh(currentPattern, 0.9, TIER_HEX[tierKey]);
+        if(lobe){ orientToBoresight(lobe, dir); lobe.position.set(pos[0], pos[1]+0.44, pos[2]); contentGroup.add(lobe); }
+      });
+    }
+    spacingEl.textContent = p.spacing;
+    angleEl.textContent = p.angle;
+    monoEl.textContent = p.mono;
+    monoFill.style.width = p.monoPct + '%';
+    label.textContent = `${p.name} · ${SOURCE_LABELS[currentSource]} · ${MIC_LABELS[currentMicType]}`;
+    const patternSeg = currentPattern || 'none';
+    player.setSrc(`audio/ch07-3d-stereo-${preset}-${currentSource}-${currentMicType}-${patternSeg}.mp3`);
+  }
+
+  seg.addEventListener('click', e=>{
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    seg.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    preset = btn.dataset.preset;
+    const wasPlaying = player.playing;
+    render3D();
+    if(wasPlaying) player.play();
+  });
+
+  function setPlayingUI(on){
+    playBtn.classList.toggle('playing', on);
+    level.classList.toggle('playing', on);
+    playBtn.innerHTML = on ? PAUSE_ICON : PLAY_ICON;
+  }
+  function stop(){ player.pause(); setPlayingUI(false); }
+  activePlayers.push(stop);
+  playBtn.addEventListener('click', ()=>{
+    if(player.playing){ stop(); return; }
+    stopAllAudio();
+    player.play();
+    setPlayingUI(true);
+  });
+  player.audio.addEventListener('ended', ()=>setPlayingUI(false));
+  document.addEventListener('source-changed', ()=>{ const w=player.playing; render3D(); if(w) player.play(); });
+  document.addEventListener('mictype-changed', ()=>{ if(STEPS[currentStepIdx]==='stereo') render3D(); });
+  document.addEventListener('pattern-changed', ()=>{ if(STEPS[currentStepIdx]==='stereo') render3D(); });
+
+  stageLoaders['stereo'] = function(){
+    render3D();
+    const p = PRESETS[preset];
+    frameOrbit([new THREE.Vector3(...sourcePos), new THREE.Vector3(...p.micA), new THREE.Vector3(...p.micB)]);
+  };
+  stageLoaders['stereo__reset'] = stageLoaders['stereo'];
+})();
+
+/* ============================================================
+   PROXIMITY EFFECT — 3D sliding mic + drag fader / pattern toggle
+   ============================================================ */
+(function(){
+  const track = document.getElementById('proxTrack');
+  const handle = document.getElementById('proxHandle');
+  const fill = document.getElementById('proxFill');
+  const zones = document.querySelectorAll('.fader-zones span');
+  const meterVal = document.getElementById('proxMeterVal');
+  const meterFill = document.getElementById('proxMeterFill');
+  const patternSeg = document.getElementById('proxPatternSeg');
+  const label = document.querySelector('.stage[data-stage="proximity"] [data-clip-label]');
+  const playBtn = document.querySelector('[data-play-prox]');
+  const level = document.querySelector('.stage[data-stage="proximity"] [data-level]');
+  const player = new ClipPlayer();
+  let pattern = 'cardioid'; // this step's own A/B toggle — independent of the global pattern picker on purpose
+  let zoneIdx = 2;
+  const ZONE_META = [
+    { key:'close', label:'2 in', ft:2/12, boost:{cardioid:9, omni:0} },
+    { key:'medium', label:'12 in', ft:1, boost:{cardioid:4, omni:0} },
+    { key:'far', label:'3 ft', ft:3, boost:{cardioid:0, omni:0} },
+  ];
+  const sourcePos = [0, 4.5, -6];
+
+  function render3D(){
+    if(!THREE_OK) return;
+    clearContentGroup();
+    contentGroup.add(makeFloorAndWall(8, -8));
+    contentGroup.add(makeSourceGlyph(sourcePos, 'SOURCE', 0x5fa3d9));
+    const ft = ZONE_META[zoneIdx].ft;
+    const micPos = [0, 4.5, sourcePos[2] + ft];
+    const boost = ZONE_META[zoneIdx].boost[pattern];
+    const tierKey = boost >= 7 ? 'full' : boost >= 3 ? 'partial' : 'heavy';
+    const mic = makeMicMesh('prox', micPos, 0, tierKey, true);
+    contentGroup.add(mic);
+    hitTargets = [];
+    // low-end "boost" halo — a flattened torus that grows with the dB boost
+    if(boost > 0){
+      const haloGeo = new THREE.TorusGeometry(0.28 + boost*0.03, 0.02, 8, 24);
+      const haloMat = new THREE.MeshBasicMaterial({ color:0xe8934a, transparent:true, opacity:0.55 });
+      const halo = new THREE.Mesh(haloGeo, haloMat);
+      halo.rotation.x = Math.PI/2;
+      halo.position.set(micPos[0], micPos[1]+0.2, micPos[2]);
+      contentGroup.add(halo);
+    }
+    // this step's own cardioid/omni toggle drives the lobe shape directly — comparing
+    // the two IS the lesson, independent of whatever the global pattern picker is set to.
+    const lobe = makeLobeMesh(pattern, 1, TIER_HEX[tierKey]);
+    if(lobe){ orientToBoresight(lobe, new THREE.Vector3(0,0,1)); lobe.position.set(micPos[0], micPos[1]+0.44, micPos[2]); contentGroup.add(lobe); }
+  }
+
+  function render(){
+    const pct = (zoneIdx/2)*100;
+    handle.style.left = pct + '%';
+    fill.style.width = pct + '%';
+    zones.forEach((z,i)=>z.classList.toggle('active', i===zoneIdx));
+    const boost = ZONE_META[zoneIdx].boost[pattern];
+    meterVal.textContent = `+${boost} dB`;
+    meterFill.style.width = Math.max(4, (boost/9)*100) + '%';
+    const zoneName = ZONE_META[zoneIdx].label.includes('ft') ? 'Far' : ZONE_META[zoneIdx].label==='12 in' ? 'Medium' : 'Close';
+    label.textContent = `${pattern==='cardioid'?'Cardioid':'Omni'} · ${zoneName} · ${MIC_LABELS[currentMicType]}`;
+    player.setSrc(`audio/ch07-3d-proximity-${pattern}-${ZONE_META[zoneIdx].key}-${currentSource}.mp3`);
+    render3D();
+  }
+
+  function setFromClientX(clientX){
+    const r = track.getBoundingClientRect();
+    let pct = (clientX - r.left) / r.width;
+    pct = Math.max(0, Math.min(1, pct));
+    zoneIdx = Math.round(pct*2);
+    const wasPlaying = player.playing;
+    render();
+    if(wasPlaying) player.play();
+  }
+  let dragging = false;
+  handle.addEventListener('pointerdown', e=>{ dragging=true; handle.setPointerCapture(e.pointerId); e.preventDefault(); });
+  window.addEventListener('pointermove', e=>{ if(dragging) setFromClientX(e.clientX); });
+  window.addEventListener('pointerup', ()=>dragging=false);
+  track.addEventListener('pointerdown', e=>{ setFromClientX(e.clientX); dragging=true; });
+  handle.addEventListener('keydown', e=>{
+    if(e.key==='ArrowRight' || e.key==='ArrowUp'){ zoneIdx=Math.min(2,zoneIdx+1); render(); e.preventDefault(); }
+    if(e.key==='ArrowLeft' || e.key==='ArrowDown'){ zoneIdx=Math.max(0,zoneIdx-1); render(); e.preventDefault(); }
+  });
+
+  patternSeg.addEventListener('click', e=>{
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    patternSeg.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    pattern = btn.dataset.pattern;
+    const wasPlaying = player.playing;
+    render();
+    if(wasPlaying) player.play();
+  });
+
+  function setPlayingUI(on){
+    playBtn.classList.toggle('playing', on);
+    level.classList.toggle('playing', on);
+    playBtn.innerHTML = on ? PAUSE_ICON : PLAY_ICON;
+  }
+  function stop(){ player.pause(); setPlayingUI(false); }
+  activePlayers.push(stop);
+  playBtn.addEventListener('click', ()=>{
+    if(player.playing){ stop(); return; }
+    stopAllAudio();
+    player.play();
+    setPlayingUI(true);
+  });
+  player.audio.addEventListener('ended', ()=>setPlayingUI(false));
+  document.addEventListener('source-changed', ()=>{ const w=player.playing; render(); if(w) player.play(); });
+  document.addEventListener('mictype-changed', ()=>{ if(STEPS[currentStepIdx]==='proximity') render3D(); });
+
+  stageLoaders['proximity'] = function(){
+    render3D();
+    frameOrbit([new THREE.Vector3(...sourcePos), new THREE.Vector3(0,4.5,sourcePos[2]+3)], { theta:0.45 });
+  };
+  stageLoaders['proximity__reset'] = stageLoaders['proximity'];
+
+  render();
+})();
+
+goToStep(0);
+</script>
+</body>
+</html>

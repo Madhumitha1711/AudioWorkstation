@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Microphone Techniques &amp; Stereo Recording — Studio VR Chapter 7</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!--
+  DESIGN MOCKUP — maps to courseData.js TOPICS[id="stereo-overheads"],
+  chapter 7, module "capture-signal-path" (hotspotId: "stereo-overheads",
+  Recording Room — the matching overhead mic on the opposite side of the
+  kit from chapter 6's "mic-stand").
+
+  Structure hybridizes the two existing design families:
+   - Chapter chrome (header/crumb, step chips, progress rail, stepper
+     footer) matches design/mic-types-chapter.html and
+     design/what-is-sound-chapter.html.
+   - Each technique's interactive stage is a click-to-place SVG room, in
+     the style of design/sweet-spot-lab-ui.html — except placement is
+     constrained to PREDEFINED SPOTS (clickable markers) rather than free
+     drag, since the brief calls for choosing among preset positions, not
+     open placement.
+
+  Six subtopics, each its own step (matches roomsData.js stereo-overheads
+  objectives: spaced-pair/X-Y/ORTF, mono compatibility, the 3:1 rule,
+  distance miking): Placement Fundamentals (overview) → Close Miking →
+  Spot Miking → Distant/Room Miking → Stereo Miking → Multi Miking →
+  Proximity Effect.
+
+  A single SOURCE PICKER just under the progress rail is shared by every
+  technique step, so switching source (Vocal / Acoustic Guitar / Drum Kit
+  / Guitar Amp / Piano) swaps which pre-recorded clip plays at whichever
+  spot is selected, in every subtopic.
+
+  AUDIO — every clip path is a placeholder built from a template
+  (audio/ch07-<technique>-<spotId>-<source>.mp3, or
+  audio/ch07-stereo-<preset>-<source>.mp3 for the paired stereo presets,
+  or audio/ch07-proximity-<pattern>-<distance>-<source>.mp3). Nothing here
+  processes audio live — it only loads/plays whatever file is at that
+  path, same ClipPlayer pattern as design/speakek-listening-lab.html and
+  design/mic-types-chapter.html.
+-->
+<style>
+  :root{
+    --bg:#0b0b0d;
+    --panel:#16161a;
+    --panel-alt:#1c1c21;
+    --panel-raised:#1f1f25;
+    --border:#2a2a30;
+    --border-soft:#232328;
+    --text:#ede9e3;
+    --text-muted:#8b8890;
+    --text-faint:#54525a;
+    --amber:#e8934a;
+    --amber-dim:#6b4a2c;
+    --amber-glow:rgba(232,147,74,0.35);
+    --green:#5fd9a0;
+    --green-dim:#2c5f49;
+    --green-glow:rgba(95,217,160,0.35);
+    --blue:#5fa3d9;
+    --blue-dim:#2c4a5f;
+    --red:#e8615f;
+    --red-dim:#6b2c2c;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;}
+  ::selection{background:var(--amber-dim);}
+  @media (prefers-reduced-motion: reduce){ *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;} }
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .display{font-family:'Space Grotesk',sans-serif;}
+  a{color:inherit;}
+
+  /* ---------- header ---------- */
+  header{
+    position:sticky; top:0; z-index:20;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 28px; border-bottom:1px solid var(--border-soft);
+    background:linear-gradient(180deg,#0d0d0f,#0b0b0d);
+    backdrop-filter:blur(6px);
+  }
+  .crumb{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .crumb .sep{color:var(--text-faint);}
+  .crumb .cur{color:var(--green);}
+  .htitle{font-family:'Space Grotesk',sans-serif; font-size:19px; font-weight:600; margin-top:3px; letter-spacing:-.01em;}
+  .head-right{display:flex; align-items:center; gap:14px; flex-shrink:0;}
+  .chip-num{
+    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--amber);
+    border:1px solid var(--amber-dim); background:rgba(232,147,74,0.08);
+    padding:4px 10px; border-radius:20px; letter-spacing:.06em; white-space:nowrap;
+  }
+  .close-btn{
+    width:32px; height:32px; border-radius:8px; border:1px solid var(--border);
+    background:var(--panel); color:var(--text-muted); display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:16px; line-height:1;
+  }
+  .close-btn:hover{color:var(--text); border-color:var(--border-soft);}
+
+  /* ---------- step nav ---------- */
+  .steps-nav{ display:flex; gap:6px; overflow-x:auto; padding:14px 28px 0; scrollbar-width:none; }
+  .steps-nav::-webkit-scrollbar{display:none;}
+  .step-chip{
+    flex:0 0 auto; display:flex; align-items:center; gap:8px;
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.05em;
+    color:var(--text-muted); background:var(--panel); border:1px solid var(--border);
+    padding:9px 14px; border-radius:20px; cursor:pointer; white-space:nowrap;
+    transition:border-color .15s, color .15s, background .15s;
+  }
+  .step-chip .n{color:var(--text-faint);}
+  .step-chip:hover{border-color:var(--border-soft); color:var(--text);}
+  .step-chip.active{background:var(--panel-raised); border-color:var(--amber-dim); color:var(--text);}
+  .step-chip.active .n{color:var(--amber);}
+  .step-chip.done .n::after{content:'✓'; margin-left:4px; color:var(--green);}
+
+  .progress-track{margin:12px 28px 0; height:3px; border-radius:3px; background:var(--border-soft); overflow:hidden;}
+  .progress-fill{height:100%; width:14.3%; background:linear-gradient(90deg,var(--amber),var(--green)); transition:width .3s ease;}
+
+  /* ---------- source picker (global, sits under progress rail) ---------- */
+  .source-bar{
+    max-width:1080px; margin:18px auto 0; padding:0 28px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  }
+  .source-bar-label{font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-faint); white-space:nowrap;}
+  .source-pick{display:flex; gap:6px; flex-wrap:wrap;}
+  .source-pick button{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.03em;
+    background:var(--panel); border:1px solid var(--border); color:var(--text-muted);
+    padding:8px 13px; border-radius:20px; cursor:pointer; transition:all .15s ease; display:flex; align-items:center; gap:6px;
+  }
+  .source-pick button:hover{border-color:var(--border-soft); color:var(--text);}
+  .source-pick button.active{background:rgba(232,147,74,0.1); border-color:var(--amber-dim); color:var(--amber);}
+
+  /* ---------- stage layout ---------- */
+  main{max-width:1080px; margin:0 auto; padding:24px 28px 60px;}
+  .stage{display:none;}
+  .stage.active{display:block; animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  .lesson-grid{display:grid; grid-template-columns:0.85fr 1.15fr; gap:36px; align-items:start;}
+  @media (max-width:900px){ .lesson-grid{grid-template-columns:1fr;} }
+
+  .kicker{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--green); display:flex; align-items:center; gap:8px; margin-bottom:14px;
+  }
+  .kicker::before{content:''; width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green-glow);}
+  h1.display{font-size:clamp(23px,3.6vw,30px); line-height:1.2; margin:0 0 14px; font-weight:600; letter-spacing:-.01em;}
+  .lede{color:var(--text-muted); font-size:14px; line-height:1.62; margin:0 0 14px; max-width:52ch;}
+  .lede strong{color:var(--text); font-weight:600;}
+
+  .pro-con-row{display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;}
+  .pc{flex:1; min-width:150px; border-radius:10px; padding:12px 14px; border:1px solid var(--border);}
+  .pc.pro{border-color:var(--green-dim); background:rgba(95,217,160,0.05);}
+  .pc.con{border-color:var(--red-dim); background:rgba(232,97,95,0.05);}
+  .pc .pcl{font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; margin-bottom:6px;}
+  .pc.pro .pcl{color:var(--green);}
+  .pc.con .pcl{color:var(--red);}
+  .pc ul{margin:0; padding-left:16px; font-size:12.5px; color:var(--text-muted); line-height:1.6;}
+
+  .spec-row{display:flex; flex-wrap:wrap; gap:8px; margin:16px 0;}
+  .spec-chip{
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.03em;
+    background:var(--panel); border:1px solid var(--border); border-radius:8px;
+    padding:7px 11px; color:var(--text-muted); display:flex; align-items:center; gap:6px;
+  }
+  .spec-chip b{color:var(--text); font-weight:600;}
+
+  /* ---------- interactive panel / stage ---------- */
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:20px;}
+  .panel-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; gap:10px;}
+  .panel-title{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:8px;}
+  .scale-tag{font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.06em; color:var(--text-faint); border:1px solid var(--border-soft); border-radius:20px; padding:3px 9px;}
+
+  .stage-frame{
+    position:relative; border:1px solid var(--border-soft); border-radius:10px; background:#0e0e11; overflow:hidden; margin-bottom:14px;
+  }
+  .stage-frame svg{ display:block; width:100%; height:auto; }
+  .spot{ cursor:pointer; }
+  .spot circle.ring{ fill:rgba(232,147,74,0.12); stroke:var(--amber-dim); stroke-width:1.5; transition:all .15s ease; }
+  .spot circle.dot{ fill:#0e0e11; stroke:var(--text-faint); stroke-width:1.5; transition:all .15s ease; }
+  .spot:hover circle.ring{ stroke:var(--amber); fill:rgba(232,147,74,0.2); }
+  .spot.active circle.ring{ stroke:var(--green); fill:rgba(95,217,160,0.22); filter:drop-shadow(0 0 6px var(--green-glow)); }
+  .spot.active circle.dot{ stroke:var(--green); fill:var(--green); }
+  .spot text{ font-family:'JetBrains Mono',monospace; font-size:8px; fill:var(--text-faint); pointer-events:none; }
+  .spot.active text{ fill:var(--green); }
+  .source-glyph{ fill:#1c1c21; stroke:var(--text-muted); stroke-width:1.5; }
+  .connector{ stroke:var(--green); stroke-width:1.5; stroke-dasharray:3,4; opacity:0; transition:opacity .2s ease; }
+  .connector.on{ opacity:0.7; }
+
+  .spot-chip-row{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+  .spot-chip{
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.02em;
+    background:#0e0e11; border:1px solid var(--border-soft); color:var(--text-muted);
+    padding:8px 12px; border-radius:20px; cursor:pointer; transition:all .15s ease;
+  }
+  .spot-chip:hover{ border-color:var(--border); color:var(--text); }
+  .spot-chip.active{ border-color:var(--green-dim); background:rgba(95,217,160,0.08); color:var(--green); }
+  .spot-chip.layer.active{ border-color:var(--amber-dim); background:rgba(232,147,74,0.08); color:var(--amber); }
+
+  .readout-row{display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;}
+  .readout{
+    flex:1; min-width:110px; background:#0e0e11; border:1px solid var(--border-soft); border-radius:8px;
+    padding:10px 12px;
+  }
+  .readout .l{font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-faint); margin-bottom:4px;}
+  .readout .v{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--text);}
+  .readout .v.amber{color:var(--amber);}
+  .readout .v.green{color:var(--green);}
+  .readout .meter-track{height:5px; border-radius:3px; background:var(--border-soft); margin-top:8px; overflow:hidden;}
+  .readout .meter-fill{height:100%; border-radius:3px; background:linear-gradient(90deg,var(--green),var(--amber));}
+
+  .playbar{display:flex; align-items:center; gap:14px; margin-bottom:10px;}
+  .play-btn{
+    width:44px;height:44px;border-radius:50%; border:1px solid var(--amber-dim); background:var(--amber);
+    color:#1a1206; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+    transition:transform .15s ease, background .15s ease;
+  }
+  .play-btn:hover{transform:scale(1.04);}
+  .play-btn.playing{background:var(--red); border-color:var(--red-dim); color:#fff;}
+  .play-btn:disabled{opacity:.35; cursor:not-allowed; transform:none;}
+  .play-btn svg{width:17px;height:17px;}
+  .level{flex:1; height:44px; background:#0e0e11; border:1px solid var(--border); border-radius:8px; display:flex; align-items:center; gap:3px; padding:0 12px;}
+  .level span{flex:1; height:6px; background:var(--border); border-radius:2px; transition:height .12s ease, background .12s ease;}
+  .level.playing span{animation:lvlpulse 1.1s ease-in-out infinite; background:var(--amber);}
+  .level span:nth-child(1){animation-delay:0s;} .level span:nth-child(2){animation-delay:.08s;}
+  .level span:nth-child(3){animation-delay:.16s;} .level span:nth-child(4){animation-delay:.24s;}
+  .level span:nth-child(5){animation-delay:.32s;} .level span:nth-child(6){animation-delay:.4s;}
+  .level span:nth-child(7){animation-delay:.48s;} .level span:nth-child(8){animation-delay:.56s;}
+  .level span:nth-child(9){animation-delay:.64s;} .level span:nth-child(10){animation-delay:.72s;}
+  @keyframes lvlpulse{0%,100%{height:6px;} 50%{height:24px;}}
+  .now-playing{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint); margin:0 0 6px;}
+  .now-playing b{color:var(--amber);}
+  .hint{font-size:11.5px; color:var(--text-faint); margin-top:12px; line-height:1.5;}
+
+  .seg{display:flex; background:#0e0e11; border:1px solid var(--border); border-radius:8px; padding:4px; gap:4px; margin-bottom:14px; flex-wrap:wrap;}
+  .seg button{
+    flex:1 1 auto; min-width:80px; background:transparent; border:none; color:var(--text-muted); padding:9px 8px; border-radius:6px;
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.02em; cursor:pointer;
+    transition:background .15s, color .15s;
+  }
+  .seg button.active{background:var(--panel-raised); color:var(--text); box-shadow:inset 0 0 0 1px var(--border-soft);}
+
+  /* ---------- proximity slider ---------- */
+  .fader-track{position:relative; height:6px; background:#0e0e11; border:1px solid var(--border); border-radius:4px; margin:36px 13px 26px;}
+  .fader-fill{position:absolute; top:0; left:0; height:100%; background:linear-gradient(90deg,var(--amber),var(--border-soft)); border-radius:4px; opacity:.5;}
+  .fader-handle{
+    position:absolute; top:50%; width:26px; height:38px; margin-left:-13px; margin-top:-19px;
+    background:var(--panel-alt); border:1px solid var(--border); border-radius:6px; cursor:grab; touch-action:none;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .fader-handle::before{content:''; width:12px; height:2px; background:var(--text-muted); box-shadow:0 5px var(--text-muted), 0 -5px var(--text-muted);}
+  .fader-handle:active{cursor:grabbing; border-color:var(--amber);}
+  .fader-zones{display:flex; justify-content:space-between; margin-top:6px; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint);}
+  .fader-zones span.active{color:var(--amber);}
+
+  /* ---------- footer nav ---------- */
+  .stepper-footer{ max-width:1080px; margin:0 auto; padding:0 28px 40px; display:flex; justify-content:space-between; gap:12px; }
+  .btn{
+    font-family:'JetBrains Mono',monospace; font-size:11.5px; letter-spacing:.05em;
+    padding:10px 16px; border-radius:8px; border:1px solid var(--border); background:var(--panel-alt);
+    color:var(--text); cursor:pointer; display:flex; align-items:center; gap:8px; transition:border-color .15s, background .15s;
+  }
+  .btn:hover{border-color:var(--border-soft);}
+  .btn.primary{background:var(--amber); color:#1a1206; border-color:var(--amber); font-weight:600;}
+  .btn.primary:hover{background:#f0a05e;}
+  .btn:disabled{opacity:.4; cursor:not-allowed;}
+  .stepper-footer .btn{min-width:110px; justify-content:center;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="crumb">Studio VR <span class="sep">/</span> Course <span class="sep">/</span> Module 3 · Capture &amp; Signal Path <span class="sep">/</span> <span class="cur">Ch. 07</span></div>
+    <div class="htitle">Microphone Techniques &amp; Stereo Recording</div>
+  </div>
+  <div class="head-right">
+    <span class="chip-num mono">7 techniques</span>
+    <button class="close-btn" title="Back to studio">✕</button>
+  </div>
+</header>
+
+<nav class="steps-nav" id="stepsNav">
+  <div class="step-chip" data-step="overview"><span class="n">01</span> Placement Fundamentals</div>
+  <div class="step-chip" data-step="close"><span class="n">02</span> Close Miking</div>
+  <div class="step-chip" data-step="spot"><span class="n">03</span> Spot Miking</div>
+  <div class="step-chip" data-step="distant"><span class="n">04</span> Distant / Room Miking</div>
+  <div class="step-chip" data-step="stereo"><span class="n">05</span> Stereo Miking</div>
+  <div class="step-chip" data-step="multi"><span class="n">06</span> Multi Miking</div>
+  <div class="step-chip" data-step="proximity"><span class="n">07</span> Proximity Effect</div>
+</nav>
+<div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+
+<div class="source-bar">
+  <span class="source-bar-label">Sound source</span>
+  <div class="source-pick" id="sourcePick">
+    <button class="active" data-source="vocal">🎤 Vocal</button>
+    <button data-source="acoustic">🪕 Acoustic Guitar</button>
+    <button data-source="drum">🥁 Drum Kit</button>
+    <button data-source="amp">🎸 Guitar Amp</button>
+    <button data-source="piano">🎹 Piano</button>
+  </div>
+</div>
+
+<main>
+
+  <!-- ============ 01 OVERVIEW ============ -->
+  <section class="stage active" data-stage="overview">
+    <div class="lesson-grid">
+      <div>
+        <div class="kicker">Technique 01 · Foundations</div>
+        <h1 class="display">The same mic, moved, is a different instrument</h1>
+        <p class="lede">Two things decide almost everything about how a mic captures a source: how <strong>far</strong> it sits from that source, and what <strong>angle</strong> it's aimed at. Move a mic six inches and the tone changes; rotate it 45° and the room around it changes. Every technique in this chapter is really just a deliberate choice about distance and angle.</p>
+        <p class="lede">The core trade-off underneath every technique is the ratio of <strong>direct sound</strong> (arriving straight from the source) to <strong>reflected sound</strong> (bouncing off the room first). Close in, direct sound dominates — detailed, present, isolated from the room. Pull back, and reflected sound catches up — more natural, more spacious, but less precise.</p>
+        <div class="spec-row">
+          <div class="spec-chip">Closer: <b>more direct, less room</b></div>
+          <div class="spec-chip">Farther: <b>more room, less detail</b></div>
+          <div class="spec-chip">On-axis: <b>brightest, fullest</b></div>
+          <div class="spec-chip">Off-axis: <b>darker, colored</b></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">DIRECT vs. REFLECTED SOUND</span></div>
+        <div class="stage-frame">
+          <svg viewBox="0 0 300 180" id="overviewSvg">
+            <circle cx="150" cy="150" r="8" fill="#1c1c21" stroke="#8b8890" stroke-width="1.5"/>
+            <text x="150" y="172" text-anchor="middle" class="mono" fill="#54525a" font-size="9">SOURCE</text>
+            <circle id="ovMicDot" cx="150" cy="110" r="6" fill="#e8934a"/>
+            <line id="ovDirectLine" x1="150" y1="150" x2="150" y2="110" stroke="#e8934a" stroke-width="1.5"/>
+            <path id="ovReflectPath" d="M150,150 L40,20 L150,110" fill="none" stroke="#5fa3d9" stroke-width="1" stroke-dasharray="3,3" opacity="0.6"/>
+            <rect x="10" y="10" width="280" height="160" fill="none" stroke="#232328"/>
+          </svg>
+        </div>
+        <div class="slider-row" style="margin-bottom:14px;">
+          <div class="readout-row" style="margin-bottom:8px;">
+            <div class="readout"><div class="l">Mic distance</div><div class="v amber" id="ovDistVal">2 ft</div></div>
+            <div class="readout"><div class="l">Direct : Reflected</div><div class="v green" id="ovRatioVal">85 : 15</div><div class="meter-track"><div class="meter-fill" id="ovRatioFill" style="width:85%"></div></div></div>
+          </div>
+          <input type="range" id="ovSlider" min="10" max="150" value="30">
+        </div>
+        <p class="hint">Drag to move the mic away from the source and watch the direct-to-reflected balance shift — this single relationship is what every technique on the following pages is built around.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 CLOSE MIKING ============ -->
+  <section class="stage" data-stage="close">
+    <div class="lesson-grid">
+      <div>
+        <div class="kicker">Technique 02 · Placement</div>
+        <h1 class="display">Close Miking</h1>
+        <p class="lede">The mic sits inches from the source — anywhere from about two inches to a foot. Direct sound completely dominates, room sound barely registers, and isolation from everything else in the room is close to total. It's the default for tracking sessions where every source needs its own clean channel.</p>
+        <div class="pro-con-row">
+          <div class="pc pro"><div class="pcl">Strengths</div><ul><li>Maximum detail &amp; presence</li><li>Near-total isolation from bleed</li><li>Strong proximity-effect warmth (directional mics)</li></ul></div>
+          <div class="pc con"><div class="pcl">Trade-offs</div><ul><li>Loses the room entirely</li><li>Very sensitive to small position changes</li><li>Plosives/breath noise up close</li></ul></div>
+        </div>
+      </div>
+      <div class="panel" data-technique="close">
+        <div class="panel-head"><span class="panel-title">PREDEFINED SPOTS</span><span class="scale-tag">SCALE: INCHES</span></div>
+        <div class="stage-frame">
+          <svg viewBox="0 0 300 220" data-stage-svg></svg>
+        </div>
+        <div class="spot-chip-row" data-spot-chips></div>
+        <div class="readout-row" data-readouts>
+          <div class="readout"><div class="l">Distance</div><div class="v amber" data-r-distance>—</div></div>
+          <div class="readout"><div class="l">Axis</div><div class="v" data-r-axis>—</div></div>
+          <div class="readout"><div class="l">Character</div><div class="v" data-r-character>—</div></div>
+        </div>
+        <div class="playbar">
+          <button class="play-btn" data-play disabled>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="level" data-level>
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="now-playing mono">Now playing: <b data-clip-label>Select a spot to place the mic</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 SPOT MIKING ============ -->
+  <section class="stage" data-stage="spot">
+    <div class="lesson-grid">
+      <div>
+        <div class="kicker">Technique 03 · Placement</div>
+        <h1 class="display">Spot Miking</h1>
+        <p class="lede">A dedicated close mic on one performer or section inside a larger ensemble, blended <em>underneath</em> a set of main/room mics rather than replacing them. The main mics still carry the overall picture — the spot mic just reinforces one part of it that would otherwise get buried.</p>
+        <p class="lede">Used sparingly and mixed low, a spot mic adds clarity without making the ensemble sound like a pile of close-miked instruments. Overused, it collapses the natural balance the main mics were capturing in the first place.</p>
+        <div class="pro-con-row">
+          <div class="pc pro"><div class="pcl">Strengths</div><ul><li>Reinforces a buried soloist/section</li><li>Gives the mix engineer a rescue channel</li><li>Keeps the main mics' overall balance intact</li></ul></div>
+          <div class="pc con"><div class="pcl">Trade-offs</div><ul><li>Can sound disconnected from the room if overused</li><li>Adds a bleed/phase relationship to manage</li></ul></div>
+        </div>
+      </div>
+      <div class="panel" data-technique="spot">
+        <div class="panel-head"><span class="panel-title">PREDEFINED SPOTS</span><span class="scale-tag">SCALE: FEET</span></div>
+        <div class="stage-frame">
+          <svg viewBox="0 0 300 220" data-stage-svg></svg>
+        </div>
+        <div class="spot-chip-row" data-spot-chips></div>
+        <div class="readout-row" data-readouts>
+          <div class="readout"><div class="l">Distance</div><div class="v amber" data-r-distance>—</div></div>
+          <div class="readout"><div class="l">Role</div><div class="v" data-r-axis>—</div></div>
+          <div class="readout"><div class="l">Blend</div><div class="v" data-r-character>—</div></div>
+        </div>
+        <div class="playbar">
+          <button class="play-btn" data-play disabled>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="level" data-level>
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="now-playing mono">Now playing: <b data-clip-label>Select a spot to place the mic</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 04 DISTANT / ROOM MIKING ============ -->
+  <section class="stage" data-stage="distant">
+    <div class="lesson-grid">
+      <div>
+        <div class="kicker">Technique 04 · Placement</div>
+        <h1 class="display">Distant / Room Miking</h1>
+        <p class="lede">Pull a mic several feet — sometimes tens of feet — away from the source, and the room stops being background noise and becomes part of the instrument. What you gain is a natural, cohesive picture of the whole source at once; what you lose is up-close detail and control over how much room you're getting.</p>
+        <div class="pro-con-row">
+          <div class="pc pro"><div class="pcl">Strengths</div><ul><li>Natural, spacious, cohesive image</li><li>Captures how the source really sounds in the room</li><li>Great layered under closer mics</li></ul></div>
+          <div class="pc con"><div class="pcl">Trade-offs</div><ul><li>Room quality and treatment matter enormously</li><li>Little isolation from other sources</li><li>Loses fine transient detail</li></ul></div>
+        </div>
+      </div>
+      <div class="panel" data-technique="distant">
+        <div class="panel-head"><span class="panel-title">PREDEFINED SPOTS</span><span class="scale-tag">SCALE: FEET (WIDE)</span></div>
+        <div class="stage-frame">
+          <svg viewBox="0 0 300 220" data-stage-svg></svg>
+        </div>
+        <div class="spot-chip-row" data-spot-chips></div>
+        <div class="readout-row" data-readouts>
+          <div class="readout"><div class="l">Distance</div><div class="v amber" data-r-distance>—</div></div>
+          <div class="readout"><div class="l">Axis</div><div class="v" data-r-axis>—</div></div>
+          <div class="readout"><div class="l">Room presence</div><div class="v" data-r-character>—</div></div>
+        </div>
+        <div class="playbar">
+          <button class="play-btn" data-play disabled>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="level" data-level>
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="now-playing mono">Now playing: <b data-clip-label>Select a spot to place the mic</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 05 STEREO MIKING ============ -->
+  <section class="stage" data-stage="stereo">
+    <div class="lesson-grid">
+      <div>
+        <div class="kicker">Technique 05 · Placement</div>
+        <h1 class="display">Stereo Miking</h1>
+        <p class="lede">Two mics, one stereo image. How they're spaced and angled relative to each other determines everything — get it right and the source translates as a wide, coherent picture that still sums cleanly to mono; get it wrong and instruments smear or partially cancel when the two channels combine.</p>
+        <p class="lede">Keep the <strong>3:1 rule</strong> in mind any time two mics can hear the same source: the second mic should be at least three times farther from the first mic than the first mic is from the source, or the two signals start to comb-filter each other.</p>
+        <div class="spec-row">
+          <div class="spec-chip">Spaced Pair: <b>widest, least mono-safe</b></div>
+          <div class="spec-chip">X-Y: <b>coincident, perfectly mono-safe</b></div>
+          <div class="spec-chip">ORTF: <b>near-coincident, natural width</b></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">STEREO PRESET</span><span class="scale-tag">SCALE: FEET</span></div>
+        <div class="seg" id="stereoSeg">
+          <button class="active" data-preset="spaced">Spaced Pair</button>
+          <button data-preset="xy">X-Y</button>
+          <button data-preset="ortf">ORTF</button>
+        </div>
+        <div class="stage-frame">
+          <svg viewBox="0 0 300 220" id="stereoSvg"></svg>
+        </div>
+        <div class="readout-row">
+          <div class="readout"><div class="l">Capsule spacing</div><div class="v amber" id="stereoSpacing">—</div></div>
+          <div class="readout"><div class="l">Angle apart</div><div class="v" id="stereoAngle">—</div></div>
+          <div class="readout"><div class="l">Mono compatibility</div><div class="v" id="stereoMono">—</div><div class="meter-track"><div class="meter-fill" id="stereoMonoFill" style="width:100%"></div></div></div>
+        </div>
+        <div class="playbar">
+          <button class="play-btn" data-play>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="level" data-level>
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="now-playing mono">Now playing: <b data-clip-label>Spaced Pair</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 06 MULTI MIKING ============ -->
+  <section class="stage" data-stage="multi">
+    <div class="lesson-grid">
+      <div>
+        <div class="kicker">Technique 06 · Placement</div>
+        <h1 class="display">Multi Miking</h1>
+        <p class="lede">Several mics on one source or ensemble at once, each on its own channel, mixed together afterward — a kick mic, a snare mic, an overhead pair, and a room mic all recording the same drum kit simultaneously. It trades simplicity for total control: every element can be balanced, processed, and panned independently at mixdown.</p>
+        <p class="lede">Toggle the layers on and off below to hear how a multi-miked source is really a small mix in itself — close mics for detail, distant mics for glue, all summing into one picture.</p>
+      </div>
+      <div class="panel" data-technique="multi">
+        <div class="panel-head"><span class="panel-title">MIC LAYERS — TOGGLE TO SOLO/MUTE</span><span class="scale-tag">SCALE: FEET</span></div>
+        <div class="stage-frame">
+          <svg viewBox="0 0 300 220" data-stage-svg></svg>
+        </div>
+        <div class="spot-chip-row" data-spot-chips></div>
+        <div class="playbar">
+          <button class="play-btn" data-play disabled>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="level" data-level>
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="now-playing mono">Now playing: <b data-clip-label>Toggle at least one layer</b></div>
+        <p class="hint">Each active layer plays as its own audio element in sync — solo one to hear it alone, or stack several to hear the composite mix.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 07 PROXIMITY EFFECT ============ -->
+  <section class="stage" data-stage="proximity">
+    <div class="lesson-grid">
+      <div>
+        <div class="kicker">Technique 07 · Characteristics</div>
+        <h1 class="display">Proximity Effect</h1>
+        <p class="lede">Move a directional mic closer to a source and the low end swells — a bass boost with no EQ involved. It's a side effect of how pressure-<em>gradient</em> capsules work (anything with a rear opening: cardioid, bidirectional, ribbon), and it only happens up close, roughly within a foot or two of the diaphragm.</p>
+        <p class="lede">A true pressure-only capsule — an omnidirectional mic — has no rear opening to create that gradient, so it stays flat no matter how close it gets. Drag the fader below and toggle the pattern to feel the difference.</p>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">DISTANCE vs. LOW-END BUILDUP</span></div>
+        <div class="seg" id="proxPatternSeg">
+          <button class="active" data-pattern="cardioid">Cardioid (directional)</button>
+          <button data-pattern="omni">Omni (no proximity effect)</button>
+        </div>
+        <div class="fader-track" id="proxTrack">
+          <div class="fader-fill" id="proxFill" style="width:0%"></div>
+          <div class="fader-handle" id="proxHandle" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="2" aria-valuenow="2" style="left:100%"></div>
+        </div>
+        <div class="fader-zones">
+          <span data-zone="0">Very close · 2 in</span>
+          <span data-zone="1">Medium · 12 in</span>
+          <span class="active" data-zone="2">Far · 3 ft</span>
+        </div>
+        <div class="readout-row" style="margin-top:16px;">
+          <div class="readout"><div class="l">Low-end buildup</div><div class="v amber" id="proxMeterVal">+0 dB</div><div class="meter-track"><div class="meter-fill" id="proxMeterFill" style="width:5%"></div></div></div>
+        </div>
+        <div class="playbar">
+          <button class="play-btn" data-play-prox>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="level" data-level>
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="now-playing mono">Now playing: <b data-clip-label>Cardioid · Far</b></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div class="stepper-footer">
+  <button class="btn" id="prevBtn">← Back</button>
+  <button class="btn primary" id="nextBtn">Next →</button>
+</div>
+
+<script>
+/* ============================================================
+   SOURCE LABELS / STATE
+   ============================================================ */
+const SOURCE_LABELS = { vocal:'Vocal', acoustic:'Acoustic Guitar', drum:'Drum Kit', amp:'Guitar Amp', piano:'Piano' };
+let currentSource = 'vocal';
+
+/* ---------- clip player ---------- */
+class ClipPlayer{
+  constructor(){ this.audio = new Audio(); this.audio.preload='auto'; }
+  setSrc(src){ if(this.audio.src.endsWith(src)) return; this.audio.src = src; }
+  play(){ this.audio.currentTime = 0; this.audio.play().catch(()=>{}); }
+  pause(){ this.audio.pause(); }
+  get playing(){ return !this.audio.paused; }
+}
+const PLAY_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+const PAUSE_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>';
+
+/* ---------- step navigation ---------- */
+const STEPS = ['overview','close','spot','distant','stereo','multi','proximity'];
+let currentStepIdx = 0;
+const stepsNav = document.getElementById('stepsNav');
+const progressFill = document.getElementById('progressFill');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const activePlayers = [];
+function stopAllAudio(){ activePlayers.forEach(fn=>fn()); }
+
+function goToStep(idx){
+  idx = Math.max(0, Math.min(STEPS.length-1, idx));
+  currentStepIdx = idx;
+  stopAllAudio();
+  const key = STEPS[idx];
+  document.querySelectorAll('.stage').forEach(s=>s.classList.toggle('active', s.dataset.stage===key));
+  document.querySelectorAll('.step-chip').forEach(c=>{
+    const isActive = c.dataset.step===key;
+    c.classList.toggle('active', isActive);
+    if(STEPS.indexOf(c.dataset.step) < idx) c.classList.add('done'); else if(!isActive) c.classList.remove('done');
+  });
+  progressFill.style.width = (((idx+1)/STEPS.length)*100) + '%';
+  prevBtn.disabled = idx===0;
+  nextBtn.textContent = idx===STEPS.length-1 ? 'Finish ✓' : 'Next →';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+stepsNav.addEventListener('click', e=>{
+  const chip = e.target.closest('.step-chip');
+  if(!chip) return;
+  goToStep(STEPS.indexOf(chip.dataset.step));
+});
+prevBtn.addEventListener('click', ()=>goToStep(currentStepIdx-1));
+nextBtn.addEventListener('click', ()=>{
+  if(currentStepIdx===STEPS.length-1){ stopAllAudio(); return; }
+  goToStep(currentStepIdx+1);
+});
+
+/* ---------- global source picker ---------- */
+document.getElementById('sourcePick').addEventListener('click', e=>{
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  document.querySelectorAll('#sourcePick button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentSource = btn.dataset.source;
+  document.dispatchEvent(new CustomEvent('source-changed'));
+});
+
+/* ============================================================
+   SVG HELPERS
+   ============================================================ */
+function sourceGlyph(cx, cy, label){
+  return `<g>
+    <circle class="source-glyph" cx="${cx}" cy="${cy}" r="10"/>
+    <circle cx="${cx}" cy="${cy}" r="3" fill="#e8934a"/>
+    <text x="${cx}" y="${cy+24}" text-anchor="middle" class="mono" fill="#54525a" font-size="9">${label}</text>
+  </g>`;
+}
+function spotMarkup(spot){
+  return `<g class="spot" data-spot-id="${spot.id}" transform="translate(${spot.x},${spot.y})">
+    <circle class="ring" r="14"/>
+    <circle class="dot" r="5"/>
+    <text y="-20" text-anchor="middle">${spot.tag||''}</text>
+  </g>`;
+}
+
+/* ============================================================
+   SINGLE-SELECT TECHNIQUE PANELS (close / spot / distant)
+   Each has: predefined spots, click one to place the mic there,
+   readouts update, play button enables and plays that spot's clip.
+   ============================================================ */
+const TECHNIQUES = {
+  close: {
+    sourceLabel: 'SOURCE',
+    sourceXY: [150, 190],
+    spots: [
+      { id:'onaxis-2in', tag:'2"', x:150, y:130, distance:'2 in', axis:'On-axis · 0°', character:'Maximum warmth, strong proximity effect' },
+      { id:'onaxis-6in', tag:'6"', x:150, y:80,  distance:'6 in', axis:'On-axis · 0°', character:'Full and present, moderate proximity effect' },
+      { id:'offaxis-4in', tag:'4"·45°', x:210, y:120, distance:'4 in', axis:'Off-axis · 45°', character:'Softer top end, fewer plosives' },
+    ],
+  },
+  spot: {
+    sourceLabel: 'ENSEMBLE',
+    sourceXY: [150, 190],
+    spots: [
+      { id:'soloist', tag:'Soloist', x:110, y:120, distance:'8 in', axis:'Featured performer', character:'Close, present — sits on top of the mix' },
+      { id:'section', tag:'Section', x:200, y:110, distance:'14 in', axis:'Section reinforcement', character:'Adds clarity without dominating' },
+      { id:'room-ref', tag:'Room ref.', x:150, y:35, distance:'18 ft', axis:'Main/room pair (context)', character:'What the spot mic gets blended under' },
+    ],
+  },
+  distant: {
+    sourceLabel: 'SOURCE',
+    sourceXY: [150, 200],
+    spots: [
+      { id:'near', tag:'6 ft', x:150, y:150, distance:'6 ft', axis:'On-axis · 0°', character:'Some room, still fairly direct' },
+      { id:'mid', tag:'12 ft', x:150, y:95, distance:'12 ft', axis:'On-axis · 0°', character:'Balanced room/direct blend' },
+      { id:'far', tag:'20 ft · corner', x:60, y:40, distance:'20 ft', axis:'Off-axis, room corner', character:'Mostly ambience, minimal detail' },
+    ],
+  },
+  multi: {
+    sourceLabel: 'DRUM KIT',
+    sourceXY: [150, 140],
+    spots: [
+      { id:'kick-in', tag:'Kick In', x:150, y:208, distance:'2 in inside shell', axis:'On-axis into beater', character:'Punch &amp; low-end attack' },
+      { id:'snare-top', tag:'Snare Top', x:88, y:178, distance:'2 in above rim', axis:'Angled off-axis', character:'Crack &amp; body' },
+      { id:'oh-l', tag:'Overhead L', x:70, y:50, distance:'5 ft', axis:'Spaced pair (left)', character:'Cymbals &amp; kit balance' },
+      { id:'oh-r', tag:'Overhead R', x:230, y:50, distance:'5 ft', axis:'Spaced pair (right)', character:'Cymbals &amp; kit balance' },
+      { id:'room', tag:'Room', x:262, y:150, distance:'15 ft', axis:'Distant, off-axis', character:'Ambience &amp; glue' },
+    ],
+  },
+};
+
+function buildTechniquePanel(panel){
+  const key = panel.dataset.technique;
+  const cfg = TECHNIQUES[key];
+  const svg = panel.querySelector('[data-stage-svg]');
+  const chipRow = panel.querySelector('[data-spot-chips]');
+  const playBtn = panel.querySelector('[data-play]');
+  const level = panel.querySelector('[data-level]');
+  const label = panel.querySelector('[data-clip-label]');
+  const rDistance = panel.querySelector('[data-r-distance]');
+  const rAxis = panel.querySelector('[data-r-axis]');
+  const rCharacter = panel.querySelector('[data-r-character]');
+  const isMulti = key === 'multi';
+  const players = {}; // spotId -> ClipPlayer
+  const activeIds = new Set(); // for multi: layers toggled on; for others: at most one
+
+  cfg.spots.forEach(s=>{ players[s.id] = new ClipPlayer(); });
+
+  const [sx, sy] = cfg.sourceXY;
+  svg.innerHTML =
+    `<rect x="8" y="8" width="284" height="204" fill="none" stroke="#232328"/>` +
+    cfg.spots.map(s=>`<line class="connector" data-line-for="${s.id}" x1="${sx}" y1="${sy}" x2="${s.x}" y2="${s.y}"/>`).join('') +
+    sourceGlyph(sx, sy, cfg.sourceLabel) +
+    cfg.spots.map(spotMarkup).join('');
+
+  chipRow.innerHTML = cfg.spots.map(s=>
+    `<button class="spot-chip${isMulti?' layer':''}" data-chip-id="${s.id}">${s.tag}</button>`
+  ).join('');
+
+  function audioSrc(spotId){ return `audio/ch07-${key}-${spotId}-${currentSource}.mp3`; }
+
+  function refreshSources(){
+    cfg.spots.forEach(s=>players[s.id].setSrc(audioSrc(s.id)));
+  }
+  refreshSources();
+
+  function setPlayingUI(on){
+    playBtn.classList.toggle('playing', on);
+    level.classList.toggle('playing', on);
+    playBtn.innerHTML = on ? PAUSE_ICON : PLAY_ICON;
+  }
+  function stopAll(){
+    Object.values(players).forEach(p=>p.pause());
+    setPlayingUI(false);
+  }
+  activePlayers.push(stopAll);
+
+  function updateReadoutsSingle(spot){
+    rDistance.textContent = spot.distance;
+    rAxis.textContent = spot.axis;
+    rCharacter.innerHTML = spot.character;
+    label.textContent = `${SOURCE_LABELS[currentSource]} · ${spot.tag}`;
+  }
+
+  function selectSingle(spotId){
+    activeIds.clear();
+    activeIds.add(spotId);
+    svg.querySelectorAll('.spot').forEach(g=>g.classList.toggle('active', g.dataset.spotId===spotId));
+    svg.querySelectorAll('.connector').forEach(l=>l.classList.toggle('on', l.dataset.lineFor===spotId));
+    chipRow.querySelectorAll('.spot-chip').forEach(c=>c.classList.toggle('active', c.dataset.chipId===spotId));
+    const spot = cfg.spots.find(s=>s.id===spotId);
+    updateReadoutsSingle(spot);
+    playBtn.disabled = false;
+    stopAll();
+  }
+
+  function toggleLayer(spotId){
+    const wasOn = activeIds.has(spotId);
+    if(wasOn) activeIds.delete(spotId); else activeIds.add(spotId);
+    svg.querySelector(`.spot[data-spot-id="${spotId}"]`).classList.toggle('active', !wasOn);
+    svg.querySelector(`.connector[data-line-for="${spotId}"]`).classList.toggle('on', !wasOn);
+    chipRow.querySelector(`.spot-chip[data-chip-id="${spotId}"]`).classList.toggle('active', !wasOn);
+    playBtn.disabled = activeIds.size === 0;
+    const names = cfg.spots.filter(s=>activeIds.has(s.id)).map(s=>s.tag);
+    label.textContent = names.length ? `${SOURCE_LABELS[currentSource]} · ${names.join(' + ')}` : 'Toggle at least one layer';
+    const wasPlaying = playBtn.classList.contains('playing');
+    if(wasPlaying){
+      Object.entries(players).forEach(([id,p])=>{ if(activeIds.has(id)) p.play(); else p.pause(); });
+    }
+  }
+
+  svg.addEventListener('click', e=>{
+    const g = e.target.closest('.spot');
+    if(!g) return;
+    const id = g.dataset.spotId;
+    if(isMulti) toggleLayer(id); else selectSingle(id);
+  });
+  chipRow.addEventListener('click', e=>{
+    const btn = e.target.closest('.spot-chip');
+    if(!btn) return;
+    if(isMulti) toggleLayer(btn.dataset.chipId); else selectSingle(btn.dataset.chipId);
+  });
+
+  playBtn.addEventListener('click', ()=>{
+    if(playBtn.classList.contains('playing')){ stopAll(); return; }
+    stopAllAudio();
+    if(isMulti){
+      activeIds.forEach(id=>players[id].play());
+    } else {
+      const id = [...activeIds][0];
+      if(id) players[id].play();
+    }
+    setPlayingUI(true);
+  });
+
+  Object.values(players).forEach(p=>p.audio.addEventListener('ended', ()=>{
+    const anyPlaying = Object.values(players).some(pp=>pp.playing);
+    if(!anyPlaying) setPlayingUI(false);
+  }));
+
+  document.addEventListener('source-changed', ()=>{
+    const wasPlaying = playBtn.classList.contains('playing');
+    refreshSources();
+    if(wasPlaying){
+      stopAll();
+      setTimeout(()=>playBtn.click(), 0);
+    }
+  });
+
+  // default selection
+  if(!isMulti) selectSingle(cfg.spots[0].id);
+}
+document.querySelectorAll('.panel[data-technique]').forEach(buildTechniquePanel);
+
+/* ============================================================
+   OVERVIEW — direct vs reflected slider
+   ============================================================ */
+(function(){
+  const slider = document.getElementById('ovSlider');
+  const micDot = document.getElementById('ovMicDot');
+  const directLine = document.getElementById('ovDirectLine');
+  const distVal = document.getElementById('ovDistVal');
+  const ratioVal = document.getElementById('ovRatioVal');
+  const ratioFill = document.getElementById('ovRatioFill');
+  function render(){
+    const v = parseFloat(slider.value); // 10 (close) .. 150 (far), px offset from source
+    const y = 150 - v;
+    micDot.setAttribute('cy', y);
+    directLine.setAttribute('y2', y);
+    const feet = (v/15).toFixed(1);
+    distVal.textContent = feet + ' ft';
+    const directPct = Math.max(20, Math.min(95, Math.round(95 - (v/150)*70)));
+    ratioVal.textContent = `${directPct} : ${100-directPct}`;
+    ratioFill.style.width = directPct + '%';
+  }
+  slider.addEventListener('input', render);
+  render();
+})();
+
+/* ============================================================
+   STEREO MIKING — preset selector (paired spots as one unit)
+   ============================================================ */
+(function(){
+  const seg = document.getElementById('stereoSeg');
+  const svg = document.getElementById('stereoSvg');
+  const spacingEl = document.getElementById('stereoSpacing');
+  const angleEl = document.getElementById('stereoAngle');
+  const monoEl = document.getElementById('stereoMono');
+  const monoFill = document.getElementById('stereoMonoFill');
+  const label = document.querySelector('.stage[data-stage="stereo"] [data-clip-label]');
+  const playBtn = document.querySelector('.stage[data-stage="stereo"] [data-play]');
+  const level = document.querySelector('.stage[data-stage="stereo"] [data-level]');
+  const player = new ClipPlayer();
+  let preset = 'spaced';
+
+  const PRESETS = {
+    spaced: { name:'Spaced Pair', spacing:'3 ft apart', angle:'0° (parallel)', mono:'Weak — check for cancellation', monoPct:40,
+      micA:[110,70], micB:[190,70], angleA:0, angleB:0 },
+    xy: { name:'X-Y', spacing:'~0 in (coincident)', angle:'90–135° crossed', mono:'Excellent — phase-coherent', monoPct:98,
+      micA:[142,75], micB:[158,75], angleA:-35, angleB:35 },
+    ortf: { name:'ORTF', spacing:'6.7 in (17 cm)', angle:'110° apart', mono:'Very good — near-coincident', monoPct:85,
+      micA:[132,75], micB:[168,75], angleA:-25, angleB:25 },
+  };
+
+  function micGlyph(x,y,rot,color){
+    return `<g transform="translate(${x},${y}) rotate(${rot})">
+      <rect x="-6" y="-14" width="12" height="24" rx="3" fill="#1c1c21" stroke="${color}" stroke-width="1.5"/>
+      <circle cx="0" cy="-10" r="3" fill="${color}"/>
+    </g>`;
+  }
+
+  function render(){
+    const p = PRESETS[preset];
+    svg.innerHTML =
+      `<rect x="8" y="8" width="284" height="204" fill="none" stroke="#232328"/>` +
+      sourceGlyph(150, 190, 'SOURCE') +
+      `<line x1="150" y1="190" x2="${p.micA[0]}" y2="${p.micA[1]}" stroke="#5fd9a0" stroke-width="1" stroke-dasharray="3,4" opacity="0.5"/>` +
+      `<line x1="150" y1="190" x2="${p.micB[0]}" y2="${p.micB[1]}" stroke="#5fd9a0" stroke-width="1" stroke-dasharray="3,4" opacity="0.5"/>` +
+      micGlyph(p.micA[0], p.micA[1], p.angleA, '#e8934a') +
+      micGlyph(p.micB[0], p.micB[1], p.angleB, '#5fd9a0') +
+      `<text x="150" y="45" text-anchor="middle" class="mono" fill="#54525a" font-size="9">${p.name}</text>`;
+    spacingEl.textContent = p.spacing;
+    angleEl.textContent = p.angle;
+    monoEl.textContent = p.mono;
+    monoFill.style.width = p.monoPct + '%';
+    label.textContent = `${p.name} · ${SOURCE_LABELS[currentSource]}`;
+    player.setSrc(`audio/ch07-stereo-${preset}-${currentSource}.mp3`);
+  }
+
+  seg.addEventListener('click', e=>{
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    seg.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    preset = btn.dataset.preset;
+    const wasPlaying = player.playing;
+    render();
+    if(wasPlaying) player.play();
+  });
+
+  function setPlayingUI(on){
+    playBtn.classList.toggle('playing', on);
+    level.classList.toggle('playing', on);
+    playBtn.innerHTML = on ? PAUSE_ICON : PLAY_ICON;
+  }
+  function stop(){ player.pause(); setPlayingUI(false); }
+  activePlayers.push(stop);
+  playBtn.addEventListener('click', ()=>{
+    if(player.playing){ stop(); return; }
+    stopAllAudio();
+    player.play();
+    setPlayingUI(true);
+  });
+  player.audio.addEventListener('ended', ()=>setPlayingUI(false));
+  document.addEventListener('source-changed', ()=>{
+    const wasPlaying = player.playing;
+    render();
+    if(wasPlaying) player.play();
+  });
+
+  render();
+})();
+
+/* ============================================================
+   PROXIMITY EFFECT — drag fader + pattern toggle
+   ============================================================ */
+(function(){
+  const track = document.getElementById('proxTrack');
+  const handle = document.getElementById('proxHandle');
+  const fill = document.getElementById('proxFill');
+  const zones = document.querySelectorAll('.fader-zones span');
+  const meterVal = document.getElementById('proxMeterVal');
+  const meterFill = document.getElementById('proxMeterFill');
+  const patternSeg = document.getElementById('proxPatternSeg');
+  const label = document.querySelector('.stage[data-stage="proximity"] [data-clip-label]');
+  const playBtn = document.querySelector('[data-play-prox]');
+  const level = document.querySelector('.stage[data-stage="proximity"] [data-level]');
+  const player = new ClipPlayer();
+  let pattern = 'cardioid';
+  let zoneIdx = 2; // 0 close .. 2 far
+  const ZONE_META = [
+    { key:'close', label:'2 in', boost:{cardioid:9, omni:0} },
+    { key:'medium', label:'12 in', boost:{cardioid:4, omni:0} },
+    { key:'far', label:'3 ft', boost:{cardioid:0, omni:0} },
+  ];
+
+  function render(){
+    const pct = (zoneIdx/2)*100;
+    handle.style.left = pct + '%';
+    fill.style.width = pct + '%';
+    zones.forEach((z,i)=>z.classList.toggle('active', i===zoneIdx));
+    const boost = ZONE_META[zoneIdx].boost[pattern];
+    meterVal.textContent = `+${boost} dB`;
+    meterFill.style.width = Math.max(4, (boost/9)*100) + '%';
+    label.textContent = `${pattern==='cardioid'?'Cardioid':'Omni'} · ${ZONE_META[zoneIdx].label.includes('ft')?'Far':ZONE_META[zoneIdx].label==='12 in'?'Medium':'Close'}`;
+    player.setSrc(`audio/ch07-proximity-${pattern}-${ZONE_META[zoneIdx].key}-${currentSource}.mp3`);
+  }
+
+  function setFromClientX(clientX){
+    const r = track.getBoundingClientRect();
+    let pct = (clientX - r.left) / r.width;
+    pct = Math.max(0, Math.min(1, pct));
+    zoneIdx = Math.round(pct*2);
+    const wasPlaying = player.playing;
+    render();
+    if(wasPlaying) player.play();
+  }
+  let dragging = false;
+  handle.addEventListener('pointerdown', e=>{ dragging=true; handle.setPointerCapture(e.pointerId); e.preventDefault(); });
+  window.addEventListener('pointermove', e=>{ if(dragging) setFromClientX(e.clientX); });
+  window.addEventListener('pointerup', ()=>dragging=false);
+  track.addEventListener('pointerdown', e=>{ setFromClientX(e.clientX); dragging=true; });
+  handle.addEventListener('keydown', e=>{
+    if(e.key==='ArrowRight' || e.key==='ArrowUp'){ zoneIdx=Math.min(2,zoneIdx+1); render(); e.preventDefault(); }
+    if(e.key==='ArrowLeft' || e.key==='ArrowDown'){ zoneIdx=Math.max(0,zoneIdx-1); render(); e.preventDefault(); }
+  });
+
+  patternSeg.addEventListener('click', e=>{
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    patternSeg.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    pattern = btn.dataset.pattern;
+    const wasPlaying = player.playing;
+    render();
+    if(wasPlaying) player.play();
+  });
+
+  function setPlayingUI(on){
+    playBtn.classList.toggle('playing', on);
+    level.classList.toggle('playing', on);
+    playBtn.innerHTML = on ? PAUSE_ICON : PLAY_ICON;
+  }
+  function stop(){ player.pause(); setPlayingUI(false); }
+  activePlayers.push(stop);
+  playBtn.addEventListener('click', ()=>{
+    if(player.playing){ stop(); return; }
+    stopAllAudio();
+    player.play();
+    setPlayingUI(true);
+  });
+  player.audio.addEventListener('ended', ()=>setPlayingUI(false));
+  document.addEventListener('source-changed', ()=>{
+    const wasPlaying = player.playing;
+    render();
+    if(wasPlaying) player.play();
+  });
+
+  render();
+})();
+
+goToStep(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,372 @@
+/*
+ * Styles for <MikingRoom />.
+ *
+ * Everything is scoped under the .miking-room root class so it can be
+ * dropped into an existing app without leaking generic class names like
+ * .title or .subtitle into the rest of the page.
+ *
+ * Fonts: this stylesheet does NOT load Google Fonts for you (an @import
+ * here would be render-blocking and fight your app's own font strategy).
+ * Add these to your app's index.html <head> instead:
+ *
+ *   <link rel="preconnect" href="https://fonts.googleapis.com">
+ *   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+ *   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+ *
+ * The component falls back to system fonts if these aren't loaded.
+ */
+
+.miking-room {
+  /* Reads the app's real theme tokens (CoursePage.css's ".svr-course"
+     scope — --bg/--panel/--text/--border/--accent/etc., driven by
+     ThemeContext's data-theme attribute on <html> AND the current brand
+     palette from theme/palettes.js) instead of carrying its own separate
+     hardcoded palette, so the room matches the rest of the course in both
+     themes and every brand palette automatically, rather than always
+     showing the same fixed warm/olive look regardless of what the rest of
+     the app is doing. The var(--x, fallback) defaults below only matter if
+     this is ever mounted somewhere that doesn't define those ambient
+     tokens (see the standalone <MikingRoom /> usage note up top). */
+  --mkr-bg: var(--bg, #eef1ef);
+  --mkr-surface: var(--panel, #ffffff);
+  --mkr-surface-2: var(--panel-hover, #dde3e0);
+  --mkr-ink: var(--text, #1b2422);
+  --mkr-ink-dim: var(--text-dim, #5c6764);
+  --mkr-line: var(--border-soft, #ccd3d0);
+  --mkr-accent: var(--accent, #a8672a);
+  --mkr-accent-strong: var(--accent2, #8c521e);
+  --mkr-accent-ink: var(--accent-ink, #fff8f0);
+
+  /* --mkr-room-wall/--mkr-room-floor/--mkr-grid-minor/--mkr-line-solid have
+     no app-wide equivalent — they're specific to this 3D scene's geometry
+     (floor/wall/grid-line materials read via the token() calls in
+     buildScene()/buildSourceScene()/buildMicRig(), not any DOM element),
+     not UI chrome, so they're derived from the same ambient tokens instead
+     of their own separate hardcoded light/dark pair.
+
+     --mkr-room-wall is just var(--text) — text is always a plain opaque
+     hex in this app, so it round-trips through THREE.Color(getComputedStyle
+     value) fine. --panel/--border/--border-soft are NOT: they're
+     translucent overlay washes (e.g. rgba(255,255,255,.04)) meant to sit on
+     top of --bg via real CSS alpha compositing, which is fine for
+     --mkr-surface/--mkr-line above (plain CSS backgrounds/borders, real
+     alpha blending) but breaks for anything read into a THREE.Color —
+     THREE's CSS-color parser drops the alpha channel outright, turning "a
+     4% white wash over a dark bg" into a flat, fully-opaque near-white
+     floor/grid instead of the intended subtle tint (this was the actual
+     bug behind the floor not matching the theme). color-mix()'ing the same
+     wash's *proportion* against the guaranteed-opaque --bg/--text pair
+     instead produces a real, fully opaque color that still tracks the
+     theme — and is what getComputedStyle hands back verbatim, since
+     color-mix() of two opaque colors resolves to a plain opaque color. */
+  --mkr-room-wall: var(--text, #26302d);
+  --mkr-room-floor: color-mix(in srgb, var(--bg, #eef1ef) 84%, var(--text, #1b2422) 16%);
+  --mkr-grid-minor: color-mix(in srgb, var(--bg, #eef1ef) 68%, var(--text, #1b2422) 32%);
+  --mkr-line-solid: color-mix(in srgb, var(--bg, #eef1ef) 78%, var(--text, #1b2422) 22%);
+  --mkr-shadow-soft: var(--shadow, 0 1px 2px rgba(20, 25, 24, 0.06), 0 6px 18px rgba(20, 25, 24, 0.07));
+}
+
+.miking-room,
+.miking-room *,
+.miking-room *::before,
+.miking-room *::after {
+  box-sizing: border-box;
+}
+
+.miking-room {
+  /* Fill whatever size the parent gives this element — size the wrapper
+     you render <MikingRoom /> into (e.g. height: 100vh, or a fixed px
+     height for a smaller embed). */
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  background: var(--mkr-bg);
+  color: var(--mkr-ink);
+  font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.miking-room .mkr-topbar {
+  flex: none;
+  padding: 18px clamp(16px, 4vw, 40px) 14px;
+  border-bottom: 1px solid var(--mkr-line);
+  background: var(--mkr-surface);
+}
+.miking-room .mkr-eyebrow {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--mkr-accent);
+  font-weight: 500;
+  text-transform: uppercase;
+}
+.miking-room .mkr-title {
+  margin: 3px 0 4px;
+  font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+  font-weight: 700;
+  font-size: clamp(22px, 3.4vw, 32px);
+  letter-spacing: 0.01em;
+  text-wrap: balance;
+}
+.miking-room .mkr-subtitle {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--mkr-ink-dim);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+/* ---- Stage: the 3D viewport on top, one horizontal controls bar
+   underneath (see .mkr-controls below and MikingRoom.jsx's JSX) instead of
+   two side panels — those used to reserve ~440px of width (216px each)
+   for source/mic controls, leaving only a narrow strip of room in between.
+   Stacking the controls under the room instead gives it the full width of
+   the frame, trading only a compact strip of height at the bottom for it. */
+.miking-room .mkr-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: var(--mkr-bg);
+}
+
+.miking-room .mkr-viewport {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 160px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--mkr-bg);
+}
+
+.miking-room .mkr-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+.miking-room .mkr-canvas.is-dragging {
+  cursor: grabbing;
+}
+
+.miking-room .mkr-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.miking-room .mkr-hint {
+  position: absolute;
+  left: clamp(14px, 3vw, 28px);
+  bottom: clamp(14px, 3vw, 28px);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 12px;
+  background: color-mix(in srgb, var(--mkr-surface) 88%, transparent);
+  border: 1px solid var(--mkr-line);
+  border-radius: 8px;
+  box-shadow: var(--mkr-shadow-soft);
+  backdrop-filter: blur(6px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .miking-room .mkr-hint {
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+}
+.miking-room .mkr-hint.is-faded {
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+}
+.miking-room .mkr-hint-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11.5px;
+  color: var(--mkr-ink-dim);
+  white-space: nowrap;
+}
+.miking-room kbd {
+  font-family: inherit;
+  font-size: 10px;
+  padding: 2px 6px;
+  border: 1px solid var(--mkr-line);
+  border-radius: 4px;
+  background: var(--mkr-surface-2);
+  color: var(--mkr-ink);
+}
+.miking-room .mkr-reset-btn {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: var(--mkr-accent-ink);
+  background: var(--mkr-accent);
+  border: none;
+  border-radius: 5px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.miking-room .mkr-reset-btn:hover {
+  background: var(--mkr-accent-strong);
+}
+.miking-room .mkr-reset-btn:focus-visible {
+  outline: 2px solid var(--mkr-accent);
+  outline-offset: 2px;
+}
+
+.miking-room .mkr-readout {
+  position: absolute;
+  right: clamp(14px, 3vw, 28px);
+  bottom: clamp(14px, 3vw, 28px);
+  display: grid;
+  grid-auto-flow: column;
+  gap: 16px;
+  padding: 9px 14px;
+  background: color-mix(in srgb, var(--mkr-surface) 88%, transparent);
+  border: 1px solid var(--mkr-line);
+  border-radius: 8px;
+  box-shadow: var(--mkr-shadow-soft);
+  backdrop-filter: blur(6px);
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.miking-room .mkr-readout-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+.miking-room .mkr-readout-label {
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mkr-ink-dim);
+}
+.miking-room .mkr-readout-value {
+  font-size: 13px;
+  color: var(--mkr-ink);
+}
+
+/* ---- Controls: one horizontal bar under the room -------------------- */
+/* Replaces the two 216px side panels this used to have — those left only
+   a narrow strip of room visible in between them. flex: 0 0 auto sizes
+   this to just its four rows' content instead of splitting the stage's
+   height with the room; max-height is a fallback cap so a very short
+   embed (or a lot of pill-wrapping on a narrow one) can't squeeze the
+   room down to nothing — it scrolls internally instead. */
+.miking-room .mkr-controls {
+  flex: 0 0 auto;
+  max-height: 45%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  background: var(--mkr-surface);
+  border: 1px solid var(--mkr-line);
+  border-radius: 10px;
+  box-shadow: var(--mkr-shadow-soft);
+}
+/* One row per control group — a short label (not a heading, just enough
+   to say what the row is) beside its options, both laid out horizontally
+   so the row stays compact and wraps its pills rather than stacking them. */
+.miking-room .mkr-ctrl-row {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.miking-room .mkr-ctrl-label {
+  flex: 0 0 auto;
+  padding-top: 7px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mkr-ink-dim);
+  white-space: nowrap;
+}
+.miking-room .mkr-ctrl-row .mkr-pill-row {
+  flex: 1 1 auto;
+}
+.miking-room .mkr-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.miking-room .mkr-pill {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.01em;
+  color: var(--mkr-ink-dim);
+  background: var(--mkr-surface-2);
+  border: 1px solid var(--mkr-line);
+  border-radius: 999px;
+  padding: 6px 11px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.miking-room .mkr-pill:hover {
+  border-color: var(--mkr-accent);
+}
+.miking-room .mkr-pill:focus-visible {
+  outline: 2px solid var(--mkr-accent);
+  outline-offset: 2px;
+}
+.miking-room .mkr-pill.is-active {
+  background: var(--mkr-accent);
+  border-color: var(--mkr-accent);
+  color: var(--mkr-accent-ink);
+}
+.miking-room .mkr-pill:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.miking-room .mkr-pill:disabled:hover {
+  border-color: var(--mkr-line);
+}
+/* The one non-toggle control among the pills ("Clear") — align-self keeps
+   it from stretching to match its row's height if the spot pills wrap to
+   two lines, and it's left unfilled so it doesn't read as just another
+   selectable option next to the five real spot pills before it. */
+.miking-room .mkr-pill-muted {
+  align-self: flex-start;
+  background: none;
+}
+.miking-room .mkr-pill-muted:hover {
+  background: var(--mkr-surface-2);
+}
+
+.miking-room .mkr-webgl-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--mkr-ink-dim);
+  font-size: 14px;
+  padding: 24px;
+}
+/* Without this, the rule above (two class selectors) outweighs the browser's
+   default `[hidden] { display: none }` (one attribute selector), so the
+   fallback would stay visible — and keep intercepting clicks — even while
+   its `hidden` attribute is set. */
+.miking-room .mkr-webgl-fallback[hidden] {
+  display: none;
+}

@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Microphones: Types, Characteristics &amp; Selection — Studio VR Chapter 6</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!--
+  DESIGN MOCKUP — maps to courseData.js TOPICS[id="mic-stand"], chapter 6,
+  module "capture-signal-path" (hotspotId: "mic-stand", Recording Room —
+  the large-diaphragm condenser on the boom stand over the drum kit).
+
+  Extends the chapter's existing objectives (see roomsData.js markers[
+  id="mic-stand"].course.objectives and courseData.js) from a 3-way
+  dynamic/condenser/ribbon split into 5 transducer types — Dynamic,
+  Condenser (FET), Condenser (Tube), Ribbon, Contact Mic — since tube vs.
+  FET condensers behave differently enough (power supply, warm-up, price,
+  character) to teach separately, and contact/piezo mics are the one
+  transducer family with no air-pressure capsule at all. Polar pattern
+  language follows the brief's "Cardioid / Omni / Bidirectional" naming
+  (figure-8 = bidirectional).
+
+  Structure/pattern matches design/what-is-sound-chapter.html: sticky
+  header + horizontal step chips + progress rail, two-column lesson-grid
+  (copy left, interactive panel right), quiz step reusing the same
+  q-option/q-explain markup. Palette matched to the same file (the
+  "interactive lab" amber/green/Space-Grotesk system, distinct from the
+  docked-panel gold/void system in studio-hotspots-panel.html).
+
+  AUDIO — every mic-type lesson's interactive panel plays a pre-recorded
+  demo of that transducer type on a source the student picks (segmented
+  control: Vocal / Acoustic Guitar / Drum Overhead / Guitar Amp). All clip
+  paths below are placeholders for real recordings — swap the AUDIO_FILES
+  map for the actual files once captured; nothing here processes audio
+  live, it only loads and plays whatever file is at that path (same
+  ClipPlayer pattern as design/speakek-listening-lab.html).
+-->
+<style>
+  :root{
+    --bg:#0b0b0d;
+    --panel:#16161a;
+    --panel-alt:#1c1c21;
+    --panel-raised:#1f1f25;
+    --border:#2a2a30;
+    --border-soft:#232328;
+    --text:#ede9e3;
+    --text-muted:#8b8890;
+    --text-faint:#54525a;
+    --amber:#e8934a;
+    --amber-dim:#6b4a2c;
+    --amber-glow:rgba(232,147,74,0.35);
+    --green:#5fd9a0;
+    --green-dim:#2c5f49;
+    --green-glow:rgba(95,217,160,0.35);
+    --blue:#5fa3d9;
+    --blue-dim:#2c4a5f;
+    --red:#e8615f;
+    --red-dim:#6b2c2c;
+    --cyan:#54d6e0;
+    --cyan-dim:#215158;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;}
+  ::selection{background:var(--amber-dim);}
+  @media (prefers-reduced-motion: reduce){ *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;} }
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .display{font-family:'Space Grotesk',sans-serif;}
+  a{color:inherit;}
+
+  /* ---------- header ---------- */
+  header{
+    position:sticky; top:0; z-index:20;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 28px; border-bottom:1px solid var(--border-soft);
+    background:linear-gradient(180deg,#0d0d0f,#0b0b0d);
+    backdrop-filter:blur(6px);
+  }
+  .crumb{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .crumb .sep{color:var(--text-faint);}
+  .crumb .cur{color:var(--green);}
+  .htitle{font-family:'Space Grotesk',sans-serif; font-size:19px; font-weight:600; margin-top:3px; letter-spacing:-.01em;}
+  .head-right{display:flex; align-items:center; gap:14px; flex-shrink:0;}
+  .chip-num{
+    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--amber);
+    border:1px solid var(--amber-dim); background:rgba(232,147,74,0.08);
+    padding:4px 10px; border-radius:20px; letter-spacing:.06em; white-space:nowrap;
+  }
+  .close-btn{
+    width:32px; height:32px; border-radius:8px; border:1px solid var(--border);
+    background:var(--panel); color:var(--text-muted); display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:16px; line-height:1;
+  }
+  .close-btn:hover{color:var(--text); border-color:var(--border-soft);}
+
+  /* ---------- step nav ---------- */
+  .steps-nav{ display:flex; gap:6px; overflow-x:auto; padding:14px 28px 0; scrollbar-width:none; }
+  .steps-nav::-webkit-scrollbar{display:none;}
+  .step-chip{
+    flex:0 0 auto; display:flex; align-items:center; gap:8px;
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.05em;
+    color:var(--text-muted); background:var(--panel); border:1px solid var(--border);
+    padding:9px 14px; border-radius:20px; cursor:pointer; white-space:nowrap;
+    transition:border-color .15s, color .15s, background .15s;
+  }
+  .step-chip .n{color:var(--text-faint);}
+  .step-chip:hover{border-color:var(--border-soft); color:var(--text);}
+  .step-chip.active{background:var(--panel-raised); border-color:var(--amber-dim); color:var(--text);}
+  .step-chip.active .n{color:var(--amber);}
+  .step-chip.done .n::after{content:'✓'; margin-left:4px; color:var(--green);}
+  .step-chip .tag{ font-size:9px; padding:2px 6px; border-radius:10px; letter-spacing:.08em; }
+  .step-chip .tag.quiz{background:var(--blue-dim); color:var(--blue);}
+
+  .progress-track{margin:12px 28px 0; height:3px; border-radius:3px; background:var(--border-soft); overflow:hidden;}
+  .progress-fill{height:100%; width:11.1%; background:linear-gradient(90deg,var(--amber),var(--green)); transition:width .3s ease;}
+
+  /* ---------- stage layout ---------- */
+  main{max-width:1080px; margin:0 auto; padding:36px 28px 60px;}
+  .stage{display:none;}
+  .stage.active{display:block; animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  .lesson-grid{display:grid; grid-template-columns:0.92fr 1.08fr; gap:40px; align-items:start;}
+  @media (max-width:860px){ .lesson-grid{grid-template-columns:1fr;} }
+
+  .kicker{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--green); display:flex; align-items:center; gap:8px; margin-bottom:14px;
+  }
+  .kicker::before{content:''; width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green-glow);}
+  h1.display{font-size:clamp(24px,4vw,32px); line-height:1.2; margin:0 0 16px; font-weight:600; letter-spacing:-.01em;}
+  .lede{color:var(--text-muted); font-size:14.5px; line-height:1.65; margin:0 0 14px; max-width:54ch;}
+  .lede strong{color:var(--text); font-weight:600;}
+  .lede:last-of-type{margin-bottom:18px;}
+
+  .spec-row{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px;}
+  .spec-chip{
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.03em;
+    background:var(--panel); border:1px solid var(--border); border-radius:8px;
+    padding:7px 11px; color:var(--text-muted); display:flex; align-items:center; gap:6px;
+  }
+  .spec-chip b{color:var(--text); font-weight:600;}
+
+  .best-for{
+    border:1px solid var(--green-dim); background:rgba(95,217,160,0.06); border-radius:10px;
+    padding:14px 16px; margin-top:4px;
+  }
+  .best-for .bf-label{font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--green); margin-bottom:8px;}
+  .bf-tags{display:flex; flex-wrap:wrap; gap:8px;}
+  .bf-tag{font-size:12.5px; background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:20px; padding:5px 12px; color:var(--text);}
+
+  /* ---------- interactive panel ---------- */
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:22px;}
+  .panel-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; gap:10px;}
+  .panel-title{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:8px;}
+  .live-dot{width:6px; height:6px; border-radius:50%; background:var(--text-faint);}
+  .live-dot.on{background:var(--red); box-shadow:0 0 8px var(--red-dim); animation:pulse 1.1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:.4;}}
+
+  .mic-portrait{
+    background:#0e0e11; border:1px solid var(--border-soft); border-radius:10px;
+    padding:22px; margin-bottom:16px; display:flex; align-items:center; justify-content:center;
+    height:150px;
+  }
+  .mic-portrait svg{height:110px; width:auto;}
+
+  .seg{display:flex; background:#0e0e11; border:1px solid var(--border); border-radius:8px; padding:4px; gap:4px; margin-bottom:14px; flex-wrap:wrap;}
+  .seg button{
+    flex:1 1 auto; min-width:70px; background:transparent; border:none; color:var(--text-muted); padding:9px 6px; border-radius:6px;
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.02em; cursor:pointer;
+    transition:background .15s, color .15s;
+  }
+  .seg button.active{background:var(--panel-raised); color:var(--text); box-shadow:inset 0 0 0 1px var(--border-soft);}
+  .seg-label{font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-faint); margin-bottom:8px;}
+
+  .playbar{display:flex; align-items:center; gap:14px; margin-bottom:16px;}
+  .play-btn{
+    width:44px;height:44px;border-radius:50%; border:1px solid var(--amber-dim); background:var(--amber);
+    color:#1a1206; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+    transition:transform .15s ease, background .15s ease;
+  }
+  .play-btn:hover{transform:scale(1.04);}
+  .play-btn.playing{background:var(--red); border-color:var(--red-dim); color:#fff;}
+  .play-btn svg{width:17px;height:17px;}
+  .level{flex:1; height:44px; background:#0e0e11; border:1px solid var(--border); border-radius:8px; display:flex; align-items:center; gap:3px; padding:0 12px;}
+  .level span{flex:1; height:6px; background:var(--border); border-radius:2px; transition:height .12s ease, background .12s ease;}
+  .level.playing span{animation:lvlpulse 1.1s ease-in-out infinite; background:var(--amber);}
+  .level span:nth-child(1){animation-delay:0s;} .level span:nth-child(2){animation-delay:.08s;}
+  .level span:nth-child(3){animation-delay:.16s;} .level span:nth-child(4){animation-delay:.24s;}
+  .level span:nth-child(5){animation-delay:.32s;} .level span:nth-child(6){animation-delay:.4s;}
+  .level span:nth-child(7){animation-delay:.48s;} .level span:nth-child(8){animation-delay:.56s;}
+  .level span:nth-child(9){animation-delay:.64s;} .level span:nth-child(10){animation-delay:.72s;}
+  @keyframes lvlpulse{0%,100%{height:6px;} 50%{height:24px;}}
+  .now-playing{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint); margin:-8px 0 16px;}
+  .now-playing b{color:var(--amber);}
+
+  .char-bars{display:flex; flex-direction:column; gap:12px; margin-bottom:6px;}
+  .char-row{display:grid; grid-template-columns:118px 1fr 26px; align-items:center; gap:10px;}
+  .char-row .cl{font-size:11.5px; color:var(--text-muted);}
+  .char-track{height:6px; border-radius:3px; background:var(--border-soft); overflow:hidden;}
+  .char-fill{height:100%; border-radius:3px; background:linear-gradient(90deg,var(--green),var(--amber));}
+  .char-row .cv{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint); text-align:right;}
+
+  .hint{font-size:11.5px; color:var(--text-faint); margin-top:14px; line-height:1.5;}
+
+  /* ---------- type selector (Types of Microphone step) ---------- */
+  .type-tabs{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:26px;}
+  .type-tabs button{
+    display:flex; align-items:center; gap:8px;
+    font-family:'JetBrains Mono',monospace; font-size:11.5px; letter-spacing:.03em;
+    background:var(--panel); border:1px solid var(--border); color:var(--text-muted);
+    padding:11px 16px; border-radius:10px; cursor:pointer; transition:all .15s ease;
+  }
+  .type-tabs button .ticon{font-size:15px;}
+  .type-tabs button:hover{border-color:var(--border-soft); color:var(--text);}
+  .type-tabs button.active{background:var(--panel-raised); border-color:var(--amber-dim); color:var(--text); box-shadow:0 0 0 1px var(--amber-dim) inset;}
+  .type-tabs button.active .ticon{filter:drop-shadow(0 0 4px var(--amber-glow));}
+
+  /* ---------- polar pattern step: mic fixed at center, source placed
+     around it on 8 predefined compass positions; the lobe shape + a
+     brightness cue on each position dot show pickup at a glance, the
+     panel on the right reads it out in dB and plays the recorded clip
+     for that pattern/position/source combo ---------- */
+  .polar-stage-wrap{
+    background:#0e0e11; border:1px solid var(--border-soft); border-radius:12px;
+    padding:18px; display:flex; align-items:center; justify-content:center;
+  }
+  .polar-stage-wrap svg{width:100%; max-width:400px; height:auto; display:block;}
+  .polar-grid-ring{fill:none; stroke:rgba(255,255,255,0.12); stroke-width:1;}
+  .polar-grid-line{stroke:rgba(255,255,255,0.12); stroke-width:1; stroke-dasharray:2,4;}
+  .compass-label{font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.1em; fill:var(--text-faint);}
+  .polar-lobe-fill{fill:rgba(84,214,224,0.16); stroke:var(--cyan); stroke-width:2; stroke-linejoin:round; stroke-linecap:round;}
+  .mic-body{fill:#1c1c21; stroke:#8b8890; stroke-width:1.5;}
+  .polar-connector{stroke:var(--amber); stroke-width:1.5; stroke-dasharray:3,3; opacity:.85;}
+  .polar-spot{stroke:#0e0e11; stroke-width:2; cursor:pointer; transition:r .12s ease, stroke-width .12s ease;}
+  .polar-spot:hover{stroke:var(--text-muted);}
+  .polar-spot.active{stroke:var(--amber); stroke-width:3;}
+
+  .position-readout{margin-bottom:18px;}
+  .pr-name{font-family:'Space Grotesk',sans-serif; font-size:19px; font-weight:600; margin-bottom:8px;}
+  .pr-tag{
+    display:inline-block; font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.08em;
+    text-transform:uppercase; padding:4px 10px; border-radius:20px; margin-right:8px;
+  }
+  .pr-tag[data-tier="full"]{background:rgba(95,217,160,0.14); color:var(--green); border:1px solid var(--green-dim);}
+  .pr-tag[data-tier="partial"]{background:rgba(232,147,74,0.14); color:var(--amber); border:1px solid var(--amber-dim);}
+  .pr-tag[data-tier="heavy"]{background:rgba(232,147,74,0.07); color:var(--text-muted); border:1px solid var(--border-soft);}
+  .pr-tag[data-tier="null"]{background:rgba(230,90,90,0.12); color:var(--red); border:1px solid var(--red-dim);}
+  .pr-db{color:var(--text-muted); font-size:12px;}
+
+  /* ---------- selection step ---------- */
+  .scenario-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  @media (max-width:600px){ .scenario-grid{grid-template-columns:1fr;} }
+  .scenario-card{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px;
+    cursor:pointer; transition:border-color .15s, background .15s;
+  }
+  .scenario-card:hover{border-color:var(--border-soft);}
+  .scenario-card.open{border-color:var(--amber-dim); background:var(--panel-raised);}
+  .sc-top{display:flex; align-items:center; justify-content:space-between; gap:8px;}
+  .sc-title{font-family:'Space Grotesk',sans-serif; font-size:14.5px; font-weight:600;}
+  .sc-icon{font-size:18px;}
+  .sc-recs{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;}
+  .sc-recs span{font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.04em; background:rgba(232,147,74,0.1); color:var(--amber); border:1px solid var(--amber-dim); border-radius:20px; padding:4px 9px;}
+  .sc-why{display:none; margin-top:10px; padding-top:10px; border-top:1px solid var(--border-soft); font-size:12.5px; color:var(--text-muted); line-height:1.55;}
+  .scenario-card.open .sc-why{display:block;}
+
+  /* ---------- knob (Selection full-width intro) ---------- */
+  .intro-diagram{background:#0e0e11; border:1px solid var(--border-soft); border-radius:10px; padding:24px; margin-bottom:16px;}
+  .transducer-row{display:flex; align-items:center; justify-content:space-between; gap:10px; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-muted); text-align:center;}
+  .transducer-row .tstep{flex:1;}
+  .transducer-row .tarrow{color:var(--text-faint); font-size:16px;}
+  .transducer-row .ticon{font-size:22px; display:block; margin-bottom:6px;}
+
+  /* ---------- quiz ---------- */
+  .quiz-card{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:24px; margin-bottom:18px;}
+  .q-num{font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--blue); margin-bottom:10px;}
+  .q-prompt{font-family:'Space Grotesk',sans-serif; font-size:16px; font-weight:600; margin-bottom:16px; line-height:1.4;}
+  .q-option{
+    display:flex; align-items:flex-start; gap:10px; padding:12px 14px; border-radius:8px;
+    border:1px solid var(--border-soft); margin-bottom:8px; cursor:pointer; font-size:13.5px; line-height:1.5;
+    transition:border-color .15s, background .15s;
+  }
+  .q-option:hover{border-color:var(--border);}
+  .q-option .dot{width:16px; height:16px; border-radius:50%; border:1.5px solid var(--text-faint); flex:0 0 auto; margin-top:1px;}
+  .q-option.correct{border-color:var(--green-dim); background:rgba(95,217,160,0.07);}
+  .q-option.correct .dot{border-color:var(--green); background:var(--green);}
+  .q-option.wrong{border-color:var(--red-dim); background:rgba(232,97,95,0.07);}
+  .q-option.wrong .dot{border-color:var(--red); background:var(--red);}
+  .q-option.disabled{cursor:default;}
+  .q-explain{display:none; margin-top:10px; padding:10px 12px; background:#0e0e11; border-radius:8px; font-size:12.5px; color:var(--text-muted); line-height:1.5;}
+  .q-explain.show{display:block;}
+  .quiz-score{
+    display:flex; align-items:center; justify-content:space-between; padding:16px 20px;
+    background:var(--panel-alt); border:1px solid var(--border); border-radius:10px;
+    font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-muted);
+  }
+  .quiz-score .val{color:var(--amber); font-size:15px;}
+
+  /* ---------- footer nav ---------- */
+  .stepper-footer{ max-width:1080px; margin:0 auto; padding:0 28px 40px; display:flex; justify-content:space-between; gap:12px; }
+  .btn{
+    font-family:'JetBrains Mono',monospace; font-size:11.5px; letter-spacing:.05em;
+    padding:10px 16px; border-radius:8px; border:1px solid var(--border); background:var(--panel-alt);
+    color:var(--text); cursor:pointer; display:flex; align-items:center; gap:8px; transition:border-color .15s, background .15s;
+  }
+  .btn:hover{border-color:var(--border-soft);}
+  .btn.primary{background:var(--amber); color:#1a1206; border-color:var(--amber); font-weight:600;}
+  .btn.primary:hover{background:#f0a05e;}
+  .btn:disabled{opacity:.4; cursor:not-allowed;}
+  .stepper-footer .btn{min-width:110px; justify-content:center;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="crumb">Studio VR <span class="sep">/</span> Course <span class="sep">/</span> Module 3 · Capture &amp; Signal Path <span class="sep">/</span> <span class="cur">Ch. 06</span></div>
+    <div class="htitle">Microphones: Types, Characteristics &amp; Selection</div>
+  </div>
+  <div class="head-right">
+    <span class="chip-num mono">4 lessons · 1 quiz</span>
+    <button class="close-btn" title="Back to studio">✕</button>
+  </div>
+</header>
+
+<nav class="steps-nav" id="stepsNav">
+  <div class="step-chip" data-step="intro"><span class="n">01</span> Meet the Microphone</div>
+  <div class="step-chip" data-step="types"><span class="n">02</span> Types of Microphone</div>
+  <div class="step-chip" data-step="polar"><span class="n">03</span> Polar Patterns</div>
+  <div class="step-chip" data-step="selection"><span class="n">04</span> Choosing a Mic</div>
+  <div class="step-chip" data-step="quiz"><span class="n">05</span> Check Yourself <span class="tag quiz mono">QUIZ</span></div>
+</nav>
+<div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+
+<main>
+
+  <!-- ============ 01 INTRO ============ -->
+  <section class="stage active" data-stage="intro">
+    <div class="lesson-grid">
+      <div>
+        <div class="kicker">Lesson 01 · Foundations</div>
+        <h1 class="display">A microphone is a translator, not a recorder</h1>
+        <p class="lede">Every microphone does the same basic job: it turns <strong>air pressure</strong> into <strong>voltage</strong>. Nothing about that conversion is neutral — the physical part that does the converting (the transducer) has its own weight, its own resistance to moving, its own way of coloring what passes through it. Learn the transducer and you can predict the sound before you ever plug one in.</p>
+        <p class="lede">The next lesson lets you switch between all five transducer families — <strong>Dynamic</strong>, <strong>Condenser (FET)</strong>, <strong>Condenser (Tube)</strong>, <strong>Ribbon</strong>, and <strong>Contact</strong> mics — in one place, then covers how their pickup shape (polar pattern) and specs combine into a choice for a real source.</p>
+        <div class="best-for">
+          <div class="bf-label">Why this matters</div>
+          <div class="sc-why" style="display:block; margin:0; padding:0; border:none;">Picking the right mic is half the battle before a fader ever moves — the wrong transducer on a source can't be fully undone with EQ later, because it never captured the missing detail in the first place.</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">TRANSDUCER FAMILIES</span></div>
+        <div class="intro-diagram">
+          <div class="transducer-row">
+            <div class="tstep"><span class="ticon">🎙️</span>Dynamic</div>
+            <div class="tarrow">·</div>
+            <div class="tstep"><span class="ticon">⚡</span>Condenser<br>(FET)</div>
+            <div class="tarrow">·</div>
+            <div class="tstep"><span class="ticon">🔥</span>Condenser<br>(Tube)</div>
+            <div class="tarrow">·</div>
+            <div class="tstep"><span class="ticon">🎗️</span>Ribbon</div>
+            <div class="tarrow">·</div>
+            <div class="tstep"><span class="ticon">📟</span>Contact</div>
+          </div>
+        </div>
+        <p class="hint">The next lesson plays the same phrase captured through whichever transducer type you select, on a source you pick — flip between types and sources to hear how each mic family reacts differently to voice vs. instrument transients.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 TYPES OF MICROPHONE (clubbed into one subtopic with a type selector) ============ -->
+  <section class="stage" data-stage="types">
+    <div class="kicker">Lesson 02 · Transducer Types</div>
+    <h1 class="display" style="margin-bottom:14px;">Five Transducer Families</h1>
+    <p class="lede" style="max-width:74ch; margin-bottom:22px;">Every mic converts air pressure into voltage a different way. Pick a type below — the lesson, spec sheet, and listening panel all update together, so you can flip straight from one transducer to the next on the same source.</p>
+
+    <div class="type-tabs" id="typeTabs">
+      <button class="active" data-mic="dynamic"><span class="ticon">🎙️</span>Dynamic</button>
+      <button data-mic="condenser-fet"><span class="ticon">⚡</span>Condenser (FET)</button>
+      <button data-mic="condenser-tube"><span class="ticon">🔥</span>Condenser (Tube)</button>
+      <button data-mic="ribbon"><span class="ticon">🎗️</span>Ribbon</button>
+      <button data-mic="contact"><span class="ticon">📟</span>Contact Mic</button>
+    </div>
+
+    <div class="lesson-grid">
+      <div>
+        <h2 class="display" id="typeTitle" style="font-size:clamp(22px,3.6vw,28px); font-weight:600; letter-spacing:-.01em; margin:0 0 14px;">Dynamic</h2>
+        <div id="typeLede"></div>
+        <div class="spec-row" id="typeSpecs"></div>
+        <div class="best-for">
+          <div class="bf-label">Best For</div>
+          <div class="bf-tags" id="typeBestFor"></div>
+        </div>
+        <p class="hint" id="typeExtraHint" style="display:none;"></p>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title"><span class="live-dot"></span>LISTEN — <span id="typeListenLabel">DYNAMIC</span></span>
+        </div>
+        <div class="seg-label">MIC TYPE</div>
+        <div class="seg" data-mic-seg>
+          <button class="active" data-mic="dynamic">Dynamic</button>
+          <button data-mic="condenser-fet">Cond. FET</button>
+          <button data-mic="condenser-tube">Cond. Tube</button>
+          <button data-mic="ribbon">Ribbon</button>
+          <button data-mic="contact">Contact</button>
+        </div>
+        <div class="mic-portrait" id="typePortrait"></div>
+        <div class="seg-label">SOURCE</div>
+        <div class="seg" data-source-seg>
+          <button class="active" data-source="vocal">Vocal</button>
+          <button data-source="acoustic">Acoustic Gtr</button>
+          <button data-source="drum">Drum Overhead</button>
+          <button data-source="amp">Guitar Amp</button>
+        </div>
+        <div class="playbar">
+          <button class="play-btn" data-play-mic>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="level" data-level>
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="now-playing mono">Now playing: <b data-clip-label>Dynamic · Vocal</b></div>
+        <div class="char-bars" id="typeCharBars"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 07 POLAR PATTERNS ============ -->
+  <section class="stage" data-stage="polar">
+    <div class="kicker">Lesson 03 · Characteristics</div>
+    <h1 class="display" style="margin-bottom:14px;">Polar Patterns</h1>
+    <p class="lede" style="max-width:74ch;">A polar pattern is a map of how sensitive a mic is to sound arriving from different directions around it. It's not a hardware add-on — it falls directly out of how the capsule is built, and it determines what a mic captures and, just as importantly, what it rejects.</p>
+    <p class="lede" style="max-width:74ch; margin-bottom:22px;">The mic stays fixed at the center below. Pick a pattern, then click one of the 8 predefined positions to move the sound source there — the lobe shows roughly how much of it that pattern picks up, and the panel plays what it actually sounds like from that spot.</p>
+
+    <div class="type-tabs" id="patternTabs">
+      <button data-pattern="omni"><span class="ticon"><svg viewBox="0 0 30 30" width="16" height="16"><circle cx="15" cy="15" r="11" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>Omnidirectional</button>
+      <button class="active" data-pattern="cardioid"><span class="ticon"><svg viewBox="0 0 30 30" width="16" height="16"><path d="M15,4 C24,4 27,13 25,17 C23,21 18,23 15,23 C12,23 7,21 5,17 C3,13 6,4 15,4 Z" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>Cardioid</button>
+      <button data-pattern="bidirectional"><span class="ticon"><svg viewBox="0 0 30 30" width="16" height="16"><path d="M15,15 C19,12 20,6 15,4 C10,6 11,12 15,15 C19,18 20,24 15,26 C10,24 11,18 15,15 Z" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>Figure-8</button>
+    </div>
+
+    <div class="lesson-grid" style="grid-template-columns:1.15fr 0.85fr;">
+      <div>
+        <div class="polar-stage-wrap">
+          <svg viewBox="0 0 320 320">
+            <circle cx="160" cy="160" r="120" class="polar-grid-ring"/>
+            <circle cx="160" cy="160" r="80" class="polar-grid-ring"/>
+            <circle cx="160" cy="160" r="40" class="polar-grid-ring"/>
+            <line x1="160" y1="20" x2="160" y2="300" class="polar-grid-line"/>
+            <line x1="20" y1="160" x2="300" y2="160" class="polar-grid-line"/>
+            <text x="160" y="13" text-anchor="middle" class="compass-label">FRONT</text>
+            <text x="160" y="313" text-anchor="middle" class="compass-label">BACK</text>
+            <text x="290" y="142" text-anchor="middle" class="compass-label">RIGHT</text>
+            <text x="30" y="142" text-anchor="middle" class="compass-label">LEFT</text>
+            <g id="lobeLayer"></g>
+            <line id="polarConnector" class="polar-connector" x1="160" y1="160" x2="160" y2="30"/>
+            <path d="M148,144 a12,13 0 1 1 24,0 v3 a12,13 0 1 1 -24,0 z" class="mic-body"/>
+            <rect x="153" y="167" width="14" height="30" rx="6" class="mic-body"/>
+            <g id="spotsLayer"></g>
+          </svg>
+        </div>
+        <p class="hint">Each dot is one of the 8 fixed positions the source can be placed at; its brightness shows roughly how much of it the selected pattern picks up from there. Click a dot to move the source.</p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title"><span class="live-dot"></span>SOURCE POSITION</span></div>
+        <div class="position-readout">
+          <div class="pr-name" id="posName">Front · 0°</div>
+          <span class="pr-tag" id="posTag" data-tier="full">FULL PICKUP</span>
+          <span class="pr-db mono" id="posDb">0 dB relative to on-axis</span>
+        </div>
+        <div class="seg-label">SOURCE</div>
+        <div class="seg" data-source-seg>
+          <button class="active" data-source="vocal">Vocal</button>
+          <button data-source="acoustic">Acoustic Gtr</button>
+          <button data-source="drum">Drum Overhead</button>
+          <button data-source="amp">Guitar Amp</button>
+        </div>
+        <div class="playbar">
+          <button class="play-btn" data-play-polar>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="level" data-level>
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="now-playing mono">Now playing: <b data-clip-label>Cardioid · Front · Vocal</b></div>
+        <p style="margin:16px 0 0; padding-top:14px; border-top:1px solid var(--border-soft); font-size:12.5px; color:var(--text-muted); line-height:1.55;" id="patternBlurb">Heart-shaped: most sensitive to the front, rejects the rear, picks up some sound from the sides. The all-purpose default — good gain-before-feedback and strong isolation from what's behind the mic.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 08 SELECTION ============ -->
+  <section class="stage" data-stage="selection">
+    <div class="lesson-grid" style="grid-template-columns:1fr;">
+      <div>
+        <div class="kicker">Lesson 04 · Selection</div>
+        <h1 class="display">Choosing the right mic</h1>
+        <p class="lede">There's no universally "best" microphone — only the best microphone for a specific source, in a specific room, for a specific purpose. Tap a scenario below to see what most engineers reach for first, and why.</p>
+        <div class="scenario-grid" id="scenarioGrid">
+          <div class="scenario-card" data-scenario="lead-vocal">
+            <div class="sc-top"><span class="sc-title">Lead Vocal (studio)</span><span class="sc-icon">🎤</span></div>
+            <div class="sc-recs"><span>Condenser (FET/Tube)</span><span>Cardioid</span></div>
+            <div class="sc-why">A vocal has huge dynamic range and fine detail — breath, sibilance, vibrato — that only a sensitive, low-mass diaphragm captures fully. In a treated room, the condenser's extra handling and room sensitivity stops being a liability.</div>
+          </div>
+          <div class="scenario-card" data-scenario="live-vocal">
+            <div class="sc-top"><span class="sc-title">Live Vocal (stage)</span><span class="sc-icon">🔊</span></div>
+            <div class="sc-recs"><span>Dynamic</span><span>Cardioid</span></div>
+            <div class="sc-why">On a loud stage, durability and rejection matter more than a few dB of extra detail — a dynamic shrugs off handling, monitor spill, and high SPL, and its tighter pattern buys more gain before feedback.</div>
+          </div>
+          <div class="scenario-card" data-scenario="guitar-amp">
+            <div class="sc-top"><span class="sc-title">Loud Guitar Amp</span><span class="sc-icon">🎸</span></div>
+            <div class="sc-recs"><span>Dynamic</span><span>Ribbon</span></div>
+            <div class="sc-why">A cranked amp is loud and harsh up close — a dynamic handles the SPL without strain, while a ribbon's natural top-end roll-off can smooth out fizzy distortion without extra EQ.</div>
+          </div>
+          <div class="scenario-card" data-scenario="acoustic-guitar">
+            <div class="sc-top"><span class="sc-title">Acoustic Guitar</span><span class="sc-icon">🪕</span></div>
+            <div class="sc-recs"><span>Small-diaphragm Condenser</span><span>Cardioid/Omni</span></div>
+            <div class="sc-why">Acoustic instruments live and die on transient detail and even frequency response — exactly what a light, fast condenser diaphragm is built for.</div>
+          </div>
+          <div class="scenario-card" data-scenario="drum-overheads">
+            <div class="sc-top"><span class="sc-title">Drum Overheads</span><span class="sc-icon">🥁</span></div>
+            <div class="sc-recs"><span>Matched Condenser Pair</span><span>Cardioid/Omni</span></div>
+            <div class="sc-why">Overheads need to capture the whole kit's balance and shimmer accurately across a wide stereo image — a matched condenser pair keeps both channels tonally identical.</div>
+          </div>
+          <div class="scenario-card" data-scenario="podcast">
+            <div class="sc-top"><span class="sc-title">Podcast / Voiceover</span><span class="sc-icon">🎧</span></div>
+            <div class="sc-recs"><span>Dynamic or Condenser</span><span>Cardioid</span></div>
+            <div class="sc-why">In an untreated room, a dynamic's tighter pattern and lower room sensitivity often sounds cleaner than a condenser; in a treated booth, a condenser's extra detail wins.</div>
+          </div>
+          <div class="scenario-card" data-scenario="noisy-field">
+            <div class="sc-top"><span class="sc-title">Noisy Environment / Field</span><span class="sc-icon">🏗️</span></div>
+            <div class="sc-recs"><span>Contact Mic</span><span>Tight Cardioid</span></div>
+            <div class="sc-why">When ambient noise can't be controlled, sensing vibration through the source itself (contact mic) beats fighting the room through the air with any air mic.</div>
+          </div>
+          <div class="scenario-card" data-scenario="body-resonance">
+            <div class="sc-top"><span class="sc-title">Instrument Body / Resonance</span><span class="sc-icon">📟</span></div>
+            <div class="sc-recs"><span>Contact Mic</span></div>
+            <div class="sc-why">Clamped directly to a soundboard, cajon shell, or body panel, a contact mic captures resonance no air mic pointed at the same spot ever could.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 09 QUIZ ============ -->
+  <section class="stage" data-stage="quiz">
+    <div class="kicker">Check Yourself</div>
+    <h1 class="display" style="margin-bottom:24px;">Chapter 6 Quiz</h1>
+    <div id="quizList"></div>
+    <div class="quiz-score" id="quizScore" style="display:none;">
+      <span>Score</span>
+      <span class="val" id="quizScoreVal">0 / 5</span>
+    </div>
+  </section>
+
+</main>
+
+<div class="stepper-footer">
+  <button class="btn" id="prevBtn">← Back</button>
+  <button class="btn primary" id="nextBtn">Next →</button>
+</div>
+
+<script>
+/* ============================================================
+   AUDIO FILE MAP — placeholders for real recordings. Every
+   entry is [micType]-[source].mp3 (mic lessons) or
+   [pattern]-[axis].mp3 (polar lesson). Nothing here processes
+   audio live — it only loads/plays whatever file lives at that
+   path, same as design/speakek-listening-lab.html.
+   ============================================================ */
+const MIC_AUDIO = {
+  dynamic:        { vocal:'audio/ch06-dynamic-vocal.mp3',        acoustic:'audio/ch06-dynamic-acoustic.mp3',        drum:'audio/ch06-dynamic-drum.mp3',        amp:'audio/ch06-dynamic-amp.mp3' },
+  'condenser-fet':{ vocal:'audio/ch06-condenser-fet-vocal.mp3',  acoustic:'audio/ch06-condenser-fet-acoustic.mp3',  drum:'audio/ch06-condenser-fet-drum.mp3',  amp:'audio/ch06-condenser-fet-amp.mp3' },
+  'condenser-tube':{vocal:'audio/ch06-condenser-tube-vocal.mp3', acoustic:'audio/ch06-condenser-tube-acoustic.mp3', drum:'audio/ch06-condenser-tube-drum.mp3', amp:'audio/ch06-condenser-tube-amp.mp3' },
+  ribbon:         { vocal:'audio/ch06-ribbon-vocal.mp3',         acoustic:'audio/ch06-ribbon-acoustic.mp3',         drum:'audio/ch06-ribbon-drum.mp3',         amp:'audio/ch06-ribbon-amp.mp3' },
+  contact:        { vocal:'audio/ch06-contact-vocal.mp3',        acoustic:'audio/ch06-contact-acoustic.mp3',        drum:'audio/ch06-contact-drum.mp3',        amp:'audio/ch06-contact-amp.mp3' },
+};
+// One placeholder clip per pattern/position/source combo — e.g.
+// audio/ch06-polar-cardioid-90-drum.mp3 — built from a template rather
+// than listed by hand, since there are 3 patterns x 8 positions x 4
+// sources. Nothing here processes audio live, same ClipPlayer pattern as
+// MIC_AUDIO above.
+function polarAudioPath(pattern, angleDeg, source){
+  return `audio/ch06-polar-${pattern}-${angleDeg}-${source}.mp3`;
+}
+const SOURCE_LABELS = { vocal:'Vocal', acoustic:'Acoustic Gtr', drum:'Drum Overhead', amp:'Guitar Amp' };
+const MIC_LABELS = { dynamic:'Dynamic', 'condenser-fet':'Condenser FET', 'condenser-tube':'Condenser Tube', ribbon:'Ribbon', contact:'Contact Mic' };
+
+/* ---------- simple clip player (loops while "playing" state is on) ---------- */
+class ClipPlayer{
+  constructor(){ this.audio = new Audio(); this.audio.preload='auto'; }
+  setSrc(src){ if(this.audio.src.endsWith(src)) return; this.audio.src = src; }
+  play(){ this.audio.currentTime = 0; this.audio.play().catch(()=>{}); }
+  pause(){ this.audio.pause(); }
+  get playing(){ return !this.audio.paused; }
+}
+
+/* ---------- step navigation ---------- */
+const STEPS = ['intro','types','polar','selection','quiz'];
+let currentStepIdx = 0;
+const stepsNav = document.getElementById('stepsNav');
+const progressFill = document.getElementById('progressFill');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const activePlayers = []; // stop any playing clip when navigating away
+
+function stopAllAudio(){ activePlayers.forEach(fn=>fn()); }
+
+function goToStep(idx){
+  idx = Math.max(0, Math.min(STEPS.length-1, idx));
+  currentStepIdx = idx;
+  stopAllAudio();
+  const key = STEPS[idx];
+  document.querySelectorAll('.stage').forEach(s=>s.classList.toggle('active', s.dataset.stage===key));
+  document.querySelectorAll('.step-chip').forEach(c=>{
+    const isActive = c.dataset.step===key;
+    c.classList.toggle('active', isActive);
+    if(STEPS.indexOf(c.dataset.step) < idx) c.classList.add('done'); else if(!isActive) c.classList.remove('done');
+  });
+  progressFill.style.width = (((idx+1)/STEPS.length)*100) + '%';
+  prevBtn.disabled = idx===0;
+  nextBtn.textContent = idx===STEPS.length-1 ? 'Finish ✓' : 'Next →';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+stepsNav.addEventListener('click', e=>{
+  const chip = e.target.closest('.step-chip');
+  if(!chip) return;
+  goToStep(STEPS.indexOf(chip.dataset.step));
+});
+prevBtn.addEventListener('click', ()=>goToStep(currentStepIdx-1));
+nextBtn.addEventListener('click', ()=>{
+  if(currentStepIdx===STEPS.length-1){ stopAllAudio(); return; }
+  goToStep(currentStepIdx+1);
+});
+
+/* ---------- Types of Microphone lesson (clubbed: type tabs + source seg + play) ---------- */
+const MIC_CONTENT = {
+  dynamic: {
+    title: 'Dynamic',
+    paragraphs: [
+      "A dynamic capsule works like a tiny loudspeaker running in reverse: sound pressure moves a diaphragm, the diaphragm drags a coil of wire through a magnetic field, and that movement induces a small voltage directly — no electronics, no external power. It's the same principle Michael Faraday used to induce current in 1831, still doing the job in every SM57 on every stage tonight.",
+      "That simplicity is the whole appeal. There's more mass in a moving coil than in a condenser's featherlight diaphragm, so a dynamic mic can't track the fastest transients or the highest overtones quite as accurately — but that same mass makes it nearly indestructible, unbothered by high sound pressure levels, and totally unfazed by being dropped, rained on, or screamed into eight nights a week.",
+    ],
+    specs: [['Transducer','Moving-coil'],['Power','None needed'],['Max SPL','Very high'],['Durability','Excellent']],
+    bestFor: ['Live vocals','Guitar cabs','Snare / kick','Loud, close sources'],
+    portrait: `<svg viewBox="0 0 60 100" fill="none" stroke="#e8934a" stroke-width="2">
+      <rect x="18" y="8" width="24" height="46" rx="12" fill="#1c1c21"/>
+      <circle cx="30" cy="18" r="6" stroke="#8b8890"/>
+      <line x1="30" y1="54" x2="30" y2="72" stroke="#54525a"/>
+      <path d="M16 72 Q30 84 44 72" stroke="#54525a"/>
+    </svg>`,
+    charBars: [['Sensitivity',35,'2/5'],['Transient detail',40,'2/5'],['Handling noise rej.',90,'5/5'],['Max SPL headroom',95,'5/5']],
+  },
+  'condenser-fet': {
+    title: 'Condenser (FET)',
+    paragraphs: [
+      "A condenser capsule is a capacitor: a charged diaphragm sits a hair's width from a fixed metal backplate, and sound pressure changes the gap between them, changing the capacitance and generating a tiny signal. That signal is far too fragile to travel down a cable on its own, so a built-in field-effect transistor (FET) buffers it right at the capsule — which is also why condensers need <strong>phantom power</strong> (48V, sent up the same mic cable) to charge the capsule and run that electronics.",
+      "The diaphragm itself is thousands of times lighter than a dynamic's coil assembly, so it can follow air pressure changes far more accurately — faster transients, more high-frequency extension, more low-level detail. That sensitivity cuts both ways: FET condensers also pick up handling noise, room noise, and plosives more readily, which is why they usually live on a shockmount in a treated room rather than in a singer's hand on a loud stage.",
+    ],
+    specs: [['Transducer','Capacitor + FET'],['Power','48V phantom'],['Max SPL','Moderate–High'],['Durability','Handle with care']],
+    bestFor: ['Studio vocals','Acoustic instruments','Overheads','Voiceover'],
+    portrait: `<svg viewBox="0 0 60 100" fill="none" stroke="#5fd9a0" stroke-width="2">
+      <rect x="16" y="6" width="28" height="58" rx="6" fill="#1c1c21"/>
+      <circle cx="30" cy="20" r="9" stroke="#8b8890"/>
+      <line x1="30" y1="64" x2="30" y2="80" stroke="#54525a"/>
+      <path d="M14 80 Q30 92 46 80" stroke="#54525a"/>
+    </svg>`,
+    charBars: [['Sensitivity',90,'5/5'],['Transient detail',95,'5/5'],['Handling noise rej.',30,'2/5'],['Max SPL headroom',55,'3/5']],
+  },
+  'condenser-tube': {
+    title: 'Condenser (Tube)',
+    paragraphs: [
+      "A tube condenser uses the exact same capacitor capsule as a FET condenser — the difference is entirely in what buffers that signal. A small vacuum tube replaces the FET, which means the mic needs its own dedicated power supply unit (a proprietary multi-pin cable, not standard 48V phantom) to heat the tube's filament and run its plate voltage. That warm-up isn't cosmetic — a tube mic genuinely sounds different once the tube reaches operating temperature, which is why engineers power one on minutes before a session starts.",
+      'Tubes distort more gracefully than solid-state electronics — mostly even-order harmonics that the ear reads as "warm" or "rich" rather than harsh. Pushed hard, a tube mic saturates smoothly instead of clipping abruptly. That subtle coloration, plus the romance and expense of hand-built tube electronics, is why tube condensers sit at the premium end of nearly every mic locker.',
+    ],
+    specs: [['Transducer','Capacitor + Tube'],['Power','External PSU'],['Character','Warm saturation'],['Durability','Fragile, needs warm-up']],
+    bestFor: ['Premium lead vocals','Characterful acoustic sources','Mastering-grade capture'],
+    portrait: `<svg viewBox="0 0 60 100" fill="none" stroke="#e8934a" stroke-width="2">
+      <rect x="14" y="4" width="32" height="64" rx="4" fill="#1c1c21"/>
+      <circle cx="30" cy="18" r="10" stroke="#8b8890"/>
+      <rect x="26" y="52" width="8" height="10" fill="none" stroke="#8b8890"/>
+      <line x1="30" y1="68" x2="30" y2="80" stroke="#54525a"/>
+      <path d="M12 80 Q30 94 48 80" stroke="#54525a"/>
+    </svg>`,
+    charBars: [['Sensitivity',85,'4/5'],['Harmonic warmth',95,'5/5'],['Handling noise rej.',30,'2/5'],['Max SPL headroom',50,'3/5']],
+  },
+  ribbon: {
+    title: 'Ribbon',
+    paragraphs: [
+      "A ribbon mic suspends an extremely thin, corrugated strip of aluminum foil between the poles of a strong magnet. Air moving across the ribbon — not pushing on it like a diaphragm, but flowing past it — makes it vibrate directly in that magnetic field, generating a signal with essentially no diaphragm mass to slow it down. That velocity-sensing design naturally produces a <strong>figure-8 (bidirectional)</strong> pattern: equally open front and back, dead on the sides.",
+      "The classic ribbon sound is a smooth, naturally rolled-off top end and an almost effortlessly accurate transient response — many engineers reach for a ribbon specifically to tame a harsh guitar amp or bright brass section without reaching for an EQ. That same delicate foil ribbon is the trade-off: a strong gust of air, a plosive at close range, or (on older passive designs) accidental phantom power can stretch or tear it outright.",
+    ],
+    specs: [['Transducer','Ribbon in magnet'],['Power','None (passive) / 48V (active)'],['Pattern','Figure-8'],['Durability','Fragile']],
+    bestFor: ['Brass & strings','Taming harsh amps','Figure-8 duo capture'],
+    portrait: `<svg viewBox="0 0 60 100" fill="none" stroke="#5fd9a0" stroke-width="2">
+      <rect x="10" y="10" width="40" height="42" rx="8" fill="#1c1c21"/>
+      <rect x="24" y="20" width="12" height="22" fill="none" stroke="#8b8890"/>
+      <line x1="30" y1="52" x2="30" y2="72" stroke="#54525a"/>
+      <path d="M14 72 Q30 84 46 72" stroke="#54525a"/>
+    </svg>`,
+    charBars: [['Sensitivity',60,'3/5'],['High-freq. smoothness',95,'5/5'],['Handling noise rej.',55,'3/5'],['Max SPL headroom',65,'3/5']],
+  },
+  contact: {
+    title: 'Contact Mic',
+    paragraphs: [
+      'Every mic so far has sensed sound traveling through <em>air</em>. A contact mic (usually a piezoelectric transducer) doesn\'t listen to air at all — it\'s taped, clamped, or stuck directly to a vibrating surface and senses <strong>structure-borne vibration</strong> straight through that contact. That single difference makes it almost deaf to airborne room noise and bleed, because there\'s no air path in between to pick anything up.',
+      "The trade-off is tone: a piezo element has a naturally uneven, often thin or slightly harsh frequency response compared to a well-designed air mic, and its high output impedance usually needs a DI box or dedicated preamp to sound its best. What you're trading detail and naturalism for is total isolation — a contact mic on a guitar body, a cajon shell, or a resonating surface will reject a screaming room around it almost completely.",
+    ],
+    specs: [['Transducer','Piezoelectric'],['Senses','Structure-borne vibration'],['Isolation','Excellent'],['Tone','Colored, needs DI/preamp']],
+    bestFor: ['Noisy environments','Foley / sound design','Instrument body resonance'],
+    portrait: `<svg viewBox="0 0 60 100" fill="none" stroke="#e8934a" stroke-width="2">
+      <circle cx="30" cy="30" r="16" fill="#1c1c21"/>
+      <circle cx="30" cy="30" r="6" stroke="#8b8890"/>
+      <line x1="30" y1="46" x2="30" y2="70" stroke="#54525a" stroke-dasharray="3,3"/>
+      <path d="M10 82 h40" stroke="#54525a"/>
+    </svg>`,
+    charBars: [['Ambient noise rejection',98,'5/5'],['Tonal accuracy',35,'2/5'],['Handling noise rej.',20,'1/5'],['Setup simplicity',60,'3/5']],
+    extraHint: 'Vocal/amp/overhead clips here are illustrative — a contact mic is normally clamped to the instrument body itself rather than aimed at a voice or amp from a distance.',
+  },
+};
+
+(function(){
+  const typeTabs = document.getElementById('typeTabs');
+  const titleEl = document.getElementById('typeTitle');
+  const ledeEl = document.getElementById('typeLede');
+  const specsEl = document.getElementById('typeSpecs');
+  const bestForEl = document.getElementById('typeBestFor');
+  const extraHintEl = document.getElementById('typeExtraHint');
+  const listenLabelEl = document.getElementById('typeListenLabel');
+  const portraitEl = document.getElementById('typePortrait');
+  const charBarsEl = document.getElementById('typeCharBars');
+  const micSeg = document.querySelector('.stage[data-stage="types"] [data-mic-seg]');
+  const sourceSeg = document.querySelector('.stage[data-stage="types"] [data-source-seg]');
+  const playBtn = document.querySelector('.stage[data-stage="types"] [data-play-mic]');
+  const level = document.querySelector('.stage[data-stage="types"] [data-level]');
+  const clipLabel = document.querySelector('.stage[data-stage="types"] [data-clip-label]');
+  const player = new ClipPlayer();
+  let mic = 'dynamic';
+  let source = 'vocal';
+
+  function renderContent(){
+    const c = MIC_CONTENT[mic];
+    titleEl.textContent = c.title;
+    ledeEl.innerHTML = c.paragraphs.map(p=>`<p class="lede">${p}</p>`).join('');
+    specsEl.innerHTML = c.specs.map(([l,v])=>`<div class="spec-chip">${l}: <b>${v}</b></div>`).join('');
+    bestForEl.innerHTML = c.bestFor.map(t=>`<span class="bf-tag">${t}</span>`).join('');
+    if(c.extraHint){ extraHintEl.textContent = c.extraHint; extraHintEl.style.display = 'block'; }
+    else { extraHintEl.style.display = 'none'; }
+    listenLabelEl.textContent = c.title.toUpperCase();
+    portraitEl.innerHTML = c.portrait;
+    charBarsEl.innerHTML = c.charBars.map(([l,pct,v])=>
+      `<div class="char-row"><span class="cl">${l}</span><div class="char-track"><div class="char-fill" style="width:${pct}%"></div></div><span class="cv">${v}</span></div>`
+    ).join('');
+  }
+  function updateAudio(){ player.setSrc(MIC_AUDIO[mic][source]); clipLabel.textContent = `${MIC_LABELS[mic]} · ${SOURCE_LABELS[source]}`; }
+  function setPlayingUI(on){
+    playBtn.classList.toggle('playing', on);
+    level.classList.toggle('playing', on);
+    playBtn.innerHTML = on
+      ? '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+  }
+  function stop(){ player.pause(); setPlayingUI(false); }
+  activePlayers.push(stop);
+
+  // Mic type can be selected from EITHER the tab row above the lesson
+  // grid OR the "MIC TYPE" selector inside this interactive listen panel
+  // — both control the same `mic` state and stay in sync with each other.
+  function selectMic(newMic){
+    mic = newMic;
+    typeTabs.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b.dataset.mic===mic));
+    micSeg.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b.dataset.mic===mic));
+    const wasPlaying = player.playing;
+    renderContent();
+    updateAudio();
+    if(wasPlaying) player.play(); else stop();
+  }
+
+  typeTabs.addEventListener('click', e=>{
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    selectMic(btn.dataset.mic);
+  });
+  micSeg.addEventListener('click', e=>{
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    selectMic(btn.dataset.mic);
+  });
+  sourceSeg.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      sourceSeg.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      source = btn.dataset.source;
+      const wasPlaying = player.playing;
+      updateAudio();
+      if(wasPlaying) player.play();
+    });
+  });
+  playBtn.addEventListener('click', ()=>{
+    if(player.playing){ stop(); }
+    else { stopAllAudio(); player.play(); setPlayingUI(true); }
+  });
+  player.audio.addEventListener('ended', ()=>setPlayingUI(false));
+
+  renderContent();
+  updateAudio();
+})();
+
+/* ---------- polar pattern lesson: the mic is fixed at the diagram's
+   center; the source can only be moved to one of 8 predefined compass
+   positions around it (no free placement, matching the rest of the
+   app's hotspot/spot conventions). Gain per position is computed from
+   each pattern's textbook polar equation — cardioid (1+cosθ)/2,
+   figure-8 |cosθ|, omni constant — where θ is measured clockwise from
+   the front/on-axis direction at the top of the diagram. That gain
+   drives three things at once: the position dot's brightness (a look
+   at every position without clicking), the dB/tier readout for the
+   selected position, and which placeholder clip plays. ---------- */
+(function(){
+  const NS = 'http://www.w3.org/2000/svg';
+  const CX = 160, CY = 160, SPOT_R = 130;
+
+  // Lobe outlines are PLOTTED from the same gain formula used for the
+  // dB readout — not hand-drawn — by sampling r(θ) = maxR * gain(θ) all
+  // the way around and connecting the points. That's what gives the
+  // cardioid its true cusp at the mic (gain hits exactly 0 at 180°) and
+  // the figure-8 its pinched, fully-round lobes (gain hits exactly 0 at
+  // 90°/270°), matching a textbook polar-pattern plot instead of an
+  // approximated blob.
+  const LOBE_MAX_R = 120;
+  function lobePath(gainFn){
+    const steps = 96;
+    let d = '';
+    for(let i=0;i<=steps;i++){
+      const deg = i * 360 / steps;
+      const r = LOBE_MAX_R * Math.max(0, gainFn(deg));
+      const rad = deg * Math.PI / 180;
+      const x = (CX + r * Math.sin(rad)).toFixed(1);
+      const y = (CY - r * Math.cos(rad)).toFixed(1);
+      d += (i === 0 ? 'M' : 'L') + x + ',' + y + ' ';
+    }
+    return `<path d="${d}Z" class="polar-lobe-fill"/>`;
+  }
+
+  const PATTERNS = {
+    omni: {
+      label: 'Omnidirectional',
+      gain: () => 1,
+      blurb: 'Picks up equally from every direction. No proximity effect and the most natural, uncolored response of any pattern — used for room ambience, some vocal booths, and boundary-mounted placements.',
+    },
+    cardioid: {
+      label: 'Cardioid',
+      gain: (deg) => (1 + Math.cos(deg * Math.PI / 180)) / 2,
+      blurb: "Heart-shaped: most sensitive to the front, rejects the rear, picks up some sound from the sides. The all-purpose default — good gain-before-feedback and strong isolation from what's behind the mic.",
+    },
+    bidirectional: {
+      label: 'Figure-8',
+      gain: (deg) => Math.abs(Math.cos(deg * Math.PI / 180)),
+      blurb: "Captures front and rear equally — the rear lobe is phase-inverted — and rejects the sides almost completely. The native pattern of most ribbon mics, and the shape behind X/Y and Blumlein stereo pairs.",
+    },
+  };
+
+  const POSITIONS = [
+    { angle:0,   name:'Front' },
+    { angle:45,  name:'Front-Right' },
+    { angle:90,  name:'Right' },
+    { angle:135, name:'Back-Right' },
+    { angle:180, name:'Back' },
+    { angle:225, name:'Back-Left' },
+    { angle:270, name:'Left' },
+    { angle:315, name:'Front-Left' },
+  ];
+
+  const patternTabs = document.getElementById('patternTabs');
+  const lobeLayer = document.getElementById('lobeLayer');
+  const spotsLayer = document.getElementById('spotsLayer');
+  const connector = document.getElementById('polarConnector');
+  const sourceSeg = document.querySelector('.stage[data-stage="polar"] [data-source-seg]');
+  const playBtn = document.querySelector('.stage[data-stage="polar"] [data-play-polar]');
+  const level = document.querySelector('.stage[data-stage="polar"] [data-level]');
+  const clipLabel = document.querySelector('.stage[data-stage="polar"] [data-clip-label]');
+  const posName = document.getElementById('posName');
+  const posTag = document.getElementById('posTag');
+  const posDb = document.getElementById('posDb');
+  const patternBlurb = document.getElementById('patternBlurb');
+  const player = new ClipPlayer();
+
+  let pattern = 'cardioid';
+  let angle = 0;
+  let source = 'vocal';
+
+  function spotXY(deg){
+    const rad = deg * Math.PI / 180;
+    return { x: CX + SPOT_R * Math.sin(rad), y: CY - SPOT_R * Math.cos(rad) };
+  }
+
+  // Build the 8 position dots once — only their fill/active state
+  // changes afterward, when the pattern or selected position changes.
+  POSITIONS.forEach(pos=>{
+    const { x, y } = spotXY(pos.angle);
+    const dot = document.createElementNS(NS, 'circle');
+    dot.setAttribute('cx', x);
+    dot.setAttribute('cy', y);
+    dot.setAttribute('r', 9);
+    dot.setAttribute('class', 'polar-spot');
+    dot.dataset.angle = pos.angle;
+    dot.addEventListener('click', ()=>selectPosition(pos.angle));
+    spotsLayer.appendChild(dot);
+  });
+
+  function gainOf(deg){ return PATTERNS[pattern].gain(deg); }
+  function dbOf(g){ return 20 * Math.log10(Math.max(g, 0.001)); }
+  function tierOf(db){
+    if(db >= -3) return { tier:'full', label:'Full pickup' };
+    if(db >= -9) return { tier:'partial', label:'Partial pickup' };
+    if(db >= -18) return { tier:'heavy', label:'Heavily attenuated' };
+    return { tier:'null', label:'Rejected / null' };
+  }
+
+  function renderSpots(){
+    spotsLayer.querySelectorAll('.polar-spot').forEach(dot=>{
+      const deg = Number(dot.dataset.angle);
+      const t = Math.max(0, Math.min(1, gainOf(deg))); // 0..1 pickup intensity -> dim grey..cyan
+      const r = Math.round(58 + t*(84-58));
+      const g = Math.round(58 + t*(214-58));
+      const b = Math.round(66 + t*(224-66));
+      dot.style.fill = `rgb(${r},${g},${b})`;
+      dot.classList.toggle('active', deg === angle);
+    });
+  }
+  function renderLobe(){ lobeLayer.innerHTML = lobePath(PATTERNS[pattern].gain); }
+  function renderConnector(){
+    const { x, y } = spotXY(angle);
+    connector.setAttribute('x2', x);
+    connector.setAttribute('y2', y);
+  }
+  function renderReadout(){
+    const pos = POSITIONS.find(p=>p.angle===angle);
+    const db = dbOf(gainOf(angle));
+    const t = tierOf(db);
+    posName.textContent = `${pos.name} · ${angle}°`;
+    posTag.textContent = t.label.toUpperCase();
+    posTag.dataset.tier = t.tier;
+    posDb.textContent = db <= -40 ? 'Near-silent (null)' : `${db.toFixed(1)} dB relative to on-axis`;
+    patternBlurb.textContent = PATTERNS[pattern].blurb;
+  }
+  function updateAudio(){
+    player.setSrc(polarAudioPath(pattern, angle, source));
+    const pos = POSITIONS.find(p=>p.angle===angle);
+    clipLabel.textContent = `${PATTERNS[pattern].label} · ${pos.name} · ${SOURCE_LABELS[source]}`;
+  }
+  function setPlayingUI(on){
+    playBtn.classList.toggle('playing', on);
+    level.classList.toggle('playing', on);
+    playBtn.innerHTML = on
+      ? '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+  }
+  function stop(){ player.pause(); setPlayingUI(false); }
+  activePlayers.push(stop);
+
+  function renderAll(){
+    renderLobe();
+    renderSpots();
+    renderConnector();
+    renderReadout();
+    updateAudio();
+  }
+
+  function selectPattern(p){
+    pattern = p;
+    patternTabs.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b.dataset.pattern===pattern));
+    const wasPlaying = player.playing;
+    renderAll();
+    if(wasPlaying) player.play(); else stop();
+  }
+  function selectPosition(deg){
+    angle = deg;
+    const wasPlaying = player.playing;
+    renderSpots();
+    renderConnector();
+    renderReadout();
+    updateAudio();
+    if(wasPlaying) player.play(); else stop();
+  }
+
+  patternTabs.addEventListener('click', e=>{
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    selectPattern(btn.dataset.pattern);
+  });
+  sourceSeg.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      sourceSeg.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      source = btn.dataset.source;
+      const wasPlaying = player.playing;
+      updateAudio();
+      if(wasPlaying) player.play();
+    });
+  });
+  playBtn.addEventListener('click', ()=>{
+    if(player.playing){ stop(); }
+    else { stopAllAudio(); player.play(); setPlayingUI(true); }
+  });
+  player.audio.addEventListener('ended', ()=>setPlayingUI(false));
+
+  renderAll();
+})();
+
+/* ---------- selection scenario cards ---------- */
+document.getElementById('scenarioGrid').addEventListener('click', e=>{
+  const card = e.target.closest('.scenario-card');
+  if(!card) return;
+  const wasOpen = card.classList.contains('open');
+  document.querySelectorAll('.scenario-card').forEach(c=>c.classList.remove('open'));
+  if(!wasOpen) card.classList.add('open');
+});
+
+/* ---------- quiz ---------- */
+const QUIZ = [
+  {
+    prompt: 'A microphone needs 48V phantom power to work at all. Which transducer type is it most likely?',
+    options: ['Dynamic', 'Condenser (FET)', 'Ribbon (passive)', 'Contact mic'],
+    correct: 1,
+    explain: 'FET condensers use phantom power to charge the capsule and run the onboard buffering electronics. Dynamics and passive ribbons need no power at all.',
+  },
+  {
+    prompt: 'Why does a tube condenser need its own external power supply instead of standard 48V phantom?',
+    options: ['It doesn\'t — tube mics use standard phantom power', 'The tube\'s heater and plate need voltages phantom power can\'t supply', 'Tube mics are actually dynamic mics in disguise', 'To protect the diaphragm from static electricity'],
+    correct: 1,
+    explain: "A vacuum tube needs its filament heated and its plate biased at voltages well beyond what a standard 48V phantom supply provides, so tube mics ship with a dedicated proprietary power supply.",
+  },
+  {
+    prompt: 'Which polar pattern has no proximity effect and the flattest, most natural response?',
+    options: ['Cardioid', 'Bidirectional (figure-8)', 'Omnidirectional', 'Shotgun'],
+    correct: 2,
+    explain: 'Proximity effect only occurs in pressure-gradient (directional) mics. A true omnidirectional capsule is a pressure mic, so it doesn\'t exhibit the bass buildup at close range.',
+  },
+  {
+    prompt: "You're recording in a loud, uncontrolled environment and can't stop ambient noise from bleeding in. What's the best transducer choice?",
+    options: ['Condenser (FET), for maximum detail', 'Condenser (Tube), for warmth', 'Contact mic, sensing vibration directly', 'Any mic, as long as it\'s omnidirectional'],
+    correct: 2,
+    explain: "A contact mic senses structure-borne vibration through direct contact rather than air, so it rejects airborne ambient noise almost completely — exactly what an uncontrolled, noisy environment calls for.",
+  },
+  {
+    prompt: 'Why do dynamic mics tolerate high sound pressure levels (loud amps, kick drums) so much better than condensers?',
+    options: ['They have a built-in limiter', 'Their heavier moving-coil diaphragm is inherently more rugged and less easily overloaded', 'They only work at low volumes so overload is impossible', 'Dynamic mics don\'t actually handle loud sources well'],
+    correct: 1,
+    explain: 'The moving-coil design that makes dynamics less detailed at low levels is the same mass that makes them mechanically tough and hard to overload at very high sound pressure levels.',
+  },
+];
+
+const quizList = document.getElementById('quizList');
+const quizScore = document.getElementById('quizScore');
+const quizScoreVal = document.getElementById('quizScoreVal');
+let answered = 0, correctCount = 0;
+
+QUIZ.forEach((q, qi)=>{
+  const card = document.createElement('div');
+  card.className = 'quiz-card';
+  card.innerHTML = `
+    <div class="q-num">QUESTION ${qi+1} OF ${QUIZ.length}</div>
+    <div class="q-prompt">${q.prompt}</div>
+    <div class="q-options"></div>
+    <div class="q-explain">${q.explain}</div>
+  `;
+  const optionsWrap = card.querySelector('.q-options');
+  q.options.forEach((opt, oi)=>{
+    const row = document.createElement('div');
+    row.className = 'q-option';
+    row.innerHTML = `<div class="dot"></div><div>${opt}</div>`;
+    row.addEventListener('click', ()=>{
+      if(row.closest('.quiz-card').dataset.done) return;
+      card.dataset.done = '1';
+      const opts = optionsWrap.querySelectorAll('.q-option');
+      opts.forEach((o,i)=>{
+        o.classList.add('disabled');
+        if(i===q.correct) o.classList.add('correct');
+        else if(i===oi) o.classList.add('wrong');
+      });
+      card.querySelector('.q-explain').classList.add('show');
+      answered++;
+      if(oi===q.correct) correctCount++;
+      if(answered===QUIZ.length){
+        quizScore.style.display = 'flex';
+        quizScoreVal.textContent = `${correctCount} / ${QUIZ.length}`;
+      }
+    });
+    optionsWrap.appendChild(row);
+  });
+  quizList.appendChild(card);
+});
+
+goToStep(0);
+</script>
+</body>
+</html>

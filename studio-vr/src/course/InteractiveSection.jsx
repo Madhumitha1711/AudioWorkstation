@@ -6,6 +6,10 @@ import WavelengthLab from "./interactive/WavelengthLab";
 import PhaseLab from "./interactive/PhaseLab";
 import HarmonicsLab from "./interactive/HarmonicsLab";
 import TimbreLab from "./interactive/TimbreLab";
+import MicTypeLab from "./interactive/MicTypeLab";
+import MicPolarPatternLab from "./interactive/MicPolarPatternLab";
+import MicSelectionLab from "./interactive/MicSelectionLab";
+import MicPlacementLab from "./interactive/MicPlacementLab";
 
 const LABS = {
   "speaker-lab": SpeakerLab,
@@ -20,6 +24,23 @@ const LABS = {
   "phase-lab": PhaseLab,
   "harmonics-lab": HarmonicsLab,
   "timbre-lab": TimbreLab,
+  // "Microphones: Types, Characteristics & Selection" (chapter 6,
+  // courseData.js TOPICS[id="mic-stand"]) — one lab per subchapter, ported
+  // from design/mic-types-chapter.html the same way the "What Is Sound?"
+  // labs above were ported from design/what-is-sound-chapter.html. Not yet
+  // referenced from courseData.js's mic-stand topic — like the sound labs,
+  // this chapter's real lesson content/blocks are authored in studio-cms
+  // once that chapter is built out there; these are ready to be wired in
+  // by `kind` at that point. (There's no standalone "Characteristics" lab —
+  // it read as unclear/redundant next to Type, so its spec-comparison view
+  // was removed; per-type characteristics still show inside mic-type-lab.)
+  "mic-type-lab": MicTypeLab,
+  "mic-polar-pattern-lab": MicPolarPatternLab,
+  "mic-selection-lab": MicSelectionLab,
+  // "Placement" subchapter — a 3D room (src/course/MikingRoom) instead of
+  // the 2D layouts the other mic-stand labs use above; MicPlacementLab is
+  // just the fixed-height embed frame it needs (see that file).
+  "mic-placement-lab": MicPlacementLab,
 };
 
 // `variant="embedded"` is used when this activity sits inside a lesson's

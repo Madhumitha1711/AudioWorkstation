@@ -1,0 +1,12 @@
+/* Frame for <MikingRoom /> when embedded in a lesson (see
+   MicPlacementLab.jsx). MikingRoom fills whatever height its parent gives
+   it, so this element *is* that parent. No width cap, same as this
+   chapter's other labs (labs.css's .lab) — the 3D stage gets the full
+   lesson-content width; the height cap keeps a short lesson from forcing
+   the page to scroll past a full viewport just for this one block. */
+.mic-placement-lab-frame {
+  height: min(640px, 80vh);
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+}

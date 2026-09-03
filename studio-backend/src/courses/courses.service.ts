@@ -78,7 +78,7 @@ const CHAPTER_POPULATE = {
   // any time content is edited/republished (ties in `order` fall back to
   // Strapi's internal row order). 100 matches api.rest.maxLimit in
   // studio-cms's config/api.ts, well above the current chapter count.
-  pagination: { pageSize: 100 },
+  pagination: { pageSize: 500 },
 };
 
 @Injectable()
@@ -87,7 +87,7 @@ export class CoursesService {
     private readonly strapi: StrapiService,
     private readonly assets: AssetUrlService,
     private readonly streamTokens: CloudflareStreamTokenService,
-  ) {}
+  ) { }
 
   /** Every chapter (Speakers, Mixing Console, DAW Workstation, ...), in curriculum order. */
   async findAll(): Promise<CourseTopic[]> {
