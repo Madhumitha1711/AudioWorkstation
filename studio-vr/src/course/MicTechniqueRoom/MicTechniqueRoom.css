@@ -1,0 +1,369 @@
+/*
+ * Styles for <MicTechniqueRoom />.
+ *
+ * Sibling to MikingRoom.css (src/course/MikingRoom/MikingRoom.css) — same
+ * approach, deliberately duplicated rather than shared: everything is
+ * scoped under .mic-technique-room (instead of .miking-room) with its own
+ * --mtr-* custom properties (instead of --mkr-*), reading the app's real
+ * theme tokens (--bg/--panel/--text/--border/--accent/etc.) the same way,
+ * so this component matches the rest of the course in both themes and
+ * every brand palette without needing to import MikingRoom's stylesheet or
+ * share its scope. See MikingRoom.css's own header comment for the fuller
+ * rationale (color-mix() for the 3D scene's floor/grid tokens, fonts, etc).
+ *
+ * Fonts: this stylesheet does NOT load Google Fonts for you. Add these to
+ * your app's index.html <head> (same link as MikingRoom.css's header):
+ *
+ *   <link rel="preconnect" href="https://fonts.googleapis.com">
+ *   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+ *   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+ *
+ * The component falls back to system fonts if these aren't loaded.
+ */
+
+.mic-technique-room {
+  --mtr-bg: var(--bg, #eef1ef);
+  --mtr-surface: var(--panel, #ffffff);
+  --mtr-surface-2: var(--panel-hover, #dde3e0);
+  --mtr-ink: var(--text, #1b2422);
+  --mtr-ink-dim: var(--text-dim, #5c6764);
+  --mtr-line: var(--border-soft, #ccd3d0);
+  --mtr-accent: var(--accent, #a8672a);
+  --mtr-accent-strong: var(--accent2, #8c521e);
+  --mtr-accent-ink: var(--accent-ink, #fff8f0);
+
+  /* Scene-only tokens (3D materials, not DOM chrome) — see MikingRoom.css's
+     header comment for why these derive from --bg/--text via color-mix()
+     instead of the translucent --panel/--border washes: THREE's CSS-color
+     parser drops alpha, so a wash has to be pre-composited into a plain
+     opaque color for the floor/grid to actually match the theme. */
+  --mtr-room-wall: var(--text, #26302d);
+  --mtr-room-floor: color-mix(in srgb, var(--bg, #eef1ef) 84%, var(--text, #1b2422) 16%);
+  --mtr-grid-minor: color-mix(in srgb, var(--bg, #eef1ef) 68%, var(--text, #1b2422) 32%);
+  --mtr-shadow-soft: var(--shadow, 0 1px 2px rgba(20, 25, 24, 0.06), 0 6px 18px rgba(20, 25, 24, 0.07));
+}
+
+.mic-technique-room,
+.mic-technique-room *,
+.mic-technique-room *::before,
+.mic-technique-room *::after {
+  box-sizing: border-box;
+}
+
+.mic-technique-room {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  background: var(--mtr-bg);
+  color: var(--mtr-ink);
+  font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.mic-technique-room .mtr-topbar {
+  flex: none;
+  padding: 18px clamp(16px, 4vw, 40px) 14px;
+  border-bottom: 1px solid var(--mtr-line);
+  background: var(--mtr-surface);
+}
+.mic-technique-room .mtr-eyebrow {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--mtr-accent);
+  font-weight: 500;
+  text-transform: uppercase;
+}
+.mic-technique-room .mtr-title {
+  margin: 3px 0 4px;
+  font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+  font-weight: 700;
+  font-size: clamp(22px, 3.4vw, 32px);
+  letter-spacing: 0.01em;
+  text-wrap: balance;
+}
+.mic-technique-room .mtr-subtitle {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--mtr-ink-dim);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+.mic-technique-room .mtr-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: var(--mtr-bg);
+}
+
+.mic-technique-room .mtr-viewport {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 160px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--mtr-bg);
+}
+
+.mic-technique-room .mtr-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+.mic-technique-room .mtr-canvas.is-dragging {
+  cursor: grabbing;
+}
+
+.mic-technique-room .mtr-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.mic-technique-room .mtr-hint {
+  position: absolute;
+  left: clamp(14px, 3vw, 28px);
+  bottom: clamp(14px, 3vw, 28px);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 12px;
+  background: color-mix(in srgb, var(--mtr-surface) 88%, transparent);
+  border: 1px solid var(--mtr-line);
+  border-radius: 8px;
+  box-shadow: var(--mtr-shadow-soft);
+  backdrop-filter: blur(6px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .mic-technique-room .mtr-hint {
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+}
+.mic-technique-room .mtr-hint.is-faded {
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+}
+.mic-technique-room .mtr-hint-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11.5px;
+  color: var(--mtr-ink-dim);
+  white-space: nowrap;
+}
+.mic-technique-room kbd {
+  font-family: inherit;
+  font-size: 10px;
+  padding: 2px 6px;
+  border: 1px solid var(--mtr-line);
+  border-radius: 4px;
+  background: var(--mtr-surface-2);
+  color: var(--mtr-ink);
+}
+.mic-technique-room .mtr-reset-btn {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: var(--mtr-accent-ink);
+  background: var(--mtr-accent);
+  border: none;
+  border-radius: 5px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.mic-technique-room .mtr-reset-btn:hover {
+  background: var(--mtr-accent-strong);
+}
+.mic-technique-room .mtr-reset-btn:focus-visible {
+  outline: 2px solid var(--mtr-accent);
+  outline-offset: 2px;
+}
+
+/* ---- Controls: one scrollable bar under the room, same rationale as
+   MikingRoom.css's .mkr-controls — the room keeps the frame's full width
+   instead of splitting it with side panels. This bar has more rows than
+   MikingRoom's (source/mic-type, PLUS technique, PLUS whichever
+   one technique-specific row + readout block is currently visible), so the
+   scroll fallback matters more here. ---- */
+.mic-technique-room .mtr-controls {
+  flex: 0 0 auto;
+  max-height: 58%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  background: var(--mtr-surface);
+  border: 1px solid var(--mtr-line);
+  border-radius: 10px;
+  box-shadow: var(--mtr-shadow-soft);
+}
+.mic-technique-room .mtr-ctrl-row {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mic-technique-room .mtr-ctrl-row[hidden] {
+  display: none;
+}
+.mic-technique-room .mtr-technique-row {
+  padding-top: 6px;
+  border-top: 1px dashed var(--mtr-line);
+}
+.mic-technique-room .mtr-ctrl-label {
+  flex: 0 0 auto;
+  padding-top: 7px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mtr-ink-dim);
+  white-space: nowrap;
+}
+.mic-technique-room .mtr-ctrl-row .mtr-pill-row {
+  flex: 1 1 auto;
+}
+.mic-technique-room .mtr-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mic-technique-room .mtr-pill {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.01em;
+  color: var(--mtr-ink-dim);
+  background: var(--mtr-surface-2);
+  border: 1px solid var(--mtr-line);
+  border-radius: 999px;
+  padding: 6px 11px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.mic-technique-room .mtr-pill:hover {
+  border-color: var(--mtr-accent);
+}
+.mic-technique-room .mtr-pill:focus-visible {
+  outline: 2px solid var(--mtr-accent);
+  outline-offset: 2px;
+}
+.mic-technique-room .mtr-pill.is-active {
+  background: var(--mtr-accent);
+  border-color: var(--mtr-accent);
+  color: var(--mtr-accent-ink);
+}
+.mic-technique-room .mtr-pill:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.mic-technique-room .mtr-pill:disabled:hover {
+  border-color: var(--mtr-line);
+}
+/* Technique pills get a touch more presence — this is the row that decides
+   which sub-panel/readout shows below it, so it reads as a level above the
+   plain source/mic-type pills rather than just another option among
+   them. */
+.mic-technique-room .mtr-pill-technique {
+  font-weight: 600;
+}
+.mic-technique-room .mtr-technique-blurb {
+  margin: 0 0 2px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--mtr-ink-dim);
+}
+/* The one non-toggle control among the pills ("Clear") */
+.mic-technique-room .mtr-pill-muted {
+  align-self: flex-start;
+  background: none;
+}
+.mic-technique-room .mtr-pill-muted:hover {
+  background: var(--mtr-surface-2);
+}
+/* ---- Readouts: distance/axis/notes (close/spot/distant/multi), or
+   spacing/angle/mono-compatibility (stereo) — whichever block is relevant
+   to the active technique. ---- */
+.mic-technique-room .mtr-readout-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mic-technique-room .mtr-readout-row[hidden] {
+  display: none;
+}
+.mic-technique-room .mtr-readout {
+  flex: 1 1 140px;
+  min-width: 120px;
+  background: var(--mtr-surface-2);
+  border: 1px solid var(--mtr-line);
+  border-radius: 8px;
+  padding: 8px 11px;
+}
+.mic-technique-room .mtr-readout-label {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mtr-ink-dim);
+  margin-bottom: 3px;
+}
+.mic-technique-room .mtr-readout-value {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 12.5px;
+  color: var(--mtr-ink);
+  font-variant-numeric: tabular-nums;
+}
+.mic-technique-room .mtr-readout-accent {
+  color: var(--mtr-accent-strong);
+}
+.mic-technique-room .mtr-readout-meter {
+  flex-basis: 200px;
+}
+.mic-technique-room .mtr-meter-track {
+  margin-top: 6px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--mtr-line);
+  overflow: hidden;
+}
+.mic-technique-room .mtr-meter-fill {
+  height: 100%;
+  border-radius: 3px;
+  width: 0%;
+  background: var(--mtr-accent);
+  transition: width 0.2s ease;
+}
+
+.mic-technique-room .mtr-webgl-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--mtr-ink-dim);
+  font-size: 14px;
+  padding: 24px;
+}
+.mic-technique-room .mtr-webgl-fallback[hidden] {
+  display: none;
+}

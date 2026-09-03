@@ -124,6 +124,12 @@ export const TOPICS = [
     title: "Microphone Techniques and Stereo Recording",
     intro:
       "The same mic in a different spot is a different instrument — technique and placement do as much work as the microphone itself, especially once you're capturing in stereo.",
+    // This chapter's interactive lab already exists — see
+    // InteractiveSection.jsx's "mic-technique-lab" (src/course/
+    // MicTechniqueRoom), MikingRoom's sibling 3D room covering Close/Spot/
+    // Distant-Room/Stereo/Multi Miking — this topic stays `ready: false`
+    // until its lessons/blocks are authored in
+    // studio-cms, same as chapter 6's mic-stand topic above.
     ready: false,
   },
   {

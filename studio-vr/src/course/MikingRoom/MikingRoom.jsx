@@ -775,7 +775,7 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
         },
       },
       {
-        id: 'guitar', label: 'Guitar', aimHeight: 0.62,
+        id: 'guitar', label: 'Guitar', aimHeight: 0.72,
         blurb: 'Close- or spot-miked around the 12th fret, sometimes blended with a room mic for body.',
         build(g) {
           const base = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.02, 20), SRC_METAL);
@@ -793,7 +793,7 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
         },
       },
       {
-        id: 'amp', label: 'Amp', aimHeight: 0.25,
+        id: 'amp', label: 'Amp', aimHeight: 0.35,
         blurb: 'Multi-miked — one capsule close on-axis to the cone, another off-axis, plus a room mic for blend.',
         build(g) {
           const cab = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.5, 0.32), AMP_CAB_MAT);
@@ -804,7 +804,7 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
         },
       },
       {
-        id: 'snare', label: 'Snare', aimHeight: 0.44,
+        id: 'snare', label: 'Snare', aimHeight: 0.54,
         blurb: 'Multi-miked top and bottom, the two capsules combined and checked for phase.',
         build(g) {
           const base = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.02, 20), SRC_METAL);
@@ -819,7 +819,7 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
         },
       },
       {
-        id: 'kick', label: 'Kick', aimHeight: 0.3,
+        id: 'kick', label: 'Kick', aimHeight: 0.4,
         blurb: 'Miked in and out — one capsule inside the shell, one outside for club and body.',
         build(g) {
           const shell = new THREE.Mesh(zCylSrc(0.3, 0.3, 0.45), KICK_SHELL_MAT);
@@ -830,7 +830,7 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
         },
       },
       {
-        id: 'ethnic', label: 'Ethnic Instrument', aimHeight: 0.5,
+        id: 'ethnic', label: 'Ethnic Instrument', aimHeight: 0.6,
         blurb: 'Solo ethnic and hand-percussion instruments are usually close-miked to capture detail without bleed.',
         build(g) {
           const body = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.09, 0.58, 20), ETHNIC_BODY_MAT);

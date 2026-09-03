@@ -10,6 +10,7 @@ import MicTypeLab from "./interactive/MicTypeLab";
 import MicPolarPatternLab from "./interactive/MicPolarPatternLab";
 import MicSelectionLab from "./interactive/MicSelectionLab";
 import MicPlacementLab from "./interactive/MicPlacementLab";
+import MicTechniqueLab from "./interactive/MicTechniqueLab";
 
 const LABS = {
   "speaker-lab": SpeakerLab,
@@ -41,6 +42,14 @@ const LABS = {
   // the 2D layouts the other mic-stand labs use above; MicPlacementLab is
   // just the fixed-height embed frame it needs (see that file).
   "mic-placement-lab": MicPlacementLab,
+  // "Microphone Techniques and Stereo Recording" (chapter 7,
+  // courseData.js TOPICS[id="stereo-overheads"]) — MikingRoom's sibling 3D
+  // room (src/course/MicTechniqueRoom), covering Close/Spot/Distant-Room/
+  // Stereo/Multi Miking; MicTechniqueLab is just the fixed-height embed
+  // frame it needs (see that file). Not yet
+  // referenced from courseData.js's stereo-overheads topic — same "ready
+  // ahead of studio-cms content" status as mic-placement-lab above.
+  "mic-technique-lab": MicTechniqueLab,
 };
 
 // `variant="embedded"` is used when this activity sits inside a lesson's
