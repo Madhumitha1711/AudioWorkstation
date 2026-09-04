@@ -30,6 +30,13 @@
   height: 100%;
   display: flex;
   flex-direction: column;
+  /* LabButtonDialog.jsx's overlay is positioned absolute/inset:0 so it
+     covers this entire course panel (topbar + sidebar + content) rather
+     than the whole browser viewport (which would also cover the app
+     shell header rendered above this page — see App.jsx) — this is what
+     makes that overlay resolve against .svr-course instead of reaching
+     further up the DOM for a positioned ancestor. */
+  position: relative;
   /* Above 960px wide, .course-topbar and .course-layout below each own
      their own scrolling (course-layout's two columns scroll independently
      via flex + min-height: 0), so this container itself doesn't need to
@@ -489,11 +496,19 @@
     text-transform: uppercase;
     margin-bottom: 8px;
   }
+  .topic-heading-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin: 0 0 10px;
+  }
   .topic-heading {
     color: var(--text);
     font-size: 30px;
     font-weight: 800;
-    margin: 0 0 10px;
+    margin: 0;
     letter-spacing: -0.01em;
   }
 
@@ -530,6 +545,12 @@
   }
   .topic-progress-row .progress-track {
     width: 120px;
+  }
+
+  .chapter-lab-btn {
+    flex-shrink: 0;
+    font-size: 14px;
+    padding: 13px 26px;
   }
 
   /* Shared duration/label pill — used by VideoPlayer's "coming soon"

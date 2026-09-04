@@ -610,7 +610,16 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
     // source" rather than "capsule twisted away from it" — the latter sent
     // the aim arrow and coverage beam wildly off into the room for the
     // bigger angles below (e.g. multi-room's 110°) instead of toward
-    // anything a viewer could relate to the source. ----
+    // anything a viewer could relate to the source.
+    //
+    // Stereo Miking's presets are the one exception, and use a different
+    // field (`yawOffsetDeg`, per mic, inside each preset's `mics` array
+    // below) instead of `angle` — a stereo pair's whole identity IS the
+    // angle between its two capsules (X-Y's 90° crossed pair vs. ORTF's
+    // 110°, say), so that rotation has to be real, not just implied by
+    // position. buildOneMicRig adds it on top of face-the-source, and the
+    // coverage beam deliberately ignores it and always draws straight to
+    // the source anyway — see the comment on the beam below for why. ----
     const TECHNIQUES = {
       close: {
         label: 'Close Miking',
@@ -645,24 +654,127 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       stereo: {
         label: 'Stereo Miking',
         mode: 'stereo',
-        blurb: 'Two mics, one stereo image — spacing and angle between the capsules decide the width and how safely it folds to mono. Keep the 3:1 rule in mind whenever two mics can hear the same source.',
+        blurb: 'Two (or three) mics, one stereo image — spacing and the angle between capsules decide the width and how safely it folds to mono. Coincident/near-coincident pairs (X-Y, M-S, ORTF, Blumlein) fold down safely; spaced pairs (AB, Outrigger, Decca Tree) are wider but riskier. Keep the 3:1 rule in mind whenever two mics can hear the same source.',
+        // Each preset is `mics: [{tag, xOffsetM, distM, yawOffsetDeg, heightM?}]`
+        // rather than the old fixed left/right-only shape, so a preset can
+        // use two capsules (most of these) or three (Decca Tree's L/C/R).
+        // xOffsetM is lateral position relative to the source's centerline;
+        // distM is how far back from the source (clearance gets added on
+        // top, same as every other technique); yawOffsetDeg is the extra
+        // rotation on top of facing the source — see buildOneMicRig's
+        // header comment for why that's a real rotation here and nowhere
+        // else. heightM overrides the default capsule height (used to
+        // stack M-S's Side capsule above its Mid, and to lift Overhead).
         presets: {
-          spaced: { id: 'spaced', label: 'Spaced Pair', centerDist: 1.3, pairSeparationM: 0.9, yawSplitDeg: 4, spacingLabel: '3 ft apart', angleLabel: '0° (parallel)', monoLabel: 'Weak — check for cancellation', monoPct: 40 },
-          xy: { id: 'xy', label: 'X-Y', centerDist: 1.3, pairSeparationM: 0.02, yawSplitDeg: 45, spacingLabel: '~0 in (coincident)', angleLabel: '90° crossed', monoLabel: 'Excellent — phase-coherent', monoPct: 98 },
-          ortf: { id: 'ortf', label: 'ORTF', centerDist: 1.3, pairSeparationM: 0.17, yawSplitDeg: 55, spacingLabel: '6.7 in (17 cm)', angleLabel: '110° apart', monoLabel: 'Very good — near-coincident', monoPct: 85 },
+          ab: {
+            id: 'ab', label: 'AB (Spaced Pair)',
+            mics: [
+              { tag: 'Left', xOffsetM: -0.45, distM: 1.3, yawOffsetDeg: 0 },
+              { tag: 'Right', xOffsetM: 0.45, distM: 1.3, yawOffsetDeg: 0 },
+            ],
+            spacingLabel: '3 ft apart', angleLabel: '0° (parallel)',
+            monoLabel: 'Weak — check for cancellation', monoPct: 40,
+          },
+          xy: {
+            id: 'xy', label: 'X-Y',
+            mics: [
+              { tag: 'Left', xOffsetM: -0.01, distM: 1.3, yawOffsetDeg: -45 },
+              { tag: 'Right', xOffsetM: 0.01, distM: 1.3, yawOffsetDeg: 45 },
+            ],
+            spacingLabel: '~0 in (coincident)', angleLabel: '90° crossed',
+            monoLabel: 'Excellent — phase-coherent', monoPct: 98,
+          },
+          ms: {
+            id: 'ms', label: 'M-S (Mid-Side)',
+            mics: [
+              { tag: 'Mid', xOffsetM: 0, distM: 1.3, yawOffsetDeg: 0 },
+              { tag: 'Side', xOffsetM: 0, distM: 1.3, yawOffsetDeg: 90, heightM: 1 },
+            ],
+            spacingLabel: '~0 in (coincident, stacked)', angleLabel: '90° side-facing',
+            monoLabel: 'Excellent — mono is just the Mid signal', monoPct: 99,
+          },
+          ortf: {
+            id: 'ortf', label: 'ORTF',
+            mics: [
+              { tag: 'Left', xOffsetM: -0.085, distM: 1.3, yawOffsetDeg: -55 },
+              { tag: 'Right', xOffsetM: 0.085, distM: 1.3, yawOffsetDeg: 55 },
+            ],
+            spacingLabel: '6.7 in (17 cm)', angleLabel: '110° apart',
+            monoLabel: 'Very good — near-coincident', monoPct: 85,
+          },
+          overhead: {
+            id: 'overhead', label: 'Overhead',
+            mics: [
+              { tag: 'Left', xOffsetM: -0.5, distM: 1.6, yawOffsetDeg: -15, heightM: 2.1 },
+              { tag: 'Right', xOffsetM: 0.5, distM: 1.6, yawOffsetDeg: 15, heightM: 2.1 },
+            ],
+            spacingLabel: '3.3 ft apart, elevated', angleLabel: '30° apart, angled in',
+            monoLabel: 'Good — moderate coincidence', monoPct: 65,
+          },
+          blumlein: {
+            id: 'blumlein', label: 'Blumlein',
+            mics: [
+              { tag: 'Left', xOffsetM: -0.01, distM: 1.3, yawOffsetDeg: -45 },
+              { tag: 'Right', xOffsetM: 0.01, distM: 1.3, yawOffsetDeg: 45 },
+            ],
+            spacingLabel: '~0 in (coincident)', angleLabel: '90° crossed, figure-8s',
+            monoLabel: 'Excellent — phase-coherent, captures the room behind too', monoPct: 97,
+          },
+          decca: {
+            id: 'decca', label: 'Decca Tree',
+            mics: [
+              { tag: 'Left', xOffsetM: -1, distM: 2, yawOffsetDeg: 0 },
+              { tag: 'Center', xOffsetM: 0, distM: 1.5, yawOffsetDeg: 0 },
+              { tag: 'Right', xOffsetM: 1, distM: 2, yawOffsetDeg: 0 },
+            ],
+            spacingLabel: '6.5 ft L–R, center forward', angleLabel: '0° (parallel omnis)',
+            monoLabel: 'Good — wide but center-anchored', monoPct: 60,
+          },
+          outrigger: {
+            id: 'outrigger', label: 'Outrigger',
+            mics: [
+              { tag: 'Left', xOffsetM: -1.8, distM: 1.5, yawOffsetDeg: -10 },
+              { tag: 'Right', xOffsetM: 1.8, distM: 1.5, yawOffsetDeg: 10 },
+            ],
+            spacingLabel: '11.8 ft apart (wide)', angleLabel: '20° apart, slight toe-in',
+            monoLabel: 'Fair — wide spacing risks phase issues', monoPct: 35,
+          },
         },
       },
       multi: {
         label: 'Multi Miking',
         mode: 'multi',
-        blurb: 'Several mics on one source at once, each its own channel, balanced together afterward. Toggle layers on and off to hear a multi-miked source as the small mix it really is.',
-        spots: [
-          { id: 'multi-close', tag: 'Close', dist: 0.15, angle: 0, distanceLabel: '6 in', axisLabel: 'On-axis close', character: 'Detail & attack' },
-          { id: 'multi-support', tag: 'Off-axis support', dist: 0.3, angle: 45, distanceLabel: '12 in', axisLabel: 'Off-axis · 45°', character: 'Body & blend' },
-          { id: 'multi-left', tag: 'Overhead L', dist: 1.2, angle: -30, heightM: 2.1, distanceLabel: '4 ft', axisLabel: 'Spaced pair (left)', character: 'Stereo width' },
-          { id: 'multi-right', tag: 'Overhead R', dist: 1.2, angle: 30, heightM: 2.1, distanceLabel: '4 ft', axisLabel: 'Spaced pair (right)', character: 'Stereo width' },
-          { id: 'multi-room', tag: 'Room', dist: 2.4, angle: 110, heightM: 1.9, distanceLabel: '8 ft', axisLabel: 'Distant, off-axis', character: 'Ambience & glue' },
-        ],
+        blurb: 'Several mics on one source at once, each its own channel, balanced together afterward. Toggle layers on and off to hear a multi-miked source as the small mix it really is. Layer options below follow real multi-mic setups for the selected source — Snare, Kick, and Amp each get their own textbook layout; every other source keeps a generic close/support/overhead/room spread.',
+        // Layers are source-specific (unlike every other technique's
+        // `spots`, which are the same regardless of source) because real
+        // multi-mic setups genuinely differ per instrument — a snare gets
+        // top+bottom, a kick gets in+out, a guitar amp gets close pair +
+        // room. `default` is the fallback for any source without its own
+        // entry (Vocal, Guitar, Ethnic Instrument) so nothing regresses for
+        // those — see activePlacements()'s 'multi' branch and
+        // refreshTechniqueUI's layer-row rebuild.
+        spotsBySource: {
+          snare: [
+            { id: 'snare-top', tag: 'Top', dist: 0.05, angle: 45, distanceLabel: '2 in above rim', axisLabel: 'Off-axis · 45°', character: 'Crack & stick attack' },
+            { id: 'snare-bottom', tag: 'Bottom', dist: 0.06, angle: 0, heightM: 0.24, distanceLabel: '2 in under the snares', axisLabel: 'Underneath, on the wires', character: 'Buzz & snap — usually phase-flipped against the top mic' },
+          ],
+          kick: [
+            { id: 'kick-in', tag: 'In', dist: 0.05, angle: 0, distanceLabel: '2 in inside shell', axisLabel: 'On-axis into beater', character: 'Punch & attack' },
+            { id: 'kick-out', tag: 'Out', dist: 0.5, angle: 0, distanceLabel: '18 in outside port', axisLabel: 'On-axis, outside shell', character: 'Roundness & low-end body' },
+          ],
+          amp: [
+            { id: 'amp-close-on', tag: 'Close on-axis', dist: 0.03, angle: 0, distanceLabel: 'On the grille · on-axis', axisLabel: 'On-axis · 0°', character: 'Brightest, most present tone' },
+            { id: 'amp-close-off', tag: 'Close off-axis', dist: 0.03, angle: 40, distanceLabel: 'On the grille · off-axis', axisLabel: 'Off-axis · 40°', character: 'Warmer, less fizz/harshness' },
+            { id: 'amp-room', tag: 'Room', dist: 2, angle: 30, heightM: 1.3, distanceLabel: '~7 ft back', axisLabel: 'Room, off-axis', character: 'Ambience & natural decay' },
+          ],
+          default: [
+            { id: 'multi-close', tag: 'Close', dist: 0.15, angle: 0, distanceLabel: '6 in', axisLabel: 'On-axis close', character: 'Detail & attack' },
+            { id: 'multi-support', tag: 'Off-axis support', dist: 0.3, angle: 45, distanceLabel: '12 in', axisLabel: 'Off-axis · 45°', character: 'Body & blend' },
+            { id: 'multi-left', tag: 'Overhead L', dist: 1.2, angle: -30, heightM: 2.1, distanceLabel: '4 ft', axisLabel: 'Spaced pair (left)', character: 'Stereo width' },
+            { id: 'multi-right', tag: 'Overhead R', dist: 1.2, angle: 30, heightM: 2.1, distanceLabel: '4 ft', axisLabel: 'Spaced pair (right)', character: 'Stereo width' },
+            { id: 'multi-room', tag: 'Room', dist: 2.4, angle: 110, heightM: 1.9, distanceLabel: '8 ft', axisLabel: 'Distant, off-axis', character: 'Ambience & glue' },
+          ],
+        },
       },
     };
 
@@ -705,7 +817,7 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       micType: 'dynamic',
       placementId: 'close-2in', // close/spot/distant: single active spot
       layerIds: new Set(['multi-close']), // multi: toggled active layers
-      presetId: 'spaced', // stereo
+      presetId: 'ab', // stereo
     };
 
     const sourceGroup = new THREE.Group();
@@ -749,35 +861,33 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
         return [{ ...spot, pos: computeSpotPosition(sourcePos, spot.dist + clearance, spot.angle, spot.heightM, sourceDef.aimHeight) }];
       }
       if (def.mode === 'multi') {
-        return def.spots
+        const spots = def.spotsBySource[state.sourceType] || def.spotsBySource.default;
+        return spots
           .filter((s) => state.layerIds.has(s.id))
           .map((spot) => ({ ...spot, pos: computeSpotPosition(sourcePos, spot.dist + clearance, spot.angle, spot.heightM, sourceDef.aimHeight) }));
       }
       if (def.mode === 'stereo') {
+        // Generalized over `preset.mics` (2 capsules for most presets, 3
+        // for Decca Tree's L/C/R) instead of a hardcoded left/right pair —
+        // see the TECHNIQUES.stereo header comment for the per-mic shape.
         const preset = def.presets[state.presetId];
-        const half = preset.pairSeparationM / 2;
-        const z = sourcePos.z - (preset.centerDist + clearance);
         const y = sourceDef.aimHeight + 0.15;
-        return [
-          {
-            id: 'stereo-a', tag: 'Left capsule', angle: -preset.yawSplitDeg,
-            distanceLabel: `${preset.centerDist.toFixed(1)} m out`, axisLabel: 'Left channel', character: preset.label,
-            pos: new THREE.Vector3(sourcePos.x - half, y, z),
-          },
-          {
-            id: 'stereo-b', tag: 'Right capsule', angle: preset.yawSplitDeg,
-            distanceLabel: `${preset.centerDist.toFixed(1)} m out`, axisLabel: 'Right channel', character: preset.label,
-            pos: new THREE.Vector3(sourcePos.x + half, y, z),
-          },
-        ];
+        return preset.mics.map((mic, i) => {
+          const distM = mic.distM + clearance;
+          return {
+            id: `${preset.id}-${i}`, tag: `${mic.tag} capsule`, yawOffsetDeg: mic.yawOffsetDeg || 0,
+            distanceLabel: `${distM.toFixed(1)} m out`, axisLabel: `${mic.tag} channel`, character: preset.label,
+            pos: new THREE.Vector3(sourcePos.x + (mic.xOffsetM || 0), mic.heightM != null ? mic.heightM : y, sourcePos.z - distM),
+          };
+        });
       }
       return [];
     }
 
     // Builds one mic rig (stand/contact-surface + head + body + aim
-    // indicator) at `placement.pos`, yawed to face the source head-on
-    // (placement.angle only moved where the rig sits, not which way it's
-    // turned — see the TECHNIQUES/yawToFace comments above) — same
+    // indicator) at `placement.pos`, yawed to face the source head-on, plus
+    // `placement.yawOffsetDeg` of extra rotation on top when the placement
+    // needs one (see the TECHNIQUES/yawToFace comments above) — same
     // body-building code as MikingRoom's buildMicRig(), just parameterized
     // per-rig instead of operating on one fixed global rig. No
     // polar-pattern lobe here (see the header comment — pattern isn't
@@ -785,11 +895,17 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
     // the capsule faces, and a fixed-appearance coverage beam to the source
     // (no gain math to modulate it by, since there's no pattern to compute
     // gain from).
+    //
+    // `yawOffsetDeg` only exists for Stereo Miking's paired/tripled capsules
+    // (AB/XY/M-S/ORTF/Overhead/Blumlein/Decca Tree/Outrigger all cross or
+    // spread their capsules by a specific angle — that angle IS the
+    // technique). Every other technique leaves it unset, so those rigs
+    // point exactly at the source with nothing added, per the earlier fix.
     function buildOneMicRig(typeDef, placement, sourcePos, accent, accentStrong) {
       const rig = new THREE.Group();
       const capsuleY = !typeDef.hasStand ? 0.36 : placement.pos.y;
       rig.position.set(placement.pos.x, 0, placement.pos.z);
-      rig.rotation.y = yawToFace(placement.pos, sourcePos);
+      rig.rotation.y = yawToFace(placement.pos, sourcePos) + THREE.MathUtils.degToRad(placement.yawOffsetDeg || 0);
 
       if (typeDef.hasStand) addStand(rig, capsuleY);
       else addContactSurface(rig, capsuleY);
@@ -829,22 +945,21 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
         // thickness/opacity — there's no pattern-derived gain left to
         // modulate it by, so it just shows which mic connects to what.
         //
-        // Direction matches the aim arrow above exactly: same head-local -Z
-        // axis, rotated by the same two transforms in the same order
-        // (MIC_TILT around local X first, then the rig's yaw around Y) —
-        // computed here rather than reused from the arrow because the arrow
-        // is a Line/Mesh under `head`, not a plain vector. Since rig.rotation.y
-        // now always points straight at the source (see yawToFace), this
-        // lines the beam up with both the arrow AND the source at once —
-        // MIC_TILT's small fixed downward tilt is the only thing that can
-        // still make it land a bit short of dead-center on the source.
+        // Always a straight line to the source — deliberately NOT reusing
+        // rig.rotation.y here, because that now carries `yawOffsetDeg` for
+        // Stereo Miking's crossed/spread capsules (see buildOneMicRig's
+        // header comment). If the beam followed the capsule's own angle
+        // instead, an X-Y or ORTF pair's beams would shoot off well past
+        // the source instead of visibly connecting to it. For every other
+        // technique (yawOffsetDeg unset) the rig already points exactly at
+        // the source, so this straight line and the aim arrow coincide
+        // anyway — this is the same "beam always reaches the source" model
+        // MikingRoom uses for its own (always-fixed) boresight arrow.
         const beamStart = new THREE.Vector3(rig.position.x, capsuleY, rig.position.z);
-        const beamDir = new THREE.Vector3(0, 0, -1)
-          .applyAxisAngle(new THREE.Vector3(1, 0, 0), MIC_TILT)
-          .applyAxisAngle(new THREE.Vector3(0, 1, 0), rig.rotation.y);
-        const beamLen = beamStart.distanceTo(sourcePos);
+        const beamEnd = sourcePos;
+        const beamDir = beamEnd.clone().sub(beamStart).normalize();
+        const beamLen = beamStart.distanceTo(beamEnd);
         if (beamLen > 0.001) {
-          const beamEnd = beamStart.clone().addScaledVector(beamDir, beamLen);
           const beamRadiusMic = 0.02;
           const beamRadiusSrc = beamRadiusMic * 0.32;
           const beamGeo = new THREE.CylinderGeometry(beamRadiusSrc, beamRadiusMic, beamLen, 12, 1, true);
@@ -867,10 +982,6 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
           const capMat = new THREE.MeshBasicMaterial({ color: accentStrong, transparent: true, opacity: 0.9, depthWrite: false });
           const capMic = new THREE.Mesh(new THREE.SphereGeometry(beamRadiusMic * 1.4, 12, 10), capMat);
           capMic.position.copy(beamStart);
-          // Marks where the beam's aim actually lands — coincides with
-          // sourcePos only when the mic is on-axis; for off-axis
-          // placements this is deliberately offset from the source,
-          // same as the arrow it's now aligned with.
           const capSrc = new THREE.Mesh(new THREE.SphereGeometry(beamRadiusSrc * 1.8, 10, 8), capMat);
           capSrc.position.copy(beamEnd);
           beamsGroup.add(capMic, capSrc);
@@ -971,6 +1082,27 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       });
     }
 
+    // Multi Miking's layers are per-source (see TECHNIQUES.multi's header
+    // comment) rather than fixed like every other technique's `spots`, so
+    // — same reasoning as rebuildPlacementRow above — the layer row's
+    // buttons have to be rebuilt from source+technique, not just re-marked.
+    // Keyed on both because switching source while already on Multi Miking
+    // needs a rebuild too (e.g. Vocal's generic 5 layers -> Snare's 2).
+    let layerRowKey = null;
+    function rebuildLayerRow(key, spots) {
+      if (layerRowKey === key) return;
+      layerRowKey = key;
+      layerRow.innerHTML = '';
+      spots.forEach((spot) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'mtr-pill mtr-pill-layer';
+        btn.setAttribute('data-layer', spot.id);
+        btn.textContent = spot.tag;
+        layerRow.appendChild(btn);
+      });
+    }
+
     function refreshTechniqueUI() {
       const def = TECHNIQUES[state.technique];
       setPillState(techniqueRow, state.technique, 'data-technique');
@@ -980,7 +1112,17 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
         rebuildPlacementRow(state.technique, def.spots);
         setPillState(placementRow, state.placementId, 'data-placement');
       }
-      if (def.mode === 'multi') setPillMultiState(layerRow, state.layerIds, 'data-layer');
+      if (def.mode === 'multi') {
+        const spots = def.spotsBySource[state.sourceType] || def.spotsBySource.default;
+        rebuildLayerRow(`${state.technique}:${state.sourceType}`, spots);
+        // If none of the currently-active layers exist in this source's
+        // set (e.g. Vocal's 'multi-close' after switching to Snare), fall
+        // back to just the first layer — same "always land on something
+        // valid" rule as the single-mode placementId reset just above.
+        const hasValidLayer = Array.from(state.layerIds).some((id) => spots.some((s) => s.id === id));
+        if (!hasValidLayer) state.layerIds = new Set([spots[0].id]);
+        setPillMultiState(layerRow, state.layerIds, 'data-layer');
+      }
       if (def.mode === 'stereo') setPillState(presetRow, state.presetId, 'data-preset');
       refreshControlsVisibility();
     }
@@ -1367,23 +1509,12 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
 
           <div className="mtr-ctrl-row" hidden>
             <span className="mtr-ctrl-label">Layers</span>
-            <div className="mtr-pill-row" ref={layerRowRef}>
-              <button className="mtr-pill mtr-pill-layer" type="button" data-layer="multi-close">
-                Close
-              </button>
-              <button className="mtr-pill mtr-pill-layer" type="button" data-layer="multi-support">
-                Off-axis support
-              </button>
-              <button className="mtr-pill mtr-pill-layer" type="button" data-layer="multi-left">
-                Overhead L
-              </button>
-              <button className="mtr-pill mtr-pill-layer" type="button" data-layer="multi-right">
-                Overhead R
-              </button>
-              <button className="mtr-pill mtr-pill-layer" type="button" data-layer="multi-room">
-                Room
-              </button>
-            </div>
+            {/* Rebuilt in JS per source+technique (see rebuildLayerRow) —
+                Snare/Kick/Amp get their own real-world layer sets, every
+                other source keeps the generic 5. Starts empty; whatever's
+                here at mount never renders since this row stays hidden
+                until Multi Miking is selected. */}
+            <div className="mtr-pill-row" ref={layerRowRef} />
             <button className="mtr-pill mtr-pill-muted" type="button" ref={clearLayersBtnRef}>
               Clear
             </button>
@@ -1392,9 +1523,14 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
           <div className="mtr-ctrl-row" hidden>
             <span className="mtr-ctrl-label">Stereo preset</span>
             <div className="mtr-pill-row" ref={presetRowRef}>
-              <button className="mtr-pill" type="button" data-preset="spaced">Spaced Pair</button>
+              <button className="mtr-pill" type="button" data-preset="ab">AB (Spaced Pair)</button>
               <button className="mtr-pill" type="button" data-preset="xy">X-Y</button>
+              <button className="mtr-pill" type="button" data-preset="ms">M-S</button>
               <button className="mtr-pill" type="button" data-preset="ortf">ORTF</button>
+              <button className="mtr-pill" type="button" data-preset="overhead">Overhead</button>
+              <button className="mtr-pill" type="button" data-preset="blumlein">Blumlein</button>
+              <button className="mtr-pill" type="button" data-preset="decca">Decca Tree</button>
+              <button className="mtr-pill" type="button" data-preset="outrigger">Outrigger</button>
             </div>
           </div>
 

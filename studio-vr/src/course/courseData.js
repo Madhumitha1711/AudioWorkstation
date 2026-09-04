@@ -582,6 +582,29 @@ export const TOPICS = [
   },
 ];
 
+// Kinds of interactive activity that get different treatment than a
+// normal `topic.interactive` step: instead of getting their own entry in
+// the sidebar (see buildStepList below and InteractiveSection.jsx), a
+// chapter whose `interactive.kind` is one of these gets a button at the
+// top of its content instead — shown regardless of which lesson/step
+// within the chapter is active — that opens the same lab full-panel, in a
+// dialog over the entire course page (topbar + sidebar + content — see
+// LabButtonDialog.jsx and CoursePage.jsx's `labButton`).
+//
+// Both are the big 3D-room labs (MikingRoom/MicTechniqueRoom, behind
+// MicPlacementLab.jsx/MicTechniqueLab.jsx) — they want more space than a
+// lesson's normal flow, or even a full standalone Lab step, gives them.
+//
+// Matched by `kind` rather than by topic id/slug: which chapter a lab is
+// attached to is authored in studio-cms and can drift from this file's own
+// legacy TOPICS entries above (e.g. the "Microphones" chapter actually
+// live in studio-cms doesn't necessarily share chapter 6's "mic-stand" id
+// here, or its "capture-signal-path" module — content editors are free to
+// re-slug/re-group a chapter without this file knowing). Keying off the
+// lab's own `kind` instead means this keeps working no matter which
+// chapter/module a lab ends up attached to in the CMS.
+export const CHAPTER_LEVEL_LAB_KINDS = new Set(["mic-placement-lab", "mic-technique-lab"]);
+
 // Flattens every ready topic's lessons + assessment + interactive step into
 // one ordered list so the course can support linear "Previous / Next"
 // navigation across the whole curriculum, not just within a topic.
@@ -592,7 +615,12 @@ export function buildStepList(topics) {
     topic.lessons.forEach((lesson) => {
       steps.push({ kind: "lesson", topicId: topic.id, id: lesson.id, data: lesson });
     });
-    if (topic.interactive) {
+    // A chapter-level lab (see CHAPTER_LEVEL_LAB_KINDS above) is rendered
+    // as a top-of-chapter button + dialog instead — CoursePage.jsx reads
+    // it straight off `topic.interactive`, so it's deliberately left out
+    // of the step list here rather than also appearing as its own
+    // sidebar step.
+    if (topic.interactive && !CHAPTER_LEVEL_LAB_KINDS.has(topic.interactive.kind)) {
       steps.push({
         kind: "interactive",
         topicId: topic.id,

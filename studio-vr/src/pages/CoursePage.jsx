@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { buildStepList, firstStepIdForTopic } from "../course/courseData";
+import { buildStepList, firstStepIdForTopic, CHAPTER_LEVEL_LAB_KINDS } from "../course/courseData";
 import { useCourseTopics } from "../course/useCourseTopics";
 import AssessmentSection from "../course/AssessmentSection";
 import InteractiveSection from "../course/InteractiveSection";
 import SectionBlocks from "../course/SectionBlocks";
+import LabButtonDialog from "../course/LabButtonDialog";
 import { ROOMS } from "../panorama/roomsData";
 import "./CoursePage.css";
 
@@ -88,6 +89,7 @@ function CoursePage() {
   const [openModules, setOpenModules] = useState(() => new Set());
   const [activeStepId, setActiveStepId] = useState(null);
   const [completed, setCompleted] = useState(() => new Set());
+  const [labDialogOpen, setLabDialogOpen] = useState(false);
 
   useEffect(() => {
     if (hasInitialized || STEPS.length === 0) return;
@@ -105,6 +107,26 @@ function CoursePage() {
   const activeIndex = STEPS.findIndex((s) => s.id === activeStepId);
   const activeStep = STEPS[activeIndex] ?? STEPS[0];
   const activeTopic = (topics ?? []).find((t) => t.id === activeStep?.topicId);
+
+  // Chapter-level lab (see courseData.js's CHAPTER_LEVEL_LAB_KINDS) — read
+  // straight off whatever `topic.interactive` studio-backend/studio-cms
+  // actually sent for the active chapter, the same object a normal Lab
+  // step would otherwise be built from (see buildStepList), just matched
+  // by its `kind` instead of being keyed to a particular chapter id. Not a
+  // step itself (buildStepList leaves it out on purpose), so it never
+  // shows up in STEPS/the sidebar — CoursePage renders it directly, below.
+  const labButton =
+    activeTopic?.interactive && CHAPTER_LEVEL_LAB_KINDS.has(activeTopic.interactive.kind)
+      ? activeTopic.interactive
+      : undefined;
+
+  // A chapter's lab dialog shouldn't stay open across a topic switch —
+  // reset it the moment the active topic changes instead of leaving the
+  // next chapter's content behind a still-open dialog for the previous
+  // one's lab.
+  useEffect(() => {
+    setLabDialogOpen(false);
+  }, [activeTopic?.id]);
 
   const stepsInTopic = useMemo(
     () => STEPS.filter((s) => s.topicId === activeTopic?.id),
@@ -375,7 +397,26 @@ function CoursePage() {
               {activeTopic.number ? (
                 <div className="topic-eyebrow">Chapter {activeTopic.number}</div>
               ) : null}
-              <h1 className="topic-heading">{activeTopic.title}</h1>
+              {/* Chapter-level lab (see courseData.js's
+                  CHAPTER_LEVEL_LAB_KINDS) — sits inline with the chapter
+                  title, shown regardless of which lesson/step within the
+                  chapter is active, instead of getting its own entry in
+                  the sidebar's step list the way a topic.interactive step
+                  normally would (see InteractiveSection.jsx). Opens
+                  LabButtonDialog full-panel rather than swapping into
+                  .course-content the way every other step does. */}
+              <div className="topic-heading-row">
+                <h1 className="topic-heading">{activeTopic.title}</h1>
+                {labButton && (
+                  <button
+                    type="button"
+                    className="btn-primary chapter-lab-btn"
+                    onClick={() => setLabDialogOpen(true)}
+                  >
+                    {labButton.title}
+                  </button>
+                )}
+              </div>
               {activeTopic.hotspotId && (
                 <div className="loc-chip anchored">
                   📍 Anchored —{" "}
@@ -498,6 +539,15 @@ function CoursePage() {
           )}
         </main>
       </div>
+
+      {labButton && (
+        <LabButtonDialog
+          open={labDialogOpen}
+          title={labButton.title}
+          kind={labButton.kind}
+          onClose={() => setLabDialogOpen(false)}
+        />
+      )}
     </div>
   );
 }
