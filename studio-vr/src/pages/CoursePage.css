@@ -310,6 +310,12 @@
   .module-topics {
     display: none;
     flex-direction: column;
+    /* Small step-in from the module header's own left edge (22px, same as
+       .module-head's padding) so a module's chapters read as nested
+       underneath it rather than sitting flush with it — the same kind of
+       indent .lesson-list below already uses to nest lessons under a
+       chapter, just a smaller step for this shallower level of nesting. */
+    padding-left: 10px;
   }
   .module-topics.open {
     display: flex;
@@ -496,12 +502,19 @@
     text-transform: uppercase;
     margin-bottom: 8px;
   }
+  /* Keeps the chapter-lab button (see .chapter-lab-btn) pinned to the
+     title's own line no matter how long that title runs — nowrap here,
+     .topic-heading below shrinking + ellipsizing instead of wrapping,
+     rather than flex-wrap pushing the button down to a second line the
+     way justify-content: space-between + wrap used to. Long titles still
+     get their full text back below 960px (see that media query), where
+     the sidebar/main columns have already stacked and there's vertical
+     room to spare. */
   .topic-heading-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 14px;
+    flex-wrap: nowrap;
+    gap: 16px;
     margin: 0 0 10px;
   }
   .topic-heading {
@@ -510,6 +523,11 @@
     font-weight: 800;
     margin: 0;
     letter-spacing: -0.01em;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .loc-chip {
@@ -547,10 +565,16 @@
     width: 120px;
   }
 
+  /* A touch smaller/tighter than the standard .btn-primary (e.g. "Back to
+     the studio") so it reads as a secondary-but-clear action sitting next
+     to a 30px heading rather than competing with it — and never shrinks
+     or wraps its own label, so it stays a stable, predictable width for
+     .topic-heading to ellipsize around. */
   .chapter-lab-btn {
-    flex-shrink: 0;
-    font-size: 14px;
-    padding: 13px 26px;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-size: 13px;
+    padding: 10px 20px;
   }
 
   /* Shared duration/label pill — used by VideoPlayer's "coming soon"
@@ -728,6 +752,19 @@
       height: auto;
       overflow-y: visible;
       padding: 28px 22px 70px;
+    }
+    /* Narrow enough that keeping the lab button glued to the title's line
+       would either truncate a long chapter title down to almost nothing
+       or crowd the button itself — there's already extra vertical room
+       here from the columns stacking above, so trade the single-line
+       layout for a wrapped one and give the title its full text back. */
+    .topic-heading-row {
+      flex-wrap: wrap;
+    }
+    .topic-heading {
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
     }
   }
 }

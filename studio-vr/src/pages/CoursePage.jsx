@@ -406,7 +406,14 @@ function CoursePage() {
                   LabButtonDialog full-panel rather than swapping into
                   .course-content the way every other step does. */}
               <div className="topic-heading-row">
-                <h1 className="topic-heading">{activeTopic.title}</h1>
+                {/* title attribute backs up the ellipsis truncation
+                    above (CoursePage.css's .topic-heading) with a native
+                    tooltip, so a long chapter title is never fully
+                    unreadable just because the lab button needs to share
+                    its line. */}
+                <h1 className="topic-heading" title={activeTopic.title}>
+                  {activeTopic.title}
+                </h1>
                 {labButton && (
                   <button
                     type="button"
