@@ -295,17 +295,12 @@
    and the click target are obvious at a glance instead of relying on a
    tiny highlighted dot.
 
-   Pinned to the dark palette: this pill re-declares the --shell-* tokens it
-   reads (below and in .svr-tour-room-toggle__opt) to fixed dark literals
-   instead of inheriting whatever :root[data-theme] currently has them set
-   to, so the Control Room / Recording Room switcher no longer follows the
-   site-wide light theme. */
+   Follows the site-wide theme: reads the live --shell-panel-hover/
+   --shell-border/--shell-text-dimmer/--shell-text-dim tokens from
+   :root[data-theme] (index.css) instead of pinning its own fixed dark
+   literals, so the pill (and its "Recording Room" label, which was
+   rendering white-on-white) stays legible in light mode too. */
 .svr-tour-room-toggle {
-  --shell-panel-hover: rgba(255, 255, 255, 0.08);
-  --shell-border: rgba(255, 255, 255, 0.12);
-  --shell-text-dimmer: rgba(255, 255, 255, 0.45);
-  --shell-text-dim: rgba(255, 255, 255, 0.65);
-
   display: flex;
   align-items: center;
   gap: 2px;

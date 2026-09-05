@@ -323,7 +323,7 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
 
     const MIC_TILT = -0.18; // slight downward angle, like a mic clipped on a boom stand
     const MIC_BODY_SCALE = 1.6; // mics are small — scale the body up so it reads clearly next to its own pattern lobe
-    const LOBE_SCALE = 0.32; // kept modest so it doesn't swallow sources placed at the Close/Spot positions
+    const LOBE_SCALE = 0.52; // bigger reference size for the pattern lobe (was 0.32) - ok to reach past the Close spot (0.3m) now that the lobe is a soft, sparse-ring glow rather than a solid mesh
 
     // Soft white-to-transparent radial gradient, shared by every glow decal
     // (mic pattern glow, contact-mic surface glow) — tinted per-use via the
@@ -460,6 +460,24 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
       },
     ];
 
+    // Builds this pattern's lobe as a true rotationally-symmetric 3D solid
+    // around the mic's forward (aim) axis: gainFn(t) (t = angle off-axis,
+    // 0 = straight ahead) sets the radius at each angle, revolved via
+    // THREE.LatheGeometry. This is a real "polar balloon" - the same shape
+    // audio textbooks show, just solid rather than a flat 2D plot.
+    //
+    // Tried, and reverted, in between: reshaping a plain vertical dome's
+    // horizontal cross-section by gainFn so the shape reads from above.
+    // That fixed one problem (a *horizontal ring* traced on THIS
+    // forward-pointing solid is always a circle, no matter the pattern -
+    // see the guide-line comment below for why that matters) but created
+    // a worse one: at this room's actual camera angle - fairly low/
+    // grazing, not top-down - a shallow vertical dome foreshortens into a
+    // near-flat wedge for every pattern, which is what "broken" was. This
+    // forward-pointing solid doesn't have that problem: from a
+    // reasonably oblique angle (which is what this camera actually gives,
+    // ~60° off the mic's own aim axis by default) it reads as a proper
+    // rounded 3D lobe, heart-pinched or figure-8'd on the correct side.
     function buildLobeGeometry(gainFn, segments, scale) {
       const profile = [];
       const STEPS = 48;
@@ -555,6 +573,20 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
 
       const accent = token('--mkr-accent', '#a8672a');
       const accentStrong = token('--mkr-accent-strong', '#8c521e');
+      // Lighter tint of the brand accent, used only for the pattern lobe
+      // (fill + guide rings below) — the lobe is a coverage *field*, not a
+      // physical part of the mic, so it gets a paler wash rather than the
+      // rig's full-strength accent/accentStrong (still used for the aim
+      // axis/tip/beam, which are fine at full strength since they're thin
+      // lines, not a filled shape). Two separate tints, not one: the fill
+      // can afford to be quite pale since it's a big soft area, but the
+      // guide rings are what actually define the lobe's edge against the
+      // room's light floor/walls (--mkr-room-floor/--mkr-bg are both pale
+      // too), so they only get a slight lighten and a much higher opacity
+      // - a single very-pale tint for both (tried first) nearly vanished
+      // against that light background.
+      const lobeFill = new THREE.Color(accent).lerp(new THREE.Color('#ffffff'), 0.35);
+      const lobeRing = new THREE.Color(accent).lerp(new THREE.Color('#ffffff'), 0.12);
 
       if (typeDef.patterns.length > 0) {
         // The pattern shape stays a fixed reference size at the mic — it
@@ -562,19 +594,46 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
         // reach, so it never balloons out to room-scale for a far spot. A
         // separate thin beam (below) is what actually connects the mic to
         // wherever the source is placed.
-        const lobeGeo = buildLobeGeometry(PATTERNS[micState.pattern].gain, 40, LOBE_SCALE);
+        const gainFn = PATTERNS[micState.pattern].gain;
+        const lobeGeo = buildLobeGeometry(gainFn, 40, LOBE_SCALE);
         const lobeGroup = new THREE.Group();
         lobeGroup.rotation.x = -Math.PI / 2; // lathe's +Y tip -> local -Z (front)
         lobeGroup.add(
           new THREE.Mesh(
             lobeGeo,
-            new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false })
-          ),
-          new THREE.Mesh(
-            lobeGeo,
-            new THREE.MeshBasicMaterial({ color: accentStrong, wireframe: true, transparent: true, opacity: 0.55, depthWrite: false })
+            new THREE.MeshBasicMaterial({ color: lobeFill, transparent: true, opacity: 0.24, side: THREE.DoubleSide, depthWrite: false })
           )
         );
+        // Meridian guide lines — this pattern's actual gain(t) profile (its
+        // real cardioid/figure-8/circle outline), retraced at several
+        // azimuths around the aim axis, like longitude lines on a globe.
+        // This is what actually makes the lobe read as its pattern's shape:
+        // a *lathe* solid of revolution has a circular horizontal
+        // cross-section at every height for ANY profile (that's just what
+        // revolving around an axis means), so a ring drawn that way looks
+        // like a plain circle no matter which pattern is selected — the
+        // "heart" only exists in the profile itself, in a plane through the
+        // axis, which is exactly what a meridian traces.
+        const PROFILE_STEPS = 32;
+        const profilePts = [];
+        for (let i = 0; i <= PROFILE_STEPS; i++) {
+          const t = (i / PROFILE_STEPS) * Math.PI;
+          const r = gainFn(t) * LOBE_SCALE;
+          profilePts.push({ x: Math.max(r * Math.sin(t), 0), y: r * Math.cos(t) });
+        }
+        const MERIDIANS = 6;
+        for (let m = 0; m < MERIDIANS; m++) {
+          const phi = (m / MERIDIANS) * Math.PI * 2;
+          const cosPhi = Math.cos(phi);
+          const sinPhi = Math.sin(phi);
+          const pts = profilePts.map((p) => new THREE.Vector3(p.x * cosPhi, p.y, p.x * sinPhi));
+          lobeGroup.add(
+            new THREE.Line(
+              new THREE.BufferGeometry().setFromPoints(pts),
+              new THREE.LineBasicMaterial({ color: lobeRing, transparent: true, opacity: 0.55, depthWrite: false })
+            )
+          );
+        }
         head.add(lobeGroup);
 
         const axisLen = LOBE_SCALE + 0.08;
@@ -586,7 +645,10 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
         tip.rotation.x = -Math.PI / 2;
         head.add(tip);
 
-        const glow = new THREE.Mesh(new THREE.CircleGeometry(0.3, 32), makeGlowMaterial(accent));
+        // Floor glow radius now tracks LOBE_SCALE (was a fixed 0.3) so it
+        // stays proportional to the bigger lobe instead of looking
+        // undersized next to it.
+        const glow = new THREE.Mesh(new THREE.CircleGeometry(LOBE_SCALE * 0.9, 32), makeGlowMaterial(accent));
         glow.rotation.x = -Math.PI / 2;
         glow.position.set(0, 0.004, 0);
         micRig.add(glow);

@@ -10,11 +10,12 @@
    .svr-tour-gear-panel — the info card that opens when you click a hotspot
    marker directly, in panoramaTour.css. --hsp-* custom property NAMES are
    kept below purely so the ~700 lines of rules further down that already
-   read var(--hsp-*) didn't need touching one by one; their VALUES are now
-   fixed dark literals (copied from --shell-*'s dark defaults in index.css)
-   rather than live references to --shell-*, so this panel deliberately
-   opts out of the site-wide light/dark theme toggle and always renders
-   dark — see the block below for why.
+   read var(--hsp-*) didn't need touching one by one; their VALUES default
+   to the dark palette's literals (matching --shell-*'s dark defaults in
+   index.css), and the :root[data-theme='light'] .svr-hotspot-panel block
+   right after the base rule swaps in that same file's light --shell-*
+   equivalents, so this panel now follows the site-wide light/dark toggle
+   instead of always rendering dark.
 
    Docked left, 30% of the viewer's width, full height. A collapse tab
    (nested inside the panel, positioned just past its right edge — see
@@ -79,6 +80,26 @@
   font-family: var(--sans);
   transform: translateX(0);
   transition: transform 0.25s ease;
+}
+
+/* Light-theme override: mirrors index.css's :root[data-theme='light']
+   --shell-* values into the --hsp-* tokens this panel actually reads, so
+   it repaints for the light theme the same way the rest of the app's
+   chrome does instead of staying pinned dark (see the file-header comment
+   above). --hsp-gold/--hsp-on/--hsp-err/--hsp-gold-wash-rgb etc. are left
+   alone here on purpose - they're brand/status colors, not theme-tied. */
+:root[data-theme='light'] .svr-hotspot-panel {
+  --hsp-void: rgba(255, 255, 255, 0.92);
+  --hsp-panel: rgba(255, 255, 255, 0.92);
+  --hsp-panel-2: rgba(255, 255, 255, 0.92);
+  --hsp-hair: rgba(4, 20, 12, 0.09);
+  --hsp-hair-strong: rgba(4, 20, 12, 0.14);
+  --hsp-text: #0c130f;
+  --hsp-text-dim: rgba(12, 19, 15, 0.7);
+  --hsp-text-faint: rgba(12, 19, 15, 0.5);
+  --hsp-off: rgba(12, 19, 15, 0.5);
+  --hsp-off-bg: rgba(4, 20, 12, 0.05);
+  --hsp-tint-rgb: 12, 19, 15;
 }
 
 .svr-hotspot-panel.is-collapsed {

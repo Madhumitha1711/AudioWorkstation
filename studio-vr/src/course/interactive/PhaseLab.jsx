@@ -42,13 +42,15 @@ function drawPhase(canvas, deg, scroll) {
   c.clearRect(0, 0, w, h);
   const rowH = h / 3;
 
+  const AMP = rowH * 0.36; // per-wave amplitude for the Wave A / Wave B rows
+
   function sineRow(offsetY, phaseDeg, color) {
     c.beginPath();
     c.strokeStyle = color;
     c.lineWidth = 1.5;
     for (let x = 0; x <= w; x++) {
       const t = (x / w) * 4 * Math.PI * 2 + (phaseDeg * Math.PI) / 180 + scroll;
-      const y = offsetY - Math.sin(t) * (rowH * 0.36);
+      const y = offsetY - Math.sin(t) * AMP;
       if (x === 0) c.moveTo(x, y);
       else c.lineTo(x, y);
     }
@@ -57,6 +59,16 @@ function drawPhase(canvas, deg, scroll) {
   sineRow(rowH * 0.5, 0, COLORS.amber);
   sineRow(rowH * 1.5, deg, COLORS.green);
 
+  // Sum row: the true (unnormalized) sum of Wave A + Wave B, not their
+  // average - so it actually reads as a taller wave when the two tones
+  // reinforce (in phase, combined amplitude is ~2x a single wave) and
+  // flattens toward this row's centerline as they cancel near 180°, same
+  // as the acoustic result. Scaled at rowH*0.24 per unit (vs. AMP's 0.36
+  // for a single wave) so the fully-reinforced peak-to-peak swing (the
+  // sum ranges ±2, not ±1) reaches almost to this row's top/bottom edges
+  // without bleeding into the Wave B row above or past the canvas edge
+  // below - both exactly rowH*0.5 away from this row's center.
+  const SUM_UNIT = rowH * 0.24;
   c.beginPath();
   c.strokeStyle = COLORS.blue;
   c.lineWidth = 2;
@@ -64,17 +76,22 @@ function drawPhase(canvas, deg, scroll) {
     const t = (x / w) * 4 * Math.PI * 2 + scroll;
     const y1 = Math.sin(t);
     const y2 = Math.sin(t + (deg * Math.PI) / 180);
-    const y = rowH * 2.5 - ((y1 + y2) / 2) * (rowH * 0.36);
+    const y = rowH * 2.5 - (y1 + y2) * SUM_UNIT;
     if (x === 0) c.moveTo(x, y);
     else c.lineTo(x, y);
   }
   c.stroke();
 
+  // Label baselines sit just above each row's peak; clamp to a minimum so
+  // "WAVE A" - whose row starts right at the canvas top, leaving no room
+  // above it - doesn't get its ascenders clipped off above y=0 the way it
+  // was before this row's peak had never had a "row above" to borrow
+  // headroom from.
   c.fillStyle = COLORS.label;
   c.font = "bold 11px monospace";
-  c.fillText("WAVE A", 8, rowH * 0.5 - rowH * 0.42);
-  c.fillText("WAVE B", 8, rowH * 1.5 - rowH * 0.42);
-  c.fillText("SUM", 8, rowH * 2.5 - rowH * 0.42);
+  c.fillText("WAVE A", 8, Math.max(11, rowH * 0.5 - rowH * 0.42));
+  c.fillText("WAVE B", 8, Math.max(11, rowH * 1.5 - rowH * 0.42));
+  c.fillText("SUM", 8, Math.max(11, rowH * 2.5 - rowH * 0.42));
 }
 
 function PhaseLab({ onInteract }) {
