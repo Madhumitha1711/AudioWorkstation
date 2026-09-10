@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import './MikingRoom.css';
 
 /**
@@ -71,6 +72,8 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
   const sourceTypeRowRef = useRef(null);
   const typeRowRef = useRef(null);
   const patternRowRef = useRef(null);
+  const micTypeBlurbRef = useRef(null);
+  const patternBlurbRef = useRef(null);
 
   // Fires onInteract once, the first time the visitor does something
   // meaningful with the scene — kept as refs (not React state) since the
@@ -92,6 +95,8 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
     const sourceTypeRow = sourceTypeRowRef.current;
     const typeRow = typeRowRef.current;
     const patternRow = patternRowRef.current;
+    const micTypeBlurb = micTypeBlurbRef.current;
+    const patternBlurb = patternBlurbRef.current;
 
     if (!root || !stage || !canvas) return undefined;
 
@@ -308,6 +313,61 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
     }
 
     buildScene();
+
+    // ---- 3D asset loading (public/3D assets/) -----------------------
+    // A handful of instrument types below (SOURCE_TYPES) are dressed with
+    // real scanned/downloaded GLTF models — see the credits in each file's
+    // embedded `asset.extras` (all CC-BY-4.0, via Sketchfab). Every model
+    // arrives in a different native scale/pivot (Sketchfab/FBX exports are
+    // inconsistent unit-wise), so instantiateModel() re-derives real-world
+    // size purely from each model's own runtime bounding box — the
+    // `targetSize` arguments below are metres, independent of whatever
+    // units the source file used. Models are fetched once (modelCache) and
+    // cloned per placement; the anchor stays empty until each model
+    // streams in (or stays empty for good if the fetch ever fails — see
+    // the .catch()s), rather than showing a temporary placeholder shape.
+    // These are the same models/heights used in the companion
+    // <MicTechniqueRoom /> — keep the two in sync if a model changes.
+    const MODEL_BASE = '/3D%20assets/'; // "3D assets" — space is URL-encoded
+    const gltfLoader = new GLTFLoader();
+    const modelCache = new Map(); // url -> Promise<THREE.Object3D> (raw loaded template — always cloned before use, never added to the scene graph directly)
+    let sourceBuildToken = 0; // bumped every buildSourceScene() call so a late-arriving model from an already-abandoned source type is dropped instead of appearing on the wrong instrument
+
+    function loadRawModel(url) {
+      if (!modelCache.has(url)) {
+        modelCache.set(
+          url,
+          new Promise((resolve, reject) => {
+            gltfLoader.load(url, (gltf) => resolve(gltf.scene), undefined, reject);
+          })
+        );
+      }
+      return modelCache.get(url);
+    }
+
+    // Clones the cached template, centers it on X/Z, drops its lowest
+    // point to local y=0, and scales its largest bounding-box dimension to
+    // `targetSize` metres — so callers can treat the returned group's
+    // origin exactly like any procedurally-built group's floor/mount
+    // anchor. `rotationY` is a per-asset fudge factor for whichever way
+    // the source file happened to be facing when it was authored — tweak
+    // it (in the SOURCE_TYPES config just below) after eyeballing the
+    // model in `npm run dev` if it's facing the wrong way.
+    function instantiateModel(filename, targetSize, rotationY = 0) {
+      return loadRawModel(MODEL_BASE + filename).then((original) => {
+        const clone = original.clone(true);
+        const box = new THREE.Box3().setFromObject(clone);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+        clone.position.set(-center.x, -box.min.y, -center.z);
+        const wrapper = new THREE.Group();
+        wrapper.add(clone);
+        wrapper.scale.setScalar(targetSize / maxDim);
+        wrapper.rotation.y = rotationY;
+        return wrapper;
+      });
+    }
 
     // ---- Mic rig: type + polar pattern, highlighted in place ----
     const micRig = new THREE.Group();
@@ -728,6 +788,7 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
 
       setPillState(typeRow, micState.type, 'data-type');
       setPillState(patternRow, micState.pattern, 'data-pattern');
+      if (micTypeBlurb) micTypeBlurb.textContent = typeDef.blurb;
 
       Array.prototype.forEach.call(patternRow.children, (btn) => {
         const pid = btn.getAttribute('data-pattern');
@@ -739,6 +800,11 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
             ? ''
             : 'Not modeled for this mic type';
       });
+      if (patternBlurb) {
+        patternBlurb.textContent = isContact
+          ? 'Not applicable — contact mics sense vibration through direct contact with a surface, not an air-facing pattern.'
+          : (PATTERNS[micState.pattern] ? PATTERNS[micState.pattern].blurb : '');
+      }
 
       buildMicRig();
     }
@@ -775,17 +841,8 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
     // rather than one re-skinned prop.
     const SRC_METAL = new THREE.MeshStandardMaterial({ color: '#aab1b4', roughness: 0.35, metalness: 0.5 });
 
-    const GUITAR_BODY_MAT = new THREE.MeshStandardMaterial({ color: '#c9922f', roughness: 0.42, metalness: 0 }); // spruce/amber top
-    const GUITAR_NECK_MAT = new THREE.MeshStandardMaterial({ color: '#4a2c1a', roughness: 0.55, metalness: 0 }); // rosewood neck
-
     const AMP_CAB_MAT = new THREE.MeshStandardMaterial({ color: '#5c2226', roughness: 0.8, metalness: 0 }); // oxblood tolex
     const AMP_GRILLE_MAT = new THREE.MeshStandardMaterial({ color: '#181513', roughness: 0.7, metalness: 0.05 }); // black cloth
-
-    const SNARE_SHELL_MAT = new THREE.MeshStandardMaterial({ color: '#cfd4d6', roughness: 0.22, metalness: 0.85 }); // polished steel
-    const SNARE_HEAD_MAT = new THREE.MeshStandardMaterial({ color: '#f1ece0', roughness: 0.55, metalness: 0 }); // coated mylar
-
-    const KICK_SHELL_MAT = new THREE.MeshStandardMaterial({ color: '#6d2a1f', roughness: 0.5, metalness: 0 }); // mahogany wrap
-    const KICK_HEAD_MAT = new THREE.MeshStandardMaterial({ color: '#1c1a18', roughness: 0.5, metalness: 0 }); // black batter head
 
     const ETHNIC_BODY_MAT = new THREE.MeshStandardMaterial({ color: '#8a4a2a', roughness: 0.68, metalness: 0 }); // carved hardwood
     const ETHNIC_HEAD_MAT = new THREE.MeshStandardMaterial({ color: '#d9b98c', roughness: 0.6, metalness: 0 }); // rawhide
@@ -829,21 +886,16 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
         },
       },
       {
-        id: 'guitar', label: 'Guitar', aimHeight: 0.72,
+        id: 'guitar', label: 'Guitar', aimHeight: 0.48,
         blurb: 'Close- or spot-miked around the 12th fret, sometimes blended with a room mic for body.',
-        build(g) {
-          const base = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.02, 20), SRC_METAL);
-          base.position.y = 0.01;
-          const post = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.2, 10), SRC_METAL);
-          post.position.y = 0.11;
-          const bodyGeo = new THREE.SphereGeometry(0.22, 20, 16);
-          bodyGeo.scale(1, 1.05, 0.32);
-          const body = new THREE.Mesh(bodyGeo, GUITAR_BODY_MAT);
-          body.position.y = 0.44;
-          const neck = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.56, 0.04), GUITAR_NECK_MAT);
-          neck.position.set(0, 0.94, 0.02);
-          neck.rotation.x = 0.1;
-          g.add(base, post, body, neck);
+        build(g, token) {
+          // rotationY = Math.PI — the model faces away from the mic by default; flipped 180° to face it.
+          instantiateModel('electric_guitar.glb', 1.05, Math.PI)
+            .then((model) => {
+              if (token !== sourceBuildToken || cancelled) return;
+              g.add(model);
+            })
+            .catch((err) => console.error('[MikingRoom] electric_guitar.glb failed to load', err));
         },
       },
       {
@@ -858,40 +910,47 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
         },
       },
       {
-        id: 'snare', label: 'Snare', aimHeight: 0.54,
+        id: 'snare', label: 'Snare', aimHeight: 0.59,
         blurb: 'Multi-miked top and bottom, the two capsules combined and checked for phase.',
-        build(g) {
-          const base = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.02, 20), SRC_METAL);
-          base.position.y = 0.01;
-          const post = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.33, 10), SRC_METAL);
-          post.position.y = 0.18;
-          const shell = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.14, 24), SNARE_SHELL_MAT);
-          shell.position.y = 0.42;
-          const headTop = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.012, 24), SNARE_HEAD_MAT);
-          headTop.position.y = 0.49;
-          g.add(base, post, shell, headTop);
+        build(g, token) {
+          instantiateModel('generic_snare_drum_with_tama_stagemaster_stand.glb', 0.6, 0)
+            .then((model) => {
+              if (token !== sourceBuildToken || cancelled) return;
+              g.add(model);
+            })
+            .catch((err) => console.error('[MikingRoom] generic_snare_drum_with_tama_stagemaster_stand.glb failed to load', err));
         },
       },
       {
-        id: 'kick', label: 'Kick', aimHeight: 0.4,
+        id: 'kick', label: 'Kick', aimHeight: 0.31,
         blurb: 'Miked in and out — one capsule inside the shell, one outside for club and body.',
-        build(g) {
-          const shell = new THREE.Mesh(zCylSrc(0.3, 0.3, 0.45), KICK_SHELL_MAT);
-          shell.position.y = 0.3;
-          const head = new THREE.Mesh(zCylSrc(0.29, 0.29, 0.012), KICK_HEAD_MAT);
-          head.position.set(0, 0.3, -0.23);
-          g.add(shell, head);
+        build(g, token) {
+          // A full kit — mic'ing "the kick" realistically happens in the
+          // context of a whole kit anyway, and this lab's kick-in/kick-out
+          // treatment is still anchored at this same source position
+          // regardless of which mesh renders here.
+          instantiateModel('drum_kit.glb', 1.4, 0)
+            .then((model) => {
+              if (token !== sourceBuildToken || cancelled) return;
+              g.add(model);
+            })
+            .catch((err) => console.error('[MikingRoom] drum_kit.glb failed to load', err));
         },
       },
       {
         id: 'ethnic', label: 'Ethnic Instrument', aimHeight: 0.6,
         blurb: 'Solo ethnic and hand-percussion instruments are usually close-miked to capture detail without bleed.',
-        build(g) {
-          const body = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.09, 0.58, 20), ETHNIC_BODY_MAT);
-          body.position.y = 0.29;
-          const head = new THREE.Mesh(new THREE.CylinderGeometry(0.245, 0.245, 0.02, 20), ETHNIC_HEAD_MAT);
-          head.position.y = 0.59;
-          g.add(body, head);
+        build(g, token) {
+          // A full kit — mic'ing "the kick" realistically happens in the
+          // context of a whole kit anyway, and the kick-in/kick-out
+          // placements below are still anchored at this same source
+          // position regardless of which mesh renders here.
+          instantiateModel('tabla_drums.glb', 1.4, 0)
+            .then((model) => {
+              if (token !== sourceBuildToken || cancelled) return;
+              g.add(model);
+            })
+            .catch((err) => console.error('[MicTechniqueRoom] drum_kit.glb failed to load', err));
         },
       },
     ];
@@ -926,7 +985,8 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
       const dx = MIC_ANCHOR_X - SOURCE_X;
       const dz = MIC_ANCHOR_Z - SOURCE_Z;
       sourceGroup.rotation.y = Math.atan2(-dx, -dz);
-      typeDef.build(sourceGroup);
+      sourceBuildToken += 1;
+      typeDef.build(sourceGroup, sourceBuildToken);
 
       // A dedicated light on the source itself, so it reads clearly
       // against the room regardless of camera angle or theme — same
@@ -1180,6 +1240,53 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
 
   const rootClassName = ['miking-room', embedded && 'mkr-embedded', className].filter(Boolean).join(' ');
 
+  // Small icon set for the Source tile grid, one per SOURCE_TYPES id — lets
+  // each source read at a glance instead of as plain text in a pill.
+  // Brought over from design/mic-setup-redesign.html's presetIcon().
+  const SOURCE_ICONS = {
+    vocal: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+        <rect x="9" y="2" width="6" height="11" rx="3" />
+        <path d="M5 11a7 7 0 0 0 14 0" />
+        <line x1="12" y1="18" x2="12" y2="22" />
+      </svg>
+    ),
+    guitar: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+        <circle cx="8" cy="16" r="5" />
+        <path d="M11 12l7-9" />
+        <path d="M15 2l3 3" />
+      </svg>
+    ),
+    amp: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+        <rect x="4" y="4" width="16" height="16" rx="2" />
+        <circle cx="9" cy="12" r="3" />
+        <circle cx="16" cy="7" r="1" />
+        <circle cx="16" cy="17" r="1" />
+      </svg>
+    ),
+    snare: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+        <ellipse cx="12" cy="8" rx="8" ry="3" />
+        <path d="M4 8v6c0 1.7 3.6 3 8 3s8-1.3 8-3V8" />
+      </svg>
+    ),
+    kick: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+        <circle cx="12" cy="12" r="8" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    ),
+    ethnic: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+        <ellipse cx="12" cy="6" rx="7" ry="2.5" />
+        <path d="M5 6l2 13h10l2-13" />
+        <path d="M8.5 12h7" />
+      </svg>
+    ),
+  };
+
   return (
     <div className={rootClassName} style={style} data-theme={theme} ref={rootRef}>
       {!embedded && (
@@ -1239,31 +1346,37 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
         <div className="mkr-controls">
           <div className="mkr-ctrl-row">
             <span className="mkr-ctrl-label">Source</span>
-            <div className="mkr-pill-row" ref={sourceTypeRowRef}>
-              <button className="mkr-pill" type="button" data-source="vocal">Vocal / VO</button>
-              <button className="mkr-pill" type="button" data-source="guitar">Guitar</button>
-              <button className="mkr-pill" type="button" data-source="amp">Amp</button>
-              <button className="mkr-pill" type="button" data-source="snare">Snare</button>
-              <button className="mkr-pill" type="button" data-source="kick">Kick</button>
-              <button className="mkr-pill" type="button" data-source="ethnic">Ethnic Instrument</button>
+            <div className="mkr-tile-grid" ref={sourceTypeRowRef}>
+              <button className="mkr-tile" type="button" data-source="vocal">{SOURCE_ICONS.vocal}<span>Vocal / VO</span></button>
+              <button className="mkr-tile" type="button" data-source="guitar">{SOURCE_ICONS.guitar}<span>Guitar</span></button>
+              <button className="mkr-tile" type="button" data-source="amp">{SOURCE_ICONS.amp}<span>Amp</span></button>
+              <button className="mkr-tile" type="button" data-source="snare">{SOURCE_ICONS.snare}<span>Snare</span></button>
+              <button className="mkr-tile" type="button" data-source="kick">{SOURCE_ICONS.kick}<span>Kick</span></button>
+              <button className="mkr-tile" type="button" data-source="ethnic">{SOURCE_ICONS.ethnic}<span>Ethnic Instrument</span></button>
             </div>
           </div>
           <div className="mkr-ctrl-row">
             <span className="mkr-ctrl-label">Mic type</span>
-            <div className="mkr-pill-row" ref={typeRowRef}>
-              <button className="mkr-pill" type="button" data-type="dynamic">Dynamic</button>
-              <button className="mkr-pill" type="button" data-type="condenser-fet">FET Condenser</button>
-              <button className="mkr-pill" type="button" data-type="condenser-tube">Tube Condenser</button>
-              <button className="mkr-pill" type="button" data-type="ribbon">Ribbon</button>
-              <button className="mkr-pill" type="button" data-type="contact">Contact</button>
+            <div className="mkr-ctrl-col">
+              <div className="mkr-segmented" ref={typeRowRef}>
+                <button className="mkr-segmented-btn" type="button" data-type="dynamic">Dynamic</button>
+                <button className="mkr-segmented-btn" type="button" data-type="condenser-fet">FET Condenser</button>
+                <button className="mkr-segmented-btn" type="button" data-type="condenser-tube">Tube Condenser</button>
+                <button className="mkr-segmented-btn" type="button" data-type="ribbon">Ribbon</button>
+                <button className="mkr-segmented-btn" type="button" data-type="contact">Contact</button>
+              </div>
+              <p className="mkr-blurb" ref={micTypeBlurbRef} />
             </div>
           </div>
           <div className="mkr-ctrl-row">
             <span className="mkr-ctrl-label">Pattern</span>
-            <div className="mkr-pill-row" ref={patternRowRef}>
-              <button className="mkr-pill" type="button" data-pattern="cardioid">Cardioid</button>
-              <button className="mkr-pill" type="button" data-pattern="omni">Omni</button>
-              <button className="mkr-pill" type="button" data-pattern="bidirectional">Bidirectional</button>
+            <div className="mkr-ctrl-col">
+              <div className="mkr-segmented" ref={patternRowRef}>
+                <button className="mkr-segmented-btn" type="button" data-pattern="cardioid">Cardioid</button>
+                <button className="mkr-segmented-btn" type="button" data-pattern="omni">Omni</button>
+                <button className="mkr-segmented-btn" type="button" data-pattern="bidirectional">Bidirectional</button>
+              </div>
+              <p className="mkr-blurb" ref={patternBlurbRef} />
             </div>
           </div>
         </div>

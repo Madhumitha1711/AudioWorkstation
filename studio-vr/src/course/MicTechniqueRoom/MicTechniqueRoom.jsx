@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import './MicTechniqueRoom.css';
 
 /**
@@ -80,11 +81,14 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
   const fallbackRef = useRef(null);
   const hintRef = useRef(null);
   const resetBtnRef = useRef(null);
+  const infoPanelRef = useRef(null);
+  const infoPanelToggleRef = useRef(null);
 
   const sourceRowRef = useRef(null);
   const micTypeRowRef = useRef(null);
   const techniqueRowRef = useRef(null);
   const techniqueBlurbRef = useRef(null);
+  const micTypeBlurbRef = useRef(null);
 
   // Placement/layer selection moved from DOM pill rows to clickable 3D
   // hotspots (see the hotspot system in the effect below) — hotspotListRef
@@ -127,11 +131,14 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
     const fallback = fallbackRef.current;
     const hint = hintRef.current;
     const resetBtn = resetBtnRef.current;
+    const infoPanel = infoPanelRef.current;
+    const infoPanelToggle = infoPanelToggleRef.current;
 
     const sourceRow = sourceRowRef.current;
     const micTypeRow = micTypeRowRef.current;
     const techniqueRow = techniqueRowRef.current;
     const techniqueBlurb = techniqueBlurbRef.current;
+    const micTypeBlurb = micTypeBlurbRef.current;
 
     const hotspotList = hotspotListRef.current;
     const presetRow = presetRowRef.current;
@@ -386,6 +393,59 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
 
     buildScene();
 
+    // ---- 3D asset loading (public/3D assets/) -----------------------
+    // A handful of instrument types below (SOURCE_TYPES) are dressed with
+    // real scanned/downloaded GLTF models — see the credits in each file's
+    // embedded `asset.extras` (all CC-BY-4.0, via Sketchfab). Every model
+    // arrives in a different native scale/pivot (Sketchfab/FBX exports are
+    // inconsistent unit-wise), so instantiateModel() re-derives real-world
+    // size purely from each model's own runtime bounding box — the
+    // `targetSize` arguments below are metres, independent of whatever
+    // units the source file used. Models are fetched once (modelCache) and
+    // cloned per placement; the anchor stays empty until each model
+    // streams in (or stays empty for good if the fetch ever fails — see
+    // the .catch()s), rather than showing a temporary placeholder shape.
+    const MODEL_BASE = '/3D%20assets/'; // "3D assets" — space is URL-encoded
+    const gltfLoader = new GLTFLoader();
+    const modelCache = new Map(); // url -> Promise<THREE.Object3D> (raw loaded template — always cloned before use, never added to the scene graph directly)
+    let sourceBuildToken = 0; // bumped every buildSourceObject() call so a late-arriving model from an already-abandoned source type is dropped instead of appearing on the wrong instrument
+
+    function loadRawModel(url) {
+      if (!modelCache.has(url)) {
+        modelCache.set(
+          url,
+          new Promise((resolve, reject) => {
+            gltfLoader.load(url, (gltf) => resolve(gltf.scene), undefined, reject);
+          })
+        );
+      }
+      return modelCache.get(url);
+    }
+
+    // Clones the cached template, centers it on X/Z, drops its lowest
+    // point to local y=0, and scales its largest bounding-box dimension to
+    // `targetSize` metres — so callers can treat the returned group's
+    // origin exactly like any procedurally-built group's floor/mount
+    // anchor. `rotationY` is a per-asset fudge factor for whichever way
+    // the source file happened to be facing when it was authored — tweak
+    // it (in the SOURCE_TYPES config just below) after eyeballing the
+    // model in `npm run dev` if it's facing the wrong way.
+    function instantiateModel(filename, targetSize, rotationY = 0) {
+      return loadRawModel(MODEL_BASE + filename).then((original) => {
+        const clone = original.clone(true);
+        const box = new THREE.Box3().setFromObject(clone);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+        clone.position.set(-center.x, -box.min.y, -center.z);
+        const wrapper = new THREE.Group();
+        wrapper.add(clone);
+        wrapper.scale.setScalar(targetSize / maxDim);
+        wrapper.rotation.y = rotationY;
+        return wrapper;
+      });
+    }
+
     // ---- Mic rig materials/geometry helpers — identical to MikingRoom ----
     const MIC_BODY_MAT = new THREE.MeshStandardMaterial({ color: '#7d8588', roughness: 0.32, metalness: 0.6 });
     const MIC_GRILLE_MAT = new THREE.MeshStandardMaterial({ color: '#aab1b4', roughness: 0.55, metalness: 0.35 });
@@ -458,6 +518,7 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
     const MIC_TYPES = [
       {
         id: 'dynamic', label: 'Dynamic', hasStand: true,
+        blurb: 'Rugged moving-coil capsule that handles high SPL without power. A live-vocal and guitar-amp workhorse.',
         build(head) {
           const grille = new THREE.Mesh(new THREE.SphereGeometry(0.045, 16, 12), MIC_GRILLE_MAT);
           grille.position.z = -0.02;
@@ -468,6 +529,7 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       },
       {
         id: 'condenser-fet', label: 'FET Condenser', hasStand: true,
+        blurb: 'Solid-state condenser with a polarized diaphragm. Detailed and sensitive, but needs phantom power.',
         build(head) {
           const grille = new THREE.Mesh(zCyl(0.026, 0.026, 0.06), MIC_GRILLE_MAT);
           grille.position.z = -0.03;
@@ -478,6 +540,7 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       },
       {
         id: 'condenser-tube', label: 'Tube Condenser', hasStand: true,
+        blurb: 'A condenser capsule driven by a tube stage. Warmer coloration, often switchable between patterns.',
         build(head) {
           const grille = new THREE.Mesh(zCyl(0.042, 0.042, 0.09), MIC_GRILLE_MAT);
           grille.position.z = -0.045;
@@ -488,6 +551,7 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       },
       {
         id: 'ribbon', label: 'Ribbon', hasStand: true,
+        blurb: 'A corrugated ribbon suspended in a magnet gap. Smooth top end, naturally bidirectional.',
         build(head) {
           const body = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.05, 0.18), MIC_BODY_MAT);
           body.position.z = 0.02;
@@ -498,6 +562,7 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       },
       {
         id: 'contact', label: 'Contact', hasStand: false,
+        blurb: 'A piezo transducer coupled straight to a vibrating surface — it senses structure-borne vibration, not air pressure.',
         build(head) {
           const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.008, 20), CONTACT_MAT);
           head.add(puck);
@@ -557,14 +622,8 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
     // (the technique determines mic placement, not whether a source
     // exists), fixed at SOURCE_ANCHOR below instead of movable spots. ----
     const SRC_METAL = new THREE.MeshStandardMaterial({ color: '#aab1b4', roughness: 0.35, metalness: 0.5 });
-    const GUITAR_BODY_MAT = new THREE.MeshStandardMaterial({ color: '#c9922f', roughness: 0.42, metalness: 0 });
-    const GUITAR_NECK_MAT = new THREE.MeshStandardMaterial({ color: '#4a2c1a', roughness: 0.55, metalness: 0 });
     const AMP_CAB_MAT = new THREE.MeshStandardMaterial({ color: '#5c2226', roughness: 0.8, metalness: 0 });
     const AMP_GRILLE_MAT = new THREE.MeshStandardMaterial({ color: '#181513', roughness: 0.7, metalness: 0.05 });
-    const SNARE_SHELL_MAT = new THREE.MeshStandardMaterial({ color: '#cfd4d6', roughness: 0.22, metalness: 0.85 });
-    const SNARE_HEAD_MAT = new THREE.MeshStandardMaterial({ color: '#f1ece0', roughness: 0.55, metalness: 0 });
-    const KICK_SHELL_MAT = new THREE.MeshStandardMaterial({ color: '#6d2a1f', roughness: 0.5, metalness: 0 });
-    const KICK_HEAD_MAT = new THREE.MeshStandardMaterial({ color: '#1c1a18', roughness: 0.5, metalness: 0 });
     const ETHNIC_BODY_MAT = new THREE.MeshStandardMaterial({ color: '#8a4a2a', roughness: 0.68, metalness: 0 });
     const ETHNIC_HEAD_MAT = new THREE.MeshStandardMaterial({ color: '#d9b98c', roughness: 0.6, metalness: 0 });
 
@@ -592,20 +651,15 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
         },
       },
       {
-        id: 'guitar', label: 'Guitar', aimHeight: 0.62, nearClearanceM: 0.28,
-        build(g) {
-          const base = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.02, 20), SRC_METAL);
-          base.position.y = 0.01;
-          const post = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.2, 10), SRC_METAL);
-          post.position.y = 0.11;
-          const bodyGeo = new THREE.SphereGeometry(0.22, 20, 16);
-          bodyGeo.scale(1, 1.05, 0.32);
-          const body = new THREE.Mesh(bodyGeo, GUITAR_BODY_MAT);
-          body.position.y = 0.44;
-          const neck = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.56, 0.04), GUITAR_NECK_MAT);
-          neck.position.set(0, 0.94, 0.02);
-          neck.rotation.x = 0.1;
-          g.add(base, post, body, neck);
+        id: 'guitar', label: 'Guitar', aimHeight: 0.48, nearClearanceM: 0.28,
+        build(g, token) {
+          // rotationY = Math.PI — the model faces away from the mic by default; flipped 180° to face it.
+          instantiateModel('electric_guitar.glb', 1.05, Math.PI)
+            .then((model) => {
+              if (token !== sourceBuildToken || cancelled) return;
+              g.add(model);
+            })
+            .catch((err) => console.error('[MicTechniqueRoom] electric_guitar.glb failed to load', err));
         },
       },
       {
@@ -619,37 +673,44 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
         },
       },
       {
-        id: 'snare', label: 'Snare', aimHeight: 0.44, nearClearanceM: 0.26,
-        build(g) {
-          const base = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.02, 20), SRC_METAL);
-          base.position.y = 0.01;
-          const post = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.33, 10), SRC_METAL);
-          post.position.y = 0.18;
-          const shell = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.14, 24), SNARE_SHELL_MAT);
-          shell.position.y = 0.42;
-          const headTop = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.012, 24), SNARE_HEAD_MAT);
-          headTop.position.y = 0.49;
-          g.add(base, post, shell, headTop);
+        id: 'snare', label: 'Snare', aimHeight: 0.59, nearClearanceM: 0.26,
+        build(g, token) {
+          instantiateModel('generic_snare_drum_with_tama_stagemaster_stand.glb', 0.6, 0)
+            .then((model) => {
+              if (token !== sourceBuildToken || cancelled) return;
+              g.add(model);
+            })
+            .catch((err) => console.error('[MicTechniqueRoom] generic_snare_drum_with_tama_stagemaster_stand.glb failed to load', err));
         },
       },
       {
-        id: 'kick', label: 'Kick', aimHeight: 0.3, nearClearanceM: 0.4,
-        build(g) {
-          const shell = new THREE.Mesh(zCylSrc(0.3, 0.3, 0.45), KICK_SHELL_MAT);
-          shell.position.y = 0.3;
-          const head = new THREE.Mesh(zCylSrc(0.29, 0.29, 0.012), KICK_HEAD_MAT);
-          head.position.set(0, 0.3, -0.23);
-          g.add(shell, head);
+        id: 'kick', label: 'Kick', aimHeight: 0.31, nearClearanceM: 0.4,
+        build(g, token) {
+          // A full kit — mic'ing "the kick" realistically happens in the
+          // context of a whole kit anyway, and the kick-in/kick-out
+          // placements below are still anchored at this same source
+          // position regardless of which mesh renders here.
+          instantiateModel('drum_kit.glb', 1.4, 0)
+            .then((model) => {
+              if (token !== sourceBuildToken || cancelled) return;
+              g.add(model);
+            })
+            .catch((err) => console.error('[MicTechniqueRoom] drum_kit.glb failed to load', err));
         },
       },
       {
         id: 'ethnic', label: 'Ethnic Instrument', aimHeight: 0.5, nearClearanceM: 0.3,
-        build(g) {
-          const body = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.09, 0.58, 20), ETHNIC_BODY_MAT);
-          body.position.y = 0.29;
-          const head = new THREE.Mesh(new THREE.CylinderGeometry(0.245, 0.245, 0.02, 20), ETHNIC_HEAD_MAT);
-          head.position.y = 0.59;
-          g.add(body, head);
+        build(g, token) {
+          // A full kit — mic'ing "the kick" realistically happens in the
+          // context of a whole kit anyway, and the kick-in/kick-out
+          // placements below are still anchored at this same source
+          // position regardless of which mesh renders here.
+          instantiateModel('tabla_drums.glb', 1.4, 0)
+            .then((model) => {
+              if (token !== sourceBuildToken || cancelled) return;
+              g.add(model);
+            })
+            .catch((err) => console.error('[MicTechniqueRoom] drum_kit.glb failed to load', err));
         },
       },
     ];
@@ -918,10 +979,11 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
 
     function buildSourceObject() {
       clearGroup(sourceGroup);
+      sourceBuildToken += 1;
       const typeDef = SOURCE_TYPES.find((t) => t.id === state.sourceType);
       const g = new THREE.Group();
       g.position.set(SOURCE_ANCHOR_X, 0, SOURCE_ANCHOR_Z);
-      typeDef.build(g);
+      typeDef.build(g, sourceBuildToken);
       const srcLight = new THREE.PointLight(0xfff2df, 1.15, 3.2, 2);
       srcLight.position.set(0.35, typeDef.aimHeight + 0.4, -0.25);
       g.add(srcLight);
@@ -1370,8 +1432,8 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       spots.forEach((spot) => {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'mtr-pill';
-        btn.textContent = spot.tag;
+        btn.className = 'mtr-chip';
+        btn.innerHTML = '<span class="mtr-chip-dot" aria-hidden="true"></span>' + spot.tag;
         const active = state.layerIds.has(spot.id);
         btn.classList.toggle('is-active', active);
         btn.setAttribute('aria-pressed', active ? 'true' : 'false');
@@ -1441,6 +1503,10 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
     function refreshAll() {
       setPillState(micTypeRow, state.micType, 'data-type');
       setPillState(sourceRow, state.sourceType, 'data-source');
+      if (micTypeBlurb) {
+        const activeMicType = MIC_TYPES.find((t) => t.id === state.micType);
+        micTypeBlurb.textContent = activeMicType ? activeMicType.blurb : '';
+      }
       refreshTechniqueUI();
       buildSourceObject();
       buildMicRigs();
@@ -1725,6 +1791,21 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       onCleanup(() => resetBtn.removeEventListener('click', onResetClick));
     }
 
+    // Minimize/expand the technique info panel (blurb + readouts) beside
+    // the room — collapses down to just its title bar so the panel can be
+    // tucked away without losing the room underneath it, same simple
+    // classList-toggle approach as fadeHint()'s .is-faded above.
+    function onInfoPanelToggleClick() {
+      const collapsed = infoPanel.classList.toggle('is-collapsed');
+      infoPanelToggle.textContent = collapsed ? '+' : '\u2212';
+      infoPanelToggle.setAttribute('aria-label', collapsed ? 'Expand technique info panel' : 'Minimize technique info panel');
+      infoPanelToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    }
+    if (infoPanel && infoPanelToggle) {
+      infoPanelToggle.addEventListener('click', onInfoPanelToggleClick);
+      onCleanup(() => infoPanelToggle.removeEventListener('click', onInfoPanelToggleClick));
+    }
+
     // ---- Resize ----
     function resize() {
       const w = stage.clientWidth;
@@ -1787,6 +1868,54 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
 
   const rootClassName = ['mic-technique-room', embedded && 'mtr-embedded', className].filter(Boolean).join(' ');
 
+  // Small icon set for the Source / Multi-mic preset tile grids, one per
+  // source id — lets each source read at a glance instead of as plain text
+  // in a pill. Identical set as MikingRoom.jsx's own SOURCE_ICONS, brought
+  // over from design/mic-setup-redesign.html's presetIcon().
+  const SOURCE_ICONS = {
+    vocal: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+        <rect x="9" y="2" width="6" height="11" rx="3" />
+        <path d="M5 11a7 7 0 0 0 14 0" />
+        <line x1="12" y1="18" x2="12" y2="22" />
+      </svg>
+    ),
+    guitar: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+        <circle cx="8" cy="16" r="5" />
+        <path d="M11 12l7-9" />
+        <path d="M15 2l3 3" />
+      </svg>
+    ),
+    amp: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+        <rect x="4" y="4" width="16" height="16" rx="2" />
+        <circle cx="9" cy="12" r="3" />
+        <circle cx="16" cy="7" r="1" />
+        <circle cx="16" cy="17" r="1" />
+      </svg>
+    ),
+    snare: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+        <ellipse cx="12" cy="8" rx="8" ry="3" />
+        <path d="M4 8v6c0 1.7 3.6 3 8 3s8-1.3 8-3V8" />
+      </svg>
+    ),
+    kick: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+        <circle cx="12" cy="12" r="8" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    ),
+    ethnic: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+        <ellipse cx="12" cy="6" rx="7" ry="2.5" />
+        <path d="M5 6l2 13h10l2-13" />
+        <path d="M8.5 12h7" />
+      </svg>
+    ),
+  };
+
   return (
     <div className={rootClassName} style={style} data-theme={theme} ref={rootRef}>
       {!embedded && (
@@ -1839,6 +1968,62 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
             </button>
           </div>
 
+          {/* The active technique's full write-up, floated beside the 3D
+              room instead of stacked below the controls (see the
+              mtr-technique-grid comment in MicTechniqueRoom.css) — keeps
+              the description visible without costing the controls bar any
+              height, so the room itself keeps most of the frame. */}
+          <div className="mtr-info-panel" ref={infoPanelRef}>
+            <div className="mtr-info-head">
+              <p className="mtr-info-title">Technique</p>
+              <button
+                className="mtr-info-toggle"
+                type="button"
+                ref={infoPanelToggleRef}
+                aria-expanded="true"
+                aria-label="Minimize technique info panel"
+              >
+                {'\u2212'}
+              </button>
+            </div>
+            <div className="mtr-info-body">
+              <p className="mtr-technique-blurb" ref={techniqueBlurbRef} />
+
+              <div className="mtr-readout-row" ref={singleReadoutRef}>
+                <div className="mtr-readout">
+                  <div className="mtr-readout-label">Distance</div>
+                  <div className="mtr-readout-value" ref={rDistanceRef} />
+                </div>
+                <div className="mtr-readout">
+                  <div className="mtr-readout-label">Axis</div>
+                  <div className="mtr-readout-value" ref={rAxisRef} />
+                </div>
+                <div className="mtr-readout">
+                  <div className="mtr-readout-label">Notes</div>
+                  <div className="mtr-readout-value" ref={rNotesRef} />
+                </div>
+              </div>
+
+              <div className="mtr-readout-row" ref={stereoReadoutRef} hidden>
+                <div className="mtr-readout">
+                  <div className="mtr-readout-label">Capsule spacing</div>
+                  <div className="mtr-readout-value" ref={rSpacingRef} />
+                </div>
+                <div className="mtr-readout">
+                  <div className="mtr-readout-label">Angle apart</div>
+                  <div className="mtr-readout-value" ref={rAngleRef} />
+                </div>
+                <div className="mtr-readout mtr-readout-meter">
+                  <div className="mtr-readout-label">Mono compatibility</div>
+                  <div className="mtr-readout-value" ref={rMonoRef} />
+                  <div className="mtr-meter-track">
+                    <div className="mtr-meter-fill" ref={rMonoFillRef} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="mtr-webgl-fallback" ref={fallbackRef} hidden>
             <p>
               The 3D preview couldn&rsquo;t load in this browser.
@@ -1851,36 +2036,48 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
         <div className="mtr-controls">
           <div className="mtr-ctrl-row">
             <span className="mtr-ctrl-label">Source</span>
-            <div className="mtr-pill-row" ref={sourceRowRef}>
-              <button className="mtr-pill" type="button" data-source="vocal">Vocal / VO</button>
-              <button className="mtr-pill" type="button" data-source="guitar">Guitar</button>
-              <button className="mtr-pill" type="button" data-source="amp">Amp</button>
-              <button className="mtr-pill" type="button" data-source="snare">Snare</button>
-              <button className="mtr-pill" type="button" data-source="kick">Kick</button>
-              <button className="mtr-pill" type="button" data-source="ethnic">Ethnic Instrument</button>
+            <div className="mtr-tile-grid" ref={sourceRowRef}>
+              <button className="mtr-tile" type="button" data-source="vocal">{SOURCE_ICONS.vocal}<span>Vocal / VO</span></button>
+              <button className="mtr-tile" type="button" data-source="guitar">{SOURCE_ICONS.guitar}<span>Guitar</span></button>
+              <button className="mtr-tile" type="button" data-source="amp">{SOURCE_ICONS.amp}<span>Amp</span></button>
+              <button className="mtr-tile" type="button" data-source="snare">{SOURCE_ICONS.snare}<span>Snare</span></button>
+              <button className="mtr-tile" type="button" data-source="kick">{SOURCE_ICONS.kick}<span>Kick</span></button>
+              <button className="mtr-tile" type="button" data-source="ethnic">{SOURCE_ICONS.ethnic}<span>Ethnic Instrument</span></button>
             </div>
           </div>
           <div className="mtr-ctrl-row">
             <span className="mtr-ctrl-label">Mic type</span>
-            <div className="mtr-pill-row" ref={micTypeRowRef}>
-              <button className="mtr-pill" type="button" data-type="dynamic">Dynamic</button>
-              <button className="mtr-pill" type="button" data-type="condenser-fet">FET Condenser</button>
-              <button className="mtr-pill" type="button" data-type="condenser-tube">Tube Condenser</button>
-              <button className="mtr-pill" type="button" data-type="ribbon">Ribbon</button>
-              <button className="mtr-pill" type="button" data-type="contact">Contact</button>
+            <div className="mtr-ctrl-col">
+              <div className="mtr-segmented" ref={micTypeRowRef}>
+                <button className="mtr-segmented-btn" type="button" data-type="dynamic">Dynamic</button>
+                <button className="mtr-segmented-btn" type="button" data-type="condenser-fet">FET Condenser</button>
+                <button className="mtr-segmented-btn" type="button" data-type="condenser-tube">Tube Condenser</button>
+                <button className="mtr-segmented-btn" type="button" data-type="ribbon">Ribbon</button>
+                <button className="mtr-segmented-btn" type="button" data-type="contact">Contact</button>
+              </div>
+              <p className="mtr-blurb" ref={micTypeBlurbRef} />
             </div>
           </div>
           <div className="mtr-ctrl-row mtr-technique-row">
             <span className="mtr-ctrl-label">Technique</span>
-            <div className="mtr-pill-row" ref={techniqueRowRef}>
-              <button className="mtr-pill mtr-pill-technique" type="button" data-technique="close">Close Miking</button>
-              <button className="mtr-pill mtr-pill-technique" type="button" data-technique="spot">Spot Miking</button>
-              <button className="mtr-pill mtr-pill-technique" type="button" data-technique="distant">Distant / Room Miking</button>
-              <button className="mtr-pill mtr-pill-technique" type="button" data-technique="stereo">Stereo Miking</button>
-              <button className="mtr-pill mtr-pill-technique" type="button" data-technique="multi">Multi Miking</button>
+            <div className="mtr-technique-grid" ref={techniqueRowRef}>
+              <button className="mtr-technique-card" type="button" data-technique="close">
+                <span className="mtr-tc-name"><span className="mtr-tc-dot" />Close Miking</span>
+              </button>
+              <button className="mtr-technique-card" type="button" data-technique="spot">
+                <span className="mtr-tc-name"><span className="mtr-tc-dot" />Spot Miking</span>
+              </button>
+              <button className="mtr-technique-card" type="button" data-technique="distant">
+                <span className="mtr-tc-name"><span className="mtr-tc-dot" />Distant / Room</span>
+              </button>
+              <button className="mtr-technique-card" type="button" data-technique="stereo">
+                <span className="mtr-tc-name"><span className="mtr-tc-dot" />Stereo Miking</span>
+              </button>
+              <button className="mtr-technique-card" type="button" data-technique="multi">
+                <span className="mtr-tc-name"><span className="mtr-tc-dot" />Multi Miking</span>
+              </button>
             </div>
           </div>
-          <p className="mtr-technique-blurb" ref={techniqueBlurbRef} />
 
           {/* Keyboard/screen-reader twin of the 3D hotspots — see
               syncHotspotAccessibleList in the effect above. Visually
@@ -1892,15 +2089,31 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
 
           <div className="mtr-ctrl-row" hidden>
             <span className="mtr-ctrl-label">Stereo preset</span>
-            <div className="mtr-pill-row" ref={presetRowRef}>
-              <button className="mtr-pill" type="button" data-preset="ab">AB (Spaced Pair)</button>
-              <button className="mtr-pill" type="button" data-preset="xy">X-Y</button>
-              <button className="mtr-pill" type="button" data-preset="ms">M-S</button>
-              <button className="mtr-pill" type="button" data-preset="ortf">ORTF</button>
-              <button className="mtr-pill" type="button" data-preset="overhead">Overhead</button>
-              <button className="mtr-pill" type="button" data-preset="blumlein">Blumlein</button>
-              <button className="mtr-pill" type="button" data-preset="decca">Decca Tree</button>
-              <button className="mtr-pill" type="button" data-preset="outrigger">Outrigger</button>
+            <div className="mtr-preset-grid" ref={presetRowRef}>
+              <button className="mtr-preset-card" type="button" data-preset="ab">
+                <span className="mtr-tc-name"><span className="mtr-tc-dot" />AB (Spaced Pair)</span>
+              </button>
+              <button className="mtr-preset-card" type="button" data-preset="xy">
+                <span className="mtr-tc-name"><span className="mtr-tc-dot" />X-Y</span>
+              </button>
+              <button className="mtr-preset-card" type="button" data-preset="ms">
+                <span className="mtr-tc-name"><span className="mtr-tc-dot" />M-S</span>
+              </button>
+              <button className="mtr-preset-card" type="button" data-preset="ortf">
+                <span className="mtr-tc-name"><span className="mtr-tc-dot" />ORTF</span>
+              </button>
+              <button className="mtr-preset-card" type="button" data-preset="overhead">
+                <span className="mtr-tc-name"><span className="mtr-tc-dot" />Overhead</span>
+              </button>
+              <button className="mtr-preset-card" type="button" data-preset="blumlein">
+                <span className="mtr-tc-name"><span className="mtr-tc-dot" />Blumlein</span>
+              </button>
+              <button className="mtr-preset-card" type="button" data-preset="decca">
+                <span className="mtr-tc-name"><span className="mtr-tc-dot" />Decca Tree</span>
+              </button>
+              <button className="mtr-preset-card" type="button" data-preset="outrigger">
+                <span className="mtr-tc-name"><span className="mtr-tc-dot" />Outrigger</span>
+              </button>
             </div>
           </div>
 
@@ -1914,60 +2127,27 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
               see the full multi-mic setup for a source at a glance. */}
           <div className="mtr-ctrl-row" hidden>
             <span className="mtr-ctrl-label">Multi-mic preset</span>
-            <div className="mtr-pill-row" ref={multiPresetRowRef}>
-              <button className="mtr-pill" type="button" data-multipreset="vocal">Vocal / VO</button>
-              <button className="mtr-pill" type="button" data-multipreset="guitar">Guitar</button>
-              <button className="mtr-pill" type="button" data-multipreset="amp">Amp</button>
-              <button className="mtr-pill" type="button" data-multipreset="snare">Snare</button>
-              <button className="mtr-pill" type="button" data-multipreset="kick">Kick</button>
-              <button className="mtr-pill" type="button" data-multipreset="ethnic">Ethnic Instrument</button>
+            <div className="mtr-tile-grid" ref={multiPresetRowRef}>
+              <button className="mtr-tile" type="button" data-multipreset="vocal">{SOURCE_ICONS.vocal}<span>Vocal / VO</span></button>
+              <button className="mtr-tile" type="button" data-multipreset="guitar">{SOURCE_ICONS.guitar}<span>Guitar</span></button>
+              <button className="mtr-tile" type="button" data-multipreset="amp">{SOURCE_ICONS.amp}<span>Amp</span></button>
+              <button className="mtr-tile" type="button" data-multipreset="snare">{SOURCE_ICONS.snare}<span>Snare</span></button>
+              <button className="mtr-tile" type="button" data-multipreset="kick">{SOURCE_ICONS.kick}<span>Kick</span></button>
+              <button className="mtr-tile" type="button" data-multipreset="ethnic">{SOURCE_ICONS.ethnic}<span>Ethnic Instrument</span></button>
             </div>
           </div>
 
           {/* Multi Miking's visible Layers row — an always-on-screen twin
               of the 3D hotspots (see syncMultiLayerRow in the effect
-              above): one pill per candidate mic position for the current
+              above): one chip per candidate mic position for the current
               source, toggled the same way clicking a hotspot does, plus a
-              Clear-all button. The current source's first mic (e.g.
+              Clear-all link. The current source's first mic (e.g.
               Snare's "Top", or "Close" on the generic layout) loads by
               default — see firstMultiLayerId. */}
           <div className="mtr-ctrl-row" hidden>
             <span className="mtr-ctrl-label">Layers</span>
-            <div className="mtr-pill-row" ref={multiLayerRowRef} />
-            <button className="mtr-pill mtr-pill-muted" type="button" ref={clearLayersBtnRef}>Clear</button>
-          </div>
-
-          <div className="mtr-readout-row" ref={singleReadoutRef}>
-            <div className="mtr-readout">
-              <div className="mtr-readout-label">Distance</div>
-              <div className="mtr-readout-value" ref={rDistanceRef} />
-            </div>
-            <div className="mtr-readout">
-              <div className="mtr-readout-label">Axis</div>
-              <div className="mtr-readout-value" ref={rAxisRef} />
-            </div>
-            <div className="mtr-readout">
-              <div className="mtr-readout-label">Notes</div>
-              <div className="mtr-readout-value" ref={rNotesRef} />
-            </div>
-          </div>
-
-          <div className="mtr-readout-row" ref={stereoReadoutRef} hidden>
-            <div className="mtr-readout">
-              <div className="mtr-readout-label">Capsule spacing</div>
-              <div className="mtr-readout-value" ref={rSpacingRef} />
-            </div>
-            <div className="mtr-readout">
-              <div className="mtr-readout-label">Angle apart</div>
-              <div className="mtr-readout-value" ref={rAngleRef} />
-            </div>
-            <div className="mtr-readout mtr-readout-meter">
-              <div className="mtr-readout-label">Mono compatibility</div>
-              <div className="mtr-readout-value" ref={rMonoRef} />
-              <div className="mtr-meter-track">
-                <div className="mtr-meter-fill" ref={rMonoFillRef} />
-              </div>
-            </div>
+            <div className="mtr-chip-row" ref={multiLayerRowRef} />
+            <button className="mtr-clear-link" type="button" ref={clearLayersBtnRef}>Clear all</button>
           </div>
         </div>
       </div>

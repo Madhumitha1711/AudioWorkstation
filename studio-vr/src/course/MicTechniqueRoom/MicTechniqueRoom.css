@@ -205,12 +205,21 @@
    scroll fallback matters more here. ---- */
 .mic-technique-room .mtr-controls {
   flex: 0 0 auto;
-  max-height: 58%;
+  /* Was 58%, then dropped to 22% once the technique row became one
+     horizontal line and its description moved into .mtr-info-panel beside
+     the room — but 22% clipped the bar's actual content (Source tiles +
+     Mic type + Technique row, plus whichever preset/layers row is active)
+     on typical embed heights, forcing an internal scrollbar just to see
+     every option. Raised so everything sits visible without scrolling;
+     the room still keeps the clear majority of the frame since this is
+     only a cap — the bar still sizes to its real (now much shorter)
+     content, not to this ceiling. */
+  max-height: 42%;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px;
+  gap: 5px;
+  padding: 8px;
   background: var(--mtr-surface);
   border: 1px solid var(--mtr-line);
   border-radius: 10px;
@@ -354,6 +363,368 @@
   width: 0%;
   background: var(--mtr-accent);
   transition: width 0.2s ease;
+}
+
+/* ---- Redesigned option selection (mic-setup-redesign.html) — the old
+   plain pill rows above read as one undifferentiated wall of text
+   ("Distant / Room Miking", "M-S (Mid-Side)", "Ethnic Instrument"...)
+   with no visual cue for which row is a small closed set vs. a bigger
+   gallery, and no room to say what an option actually means. Below: a
+   segmented control for Mic type, a 2-column card grid for Technique and
+   Stereo preset (name + one-line description each), an icon tile grid for
+   Source/Multi-mic preset, and chip-style Layer toggles — all still
+   reading the same --mtr-accent/--mtr-surface-2/etc. tokens as everything
+   else here, so they keep re-skinning with the site's theme + brand
+   palette automatically. ---- */
+.mic-technique-room .mtr-ctrl-row .mtr-tile-grid,
+.mic-technique-room .mtr-ctrl-row .mtr-ctrl-col {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.mic-technique-room .mtr-ctrl-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Segmented control (Mic type) */
+.mic-technique-room .mtr-segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  background: var(--mtr-surface-2);
+  border: 1px solid var(--mtr-line);
+  border-radius: 8px;
+  padding: 3px;
+}
+.mic-technique-room .mtr-segmented-btn {
+  flex: 1 1 auto;
+  min-width: 84px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.01em;
+  color: var(--mtr-ink-dim);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 10px;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.mic-technique-room .mtr-segmented-btn:hover {
+  color: var(--mtr-ink);
+}
+.mic-technique-room .mtr-segmented-btn:focus-visible {
+  outline: 2px solid var(--mtr-accent);
+  outline-offset: 2px;
+}
+.mic-technique-room .mtr-segmented-btn.is-active {
+  background: var(--mtr-accent);
+  color: var(--mtr-accent-ink);
+  font-weight: 600;
+}
+
+/* One-line note under a segmented control naming what the active option
+   actually is (MIC_TYPES now carries a `blurb` per option, see
+   refreshAll) — surfaces it instead of leaving "FET Condenser" unexplained. */
+.mic-technique-room .mtr-blurb {
+  margin: 2px 2px 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--mtr-ink-dim);
+}
+
+/* Icon tile grid (Source / Multi-mic preset) */
+.mic-technique-room .mtr-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 6px;
+}
+.mic-technique-room .mtr-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: var(--mtr-surface-2);
+  border: 1px solid var(--mtr-line);
+  border-radius: 8px;
+  padding: 9px 6px 8px;
+  color: var(--mtr-ink-dim);
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 10.5px;
+  line-height: 1.3;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.mic-technique-room .mtr-tile svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+.mic-technique-room .mtr-tile:hover {
+  border-color: var(--mtr-accent);
+  color: var(--mtr-ink);
+}
+.mic-technique-room .mtr-tile:focus-visible {
+  outline: 2px solid var(--mtr-accent);
+  outline-offset: 2px;
+}
+.mic-technique-room .mtr-tile.is-active {
+  border-color: var(--mtr-accent);
+  color: var(--mtr-ink);
+  background: color-mix(in srgb, var(--mtr-accent) 16%, var(--mtr-surface-2));
+}
+.mic-technique-room .mtr-tile.is-active svg {
+  color: var(--mtr-accent-strong);
+}
+
+/* Technique cards: one horizontal row (not a wrapping grid) — a name-only
+   row this compact leaves no room for a description inside each card, so
+   the active technique's full write-up now floats in .mtr-info-panel
+   beside the 3D room instead (see the JSX). Stereo-preset cards (the
+   8-option row below Stereo Miking) get the identical treatment — same
+   reasoning, and their spacing/angle numbers are already surfaced in
+   .mtr-info-panel's readouts once a preset is picked, so nothing is lost
+   by dropping the inline description here too. */
+.mic-technique-room .mtr-technique-grid,
+.mic-technique-room .mtr-preset-grid {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  /* No overflow-x/scrolling here on purpose — every option in either row
+     must stay visible up front. .mtr-technique-card/.mtr-preset-card
+     below have min-width: 0 so flexbox shrinks (and truncates, if it ever
+     has to) each card to fit instead of forcing the row to scroll or wrap. */
+}
+.mic-technique-room .mtr-technique-card,
+.mic-technique-room .mtr-preset-card {
+  text-align: left;
+  background: var(--mtr-surface-2);
+  border: 1px solid var(--mtr-line);
+  border-radius: 8px;
+  padding: 10px 11px;
+  cursor: pointer;
+  color: var(--mtr-ink);
+  font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.mic-technique-room .mtr-technique-card:hover,
+.mic-technique-room .mtr-preset-card:hover {
+  border-color: var(--mtr-accent);
+}
+.mic-technique-room .mtr-technique-card:focus-visible,
+.mic-technique-room .mtr-preset-card:focus-visible {
+  outline: 2px solid var(--mtr-accent);
+  outline-offset: 2px;
+}
+.mic-technique-room .mtr-tc-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.mic-technique-room .mtr-tc-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--mtr-ink-dim);
+  flex: none;
+}
+.mic-technique-room .mtr-tc-desc {
+  display: block;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--mtr-ink-dim);
+}
+.mic-technique-room .mtr-technique-card.is-active,
+.mic-technique-room .mtr-preset-card.is-active {
+  border-color: var(--mtr-accent);
+  background: color-mix(in srgb, var(--mtr-accent) 14%, var(--mtr-surface-2));
+}
+.mic-technique-room .mtr-technique-card.is-active .mtr-tc-name,
+.mic-technique-room .mtr-preset-card.is-active .mtr-tc-name {
+  color: var(--mtr-accent-strong);
+}
+.mic-technique-room .mtr-technique-card.is-active .mtr-tc-dot,
+.mic-technique-room .mtr-preset-card.is-active .mtr-tc-dot {
+  background: var(--mtr-accent);
+}
+/* Overrides for both option rows, now that they're single horizontal
+   lines of name-only cards rather than a wrapping name+desc grid —
+   equal-width flex segments, centered label, no bottom margin left over
+   from the (now removed, see above) description. */
+.mic-technique-room .mtr-technique-card,
+.mic-technique-room .mtr-preset-card {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 9px 6px;
+  text-align: center;
+  overflow: hidden;
+}
+.mic-technique-room .mtr-technique-card .mtr-tc-name,
+.mic-technique-room .mtr-preset-card .mtr-tc-name {
+  justify-content: center;
+  margin-bottom: 0;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Floats the active technique's full write-up beside the 3D room instead
+   of stacking it below the controls — same footprint as .mtr-hint (a
+   blurred panel anchored to a viewport corner) but pinned to the
+   top-right so it doesn't collide with the bottom-left hint/reset button,
+   and so the description no longer costs the controls bar any height. */
+.mic-technique-room .mtr-info-panel {
+  position: absolute;
+  top: clamp(14px, 3vw, 28px);
+  right: clamp(14px, 3vw, 28px);
+  /* Wide enough that the technique write-up plus its readout stat boxes
+     (moved in here from the controls bar below) sit comfortably rather
+     than wrapping into a cramped column — see .mtr-info-panel
+     .mtr-readout-row below. */
+  width: min(380px, 60%);
+  max-height: calc(100% - clamp(28px, 6vw, 56px));
+  overflow-y: auto;
+  padding: 13px 15px;
+  background: color-mix(in srgb, var(--mtr-bg) 90%, var(--mtr-ink) 10%);
+  border: 1px solid var(--mtr-line);
+  border-radius: 8px;
+  box-shadow: var(--mtr-shadow-soft);
+  backdrop-filter: blur(6px);
+  transition: width 0.15s ease;
+}
+.mic-technique-room .mtr-info-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.mic-technique-room .mtr-info-title {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mtr-accent);
+  margin: 0;
+}
+/* Minimize/expand toggle — collapses the panel down to just this title
+   bar (see .is-collapsed below) so it can be tucked out of the way
+   without losing the room underneath it. */
+.mic-technique-room .mtr-info-toggle {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mtr-surface-2);
+  border: 1px solid var(--mtr-line);
+  border-radius: 5px;
+  color: var(--mtr-ink-dim);
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+.mic-technique-room .mtr-info-toggle:hover {
+  color: var(--mtr-ink);
+  border-color: var(--mtr-accent);
+}
+.mic-technique-room .mtr-info-toggle:focus-visible {
+  outline: 2px solid var(--mtr-accent);
+  outline-offset: 2px;
+}
+.mic-technique-room .mtr-info-panel.is-collapsed {
+  width: auto;
+}
+.mic-technique-room .mtr-info-panel.is-collapsed .mtr-info-body {
+  display: none;
+}
+.mic-technique-room .mtr-info-panel .mtr-technique-blurb {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--mtr-ink-dim);
+}
+/* Distance/axis/notes (or spacing/angle/mono-compatibility) now live in
+   the info panel, under a thin divider so the write-up above and the
+   stat boxes below read as two distinct groups instead of one crowded
+   block. The panel's extra width (see above) is what keeps these from
+   wrapping into a single cramped column. */
+.mic-technique-room .mtr-info-panel .mtr-readout-row {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--mtr-line);
+}
+
+/* Layers row: mirrors the mockup's .chip — small pill with a status dot,
+   restyled from the old plain .mtr-pill so "which mics are currently on"
+   reads at a glance. */
+.mic-technique-room .mtr-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  flex: 1 1 auto;
+}
+.mic-technique-room .mtr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--mtr-surface-2);
+  border: 1px solid var(--mtr-line);
+  border-radius: 20px;
+  padding: 6px 12px 6px 9px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--mtr-ink-dim);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.mic-technique-room .mtr-chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--mtr-ink-dim);
+  flex: none;
+}
+.mic-technique-room .mtr-chip:hover {
+  border-color: var(--mtr-accent);
+}
+.mic-technique-room .mtr-chip:focus-visible {
+  outline: 2px solid var(--mtr-accent);
+  outline-offset: 2px;
+}
+.mic-technique-room .mtr-chip.is-active {
+  border-color: var(--mtr-accent);
+  color: var(--mtr-ink);
+}
+.mic-technique-room .mtr-chip.is-active .mtr-chip-dot {
+  background: var(--mtr-accent);
+}
+.mic-technique-room .mtr-clear-link {
+  align-self: center;
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--mtr-ink-dim);
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 6px 4px;
+}
+.mic-technique-room .mtr-clear-link:hover {
+  color: var(--mtr-ink);
 }
 
 .mic-technique-room .mtr-webgl-fallback {
