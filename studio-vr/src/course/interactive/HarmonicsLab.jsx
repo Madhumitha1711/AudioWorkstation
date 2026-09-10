@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import "./labs.css";
 import { useLabAudio } from "./useLabAudio";
-import { COLORS, SCOPE_GRID, SCOPE_BG, hiDpiCanvas } from "./soundLabShared";
+import { useTheme } from "../../theme/ThemeContext";
+import { hiDpiCanvas, scopePalette } from "./soundLabShared";
 
 // Ported from design/what-is-sound-chapter.html's "06 HARMONICS" panel: a
 // draggable knob (pointer events, matching the mockup's harmKnob handler)
@@ -26,12 +27,13 @@ const FUNDAMENTAL = 110;
 const MAX_HARMONICS = 8;
 const BAR_COUNT = MAX_HARMONICS + 1;
 
-function drawSpectrum(canvas, levels, harmCount) {
+function drawSpectrum(canvas, levels, harmCount, theme = "dark") {
   const hd = hiDpiCanvas(canvas);
   if (!hd) return;
   const { ctx: c, w, h } = hd;
+  const pal = scopePalette(theme);
   c.clearRect(0, 0, w, h);
-  c.fillStyle = SCOPE_BG;
+  c.fillStyle = pal.bg;
   c.fillRect(0, 0, w, h);
   const gap = 8;
   const bw = (w - gap * (BAR_COUNT + 1)) / BAR_COUNT;
@@ -39,9 +41,9 @@ function drawSpectrum(canvas, levels, harmCount) {
     const lvl = levels[i] || 0;
     const bh = lvl * (h - 30);
     const x = gap + i * (bw + gap);
-    c.fillStyle = i === 0 ? COLORS.amber : i <= harmCount ? COLORS.green : SCOPE_GRID;
+    c.fillStyle = i === 0 ? pal.colors.amber : i <= harmCount ? pal.colors.green : pal.grid;
     c.fillRect(x, h - 24 - bh, bw, bh);
-    c.fillStyle = COLORS.label;
+    c.fillStyle = pal.colors.label;
     c.font = "bold 11px monospace";
     c.textAlign = "center";
     c.fillText(i === 0 ? "f" : `${i + 1}f`, x + bw / 2, h - 8);
@@ -59,6 +61,9 @@ function HarmonicsLab({ onInteract }) {
   const onInteractRef = useRef(onInteract);
   onInteractRef.current = onInteract;
   const { getCtx, track, stopAll } = useLabAudio();
+  const { theme } = useTheme();
+  const themeRef = useRef(theme);
+  useEffect(() => { themeRef.current = theme; }, [theme]);
 
   const [harmCount, setHarmCount] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -75,8 +80,8 @@ function HarmonicsLab({ onInteract }) {
   useEffect(() => {
     if (playing) return;
     const levels = Array.from({ length: BAR_COUNT }, (_, i) => (i <= harmCount ? 1 / (i + 1) : 0));
-    drawSpectrum(canvasRef.current, levels, harmCount);
-  }, [harmCount, playing]);
+    drawSpectrum(canvasRef.current, levels, harmCount, theme);
+  }, [harmCount, playing, theme]);
 
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
@@ -123,7 +128,7 @@ function HarmonicsLab({ onInteract }) {
           Number.isFinite(db) && Number.isFinite(fundamentalDb) ? Math.pow(10, (db - fundamentalDb) / 20) : 0;
         levels.push(Math.max(0, Math.min(1, ratio)));
       }
-      drawSpectrum(canvasRef.current, levels, harmCountRef.current);
+      drawSpectrum(canvasRef.current, levels, harmCountRef.current, themeRef.current);
     }
     rafRef.current = requestAnimationFrame(meterLoop);
   }
@@ -137,7 +142,7 @@ function HarmonicsLab({ onInteract }) {
       analyserRef.current = null;
       setPlaying(false);
       const levels = Array.from({ length: BAR_COUNT }, (_, i) => (i <= harmCountRef.current ? 1 / (i + 1) : 0));
-      drawSpectrum(canvasRef.current, levels, harmCountRef.current);
+      drawSpectrum(canvasRef.current, levels, harmCountRef.current, theme);
       return;
     }
     const ctx = getCtx();
@@ -209,12 +214,6 @@ function HarmonicsLab({ onInteract }) {
 
   return (
     <div className="lab">
-      <p className="lab-intro">
-        A real instrument almost never produces one pure frequency — it stacks whole-number
-        multiples of the fundamental on top of it. Drag the knob to add harmonics one at a time and
-        hear (and see) the tone get brighter and more complex.
-      </p>
-
       <div className="sound-lab-panel-head">
         <span className={`sound-lab-live-dot${playing ? " on" : ""}`} /> Fundamental + Spectrum
       </div>
@@ -255,18 +254,14 @@ function HarmonicsLab({ onInteract }) {
           <div className="v">{harmCount}</div>
           <div className="sub">{freqsLabel}</div>
         </div>
-      </div>
-
-      <div className="lab-actions">
-        <button type="button" className={`lab-play-btn${playing ? " playing" : ""}`} onClick={togglePlay}>
+        <button
+          type="button"
+          className={`lab-play-btn sound-lab-knob-play${playing ? " playing" : ""}`}
+          onClick={togglePlay}
+        >
           {playing ? "⏹ Stop" : "▶ Play"}
         </button>
       </div>
-      <p className="lab-hint">
-        Drag the knob up/down (or scroll over it). Each step adds the next harmonic at a diminishing
-        level — spectrum bars light up as they're added. Play triggers a struck, piano-like
-        attack/decay rather than a flat organ-style sustain.
-      </p>
     </div>
   );
 }

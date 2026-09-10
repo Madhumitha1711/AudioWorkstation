@@ -7,8 +7,9 @@ import PhaseLab from "./interactive/PhaseLab";
 import HarmonicsLab from "./interactive/HarmonicsLab";
 import TimbreLab from "./interactive/TimbreLab";
 import MicTypeLab from "./interactive/MicTypeLab";
+import MicTypeCompareLab from "./interactive/MicTypeCompareLab";
 import MicPolarPatternLab from "./interactive/MicPolarPatternLab";
-import MicSelectionLab from "./interactive/MicSelectionLab";
+import MicPolarCompareLab from "./interactive/MicPolarCompareLab";
 import MicPlacementLab from "./interactive/MicPlacementLab";
 import MicTechniqueLab from "./interactive/MicTechniqueLab";
 
@@ -32,12 +33,31 @@ const LABS = {
   // referenced from courseData.js's mic-stand topic — like the sound labs,
   // this chapter's real lesson content/blocks are authored in studio-cms
   // once that chapter is built out there; these are ready to be wired in
-  // by `kind` at that point. (There's no standalone "Characteristics" lab —
-  // it read as unclear/redundant next to Type, so its spec-comparison view
-  // was removed; per-type characteristics still show inside mic-type-lab.)
+  // by `kind` at that point.
+  //
+  // mic-type-lab is image + interaction only (type picker, portrait,
+  // listen panel, no prose); mic-type-compare-lab is the three-column
+  // spec-comparison view, image plus a short clean summary sentence per
+  // type (MIC_TYPES[].summary in micLabShared.js) instead of the full
+  // paragraphs. There used to be a third, separate mic-selection-lab
+  // (MicSelectionLab.jsx), but it converged on being visually identical
+  // to mic-type-lab — same room-toggle type picker, same listen panel —
+  // so it was removed; the kind below just aliases MicTypeLab directly
+  // now rather than keeping a duplicate component around.
+  //
+  // mic-polar-pattern-lab/mic-polar-compare-lab are the same browse/
+  // compare pairing applied to polar patterns instead of mic types, and
+  // share mic-type-lab's/mic-type-compare-lab's visual design (room-toggle
+  // picker, comparison grid). The one deliberate difference: mic-polar-
+  // compare-lab has no dropdown in its columns — POLAR_PATTERNS in
+  // micLabShared.js only ever has three entries, so "compare" always means
+  // all three at once, fixed, rather than picking which ones out of a
+  // larger set the way mic-type-compare-lab's five types do.
   "mic-type-lab": MicTypeLab,
+  "mic-type-compare-lab": MicTypeCompareLab,
   "mic-polar-pattern-lab": MicPolarPatternLab,
-  "mic-selection-lab": MicSelectionLab,
+  "mic-polar-compare-lab": MicPolarCompareLab,
+  "mic-selection-lab": MicTypeLab,
   // "Placement" subchapter — a 3D room (src/course/MikingRoom) instead of
   // the 2D layouts the other mic-stand labs use above; MicPlacementLab is
   // just the fixed-height embed frame it needs (see that file).

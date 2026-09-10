@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import "./labs.css";
 import { useLabAudio } from "./useLabAudio";
-import { COLORS, drawScope } from "./soundLabShared";
+import { useTheme } from "../../theme/ThemeContext";
+import { drawScope, scopePalette } from "./soundLabShared";
 
 // Ported from design/what-is-sound-chapter.html's "03 AMPLITUDE" panel.
 // Frequency is fixed at 440 Hz on purpose (per the mockup's hint) so
@@ -28,6 +29,10 @@ function AmplitudeLab({ onInteract }) {
   const onInteractRef = useRef(onInteract);
   onInteractRef.current = onInteract;
   const { getCtx, track, stopAll } = useLabAudio();
+  const { theme } = useTheme();
+  const themeRef = useRef(theme);
+  useEffect(() => { themeRef.current = theme; }, [theme]);
+  const colors = scopePalette(theme).colors;
 
   const [sliderVal, setSliderVal] = useState(60);
   const [playing, setPlaying] = useState(false);
@@ -44,8 +49,8 @@ function AmplitudeLab({ onInteract }) {
   const db = dbFromLevel(level);
 
   useEffect(() => {
-    if (!playing) drawScope(canvasRef.current, { cycles: 6, amp: level, color: COLORS.green });
-  }, [level, playing]);
+    if (!playing) drawScope(canvasRef.current, { cycles: 6, amp: level, color: colors.green, theme });
+  }, [level, playing, theme, colors]);
 
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
@@ -59,7 +64,13 @@ function AmplitudeLab({ onInteract }) {
 
   function loop() {
     scrollRef.current += 0.25;
-    drawScope(canvasRef.current, { cycles: 6, amp: levelFromSlider(sliderRef.current), color: COLORS.green, scroll: scrollRef.current });
+    drawScope(canvasRef.current, {
+      cycles: 6,
+      amp: levelFromSlider(sliderRef.current),
+      color: scopePalette(themeRef.current).colors.green,
+      scroll: scrollRef.current,
+      theme: themeRef.current,
+    });
     rafRef.current = requestAnimationFrame(loop);
   }
 
@@ -70,7 +81,7 @@ function AmplitudeLab({ onInteract }) {
       cancelAnimationFrame(rafRef.current);
       gainNodeRef.current = null;
       setPlaying(false);
-      drawScope(canvasRef.current, { cycles: 6, amp: levelFromSlider(sliderRef.current), color: COLORS.green });
+      drawScope(canvasRef.current, { cycles: 6, amp: levelFromSlider(sliderRef.current), color: colors.green, theme });
       return;
     }
     const ctx = getCtx();
@@ -137,10 +148,6 @@ function AmplitudeLab({ onInteract }) {
           {playing ? "⏹ Stop" : "▶ Play Tone (440 Hz)"}
         </button>
       </div>
-      <p className="lab-hint">
-        Frequency is fixed here so amplitude is the only thing changing — compare the waveform's
-        height, not its shape.
-      </p>
     </div>
   );
 }

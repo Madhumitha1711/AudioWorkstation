@@ -398,9 +398,12 @@
    HarmonicsLab / TimbreLab (design/what-is-sound-chapter.html's per-lesson
    panels — canvas-frame, readout-row, slider-row, knob, instrument-grid).
    Chrome (labels, borders, buttons) follows the app's light/dark CSS
-   variables like the rest of this file; the canvas itself stays a fixed
-   near-black "screen" with fixed trace colors in both themes, matching
-   every other chapter's oscilloscope/meter (see soundLabShared.js). */
+   variables like the rest of this file. The canvas "screen" itself (and
+   the Harmonics knob's physical dial) used to stay fixed dark colors in
+   both themes, matching every other chapter's oscilloscope/meter — these
+   six labs now get their own light-mode "screen"/knob treatment instead,
+   same call EQ's graph already made (see soundLabShared.js's scopePalette
+   and the light-theme overrides at the bottom of this file). */
 
 .sound-lab-frame {
   background: #0e0e11;
@@ -408,6 +411,7 @@
   border-radius: 10px;
   padding: 10px;
   margin-bottom: 16px;
+  transition: background-color 0.2s ease;
 }
 .sound-lab-canvas {
   display: block;
@@ -458,6 +462,7 @@
   border-radius: 4px;
   overflow: hidden;
   margin-top: 2px;
+  transition: background-color 0.2s ease;
 }
 .sound-lab-vu-fill {
   height: 100%;
@@ -477,6 +482,92 @@
   margin-bottom: 8px;
   letter-spacing: 0.03em;
 }
+/* Two-line variant used by WavelengthLab — each end of the slider prints
+   the frequency plus what it actually measures out to (wavelength and
+   period), instead of a bare number, so the printed scale visibly matches
+   the log-scale range the slider itself covers. */
+.sound-lab-slider-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sound-lab-slider-label.right {
+  align-items: flex-end;
+  text-align: right;
+}
+.sound-lab-slider-label .freq {
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.sound-lab-slider-label .detail {
+  font-size: 9.5px;
+  color: var(--text-dimmer);
+}
+
+
+/* Inline edit affordance for the Frequency/Note readout boxes above — a
+   pencil toggles that box's value into a text input in place, instead of a
+   separate manual-entry section. Kept visually part of the same box
+   (.sound-lab-readout) rather than its own component. */
+.sound-lab-readout-editable {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sound-lab-edit-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+  font-family: inherit;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.sound-lab-edit-btn:hover {
+  background: var(--panel-hover);
+  color: var(--text);
+  border-color: var(--border);
+}
+.sound-lab-edit-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.sound-lab-readout-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--panel-hover);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  outline: none;
+}
+.sound-lab-readout-input::placeholder {
+  color: var(--text-dimmer);
+  font-weight: 400;
+}
+.sound-lab-readout-input[type="number"]::-webkit-inner-spin-button,
+.sound-lab-readout-input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.sound-lab-readout-input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 
 .sound-lab-live-dot {
   width: 6px;
@@ -551,8 +642,17 @@
 .sound-lab-knob-wrap {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 22px;
   margin-bottom: 18px;
+}
+/* Play button lives in this same row as the knob (rather than its own
+   .lab-actions row below) so the two read as horizontally aligned —
+   pinned to the row's end, vertically centered with the knob, wrapping
+   onto its own line only if the row gets too narrow to hold all three. */
+.sound-lab-knob-play {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 .sound-lab-knob {
   width: 76px;
@@ -565,6 +665,7 @@
   border: 1px solid var(--border-soft);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.02);
   touch-action: none;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 .sound-lab-knob:active {
   cursor: grabbing;
@@ -586,6 +687,7 @@
   border-radius: 50%;
   background: #0e0e11;
   border: 1px solid var(--border-soft);
+  transition: background-color 0.2s ease;
 }
 .sound-lab-knob-meta .l {
   font-size: 10px;
@@ -657,5 +759,25 @@
 :root[data-theme='light'] .svr-course .lab {
   .sound-lab-inst-card {
     background: rgba(var(--ink-tint-rgb), 0.04);
+  }
+
+  /* Scope/spectrum "screen" — matches the light bg soundLabShared.js's
+     scopePalette() now draws the trace/grid/labels against (#e7eae1, the
+     same "graph paper" tone EQ_GRAPH_PALETTE.light.bg uses), so the JS
+     canvas content and the frame/meter chrome around it read as one
+     consistent light surface instead of a dark rectangle sitting in it. */
+  .sound-lab-frame,
+  .sound-lab-vu,
+  .sound-lab-knob-center {
+    background: #e7eae1;
+  }
+
+  /* Harmonics knob — brushed-aluminum dial instead of dark plastic, same
+     light-mode metal treatment as the shared components/Knob.jsx and
+     Equalizer.jsx's own local Knob (KNOB_BODY in both). */
+  .sound-lab-knob {
+    background: radial-gradient(circle at 35% 30%, #fbfcf8, #ccd2c2 75%);
+    box-shadow: 0 2px 6px rgba(18, 20, 15, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.85),
+      inset 0 -3px 5px rgba(18, 20, 15, 0.08);
   }
 }

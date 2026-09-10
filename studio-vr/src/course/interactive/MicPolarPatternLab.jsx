@@ -2,40 +2,30 @@ import { useEffect, useRef, useState } from "react";
 import "./labs.css";
 import "./micLabs.css";
 import {
-  CYAN,
   POLAR_PATTERNS,
   POLAR_POSITIONS,
   SOURCES,
   polarAudioPath,
   polarDbOf,
   polarGainOf,
-  polarLobePoints,
   polarTierOf,
 } from "./micLabShared";
+import MicPolarDiagram from "./MicPolarDiagram";
 
-// Ported from design/mic-types-chapter.html's "Polar Patterns" lesson. The
-// mic stays fixed at the diagram's center; the source can only be moved to
-// one of 8 predefined compass positions (matching the rest of the app's
-// hotspot/spot conventions, no free placement). Gain per position comes
-// straight from each pattern's textbook polar equation in micLabShared.js.
-
-const CX = 160;
-const CY = 160;
-const SPOT_R = 130;
-const LOBE_MAX_R = 120;
-
-function spotXY(deg) {
-  const rad = (deg * Math.PI) / 180;
-  return { x: CX + SPOT_R * Math.sin(rad), y: CY - SPOT_R * Math.cos(rad) };
-}
-
-function spotColor(gain) {
-  const t = Math.max(0, Math.min(1, gain));
-  const r = Math.round(58 + t * (84 - 58));
-  const g = Math.round(58 + t * (214 - 58));
-  const b = Math.round(66 + t * (224 - 66));
-  return `rgb(${r},${g},${b})`;
-}
+// Ported from design/mic-types-chapter.html's "Polar Patterns" lesson,
+// then trimmed to image + interaction only (no lead-in prose, no per-dot
+// hint, no per-pattern blurb under the Source panel) to match mic-type-
+// lab's browse-lab convention — that explanatory text lives in the lesson
+// content around this activity instead, and (for the pattern blurb) in
+// mic-polar-compare-lab's own copy. The mic stays fixed at the diagram's
+// center; the source can only be moved to one of 8 predefined compass
+// positions (matching the rest of the app's hotspot/spot conventions, no
+// free placement). Gain per position comes straight from each pattern's
+// textbook polar equation in micLabShared.js. Pattern picker uses the
+// same segmented .mic-room-toggle pill style as MicTypeLab instead of its
+// own boxed .lab-toggle tabs, and the compass/lobe diagram is
+// MicPolarDiagram (factored out so MicPolarCompareLab, the sibling
+// comparison lab, can render the same shape statically).
 
 function MicPolarPatternLab({ onInteract }) {
   const [pattern, setPattern] = useState("cardioid");
@@ -80,34 +70,23 @@ function MicPolarPatternLab({ onInteract }) {
       .catch(() => setClipMissing(true));
   }
 
-  const lobePoints = polarLobePoints(pattern, CX, CY, LOBE_MAX_R);
-  const lobeD = lobePoints.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x},${y}`).join(" ") + " Z";
-  const connector = spotXY(angle);
   const position = POLAR_POSITIONS.find((p) => p.angle === angle);
   const db = polarDbOf(polarGainOf(pattern, angle));
   const tier = polarTierOf(db);
 
   return (
     <div className="lab">
-      <p className="lab-intro">
-        A polar pattern is a map of how sensitive a mic is to sound arriving from different
-        directions — it determines what a mic captures and, just as importantly, what it rejects.
-      </p>
-      <p className="lab-intro">
-        The mic stays fixed at the center below. Pick a pattern, then click one of the 8 positions
-        to move the source — the lobe shows roughly how much of it gets picked up from there.
-      </p>
-
-      <div className="lab-toggle-row mic-type-tabs">
+      <div className="mic-room-toggle" role="group" aria-label="Choose a polar pattern">
         {Object.entries(POLAR_PATTERNS).map(([id, p]) => (
           <button
             type="button"
             key={id}
-            className={`lab-toggle${id === pattern ? " selected" : ""}`}
+            className={`mic-room-toggle__opt${id === pattern ? " current" : ""}`}
             onClick={() => {
               markInteracted();
               setPattern(id);
             }}
+            aria-pressed={id === pattern}
           >
             {p.label}
           </button>
@@ -117,60 +96,16 @@ function MicPolarPatternLab({ onInteract }) {
       <div className="mic-polar-grid">
         <div>
           <div className="mic-polar-wrap">
-            <svg viewBox="0 0 320 320">
-              <circle cx={CX} cy={CY} r="120" className="mic-polar-ring" />
-              <circle cx={CX} cy={CY} r="80" className="mic-polar-ring" />
-              <circle cx={CX} cy={CY} r="40" className="mic-polar-ring" />
-              <line x1={CX} y1="20" x2={CX} y2="300" className="mic-polar-gridline" />
-              <line x1="20" y1={CY} x2="300" y2={CY} className="mic-polar-gridline" />
-              <text x={CX} y="13" textAnchor="middle" className="mic-compass-label">
-                FRONT
-              </text>
-              <text x={CX} y="313" textAnchor="middle" className="mic-compass-label">
-                BACK
-              </text>
-              <text x="290" y="142" textAnchor="middle" className="mic-compass-label">
-                RIGHT
-              </text>
-              <text x="30" y="142" textAnchor="middle" className="mic-compass-label">
-                LEFT
-              </text>
-              <path d={lobeD} className="mic-polar-lobe" style={{ fill: `${CYAN}29`, stroke: CYAN }} />
-              <line
-                x1={CX}
-                y1={CY}
-                x2={connector.x}
-                y2={connector.y}
-                className="mic-polar-connector"
-              />
-              <path
-                d="M148,144 a12,13 0 1 1 24,0 v3 a12,13 0 1 1 -24,0 z"
-                className="mic-polar-mic-body"
-              />
-              <rect x="153" y="167" width="14" height="30" rx="6" className="mic-polar-mic-body" />
-              {POLAR_POSITIONS.map((pos) => {
-                const { x, y } = spotXY(pos.angle);
-                return (
-                  <circle
-                    key={pos.angle}
-                    cx={x}
-                    cy={y}
-                    r="9"
-                    className={`mic-polar-spot${pos.angle === angle ? " active" : ""}`}
-                    style={{ fill: spotColor(polarGainOf(pattern, pos.angle)) }}
-                    onClick={() => {
-                      markInteracted();
-                      setAngle(pos.angle);
-                    }}
-                  />
-                );
-              })}
-            </svg>
+            <MicPolarDiagram
+              pattern={pattern}
+              angle={angle}
+              interactive
+              onSelectAngle={(a) => {
+                markInteracted();
+                setAngle(a);
+              }}
+            />
           </div>
-          <p className="lab-hint">
-            Each dot is one of the 8 fixed positions the source can be placed at; its brightness
-            shows roughly how much of it the selected pattern picks up from there.
-          </p>
         </div>
 
         <div className="mic-panel">
@@ -221,7 +156,6 @@ function MicPolarPatternLab({ onInteract }) {
               captured yet.
             </p>
           )}
-          <p className="lab-hint mic-pattern-blurb">{POLAR_PATTERNS[pattern].blurb}</p>
           <audio
             ref={audioRef}
             preload="none"

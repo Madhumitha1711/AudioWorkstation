@@ -10,8 +10,11 @@ import './MikingRoom.css';
  * An interactive 3D teaching aid for microphone placement: an abstract room
  * you can orbit/zoom, a mic rig whose type + polar pattern you can switch
  * (highlighted with a 3D sensitivity lobe), and six sound sources you can
- * drop onto five predefined floor spots — the mic's height and how far its
- * pattern "reaches" follow whatever is placed.
+ * pick from — the mic's height and how far its pattern "reaches" follow
+ * whichever one is selected. Where to place the source (close/spot/room/
+ * left/right flank) is the Mic Technique lab's job now (see
+ * MicTechniqueRoom), so this room always shows the source at one neutral
+ * stand-in distance.
  *
  * Usage:
  *   import MikingRoom from './MikingRoom/MikingRoom';
@@ -51,7 +54,7 @@ import './MikingRoom.css';
  *                internal "Miking Techniques" header so it doesn't
  *                duplicate the section's own title.
  *   onInteract - called once, the first time the visitor does something
- *                meaningful with the scene (pick a source/spot/mic
+ *                meaningful with the scene (pick a source/mic
  *                type/pattern) — used to mark a lesson's interactive step
  *                complete, same as every other lab in the LABS map.
  */
@@ -66,8 +69,6 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
   const rAzRef = useRef(null);
   const rElRef = useRef(null);
   const sourceTypeRowRef = useRef(null);
-  const spotListRef = useRef(null);
-  const clearSpotsBtnRef = useRef(null);
   const typeRowRef = useRef(null);
   const patternRowRef = useRef(null);
 
@@ -89,8 +90,6 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
     const rAz = rAzRef.current;
     const rEl = rElRef.current;
     const sourceTypeRow = sourceTypeRowRef.current;
-    const spotList = spotListRef.current;
-    const clearSpotsBtn = clearSpotsBtnRef.current;
     const typeRow = typeRowRef.current;
     const patternRow = patternRowRef.current;
 
@@ -547,7 +546,7 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
 
       // Aim height follows whatever source is currently placed — a kick drum
       // and a standing vocalist don't get miked from the same height.
-      const activeSourceDef = activeSpotId ? SOURCE_TYPES.find((t) => t.id === sourceState.type) : null;
+      const activeSourceDef = SOURCE_TYPES.find((t) => t.id === sourceState.type);
       const capsuleY = !typeDef.hasStand ? 0.36 : activeSourceDef ? activeSourceDef.aimHeight : 1.32;
 
       micRig.position.set(0, 0, 0.4);
@@ -658,14 +657,13 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
         // how far it is — brighter and thicker where the pattern is more
         // sensitive in that direction, with a slow drifting glow so it reads
         // as signal rather than a static ruler.
-        if (activeSpotId) {
-          const beamSpot = SPOTS.find((s) => s.id === activeSpotId);
+        {
           const beamSourceDef = SOURCE_TYPES.find((t) => t.id === sourceState.type);
-          if (beamSpot && beamSourceDef) {
-            const angleRad = THREE.MathUtils.degToRad(SPOT_DEFS[activeSpotId].angle);
+          if (beamSourceDef) {
+            const angleRad = THREE.MathUtils.degToRad(SOURCE_POSITION.angle);
             const gainAtAngle = Math.max(PATTERNS[micState.pattern].gain(angleRad), 0.08);
             const beamStart = new THREE.Vector3(0, capsuleY, 0);
-            const beamEnd = new THREE.Vector3(beamSpot.x, beamSourceDef.aimHeight, beamSpot.z - MIC_ANCHOR_Z);
+            const beamEnd = new THREE.Vector3(SOURCE_X, beamSourceDef.aimHeight, SOURCE_Z - MIC_ANCHOR_Z);
             const beamDir = beamEnd.clone().sub(beamStart);
             const beamLen = beamDir.length();
             if (beamLen > 0.001) {
@@ -795,20 +793,14 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
     // Positions sit out along the mic's -Z listening axis, from its anchor at (0, ·, 0.4).
     const MIC_ANCHOR_X = 0;
     const MIC_ANCHOR_Z = 0.4;
-    const SPOT_DEFS = {
-      close: { dist: 0.3, angle: 0 },
-      spot: { dist: 0.8, angle: 0 },
-      room: { dist: 1.8, angle: 0 },
-      left: { dist: 0.9, angle: -30 },
-      right: { dist: 0.9, angle: 30 },
-    };
-    const SPOTS = Object.keys(SPOT_DEFS).map((id) => {
-      const def = SPOT_DEFS[id];
-      const a = THREE.MathUtils.degToRad(def.angle);
-      const x = MIC_ANCHOR_X + def.dist * Math.sin(a);
-      const z = MIC_ANCHOR_Z - def.dist * Math.cos(a);
-      return { id, x, z };
-    });
+    // Placement itself (choosing close/spot/room/left/right flank) now
+    // lives in the Mic Technique lab (see MicTechniqueRoom), so this room
+    // keeps just one neutral stand-in distance to show how mic type,
+    // pattern, and source height relate.
+    const SOURCE_POSITION = { dist: 0.8, angle: 0 };
+    const sourceAngleRad = THREE.MathUtils.degToRad(SOURCE_POSITION.angle);
+    const SOURCE_X = MIC_ANCHOR_X + SOURCE_POSITION.dist * Math.sin(sourceAngleRad);
+    const SOURCE_Z = MIC_ANCHOR_Z - SOURCE_POSITION.dist * Math.cos(sourceAngleRad);
 
     function zCylSrc(rTop, rBot, h) {
       return zCyl(rTop, rBot, h);
@@ -904,8 +896,6 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
       },
     ];
 
-    // Only one instrument at one spot at a time — placing a new one clears the last.
-    let activeSpotId = null;
     const sourceState = { type: 'vocal' };
 
     function disposeGroupGeometry(group) {
@@ -919,51 +909,37 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
       while (spotMarkersGroup.children.length) disposeGroupGeometry(spotMarkersGroup.children.pop());
 
       const accent = token('--mkr-accent', '#a8672a');
-      const line = token('--mkr-line-solid', '#ccd3d0'); // must be a fully
-      // opaque color for THREE.Color — see the comment on --mkr-line-solid
-      // in MikingRoom.css; --mkr-line itself stays translucent for its CSS
-      // (DOM border) uses elsewhere in this file.
 
-      SPOTS.forEach((spot) => {
-        const occupantId = spot.id === activeSpotId ? sourceState.type : null;
+      // Floor marker ring under the source — there's always exactly one
+      // source now (no spot to pick), so the ring stays in its "occupied" look.
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(0.19, 0.21, 40),
+        new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(SOURCE_X, 0.004, SOURCE_Z);
+      spotMarkersGroup.add(ring);
 
-        // Floor marker ring — brighter and filled when occupied, a faint
-        // dashed-feeling outline when empty so the predefined spot is still legible.
-        const ringColor = occupantId ? accent : line;
-        const ring = new THREE.Mesh(
-          new THREE.RingGeometry(0.19, 0.21, 40),
-          new THREE.MeshBasicMaterial({ color: ringColor, transparent: true, opacity: occupantId ? 0.7 : 0.55, side: THREE.DoubleSide, depthWrite: false })
-        );
-        ring.rotation.x = -Math.PI / 2;
-        ring.position.set(spot.x, 0.004, spot.z);
-        spotMarkersGroup.add(ring);
+      const typeDef = SOURCE_TYPES.find((t) => t.id === sourceState.type);
+      const sourceGroup = new THREE.Group();
+      sourceGroup.position.set(SOURCE_X, 0, SOURCE_Z);
+      const dx = MIC_ANCHOR_X - SOURCE_X;
+      const dz = MIC_ANCHOR_Z - SOURCE_Z;
+      sourceGroup.rotation.y = Math.atan2(-dx, -dz);
+      typeDef.build(sourceGroup);
 
-        // Empty spots are just the ring — names and distances live in the side
-        // panel, where they stay legible instead of stacking up as overlapping 3D labels.
-        if (occupantId) {
-          const typeDef = SOURCE_TYPES.find((t) => t.id === occupantId);
-          const sourceGroup = new THREE.Group();
-          sourceGroup.position.set(spot.x, 0, spot.z);
-          const dx = MIC_ANCHOR_X - spot.x;
-          const dz = MIC_ANCHOR_Z - spot.z;
-          sourceGroup.rotation.y = Math.atan2(-dx, -dz);
-          typeDef.build(sourceGroup);
+      // A dedicated light on the source itself, so it reads clearly
+      // against the room regardless of camera angle or theme — same
+      // treatment as the mic.
+      const srcLight = new THREE.PointLight(0xfff2df, 1.15, 3.2, 2);
+      srcLight.position.set(0.35, 0.95, -0.25);
+      sourceGroup.add(srcLight);
 
-          // A dedicated light on the source itself, so it reads clearly
-          // against the room regardless of camera angle or theme — same
-          // treatment as the mic.
-          const srcLight = new THREE.PointLight(0xfff2df, 1.15, 3.2, 2);
-          srcLight.position.set(0.35, 0.95, -0.25);
-          sourceGroup.add(srcLight);
-
-          sourcesGroup.add(sourceGroup);
-        }
-      });
+      sourcesGroup.add(sourceGroup);
     }
 
     function refreshSourcePanel() {
       setPillState(sourceTypeRow, sourceState.type, 'data-source');
-      setPillState(spotList, activeSpotId, 'data-spot');
 
       buildSourceScene();
       buildMicRig(); // the mic's height and how far its pattern reaches follow the active source
@@ -976,26 +952,8 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
       sourceState.type = btn.getAttribute('data-source');
       refreshSourcePanel();
     }
-    function onSpotListClick(e) {
-      const row = e.target.closest('button[data-spot]');
-      if (!row) return;
-      markInteracted();
-      const spotId = row.getAttribute('data-spot');
-      // Only one instrument at one spot at a time: clicking the active spot
-      // clears it, clicking any other spot moves the current instrument there instead.
-      activeSpotId = activeSpotId === spotId ? null : spotId;
-      refreshSourcePanel();
-    }
-    function onClearSpotsClick() {
-      activeSpotId = null;
-      refreshSourcePanel();
-    }
     sourceTypeRow.addEventListener('click', onSourceTypeRowClick);
-    spotList.addEventListener('click', onSpotListClick);
-    clearSpotsBtn.addEventListener('click', onClearSpotsClick);
     onCleanup(() => sourceTypeRow.removeEventListener('click', onSourceTypeRowClick));
-    onCleanup(() => spotList.removeEventListener('click', onSpotListClick));
-    onCleanup(() => clearSpotsBtn.removeEventListener('click', onClearSpotsClick));
 
     refreshSourcePanel();
     refreshMicPanel();
@@ -1229,8 +1187,8 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
           <div className="mkr-eyebrow">Miking Techniques</div>
           <h1 className="mkr-title">03 — Sources &amp; Placement</h1>
           <p className="mkr-subtitle">
-            Pick a mic type and polar pattern, then drop a sound source onto one of the predefined spots to set up a
-            scene. Audio playback per spot, and the close/spot/distant/stereo techniques themselves, arrive next.
+            Pick a mic type and polar pattern, then pick a sound source to see how the mic's height and coverage
+            adapt to it. Close/spot/distant/stereo/multi miking technique and placement live in the next lab.
           </p>
         </header>
       )}
@@ -1248,11 +1206,9 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
           <p className="mkr-sr-only">
             Interactive 3D view of an abstract studio room, roughly six by four and a half metres with a half-metre
             reference grid on the floor, and a microphone on a stand near the centre. Drag to orbit the camera around
-            the room; scroll or pinch to zoom. A reset view control is provided. Below the room, four rows of
-            controls let you pick a sound source and place it on one of five predefined floor spots in front of the
-            mic, and pick the mic's type and polar pattern, which changes the microphone model and draws its
-            sensitivity lobe as a highlighted 3D shape around it. The exact distance, azimuth, and elevation of a
-            placed source are announced in the readout, bottom right of the room.
+            the room; scroll or pinch to zoom. A reset view control is provided. Below the room, three rows of
+            controls let you pick a sound source, and pick the mic's type and polar pattern, which changes the
+            microphone model and draws its sensitivity lobe as a highlighted 3D shape around it.
           </p>
 
           <div className="mkr-hint" ref={hintRef}>
@@ -1291,19 +1247,6 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
               <button className="mkr-pill" type="button" data-source="kick">Kick</button>
               <button className="mkr-pill" type="button" data-source="ethnic">Ethnic Instrument</button>
             </div>
-          </div>
-          <div className="mkr-ctrl-row">
-            <span className="mkr-ctrl-label">Place at</span>
-            <div className="mkr-pill-row" ref={spotListRef}>
-              <button className="mkr-pill" type="button" data-spot="close">Close</button>
-              <button className="mkr-pill" type="button" data-spot="spot">Spot</button>
-              <button className="mkr-pill" type="button" data-spot="room">Room</button>
-              <button className="mkr-pill" type="button" data-spot="left">Left flank</button>
-              <button className="mkr-pill" type="button" data-spot="right">Right flank</button>
-            </div>
-            <button className="mkr-pill mkr-pill-muted" type="button" ref={clearSpotsBtnRef}>
-              Clear
-            </button>
           </div>
           <div className="mkr-ctrl-row">
             <span className="mkr-ctrl-label">Mic type</span>

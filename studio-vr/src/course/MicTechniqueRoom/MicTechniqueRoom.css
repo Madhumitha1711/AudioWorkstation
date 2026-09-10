@@ -291,9 +291,12 @@
   line-height: 1.5;
   color: var(--mtr-ink-dim);
 }
-/* The one non-toggle control among the pills ("Clear") */
+/* The one non-toggle control among the pills ("Clear") — pinned to the
+   far right of its row (Multi Miking's Layers row), separate from the
+   toggleable mic pills to its left. */
 .mic-technique-room .mtr-pill-muted {
   align-self: flex-start;
+  margin-left: auto;
   background: none;
 }
 .mic-technique-room .mtr-pill-muted:hover {

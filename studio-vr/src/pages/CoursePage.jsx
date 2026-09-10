@@ -90,6 +90,11 @@ function CoursePage() {
   const [activeStepId, setActiveStepId] = useState(null);
   const [completed, setCompleted] = useState(() => new Set());
   const [labDialogOpen, setLabDialogOpen] = useState(false);
+  // Whether the course-outline sidebar is collapsed to a slim rail — lets
+  // a student reclaim the width for wide interactive labs/panorama panels
+  // without losing their place (toggling back out doesn't disturb
+  // openTopics/openModules/activeStepId at all).
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     if (hasInitialized || STEPS.length === 0) return;
@@ -182,15 +187,6 @@ function CoursePage() {
     setCompleted((prev) => (prev.has(stepId) ? prev : new Set(prev).add(stepId)));
   };
 
-  const toggleActiveLessonComplete = () => {
-    setCompleted((prev) => {
-      const next = new Set(prev);
-      if (next.has(activeStep.id)) next.delete(activeStep.id);
-      else next.add(activeStep.id);
-      return next;
-    });
-  };
-
   const stepAt = (offset) => STEPS[activeIndex + offset];
   const goPrev = () => {
     const s = stepAt(-1);
@@ -205,8 +201,6 @@ function CoursePage() {
     activeStep?.kind === "lesson"
       ? (activeTopic?.lessons ?? []).findIndex((l) => l.id === activeStep.id)
       : -1;
-
-  const isDone = completed.has(activeStep?.id);
 
   if (loading) {
     return (
@@ -268,9 +262,22 @@ function CoursePage() {
         </div>
       </div>
 
-      <div className="course-layout">
-        <aside className="course-sidebar">
-          {moduleList.map((mod) => {
+      <div className={`course-layout${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
+        <aside className={`course-sidebar${sidebarCollapsed ? " collapsed" : ""}`}>
+          <div className="sidebar-toggle-row">
+            {!sidebarCollapsed && <span className="sidebar-title">Course Contents</span>}
+            <button
+              type="button"
+              className="sidebar-collapse-btn"
+              onClick={() => setSidebarCollapsed((v) => !v)}
+              aria-expanded={!sidebarCollapsed}
+              aria-label={sidebarCollapsed ? "Expand course outline" : "Collapse course outline"}
+              title={sidebarCollapsed ? "Expand course outline" : "Collapse course outline"}
+            >
+              {sidebarCollapsed ? "»" : "«"}
+            </button>
+          </div>
+          {!sidebarCollapsed && moduleList.map((mod) => {
             const moduleTopics = (topics ?? []).filter((t) => t.module === mod.id);
             const isModuleOpen = openModules.has(mod.id);
             const moduleSteps = STEPS.filter((s) =>
@@ -473,12 +480,6 @@ function CoursePage() {
                         Next →
                       </button>
                     </div>
-                    <button
-                      className={`complete-btn${isDone ? " done" : ""}`}
-                      onClick={toggleActiveLessonComplete}
-                    >
-                      {isDone ? "✓ Completed" : "Mark as complete"}
-                    </button>
                   </div>
                 </>
               )}
@@ -529,19 +530,6 @@ function CoursePage() {
                 </>
               )}
 
-              <div className="studio-cta">
-                <div>
-                  <h4>{activeTopic.hotspotId ? "Back in the studio?" : "Ready to keep exploring?"}</h4>
-                  <p>
-                    {activeTopic.hotspotId
-                      ? `This chapter is anchored to the ${hotspotName(activeTopic.hotspotId, activeTopic.title)} hotspot in the ${activeTopic.room} — head back and we'll walk you straight to it.`
-                      : "This chapter is classroom-only — head back to the studio to pick up wherever you left off."}
-                  </p>
-                </div>
-                <button className="btn-primary" onClick={() => goToStudio(activeTopic.hotspotId)}>
-                  ← Back to the studio
-                </button>
-              </div>
             </div>
           )}
         </main>

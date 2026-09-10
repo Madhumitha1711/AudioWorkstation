@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import "./labs.css";
 import { useLabAudio } from "./useLabAudio";
-import { COLORS, hiDpiCanvas } from "./soundLabShared";
+import { useTheme } from "../../theme/ThemeContext";
+import { hiDpiCanvas, scopePalette } from "./soundLabShared";
 
 // Ported from design/what-is-sound-chapter.html's "05 PHASE" panel: two
 // identical 300 Hz tones, started together, with Wave B routed through a
@@ -35,10 +36,11 @@ function relationshipLabel(deg) {
   return "Partial cancellation";
 }
 
-function drawPhase(canvas, deg, scroll) {
+function drawPhase(canvas, deg, scroll, theme = "dark") {
   const hd = hiDpiCanvas(canvas);
   if (!hd) return;
   const { ctx: c, w, h } = hd;
+  const colors = scopePalette(theme).colors;
   c.clearRect(0, 0, w, h);
   const rowH = h / 3;
 
@@ -56,8 +58,8 @@ function drawPhase(canvas, deg, scroll) {
     }
     c.stroke();
   }
-  sineRow(rowH * 0.5, 0, COLORS.amber);
-  sineRow(rowH * 1.5, deg, COLORS.green);
+  sineRow(rowH * 0.5, 0, colors.amber);
+  sineRow(rowH * 1.5, deg, colors.green);
 
   // Sum row: the true (unnormalized) sum of Wave A + Wave B, not their
   // average - so it actually reads as a taller wave when the two tones
@@ -70,7 +72,7 @@ function drawPhase(canvas, deg, scroll) {
   // below - both exactly rowH*0.5 away from this row's center.
   const SUM_UNIT = rowH * 0.24;
   c.beginPath();
-  c.strokeStyle = COLORS.blue;
+  c.strokeStyle = colors.blue;
   c.lineWidth = 2;
   for (let x = 0; x <= w; x++) {
     const t = (x / w) * 4 * Math.PI * 2 + scroll;
@@ -87,7 +89,7 @@ function drawPhase(canvas, deg, scroll) {
   // above it - doesn't get its ascenders clipped off above y=0 the way it
   // was before this row's peak had never had a "row above" to borrow
   // headroom from.
-  c.fillStyle = COLORS.label;
+  c.fillStyle = colors.label;
   c.font = "bold 11px monospace";
   c.fillText("WAVE A", 8, Math.max(11, rowH * 0.5 - rowH * 0.42));
   c.fillText("WAVE B", 8, Math.max(11, rowH * 1.5 - rowH * 0.42));
@@ -103,6 +105,9 @@ function PhaseLab({ onInteract }) {
   const onInteractRef = useRef(onInteract);
   onInteractRef.current = onInteract;
   const { getCtx, track, stopAll } = useLabAudio();
+  const { theme } = useTheme();
+  const themeRef = useRef(theme);
+  useEffect(() => { themeRef.current = theme; }, [theme]);
 
   const [deg, setDeg] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -116,8 +121,8 @@ function PhaseLab({ onInteract }) {
   };
 
   useEffect(() => {
-    if (!playing) drawPhase(canvasRef.current, deg, 0);
-  }, [deg, playing]);
+    if (!playing) drawPhase(canvasRef.current, deg, 0, theme);
+  }, [deg, playing, theme]);
 
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
@@ -132,7 +137,7 @@ function PhaseLab({ onInteract }) {
 
   function loop() {
     scrollRef.current += 0.12;
-    drawPhase(canvasRef.current, degRef.current, scrollRef.current);
+    drawPhase(canvasRef.current, degRef.current, scrollRef.current, themeRef.current);
     rafRef.current = requestAnimationFrame(loop);
   }
 
@@ -141,7 +146,7 @@ function PhaseLab({ onInteract }) {
     cancelAnimationFrame(rafRef.current);
     delayRef.current = null;
     setPlaying(false);
-    drawPhase(canvasRef.current, degRef.current, 0);
+    drawPhase(canvasRef.current, degRef.current, 0, theme);
   }
 
   function play() {
@@ -183,12 +188,6 @@ function PhaseLab({ onInteract }) {
 
   return (
     <div className="lab">
-      <p className="lab-intro">
-        Two identical 300 Hz tones, one shifted by the phase offset below. In phase, they reinforce;
-        180° apart, one's peaks line up with the other's troughs and they cancel — drag the slider
-        while it's playing and listen for the combined tone thinning out near 180°.
-      </p>
-
       <div className="sound-lab-panel-head">
         <span className={`sound-lab-live-dot${playing ? " on" : ""}`} /> Wave A + Wave B → Sum
       </div>
@@ -221,10 +220,6 @@ function PhaseLab({ onInteract }) {
           {playing ? "⏹ Stop" : "▶ Play Both Tones"}
         </button>
       </div>
-      <p className="lab-hint">
-        Listen near 180° — the combined tone should noticeably thin out or near-vanish as the two
-        waves cancel.
-      </p>
     </div>
   );
 }

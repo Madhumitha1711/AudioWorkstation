@@ -107,12 +107,17 @@ export const TOPICS = [
       "A microphone is a translator, not a recorder — it converts air pressure into voltage its own way, and picking the right one is half the battle before you ever touch a fader.",
     // Interactive labs for this chapter's Type/Polar Pattern/Selection
     // subchapters already exist (see InteractiveSection.jsx's
-    // "mic-type-lab" / "mic-polar-pattern-lab" / "mic-selection-lab",
-    // ported from design/mic-types-chapter.html), and its Placement
-    // subchapter now has one too — "mic-placement-lab", MikingRoom's 3D
-    // room (see src/course/MikingRoom and MicPlacementLab.jsx) — this
-    // topic stays `ready: false` until its lessons/blocks are authored in
-    // studio-cms, same as the "What Is Sound?" chapter above.
+    // "mic-type-lab" / "mic-type-compare-lab" / "mic-polar-pattern-lab" /
+    // "mic-polar-compare-lab" / "mic-selection-lab", ported from
+    // design/mic-types-chapter.html — "mic-selection-lab" just aliases the
+    // mic-type-lab component, and "mic-polar-compare-lab" is the polar-
+    // pattern equivalent of mic-type-compare-lab, minus a dropdown since
+    // there are only three fixed patterns to compare; see that file's
+    // comment), and its Placement subchapter now has one too
+    // — "mic-placement-lab", MikingRoom's 3D room (see src/course/
+    // MikingRoom and MicPlacementLab.jsx) — this topic stays
+    // `ready: false` until its lessons/blocks are authored in studio-cms,
+    // same as the "What Is Sound?" chapter above.
     ready: false,
   },
   {

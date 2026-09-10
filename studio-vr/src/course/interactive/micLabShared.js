@@ -1,6 +1,6 @@
 // Shared data for the "Microphones: Types, Characteristics & Selection"
-// chapter's interactive labs (MicTypeLab, MicPolarPatternLab,
-// MicSelectionLab) — ported from
+// chapter's interactive labs (MicTypeLab, MicTypeCompareLab,
+// MicPolarPatternLab) — ported from
 // design/mic-types-chapter.html (chapter 6, courseData.js TOPICS[id=
 // "mic-stand"], module "capture-signal-path"). Factored out because the
 // Type lab needs the same five-transducer data set, and the Polar
@@ -46,6 +46,7 @@ export const MIC_TYPES = [
     icon: "🎙️",
     shape: "dynamic",
     accent: COLORS.amber,
+    summary: "A moving-coil capsule with no electronics or power needed — rugged and high-SPL, at the cost of some transient detail.",
     paragraphs: [
       "A dynamic capsule works like a tiny loudspeaker running in reverse: sound pressure moves a diaphragm, the diaphragm drags a coil of wire through a magnetic field, and that movement induces a small voltage directly — no electronics, no external power.",
       "There's more mass in a moving coil than in a condenser's featherlight diaphragm, so a dynamic can't track the fastest transients quite as accurately — but that same mass makes it nearly indestructible and unbothered by high sound pressure levels.",
@@ -70,6 +71,7 @@ export const MIC_TYPES = [
     icon: "⚡",
     shape: "condenser",
     accent: COLORS.green,
+    summary: "A capacitor capsule buffered by a FET, needing 48V phantom power — extremely sensitive and detailed, best in a treated room.",
     paragraphs: [
       "A condenser capsule is a capacitor: a charged diaphragm sits a hair's width from a fixed metal backplate, and sound pressure changes the gap between them, generating a tiny signal. A built-in field-effect transistor (FET) buffers that signal right at the capsule — which is why condensers need 48V phantom power to charge the capsule and run that electronics.",
       "The diaphragm is thousands of times lighter than a dynamic's coil assembly, so it tracks air pressure far more accurately — faster transients, more high-frequency extension, more low-level detail. That sensitivity also means FET condensers pick up handling noise and room noise more readily, so they usually live on a shockmount in a treated room.",
@@ -94,6 +96,7 @@ export const MIC_TYPES = [
     icon: "🔥",
     shape: "tube",
     accent: COLORS.amber,
+    summary: "The same capacitor capsule as a FET condenser, buffered by a tube on its own power supply — warm, gracefully saturated, premium-tier.",
     paragraphs: [
       "A tube condenser uses the same capacitor capsule as a FET condenser — the difference is entirely in what buffers the signal. A small vacuum tube replaces the FET, so the mic needs its own dedicated power supply (a proprietary multi-pin cable, not standard 48V phantom) to heat the tube's filament and run its plate voltage.",
       'Tubes distort more gracefully than solid-state electronics — mostly even-order harmonics the ear reads as "warm" or "rich" rather than harsh. That subtle coloration, plus hand-built tube electronics, is why tube condensers sit at the premium end of most mic lockers.',
@@ -118,6 +121,7 @@ export const MIC_TYPES = [
     icon: "🎗️",
     shape: "ribbon",
     accent: COLORS.green,
+    summary: "A thin aluminum ribbon vibrating in a magnetic field, naturally figure-8 — smooth and accurate, but fragile.",
     paragraphs: [
       "A ribbon mic suspends an extremely thin, corrugated strip of aluminum foil between the poles of a strong magnet. Air flowing past the ribbon makes it vibrate directly in that field, with essentially no diaphragm mass to slow it down — a design that naturally produces a figure-8 (bidirectional) pattern: equally open front and back, dead on the sides.",
       "The classic ribbon sound is a smooth, naturally rolled-off top end and an effortlessly accurate transient response — many engineers reach for a ribbon specifically to tame a harsh amp or bright brass section. That same delicate foil is the trade-off: a strong gust of air, a close plosive, or stray phantom power on an older passive design can stretch or tear it outright.",
@@ -142,6 +146,7 @@ export const MIC_TYPES = [
     icon: "📟",
     shape: "contact",
     accent: COLORS.amber,
+    summary: "A piezoelectric transducer clamped to a surface, sensing vibration instead of air — near-total isolation, at the cost of tonal accuracy.",
     paragraphs: [
       "Every type above senses sound traveling through air. A contact mic (usually a piezoelectric transducer) doesn't listen to air at all — it's taped, clamped, or stuck directly to a vibrating surface and senses structure-borne vibration straight through that contact, which makes it almost deaf to airborne room noise and bleed.",
       "The trade-off is tone: a piezo element has a naturally uneven, often thin or slightly harsh frequency response compared to a well-designed air mic, and its high output impedance usually needs a DI box or dedicated preamp to sound its best. What you trade for that coloration is near-total isolation from a noisy room.",
@@ -235,7 +240,10 @@ export function polarLobePoints(pattern, cx, cy, maxR, steps = 96) {
 }
 
 // Selection scenarios — which type(s)/pattern most engineers reach for
-// first on a given source, and why.
+// first on a given source, and why. Not currently wired into a lab (the
+// dedicated MicSelectionLab this once backed was removed — see
+// InteractiveSection.jsx's mic-stand comment) — kept here in case a
+// future revision pairs a scenario picker back up with these.
 export const MIC_SCENARIOS = [
   {
     id: "lead-vocal",

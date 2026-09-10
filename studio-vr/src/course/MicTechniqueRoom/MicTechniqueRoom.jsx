@@ -23,6 +23,17 @@ import './MicTechniqueRoom.css';
  * Proximity Effect step, since that technique's whole point is a
  * cardioid-vs-omni pattern comparison).
  *
+ * Placement is driven by clickable 3D hotspots, not DOM buttons: every
+ * technique marks its own candidate mic position(s) as glowing markers in
+ * the room (Close/Spot/Distant/Room always have exactly 3; Stereo shows one
+ * per capsule in the active preset; Multi Miking shows one per layer
+ * available for the active source). Clicking a hotspot moves the single
+ * active mic there (Close/Spot/Distant/Room) or toggles a numbered mic
+ * on/off at that position (Stereo, Multi Miking — see TECHNIQUES' `mode`
+ * field and buildHotspots()/activePlacements() below). A visually-hidden
+ * button list (syncHotspotAccessibleList) mirrors every hotspot for
+ * keyboard and screen-reader use.
+ *
  * Usage:
  *   import MicTechniqueRoom from './MicTechniqueRoom/MicTechniqueRoom';
  *
@@ -75,10 +86,22 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
   const techniqueRowRef = useRef(null);
   const techniqueBlurbRef = useRef(null);
 
-  const placementRowRef = useRef(null);
-  const layerRowRef = useRef(null);
-  const clearLayersBtnRef = useRef(null);
+  // Placement/layer selection moved from DOM pill rows to clickable 3D
+  // hotspots (see the hotspot system in the effect below) — hotspotListRef
+  // is its visually-hidden, keyboard/screen-reader-accessible twin, not a
+  // visible control row. presetRowRef/multiPresetRowRef stay real pill
+  // rows: which named stereo pairing (X-Y vs ORTF vs...), or which
+  // multi-mic layout (Snare vs Kick vs...), is still a technique choice,
+  // not a "where does the mic go" choice hotspots make sense for.
+  const hotspotListRef = useRef(null);
   const presetRowRef = useRef(null);
+  const multiPresetRowRef = useRef(null);
+  // Multi Miking's visible Layers row — one toggle pill per mic position,
+  // plus a Clear-all button — doing the same thing as clicking the 3D
+  // hotspots, just as an always-visible on-screen control. See
+  // syncMultiLayerRow/onClearMultiLayers.
+  const multiLayerRowRef = useRef(null);
+  const clearLayersBtnRef = useRef(null);
 
   const singleReadoutRef = useRef(null);
   const rDistanceRef = useRef(null);
@@ -110,10 +133,11 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
     const techniqueRow = techniqueRowRef.current;
     const techniqueBlurb = techniqueBlurbRef.current;
 
-    const placementRow = placementRowRef.current;
-    const layerRow = layerRowRef.current;
-    const clearLayersBtn = clearLayersBtnRef.current;
+    const hotspotList = hotspotListRef.current;
     const presetRow = presetRowRef.current;
+    const multiPresetRow = multiPresetRowRef.current;
+    const multiLayerRow = multiLayerRowRef.current;
+    const clearLayersBtn = clearLayersBtnRef.current;
 
     const singleReadout = singleReadoutRef.current;
     const rDistance = rDistanceRef.current;
@@ -237,6 +261,38 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
       const sprite = new THREE.Sprite(mat);
       sprite.scale.set(0.9, 0.225, 1);
+      return sprite;
+    }
+
+    // A small round numbered badge ("1", "2", "3"...) rendered as a
+    // canvas-texture sprite — same technique as makeScaleLabel above, just
+    // circular and centered so it reads as a chip rather than a text label.
+    // Used two ways: dimmed, on an unplaced hotspot marker (invites a
+    // click) and, once placed, full-strength above the mic rig itself (see
+    // buildOneMicRig's `badgeNumber` param) — see the hotspot system below.
+    function makeNumberSprite(number, fillColor, opacity, scale) {
+      const c = document.createElement('canvas');
+      c.width = 96;
+      c.height = 96;
+      const ctx = c.getContext('2d');
+      ctx.globalAlpha = opacity;
+      ctx.beginPath();
+      ctx.arc(48, 48, 44, 0, Math.PI * 2);
+      ctx.fillStyle = fillColor;
+      ctx.fill();
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '700 48px "IBM Plex Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(number), 48, 54);
+      const tex = tagSRGB(new THREE.CanvasTexture(c));
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+      const sprite = new THREE.Sprite(mat);
+      sprite.scale.set(scale, scale, 1);
       return sprite;
     }
 
@@ -624,7 +680,7 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       close: {
         label: 'Close Miking',
         mode: 'single',
-        blurb: 'Two inches to about a foot from the source. Direct sound dominates, the room barely registers, and isolation from everything else is close to total.',
+        blurb: 'Two inches to about a foot from the source. Direct sound dominates, the room barely registers, and isolation from everything else is close to total. The 3 hotspots below are spread apart in the room for a clearer side-by-side look — the Distance readout still reports each one’s real, true-to-life distance from the source.',
         spots: [
           { id: 'close-2in', tag: '2 in · on-axis', dist: 0.05, angle: 0, distanceLabel: '2 in', axisLabel: 'On-axis · 0°', character: 'Maximum warmth, strong proximity effect' },
           { id: 'close-6in', tag: '6 in · on-axis', dist: 0.15, angle: 0, distanceLabel: '6 in', axisLabel: 'On-axis · 0°', character: 'Full and present, moderate proximity effect' },
@@ -654,7 +710,7 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       stereo: {
         label: 'Stereo Miking',
         mode: 'stereo',
-        blurb: 'Two (or three) mics, one stereo image — spacing and the angle between capsules decide the width and how safely it folds to mono. Coincident/near-coincident pairs (X-Y, M-S, ORTF, Blumlein) fold down safely; spaced pairs (AB, Outrigger, Decca Tree) are wider but riskier. Keep the 3:1 rule in mind whenever two mics can hear the same source.',
+        blurb: 'Two (or three) mics, one stereo image — spacing and the angle between capsules decide the width and how safely it folds to mono. Coincident/near-coincident pairs (X-Y, M-S, ORTF, Blumlein) fold down safely; spaced pairs (AB, Outrigger, Decca Tree) are wider but riskier. Keep the 3:1 rule in mind whenever two mics can hear the source. Every preset loads at its own capsule position(s) by default — click a hotspot to pull that one mic back out (or back in) and hear the difference.',
         // Each preset is `mics: [{tag, xOffsetM, distM, yawOffsetDeg, heightM?}]`
         // rather than the old fixed left/right-only shape, so a preset can
         // use two capsules (most of these) or three (Decca Tree's L/C/R).
@@ -744,7 +800,7 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       multi: {
         label: 'Multi Miking',
         mode: 'multi',
-        blurb: 'Several mics on one source at once, each its own channel, balanced together afterward. Toggle layers on and off to hear a multi-miked source as the small mix it really is. Layer options below follow real multi-mic setups for the selected source — Snare, Kick, and Amp each get their own textbook layout; every other source keeps a generic close/support/overhead/room spread.',
+        blurb: 'Several mics on one source at once, each its own channel, balanced together afterward. Pick a preset below and its first mic loads by default — Snare, Kick, and Amp each get their own textbook layout; every other source gets a generic close/support/overhead/room spread. Click a hotspot or a Layers pill to toggle any other mic on (or back off) and hear a multi-miked source built up one layer at a time.',
         // Layers are source-specific (unlike every other technique's
         // `spots`, which are the same regardless of source) because real
         // multi-mic setups genuinely differ per instrument — a snare gets
@@ -816,14 +872,45 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       sourceType: 'vocal',
       micType: 'dynamic',
       placementId: 'close-2in', // close/spot/distant: single active spot
-      layerIds: new Set(['multi-close']), // multi: toggled active layers
+      layerIds: new Set(), // multi: layers placed by clicking their hotspot — starts empty, build it up
+      stereoPlaced: new Set(), // stereo: mic *indices* (into the active preset's `mics` array) placed by clicking their hotspot
       presetId: 'ab', // stereo
     };
 
     const sourceGroup = new THREE.Group();
     const micRigsGroup = new THREE.Group();
     const beamsGroup = new THREE.Group();
-    scene.add(sourceGroup, micRigsGroup, beamsGroup);
+    const hotspotsGroup = new THREE.Group();
+    scene.add(sourceGroup, micRigsGroup, beamsGroup, hotspotsGroup);
+
+    // ---- Hotspots — clickable 3D markers that replace the old DOM
+    // pill-buttons for "where does the mic go": one marker per candidate
+    // mic position for the active technique (single mode's 3 authored
+    // spots; the active stereo preset's mic slots; the active source's
+    // multi-mic layers). Clicking a marker (or its accessible-list twin,
+    // see syncHotspotAccessibleList) moves/places a mic there — see
+    // buildHotspots() below, called alongside buildMicRigs() everywhere the
+    // old code called the latter alone. `hotspotInteractables` is what
+    // hitTestHotspot() raycasts against; `pendingHotspotMeshes` is just the
+    // unplaced markers' core+glow meshes, gently pulsed in the render loop
+    // so an empty stereo/multi scene still reads as "click me".
+    const raycaster = new THREE.Raycaster();
+    const pointerNDC = new THREE.Vector2();
+    const HOTSPOT_FLOOR_Y = 0.02; // just above the floor/grid (which sit at y=0/0.002/0.003) to avoid z-fighting
+    let hotspotInteractables = [];
+    let pendingHotspotMeshes = [];
+
+    function hitTestHotspot(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return null;
+      pointerNDC.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      pointerNDC.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointerNDC, camera);
+      const meshes = hotspotInteractables.map((h) => h.mesh);
+      const hits = raycaster.intersectObjects(meshes, false);
+      if (!hits.length) return null;
+      return hotspotInteractables.find((h) => h.mesh === hits[0].object) || null;
+    }
 
     function sourceAnchorPos(aimHeight) {
       return new THREE.Vector3(SOURCE_ANCHOR_X, aimHeight, SOURCE_ANCHOR_Z);
@@ -844,6 +931,42 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
     // Returns the list of {id, tag, dist, angle, heightM?, distanceLabel,
     // axisLabel, character, pos} placements that should have a mic rig
     // right now, given the active technique + its own selection state.
+    // Close Miking's 3 real positions (2 in, 6 in, 4 in-off-axis) sit only
+    // centimetres from the source and, for the 2in/6in pair, on the exact
+    // same on-axis line — rendered at their true authored distance, they'd
+    // sit a couple centimetres apart at most, making the three impossible
+    // to tell apart or compare side by side. So Close Miking is the one
+    // technique whose mic doesn't render at its literal authored
+    // dist/angle: it renders — hotspot marker AND, once clicked, the mic
+    // itself — fanned out from the source at a spread-apart angle instead,
+    // purely so the three are visually distinguishable and comparable. The
+    // readout's Distance/Axis/Notes text (spot.distanceLabel/axisLabel/
+    // character) still reports the real "2 in / 6 in / 4 in off-axis"
+    // numbers regardless — only the 3D position is stylized. Used by both
+    // activePlacements() (the actual placed mic) and buildHotspots() (the
+    // clickable marker), so they always land on exactly the same point —
+    // no separate marker-to-real guide line needed for this technique (see
+    // addMarker's elevation-only guide below).
+    //
+    // The fan radius MUST stay closer to the source than Spot Miking's
+    // nearest real spot (`spot-soloist`, dist: 0.25) — Close Miking should
+    // always read as closer than Spot Miking, technique names and all, so
+    // this is built from the same `clearance` (source-surface offset) Spot
+    // Miking's own spots use, plus a fixed pad well under Spot's 0.25,
+    // rather than a flat radius that could end up farther out than Spot's
+    // spots for some source (a kick's clearance alone is 0.4m). Adjacent
+    // markers are still ~55-60° apart (CLOSE_MARKER_FAN_DEG) to stay
+    // clickably separate despite the smaller radius — see the reduced
+    // `hitRadius` passed to addMarker below for the other half of that.
+    const CLOSE_MARKER_FAN_DEG = { 'close-2in': -60, 'close-6in': 0, 'close-offaxis': 60 };
+    const CLOSE_MARKER_RADIUS_PAD = 0.16; // stays under Spot Miking's 0.25 dist by ~0.09m at any clearance
+    function closeMarkerPos(spotId, sourcePos, sourceDef) {
+      const angle = CLOSE_MARKER_FAN_DEG[spotId];
+      if (angle == null) return null;
+      const radius = sourceDef.nearClearanceM + CLOSE_MARKER_RADIUS_PAD;
+      return computeSpotPosition(sourcePos, radius, angle, null, sourceDef.aimHeight);
+    }
+
     function activePlacements() {
       const def = TECHNIQUES[state.technique];
       const sourceDef = SOURCE_TYPES.find((t) => t.id === state.sourceType);
@@ -858,11 +981,19 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
 
       if (def.mode === 'single') {
         const spot = def.spots.find((s) => s.id === state.placementId) || def.spots[0];
-        return [{ ...spot, pos: computeSpotPosition(sourcePos, spot.dist + clearance, spot.angle, spot.heightM, sourceDef.aimHeight) }];
+        const pos =
+          (state.technique === 'close' && closeMarkerPos(spot.id, sourcePos, sourceDef)) ||
+          computeSpotPosition(sourcePos, spot.dist + clearance, spot.angle, spot.heightM, sourceDef.aimHeight);
+        return [{ ...spot, pos }];
       }
       if (def.mode === 'multi') {
+        // Badge number is the spot's fixed position in the SOURCE'S full
+        // layer list (not the filtered-down active subset) so "Top" stays
+        // mic 1 and "Bottom" stays mic 2 for a snare regardless of which
+        // are currently toggled on — matches the number on its hotspot.
         const spots = def.spotsBySource[state.sourceType] || def.spotsBySource.default;
         return spots
+          .map((spot, i) => ({ ...spot, badgeNumber: i + 1 }))
           .filter((s) => state.layerIds.has(s.id))
           .map((spot) => ({ ...spot, pos: computeSpotPosition(sourcePos, spot.dist + clearance, spot.angle, spot.heightM, sourceDef.aimHeight) }));
       }
@@ -870,16 +1001,21 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
         // Generalized over `preset.mics` (2 capsules for most presets, 3
         // for Decca Tree's L/C/R) instead of a hardcoded left/right pair —
         // see the TECHNIQUES.stereo header comment for the per-mic shape.
+        // Only mics the visitor has clicked into place (state.stereoPlaced,
+        // keyed by array index) render a rig — see buildHotspots().
         const preset = def.presets[state.presetId];
         const y = sourceDef.aimHeight + 0.15;
-        return preset.mics.map((mic, i) => {
-          const distM = mic.distM + clearance;
-          return {
-            id: `${preset.id}-${i}`, tag: `${mic.tag} capsule`, yawOffsetDeg: mic.yawOffsetDeg || 0,
-            distanceLabel: `${distM.toFixed(1)} m out`, axisLabel: `${mic.tag} channel`, character: preset.label,
-            pos: new THREE.Vector3(sourcePos.x + (mic.xOffsetM || 0), mic.heightM != null ? mic.heightM : y, sourcePos.z - distM),
-          };
-        });
+        return preset.mics
+          .map((mic, i) => {
+            const distM = mic.distM + clearance;
+            return {
+              id: `${preset.id}-${i}`, tag: `${mic.tag} capsule`, yawOffsetDeg: mic.yawOffsetDeg || 0,
+              distanceLabel: `${distM.toFixed(1)} m out`, axisLabel: `${mic.tag} channel`, character: preset.label,
+              badgeNumber: i + 1,
+              pos: new THREE.Vector3(sourcePos.x + (mic.xOffsetM || 0), mic.heightM != null ? mic.heightM : y, sourcePos.z - distM),
+            };
+          })
+          .filter((_, i) => state.stereoPlaced.has(i));
       }
       return [];
     }
@@ -901,7 +1037,7 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
     // spread their capsules by a specific angle — that angle IS the
     // technique). Every other technique leaves it unset, so those rigs
     // point exactly at the source with nothing added, per the earlier fix.
-    function buildOneMicRig(typeDef, placement, sourcePos, accent, accentStrong) {
+    function buildOneMicRig(typeDef, placement, sourcePos, accent, accentStrong, badgeNumber) {
       const rig = new THREE.Group();
       const capsuleY = !typeDef.hasStand ? 0.36 : placement.pos.y;
       rig.position.set(placement.pos.x, 0, placement.pos.z);
@@ -909,6 +1045,17 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
 
       if (typeDef.hasStand) addStand(rig, capsuleY);
       else addContactSurface(rig, capsuleY);
+
+      // Stereo/multi mics only — a floating numbered badge above the
+      // capsule (a pure +y local offset stays vertical no matter how the
+      // rig is yawed, so this is safe to add before the rotation-sensitive
+      // pieces below). Single-mode techniques pass no badgeNumber — one
+      // active mic at a time doesn't need numbering.
+      if (badgeNumber != null) {
+        const badge = makeNumberSprite(badgeNumber, accentStrong, 1, 0.17);
+        badge.position.set(0, capsuleY + 0.24, 0);
+        rig.add(badge);
+      }
 
       const head = new THREE.Group();
       head.position.y = capsuleY;
@@ -1012,7 +1159,224 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       const accentStrong = token('--mtr-accent-strong', '#8c521e');
 
       activePlacements().forEach((placement) => {
-        micRigsGroup.add(buildOneMicRig(typeDef, placement, sourcePos, accent, accentStrong));
+        micRigsGroup.add(buildOneMicRig(typeDef, placement, sourcePos, accent, accentStrong, placement.badgeNumber));
+      });
+    }
+
+    // ---- Hotspot markers + the state-mutating actions behind them — one
+    // marker per candidate mic position for the active technique. Shared by
+    // both the 3D click path (hitTestHotspot -> onSelect, wired on the
+    // canvas's pointer handlers below) and the accessible button-list twin
+    // (syncHotspotAccessibleList) so keyboard/screen-reader visitors have
+    // the same control a mouse/touch visitor gets from clicking in the
+    // scene. ----
+    function selectSinglePlacement(spotId) {
+      if (state.placementId === spotId) return;
+      markInteracted();
+      state.placementId = spotId;
+      refreshTechniqueUI();
+      buildMicRigs();
+      buildHotspots();
+      refreshReadouts();
+    }
+    function toggleStereoMic(index) {
+      markInteracted();
+      if (state.stereoPlaced.has(index)) state.stereoPlaced.delete(index);
+      else state.stereoPlaced.add(index);
+      buildMicRigs();
+      buildHotspots();
+      refreshReadouts();
+    }
+    function toggleMultiLayer(spotId) {
+      markInteracted();
+      if (state.layerIds.has(spotId)) state.layerIds.delete(spotId);
+      else state.layerIds.add(spotId);
+      buildMicRigs();
+      buildHotspots();
+      refreshReadouts();
+    }
+    // Multi Miking's Clear button (see the Layers row JSX) — drops every
+    // placed mic at once instead of toggling them off one by one.
+    function onClearMultiLayers() {
+      if (state.layerIds.size === 0) return;
+      markInteracted();
+      state.layerIds = new Set();
+      buildMicRigs();
+      buildHotspots();
+      refreshReadouts();
+    }
+
+    function buildHotspots() {
+      clearGroup(hotspotsGroup);
+      hotspotInteractables = [];
+      pendingHotspotMeshes = [];
+
+      const def = TECHNIQUES[state.technique];
+      const sourceDef = SOURCE_TYPES.find((t) => t.id === state.sourceType);
+      const sourcePos = sourceAnchorPos(sourceDef.aimHeight);
+      const clearance = sourceDef.nearClearanceM;
+      const accent = token('--mtr-accent', '#a8672a');
+      const accentStrong = token('--mtr-accent-strong', '#8c521e');
+
+      // active = a mic already sits here (single mode's current spot, or a
+      // placed stereo/multi mic). Inactive markers pulse gently (see tick())
+      // and, for stereo/multi, carry a dim number so a visitor knows which
+      // mic clicking them will place — the mic's own bright badge (added in
+      // buildOneMicRig) takes over once it's actually there.
+      function addMarker(pos, active, number, onSelect, hitRadius = 0.16) {
+        // The clickable marker always sits on the floor at this spot's
+        // (x, z), even when the real mic position is elevated (Overhead's
+        // 2.1m, Spot Miking's main-pair context spot at 1.9m, Close
+        // Miking's mouth-height fan, etc.) — a floor footprint is easy to
+        // see and click from any camera angle, where a marker floating at
+        // head height or higher can be hard to spot or hidden behind gear.
+        // A faint dashed guide line (below) stands in for "the real
+        // position is up there" when that's true.
+        const group = new THREE.Group();
+        group.position.set(pos.x, HOTSPOT_FLOOR_Y, pos.z);
+
+        const color = active ? accentStrong : accent;
+        const core = new THREE.Mesh(
+          new THREE.SphereGeometry(active ? 0.055 : 0.045, 16, 12),
+          new THREE.MeshBasicMaterial({ color, transparent: true, opacity: active ? 0.95 : 0.5 })
+        );
+        group.add(core);
+
+        const glow = new THREE.Sprite(makeGlowMaterial(color));
+        glow.scale.setScalar(active ? 0.5 : 0.36);
+        group.add(glow);
+
+        if (number != null && !active) {
+          const badge = makeNumberSprite(number, accent, 0.6, 0.13);
+          badge.position.set(0, 0.15, 0);
+          group.add(badge);
+        }
+
+        // Elevated spot — a thin dashed line from the floor marker straight
+        // up to the real mic height, so clicking the floor dot doesn't read
+        // as "the mic sits on the floor here".
+        const elevation = pos.y - HOTSPOT_FLOOR_Y;
+        if (elevation > 0.15) {
+          const guideGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, elevation, 0)]);
+          const guide = new THREE.Line(guideGeo, new THREE.LineDashedMaterial({ color, transparent: true, opacity: active ? 0.55 : 0.3, dashSize: 0.05, gapSize: 0.04 }));
+          guide.computeLineDistances();
+          group.add(guide);
+        }
+
+        // Larger invisible sphere as the actual click/tap target — the
+        // visible marker stays small so it doesn't crowd the scene, but a
+        // 0.045-0.055 radius sphere is a hard target to hit precisely.
+        // Object3D.visible only affects rendering, not raycasting, so this
+        // stays hit-testable. See hitTestHotspot() above. Close Miking
+        // passes a smaller hitRadius (its 3 markers sit closer together,
+        // by design — see CLOSE_MARKER_RADIUS_PAD above — than the default
+        // 0.16 comfortably allows without overlapping).
+        const hit = new THREE.Mesh(new THREE.SphereGeometry(hitRadius, 8, 6), new THREE.MeshBasicMaterial());
+        hit.visible = false;
+        group.add(hit);
+
+        hotspotsGroup.add(group);
+        hotspotInteractables.push({ mesh: hit, onSelect });
+        // Store each mesh's own base scale alongside it — tick()'s pulse is
+        // a multiplier, not an absolute (core and glow start at different
+        // scales; overwriting either with the raw multiplier would size it
+        // wrong instead of just breathing it in and out).
+        if (!active) {
+          pendingHotspotMeshes.push({ mesh: core, base: core.scale.x }, { mesh: glow, base: glow.scale.x });
+        }
+      }
+
+      if (def.mode === 'single') {
+        def.spots.forEach((spot) => {
+          // Close Miking's marker (and, once clicked, the mic itself — see
+          // closeMarkerPos/activePlacements above) renders fanned out
+          // instead of at the spot's literal authored position, so the 3
+          // real-world-tiny distances are actually distinguishable and
+          // comparable in the room.
+          const pos =
+            (state.technique === 'close' && closeMarkerPos(spot.id, sourcePos, sourceDef)) ||
+            computeSpotPosition(sourcePos, spot.dist + clearance, spot.angle, spot.heightM, sourceDef.aimHeight);
+          const active = spot.id === state.placementId;
+          const hitRadius = state.technique === 'close' ? 0.1 : 0.16;
+          addMarker(pos, active, null, () => selectSinglePlacement(spot.id), hitRadius);
+        });
+      } else if (def.mode === 'stereo') {
+        const preset = def.presets[state.presetId];
+        const y = sourceDef.aimHeight + 0.15;
+        preset.mics.forEach((mic, i) => {
+          const distM = mic.distM + clearance;
+          const pos = new THREE.Vector3(sourcePos.x + (mic.xOffsetM || 0), mic.heightM != null ? mic.heightM : y, sourcePos.z - distM);
+          const active = state.stereoPlaced.has(i);
+          addMarker(pos, active, i + 1, () => toggleStereoMic(i));
+        });
+      } else if (def.mode === 'multi') {
+        const spots = def.spotsBySource[state.sourceType] || def.spotsBySource.default;
+        spots.forEach((spot, i) => {
+          const pos = computeSpotPosition(sourcePos, spot.dist + clearance, spot.angle, spot.heightM, sourceDef.aimHeight);
+          const active = state.layerIds.has(spot.id);
+          addMarker(pos, active, i + 1, () => toggleMultiLayer(spot.id));
+        });
+      }
+
+      syncHotspotAccessibleList();
+      syncMultiLayerRow();
+    }
+
+    // Keyboard/screen-reader-accessible twin of the 3D hotspots — a plain
+    // (visually-hidden, see .mtr-sr-only) list of buttons doing exactly what
+    // clicking the matching marker does. Rebuilt fresh each time buildHotspots()
+    // runs so it never drifts out of sync with what's actually placed.
+    function syncHotspotAccessibleList() {
+      if (!hotspotList) return;
+      const def = TECHNIQUES[state.technique];
+      hotspotList.innerHTML = '';
+
+      function addButton(kind, id, label, pressed) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'mtr-pill';
+        btn.textContent = label;
+        btn.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+        btn.addEventListener('click', () => {
+          if (kind === 'single') selectSinglePlacement(id);
+          else if (kind === 'stereo') toggleStereoMic(id);
+        });
+        hotspotList.appendChild(btn);
+      }
+
+      if (def.mode === 'single') {
+        def.spots.forEach((spot) => addButton('single', spot.id, `Move mic to ${spot.tag}`, spot.id === state.placementId));
+      } else if (def.mode === 'stereo') {
+        const preset = def.presets[state.presetId];
+        preset.mics.forEach((mic, i) => addButton('stereo', i, `Mic ${i + 1} — ${mic.tag}`, state.stereoPlaced.has(i)));
+      }
+      // Multi Miking gets no entry here — its Layers row (see
+      // syncMultiLayerRow below) is a real, always-visible pill row rather
+      // than a hidden accessible-only twin, so it already serves keyboard
+      // and screen-reader visitors without a duplicate hidden list.
+    }
+
+    // Multi Miking's visible "Layers" row — one toggle pill per candidate
+    // mic position for the active source, doing exactly what clicking the
+    // matching 3D hotspot does (toggleMultiLayer), plus a "Clear" button
+    // (onClearMultiLayers) to drop everything at once. Rebuilt alongside
+    // the hotspots/accessible list every time buildHotspots() runs, so it
+    // never drifts out of sync with what's actually placed.
+    function syncMultiLayerRow() {
+      if (!multiLayerRow) return;
+      multiLayerRow.innerHTML = '';
+      if (state.technique !== 'multi') return;
+      const spots = TECHNIQUES.multi.spotsBySource[state.sourceType] || TECHNIQUES.multi.spotsBySource.default;
+      spots.forEach((spot) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'mtr-pill';
+        btn.textContent = spot.tag;
+        const active = state.layerIds.has(spot.id);
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        btn.addEventListener('click', () => toggleMultiLayer(spot.id));
+        multiLayerRow.appendChild(btn);
       });
     }
 
@@ -1024,22 +1388,21 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
         btn.setAttribute('aria-pressed', active ? 'true' : 'false');
       });
     }
-    function setPillMultiState(row, activeIds, attr) {
-      if (!row) return;
-      Array.prototype.forEach.call(row.children, (btn) => {
-        const active = activeIds.has(btn.getAttribute(attr));
-        btn.classList.toggle('is-active', active);
-        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
-      });
-    }
 
     // Shows only the sub-control row(s) + readout block relevant to the
-    // active technique's `mode` — one generic controls bar serves all five
-    // techniques instead of five separate panels.
+    // active technique's `mode`. Placement/layer selection itself no longer
+    // has a DOM row (see the hotspot system above) — only the stereo preset
+    // picker remains as a button row, since which named pairing (X-Y vs
+    // ORTF vs...) is a choice hotspots don't make sense for.
     function refreshControlsVisibility() {
       const mode = TECHNIQUES[state.technique].mode;
-      if (placementRow) placementRow.closest('.mtr-ctrl-row').hidden = mode !== 'single';
-      if (layerRow) layerRow.closest('.mtr-ctrl-row').hidden = mode !== 'multi';
+      // Multi Miking replaces the generic Source row with its own preset
+      // row (Snare/Kick/Amp/...) — see onMultiPresetRowClick — since which
+      // source you're multi-miking IS the preset there; every other
+      // technique keeps the plain Source row.
+      if (sourceRow) sourceRow.closest('.mtr-ctrl-row').hidden = mode === 'multi';
+      if (multiPresetRow) multiPresetRow.closest('.mtr-ctrl-row').hidden = mode !== 'multi';
+      if (multiLayerRow) multiLayerRow.closest('.mtr-ctrl-row').hidden = mode !== 'multi';
       if (presetRow) presetRow.closest('.mtr-ctrl-row').hidden = mode !== 'stereo';
       if (singleReadout) singleReadout.hidden = mode !== 'single';
       if (stereoReadout) stereoReadout.hidden = mode !== 'stereo';
@@ -1063,67 +1426,15 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       }
     }
 
-    // Close/Spot/Distant share one "Place at" row, but each has its own
-    // 2-3 spots at different distances/angles — unlike the source/mic-type/
-    // pattern rows (same options everywhere), this row's buttons have to be
-    // rebuilt from the active technique's `spots` list, not just re-marked.
-    let placementRowTechnique = null;
-    function rebuildPlacementRow(technique, spots) {
-      if (placementRowTechnique === technique) return;
-      placementRowTechnique = technique;
-      placementRow.innerHTML = '';
-      spots.forEach((spot) => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'mtr-pill';
-        btn.setAttribute('data-placement', spot.id);
-        btn.textContent = spot.tag;
-        placementRow.appendChild(btn);
-      });
-    }
-
-    // Multi Miking's layers are per-source (see TECHNIQUES.multi's header
-    // comment) rather than fixed like every other technique's `spots`, so
-    // — same reasoning as rebuildPlacementRow above — the layer row's
-    // buttons have to be rebuilt from source+technique, not just re-marked.
-    // Keyed on both because switching source while already on Multi Miking
-    // needs a rebuild too (e.g. Vocal's generic 5 layers -> Snare's 2).
-    let layerRowKey = null;
-    function rebuildLayerRow(key, spots) {
-      if (layerRowKey === key) return;
-      layerRowKey = key;
-      layerRow.innerHTML = '';
-      spots.forEach((spot) => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'mtr-pill mtr-pill-layer';
-        btn.setAttribute('data-layer', spot.id);
-        btn.textContent = spot.tag;
-        layerRow.appendChild(btn);
-      });
-    }
-
     function refreshTechniqueUI() {
       const def = TECHNIQUES[state.technique];
       setPillState(techniqueRow, state.technique, 'data-technique');
       if (techniqueBlurb) techniqueBlurb.textContent = def.blurb;
-      if (def.mode === 'single') {
-        if (!def.spots.some((s) => s.id === state.placementId)) state.placementId = def.spots[0].id;
-        rebuildPlacementRow(state.technique, def.spots);
-        setPillState(placementRow, state.placementId, 'data-placement');
-      }
-      if (def.mode === 'multi') {
-        const spots = def.spotsBySource[state.sourceType] || def.spotsBySource.default;
-        rebuildLayerRow(`${state.technique}:${state.sourceType}`, spots);
-        // If none of the currently-active layers exist in this source's
-        // set (e.g. Vocal's 'multi-close' after switching to Snare), fall
-        // back to just the first layer — same "always land on something
-        // valid" rule as the single-mode placementId reset just above.
-        const hasValidLayer = Array.from(state.layerIds).some((id) => spots.some((s) => s.id === id));
-        if (!hasValidLayer) state.layerIds = new Set([spots[0].id]);
-        setPillMultiState(layerRow, state.layerIds, 'data-layer');
+      if (def.mode === 'single' && !def.spots.some((s) => s.id === state.placementId)) {
+        state.placementId = def.spots[0].id;
       }
       if (def.mode === 'stereo') setPillState(presetRow, state.presetId, 'data-preset');
+      if (def.mode === 'multi') setPillState(multiPresetRow, state.sourceType, 'data-multipreset');
       refreshControlsVisibility();
     }
 
@@ -1133,7 +1444,29 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       refreshTechniqueUI();
       buildSourceObject();
       buildMicRigs();
+      buildHotspots();
       refreshReadouts();
+    }
+
+    // Just the first mic in a source's real-world layout (e.g. Snare's
+    // "Top", or "Close" for sources on the generic default layout) — what
+    // "picking a preset loads the mic" means for Multi Miking. Shared by
+    // onMultiPresetRowClick and onTechniqueRowClick (entering Multi Miking
+    // loads the current source's first layer immediately, same as picking
+    // that preset explicitly would); click a hotspot or a Layers pill
+    // afterward to toggle on more mics from there.
+    function firstMultiLayerId(sourceId) {
+      const spots = TECHNIQUES.multi.spotsBySource[sourceId] || TECHNIQUES.multi.spotsBySource.default;
+      return new Set([spots[0].id]);
+    }
+
+    // Every mic index in a stereo preset, all placed at once — what "load
+    // the mics at their preset position by default" means for Stereo
+    // Miking. Clicking a hotspot afterward still toggles that one mic off
+    // (or back on), same as before — this only changes where things start.
+    function loadedStereoPlaced(presetId) {
+      const preset = TECHNIQUES.stereo.presets[presetId];
+      return new Set(preset.mics.map((_, i) => i));
     }
 
     // ---- Event wiring ----
@@ -1156,59 +1489,58 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       if (!btn) return;
       markInteracted();
       state.technique = btn.getAttribute('data-technique');
+      // Both Stereo and Multi Miking load their current preset's mics right
+      // away when you switch onto the technique (same as picking that
+      // preset explicitly would) — clicking a hotspot afterward still
+      // toggles an individual mic off/back on to explore from there.
+      state.stereoPlaced = state.technique === 'stereo' ? loadedStereoPlaced(state.presetId) : new Set();
+      state.layerIds = state.technique === 'multi' ? firstMultiLayerId(state.sourceType) : new Set();
       refreshTechniqueUI();
       buildMicRigs();
+      buildHotspots();
       refreshReadouts();
     }
-    function onPlacementRowClick(e) {
-      const btn = e.target.closest('button[data-placement]');
-      if (!btn) return;
-      markInteracted();
-      state.placementId = btn.getAttribute('data-placement');
-      refreshTechniqueUI();
-      buildMicRigs();
-      refreshReadouts();
-    }
-    function onLayerRowClick(e) {
-      const btn = e.target.closest('button[data-layer]');
-      if (!btn) return;
-      markInteracted();
-      const id = btn.getAttribute('data-layer');
-      if (state.layerIds.has(id)) state.layerIds.delete(id);
-      else state.layerIds.add(id);
-      refreshTechniqueUI();
-      buildMicRigs();
-      refreshReadouts();
-    }
-    function onClearLayersClick() {
-      state.layerIds.clear();
-      refreshTechniqueUI();
-      buildMicRigs();
-      refreshReadouts();
-    }
+    // Picking a stereo preset (AB/XY/ORTF/...) loads every mic in it right
+    // away — same "load the mic(s) there" default Multi Miking's own
+    // preset row gives you (onMultiPresetRowClick below). Clicking a
+    // hotspot afterward still toggles that one mic off (or back on).
     function onPresetRowClick(e) {
       const btn = e.target.closest('button[data-preset]');
       if (!btn) return;
       markInteracted();
       state.presetId = btn.getAttribute('data-preset');
+      state.stereoPlaced = loadedStereoPlaced(state.presetId);
       refreshTechniqueUI();
       buildMicRigs();
+      buildHotspots();
       refreshReadouts();
+    }
+    // Multi Miking's own preset row (Vocal/Guitar/Amp/Snare/Kick/Ethnic) —
+    // stands in for the plain Source row while Multi Miking is active (see
+    // refreshControlsVisibility): picking one sets the source AND loads
+    // every one of that source's mics immediately, the same "load the mic
+    // there" behavior onTechniqueRowClick gives you when you first switch
+    // into Multi Miking.
+    function onMultiPresetRowClick(e) {
+      const btn = e.target.closest('button[data-multipreset]');
+      if (!btn) return;
+      markInteracted();
+      state.sourceType = btn.getAttribute('data-multipreset');
+      state.layerIds = firstMultiLayerId(state.sourceType);
+      refreshAll();
     }
     sourceRow.addEventListener('click', onSourceRowClick);
     micTypeRow.addEventListener('click', onMicTypeRowClick);
     techniqueRow.addEventListener('click', onTechniqueRowClick);
-    placementRow.addEventListener('click', onPlacementRowClick);
-    layerRow.addEventListener('click', onLayerRowClick);
-    clearLayersBtn.addEventListener('click', onClearLayersClick);
     presetRow.addEventListener('click', onPresetRowClick);
+    multiPresetRow.addEventListener('click', onMultiPresetRowClick);
+    clearLayersBtn.addEventListener('click', onClearMultiLayers);
     onCleanup(() => sourceRow.removeEventListener('click', onSourceRowClick));
     onCleanup(() => micTypeRow.removeEventListener('click', onMicTypeRowClick));
     onCleanup(() => techniqueRow.removeEventListener('click', onTechniqueRowClick));
-    onCleanup(() => placementRow.removeEventListener('click', onPlacementRowClick));
-    onCleanup(() => layerRow.removeEventListener('click', onLayerRowClick));
-    onCleanup(() => clearLayersBtn.removeEventListener('click', onClearLayersClick));
     onCleanup(() => presetRow.removeEventListener('click', onPresetRowClick));
+    onCleanup(() => multiPresetRow.removeEventListener('click', onMultiPresetRowClick));
+    onCleanup(() => clearLayersBtn.removeEventListener('click', onClearMultiLayers));
 
     refreshAll();
 
@@ -1222,6 +1554,7 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
         buildScene();
         buildSourceObject();
         buildMicRigs();
+        buildHotspots();
       };
       if (mq.addEventListener) mq.addEventListener('change', onThemeChange);
       else if (mq.addListener) mq.addListener(onThemeChange);
@@ -1265,9 +1598,14 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
     let dragging = false;
     let lastX = 0;
     let lastY = 0;
+    let downX = 0;
+    let downY = 0;
+    let downTime = 0;
     let hintFaded = false;
     const ROTATE_SPEED = 0.0055;
     const ZOOM_SPEED = 0.0022;
+    const CLICK_MOVE_TOLERANCE = 6; // px — below this, a pointerdown->up is a "click" on a hotspot, not a drag
+    const CLICK_TIME_TOLERANCE = 600; // ms
 
     function fadeHint() {
       if (!hintFaded && hint) {
@@ -1280,12 +1618,21 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       dragging = true;
       lastX = e.clientX;
       lastY = e.clientY;
+      downX = e.clientX;
+      downY = e.clientY;
+      downTime = performance.now();
       canvas.classList.add('is-dragging');
       canvas.setPointerCapture(e.pointerId);
       fadeHint();
     }
     function onPointerMove(e) {
-      if (!dragging) return;
+      if (!dragging) {
+        // Not dragging — this is just a hover, so probe for a hotspot under
+        // the cursor and swap in a pointer cursor as an affordance (the
+        // canvas's own CSS default is 'grab', for orbiting).
+        canvas.style.cursor = hitTestHotspot(e.clientX, e.clientY) ? 'pointer' : '';
+        return;
+      }
       const dx = e.clientX - lastX;
       const dy = e.clientY - lastY;
       lastX = e.clientX;
@@ -1301,6 +1648,20 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
         canvas.releasePointerCapture(e.pointerId);
       } catch (err) {
         /* pointer may already be released */
+      }
+    }
+    // A pointerup that barely moved and didn't take long is a click/tap
+    // rather than an orbit-drag — raycast it against the active hotspot
+    // markers and fire whichever one it landed on. pointercancel (e.g. an
+    // interrupted touch) skips this and goes straight to endDrag, below.
+    function onPointerUp(e) {
+      endDrag(e);
+      const dx = e.clientX - downX;
+      const dy = e.clientY - downY;
+      const dt = performance.now() - downTime;
+      if (Math.hypot(dx, dy) <= CLICK_MOVE_TOLERANCE && dt <= CLICK_TIME_TOLERANCE) {
+        const hit = hitTestHotspot(e.clientX, e.clientY);
+        if (hit) hit.onSelect();
       }
     }
     function onWheel(e) {
@@ -1337,7 +1698,7 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
 
     canvas.addEventListener('pointerdown', onPointerDown);
     canvas.addEventListener('pointermove', onPointerMove);
-    canvas.addEventListener('pointerup', endDrag);
+    canvas.addEventListener('pointerup', onPointerUp);
     canvas.addEventListener('pointercancel', endDrag);
     canvas.addEventListener('wheel', onWheel, { passive: false });
     canvas.addEventListener('touchstart', onTouchStart, { passive: true });
@@ -1346,7 +1707,7 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
     onCleanup(() => {
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointermove', onPointerMove);
-      canvas.removeEventListener('pointerup', endDrag);
+      canvas.removeEventListener('pointerup', onPointerUp);
       canvas.removeEventListener('pointercancel', endDrag);
       canvas.removeEventListener('wheel', onWheel);
       canvas.removeEventListener('touchstart', onTouchStart);
@@ -1390,6 +1751,13 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       if (activeBeamTextures.length && !REDUCE_MOTION) {
         BEAM_TEXTURE.offset.y -= 0.01;
       }
+      if (pendingHotspotMeshes.length && !REDUCE_MOTION) {
+        // Gentle breathing scale on every unplaced hotspot's core+glow
+        // meshes — the only cue (besides the dim number badge) that these
+        // are clickable, since they otherwise sit small and low-opacity.
+        const s = 1 + Math.sin(performance.now() * 0.0025) * 0.15;
+        pendingHotspotMeshes.forEach((entry) => entry.mesh.scale.setScalar(entry.base * s));
+      }
       renderer.render(scene, camera);
       rafId = requestAnimationFrame(tick);
     }
@@ -1427,7 +1795,8 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
           <h1 className="mtr-title">07 — Technique &amp; Placement</h1>
           <p className="mtr-subtitle">
             Pick a source and a mic type, then compare Close, Spot, Distant/Room, Stereo, and Multi Miking — each
-            technique places its own mic(s) at positions authored for that technique.
+            technique marks its own candidate mic position(s) as clickable hotspots in the room below. Click one to
+            move (or add) a mic there.
           </p>
         </header>
       )}
@@ -1438,9 +1807,21 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
           <p className="mtr-sr-only">
             Interactive 3D view of an abstract studio room with a sound source fixed near one side and one or more
             microphones placed around it. Drag to orbit the camera around the room; scroll or pinch to zoom. A reset
-            view control is provided. Below the room, controls let you pick a sound source and a microphone type,
-            then choose one of five miking techniques — Close, Spot, Distant/Room, Stereo, or Multi Miking — each
-            with its own predefined mic position(s). A readout reports distance and axis for the current selection.
+            view control is provided. Below the room, controls let you pick a microphone type, then choose one of
+            five miking techniques — Close, Spot, Distant/Room, Stereo, or Multi Miking. Each technique marks up to
+            a few candidate mic positions as glowing hotspots on the room's floor (a thin dashed line rises to the
+            real position when it's elevated, such as an overhead pair); clicking one moves the mic there
+            (Close/Spot/Distant/Room) or toggles a numbered mic on or off at that position (Stereo, Multi Miking).
+            Stereo has a preset row for picking which named pairing — X-Y, ORTF, and so on — and Multi Miking has
+            its own preset row for picking which source to multi-mic — Snare, Kick, Amp, and so on; picking a
+            stereo preset loads every mic in it at its real position immediately, and a hotspot click just
+            toggles one mic back out (or back in) from there, while picking a multi-mic preset loads just that
+            source's first mic (e.g. Snare's "Top") by default. Multi Miking also shows a Layers row of buttons
+            — one per mic position for the current source, doing exactly what clicking the matching hotspot
+            does — plus a Clear button that removes every placed mic at once. For Close/Spot/Distant/Room and
+            Stereo Miking, the same hotspot actions are also available, for keyboard and screen-reader use, as a
+            list of buttons below the room. A readout reports distance and axis (or stereo
+            spacing/angle/mono-compatibility) for the current selection.
           </p>
 
           <div className="mtr-hint" ref={hintRef}>
@@ -1449,6 +1830,9 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
             </span>
             <span className="mtr-hint-row">
               <kbd>scroll</kbd> zoom
+            </span>
+            <span className="mtr-hint-row">
+              <kbd>click</kbd> place mic
             </span>
             <button className="mtr-reset-btn" type="button" ref={resetBtnRef}>
               Reset view
@@ -1498,27 +1882,13 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
           </div>
           <p className="mtr-technique-blurb" ref={techniqueBlurbRef} />
 
-          <div className="mtr-ctrl-row">
-            <span className="mtr-ctrl-label">Place at</span>
-            <div className="mtr-pill-row" ref={placementRowRef}>
-              <button className="mtr-pill" type="button" data-placement="close-2in">2 in · on-axis</button>
-              <button className="mtr-pill" type="button" data-placement="close-6in">6 in · on-axis</button>
-              <button className="mtr-pill" type="button" data-placement="close-offaxis">4 in · 45° off-axis</button>
-            </div>
-          </div>
-
-          <div className="mtr-ctrl-row" hidden>
-            <span className="mtr-ctrl-label">Layers</span>
-            {/* Rebuilt in JS per source+technique (see rebuildLayerRow) —
-                Snare/Kick/Amp get their own real-world layer sets, every
-                other source keeps the generic 5. Starts empty; whatever's
-                here at mount never renders since this row stays hidden
-                until Multi Miking is selected. */}
-            <div className="mtr-pill-row" ref={layerRowRef} />
-            <button className="mtr-pill mtr-pill-muted" type="button" ref={clearLayersBtnRef}>
-              Clear
-            </button>
-          </div>
+          {/* Keyboard/screen-reader twin of the 3D hotspots — see
+              syncHotspotAccessibleList in the effect above. Visually
+              hidden (.mtr-sr-only) since sighted mouse/touch visitors place
+              mics by clicking the glowing markers in the room itself;
+              rebuilt fresh every time the hotspots are, so it can never
+              show a stale set of buttons. */}
+          <div className="mtr-hotspot-list mtr-sr-only" ref={hotspotListRef} aria-live="polite" />
 
           <div className="mtr-ctrl-row" hidden>
             <span className="mtr-ctrl-label">Stereo preset</span>
@@ -1532,6 +1902,39 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
               <button className="mtr-pill" type="button" data-preset="decca">Decca Tree</button>
               <button className="mtr-pill" type="button" data-preset="outrigger">Outrigger</button>
             </div>
+          </div>
+
+          {/* Multi Miking's own preset row — stands in for the plain
+              Source row while this technique is active (see
+              refreshControlsVisibility). Picking one sets the source AND
+              loads every mic in that source's real-world layout right
+              away (onMultiPresetRowClick) — "Snare" is its own preset
+              rather than "pick Snare, then also toggle on Top and
+              Bottom" because that's the whole point of Multi Miking: you
+              see the full multi-mic setup for a source at a glance. */}
+          <div className="mtr-ctrl-row" hidden>
+            <span className="mtr-ctrl-label">Multi-mic preset</span>
+            <div className="mtr-pill-row" ref={multiPresetRowRef}>
+              <button className="mtr-pill" type="button" data-multipreset="vocal">Vocal / VO</button>
+              <button className="mtr-pill" type="button" data-multipreset="guitar">Guitar</button>
+              <button className="mtr-pill" type="button" data-multipreset="amp">Amp</button>
+              <button className="mtr-pill" type="button" data-multipreset="snare">Snare</button>
+              <button className="mtr-pill" type="button" data-multipreset="kick">Kick</button>
+              <button className="mtr-pill" type="button" data-multipreset="ethnic">Ethnic Instrument</button>
+            </div>
+          </div>
+
+          {/* Multi Miking's visible Layers row — an always-on-screen twin
+              of the 3D hotspots (see syncMultiLayerRow in the effect
+              above): one pill per candidate mic position for the current
+              source, toggled the same way clicking a hotspot does, plus a
+              Clear-all button. The current source's first mic (e.g.
+              Snare's "Top", or "Close" on the generic layout) loads by
+              default — see firstMultiLayerId. */}
+          <div className="mtr-ctrl-row" hidden>
+            <span className="mtr-ctrl-label">Layers</span>
+            <div className="mtr-pill-row" ref={multiLayerRowRef} />
+            <button className="mtr-pill mtr-pill-muted" type="button" ref={clearLayersBtnRef}>Clear</button>
           </div>
 
           <div className="mtr-readout-row" ref={singleReadoutRef}>

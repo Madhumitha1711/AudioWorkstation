@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mic Setup — Redesign</title>
+<style>
+  :root{
+    --bg:#14161a;
+    --panel:#1c1f24;
+    --panel-2:#20242a;
+    --border:#2a2e35;
+    --border-soft:#24272d;
+    --text:#eceef0;
+    --text-dim:#9aa1ab;
+    --text-faint:#666c76;
+    --gold:#e3a83c;
+    --gold-dim:#4a3d24;
+    --teal:#57c7be;
+    --teal-dim:#1e3634;
+    --mic-off:#454a52;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    padding:28px 20px 60px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{
+    max-width:1040px;
+    margin:0 auto;
+  }
+
+  /* LCD readout */
+  .readout{
+    background:#0e1012;
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:14px 18px;
+    margin-bottom:18px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+    overflow:hidden;
+  }
+  .readout .dot{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--teal);
+    box-shadow:0 0 8px var(--teal);
+    flex:none;
+  }
+  .readout-text{
+    font-family:'JetBrains Mono','SF Mono',ui-monospace,monospace;
+    font-size:12.5px;
+    letter-spacing:0.04em;
+    color:#bfe8e3;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .readout-text .sep{color:#3f4750;margin:0 8px;}
+
+  h1{
+    font-size:20px;
+    font-weight:600;
+    margin:0 0 4px;
+    letter-spacing:-0.01em;
+  }
+  .subtitle{
+    color:var(--text-dim);
+    font-size:13.5px;
+    margin:0 0 20px;
+    max-width:60ch;
+    line-height:1.5;
+  }
+
+  .layout{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:18px;
+    align-items:start;
+  }
+  @media (max-width:820px){
+    .layout{grid-template-columns:1fr;}
+  }
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:18px;
+  }
+  .card + .card{margin-top:14px;}
+
+  .field-label{
+    font-size:12px;
+    font-weight:600;
+    color:var(--text-dim);
+    margin-bottom:10px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+
+  /* Segmented control — Mic Type */
+  .segmented{
+    display:flex;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:3px;
+    gap:2px;
+  }
+  .segmented button{
+    flex:1;
+    background:transparent;
+    border:none;
+    color:var(--text-dim);
+    font-size:13px;
+    font-family:inherit;
+    padding:8px 6px;
+    border-radius:6px;
+    cursor:pointer;
+    transition:background .15s ease, color .15s ease;
+  }
+  .segmented button:hover{color:var(--text);}
+  .segmented button.active{
+    background:var(--gold);
+    color:#221a08;
+    font-weight:600;
+  }
+
+  /* Technique cards */
+  .technique-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+  }
+  .technique-card{
+    text-align:left;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px 12px;
+    cursor:pointer;
+    color:var(--text);
+    font-family:inherit;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .technique-card:hover{border-color:#3a3f47;}
+  .technique-card .t-name{
+    font-size:13.5px;
+    font-weight:600;
+    display:flex;
+    align-items:center;
+    gap:7px;
+    margin-bottom:3px;
+  }
+  .technique-card .t-desc{
+    font-size:11.5px;
+    color:var(--text-faint);
+    line-height:1.4;
+  }
+  .technique-card.active{
+    border-color:var(--gold);
+    background:linear-gradient(180deg, var(--gold-dim), var(--panel-2) 70%);
+  }
+  .technique-card.active .t-name{color:var(--gold);}
+  .technique-card .swatch{
+    width:6px;height:6px;border-radius:50%;
+    background:var(--text-faint);
+    flex:none;
+  }
+  .technique-card.active .swatch{background:var(--gold);}
+
+  /* Preset gallery (progressive disclosure) */
+  .preset-panel{
+    margin-top:14px;
+    padding-top:14px;
+    border-top:1px dashed var(--border);
+  }
+  .preset-note{
+    font-size:12px;
+    color:var(--text-dim);
+    line-height:1.5;
+    margin:0 0 12px;
+  }
+  .preset-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+  }
+  .preset-tile{
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:10px 6px;
+    text-align:center;
+    cursor:pointer;
+    color:var(--text-dim);
+    font-family:inherit;
+    font-size:11.5px;
+    transition:border-color .15s ease,color .15s ease;
+  }
+  .preset-tile svg{display:block;margin:0 auto 6px;width:22px;height:22px;}
+  .preset-tile:hover{color:var(--text);border-color:#3a3f47;}
+  .preset-tile.active{
+    border-color:var(--teal);
+    color:var(--teal);
+    background:var(--teal-dim);
+  }
+
+  /* Preview panel */
+  .preview-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:14px;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .preview-title{
+    font-size:13px;
+    font-weight:600;
+    color:var(--text);
+  }
+  .preview-title span{
+    display:block;
+    font-size:11px;
+    font-weight:400;
+    color:var(--text-faint);
+    margin-top:2px;
+  }
+  .toggle{
+    display:flex;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:7px;
+    padding:2px;
+    font-size:11.5px;
+  }
+  .toggle button{
+    background:transparent;
+    border:none;
+    color:var(--text-dim);
+    padding:6px 10px;
+    border-radius:5px;
+    cursor:pointer;
+    font-family:inherit;
+  }
+  .toggle button.active{
+    background:var(--teal);
+    color:#08201d;
+    font-weight:600;
+  }
+
+  .diagram-wrap{
+    background:var(--panel-2);
+    border:1px solid var(--border-soft);
+    border-radius:8px;
+    padding:6px;
+    margin-bottom:14px;
+  }
+  svg.diagram{width:100%;height:auto;display:block;}
+
+  .mic-marker{cursor:pointer;}
+  .mic-marker circle.ring{
+    fill:none;
+    stroke-width:1.5;
+    transition:stroke .2s ease, opacity .2s ease;
+  }
+  .mic-marker .glyph{transition:fill .2s ease, opacity .2s ease;}
+  .mic-marker .mlabel{
+    font-family:'Inter',sans-serif;
+    font-size:9px;
+    fill:var(--text-faint);
+    transition:fill .2s ease, opacity .2s ease;
+  }
+  .mic-marker.on .ring{stroke:var(--gold);}
+  .mic-marker.on .glyph{fill:var(--gold);}
+  .mic-marker.on .mlabel{fill:#d8c398;}
+  .mic-marker.off .ring{stroke:var(--mic-off); opacity:.55;}
+  .mic-marker.off .glyph{fill:var(--mic-off); opacity:.55;}
+  .mic-marker.off .mlabel{fill:var(--text-faint); opacity:.55;}
+  .mic-marker.step-hidden{opacity:.15; pointer-events:none;}
+
+  /* Layer chips */
+  .layers-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:7px;
+    align-items:center;
+  }
+  .chip{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:6px 12px 6px 8px;
+    font-size:12px;
+    color:var(--text-dim);
+    cursor:pointer;
+    font-family:inherit;
+  }
+  .chip .dot{width:7px;height:7px;border-radius:50%;background:var(--mic-off);}
+  .chip.on{border-color:var(--gold); color:var(--text);}
+  .chip.on .dot{background:var(--gold);}
+  .chip:disabled{opacity:.3; cursor:default;}
+  .clear-link{
+    margin-left:auto;
+    background:none;
+    border:none;
+    color:var(--text-faint);
+    font-size:12px;
+    text-decoration:underline;
+    cursor:pointer;
+    font-family:inherit;
+  }
+  .clear-link:hover{color:var(--text-dim);}
+
+  .step-nav{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+    margin-top:2px;
+  }
+  .step-nav button{
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    width:28px;height:28px;
+    border-radius:50%;
+    cursor:pointer;
+    font-size:14px;
+  }
+  .step-nav .step-label{font-size:12px; color:var(--text-dim);}
+
+  .simple-note{
+    font-size:12.5px;
+    color:var(--text-dim);
+    line-height:1.6;
+    background:var(--panel-2);
+    border:1px solid var(--border-soft);
+    border-radius:8px;
+    padding:14px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="readout">
+    <div class="dot"></div>
+    <div class="readout-text" id="readout"></div>
+  </div>
+
+  <h1>Mic setup</h1>
+  <p class="subtitle">Choose a mic and technique on the left. The preview on the right updates live — click any mic in the diagram, or its chip below, to switch it on or off.</p>
+
+  <div class="layout">
+
+    <!-- CONTROLS -->
+    <div>
+      <div class="card">
+        <div class="field-label">Mic type</div>
+        <div class="segmented" id="micTypeSeg"></div>
+      </div>
+
+      <div class="card">
+        <div class="field-label">Technique</div>
+        <div class="technique-grid" id="techniqueGrid"></div>
+
+        <div class="preset-panel" id="presetPanel" style="display:none;">
+          <p class="preset-note">Several mics on one source, balanced together afterward. Pick what you're recording — its real-world mic layout loads in the preview.</p>
+          <div class="preset-grid" id="presetGrid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PREVIEW -->
+    <div class="card" id="previewCard">
+      <div class="preview-head">
+        <div class="preview-title" id="previewTitle">Preview<span id="previewSub"></span></div>
+        <div class="toggle" id="viewToggle" style="display:none;">
+          <button data-mode="all">All mics</button>
+          <button data-mode="step">One at a time</button>
+        </div>
+      </div>
+
+      <div id="multiPreview" style="display:none;">
+        <div class="diagram-wrap">
+          <svg class="diagram" viewBox="0 0 400 380" id="diagramSvg"></svg>
+        </div>
+        <div class="layers-row" id="layersRow"></div>
+        <div class="step-nav" id="stepNav" style="display:none;">
+          <button id="stepPrev">‹</button>
+          <div class="step-label" id="stepLabel"></div>
+          <button id="stepNext">›</button>
+        </div>
+      </div>
+
+      <div id="simplePreview" style="display:none;">
+        <div class="simple-note" id="simpleNote"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const MIC_TYPES = ['Dynamic','FET Condenser','Tube Condenser','Ribbon','Contact'];
+
+const TECHNIQUES = [
+  {id:'close', name:'Close Miking', desc:'One mic, right up on the source.'},
+  {id:'spot', name:'Spot Miking', desc:'One mic pulled back a few inches for detail.'},
+  {id:'distant', name:'Distant / Room', desc:'A single mic capturing the space around it.'},
+  {id:'stereo', name:'Stereo Miking', desc:'A matched pair capturing width and image.'},
+  {id:'multi', name:'Multi Miking', desc:'Several mics blended into one sound.'},
+];
+
+const PRESETS = [
+  {id:'vocal', name:'Vocal / VO'},
+  {id:'guitar', name:'Guitar'},
+  {id:'amp', name:'Amp'},
+  {id:'snare', name:'Snare'},
+  {id:'kick', name:'Kick'},
+  {id:'ethnic', name:'Ethnic Instrument'},
+];
+
+// Layer layouts per preset — positions tuned per source, generic elsewhere
+const LAYER_SETS = {
+  ethnic: [
+    {id:'close', label:'Close', x:200, y:205},
+    {id:'support', label:'Off-axis support', x:280, y:230},
+    {id:'overheadL', label:'Overhead L', x:120, y:70},
+    {id:'overheadR', label:'Overhead R', x:290, y:65},
+    {id:'room', label:'Room', x:355, y:340},
+  ],
+  snare: [
+    {id:'close', label:'Close (top)', x:200, y:150},
+    {id:'support', label:'Bottom mic', x:200, y:260},
+    {id:'overheadL', label:'Overhead L', x:110, y:55},
+    {id:'overheadR', label:'Overhead R', x:290, y:55},
+    {id:'room', label:'Room', x:355, y:340},
+  ],
+  kick: [
+    {id:'close', label:'Inside close', x:170, y:190},
+    {id:'support', label:'Outside support', x:300, y:210},
+    {id:'overheadL', label:'Overhead L', x:120, y:70},
+    {id:'overheadR', label:'Overhead R', x:280, y:70},
+    {id:'room', label:'Room', x:350, y:330},
+  ],
+  vocal: [
+    {id:'close', label:'Main capsule', x:200, y:130},
+    {id:'support', label:'Off-axis support', x:270, y:170},
+    {id:'overheadL', label:'Overhead L', x:120, y:60},
+    {id:'overheadR', label:'Overhead R', x:280, y:60},
+    {id:'room', label:'Room', x:350, y:330},
+  ],
+  guitar: [
+    {id:'close', label:'Close, on-axis', x:190, y:180},
+    {id:'support', label:'Off-axis support', x:270, y:200},
+    {id:'overheadL', label:'Overhead L', x:120, y:60},
+    {id:'overheadR', label:'Overhead R', x:280, y:60},
+    {id:'room', label:'Room', x:350, y:330},
+  ],
+  amp: [
+    {id:'close', label:'Close, cap edge', x:190, y:170},
+    {id:'support', label:'Room mic, back', x:280, y:200},
+    {id:'overheadL', label:'Overhead L', x:120, y:60},
+    {id:'overheadR', label:'Overhead R', x:280, y:60},
+    {id:'room', label:'Room', x:350, y:330},
+  ],
+};
+
+const DEFAULT_LAYERS_ON = {ethnic:['close','overheadL'], snare:['close','overheadL'], kick:['close'], vocal:['close'], guitar:['close'], amp:['close']};
+
+let state = {
+  micType: 0,
+  technique: 'multi',
+  preset: 'ethnic',
+  viewMode: 'all',
+  stepIndex: 0,
+  layers: {}
+};
+
+function initLayers(presetId){
+  const set = LAYER_SETS[presetId];
+  const on = DEFAULT_LAYERS_ON[presetId] || [];
+  const obj = {};
+  set.forEach(l => obj[l.id] = on.includes(l.id));
+  state.layers = obj;
+}
+initLayers(state.preset);
+
+function el(tag, cls, html){
+  const e = document.createElement(tag);
+  if(cls) e.className = cls;
+  if(html !== undefined) e.innerHTML = html;
+  return e;
+}
+
+/* ---------- Mic type segmented ---------- */
+function renderMicType(){
+  const wrap = document.getElementById('micTypeSeg');
+  wrap.innerHTML = '';
+  MIC_TYPES.forEach((name, i) => {
+    const b = el('button', i === state.micType ? 'active' : '', name);
+    b.onclick = () => { state.micType = i; render(); };
+    wrap.appendChild(b);
+  });
+}
+
+/* ---------- Technique grid ---------- */
+function renderTechnique(){
+  const wrap = document.getElementById('techniqueGrid');
+  wrap.innerHTML = '';
+  TECHNIQUES.forEach(t => {
+    const card = el('button', 'technique-card' + (state.technique === t.id ? ' active' : ''));
+    card.innerHTML = `<div class="t-name"><span class="swatch"></span>${t.name}</div><div class="t-desc">${t.desc}</div>`;
+    card.onclick = () => { state.technique = t.id; render(); };
+    wrap.appendChild(card);
+  });
+
+  const presetPanel = document.getElementById('presetPanel');
+  presetPanel.style.display = state.technique === 'multi' ? 'block' : 'none';
+
+  if(state.technique === 'multi'){
+    const grid = document.getElementById('presetGrid');
+    grid.innerHTML = '';
+    PRESETS.forEach(p => {
+      const tile = el('button', 'preset-tile' + (state.preset === p.id ? ' active' : ''));
+      tile.innerHTML = presetIcon(p.id) + p.name;
+      tile.onclick = () => {
+        state.preset = p.id;
+        state.viewMode = 'all';
+        state.stepIndex = 0;
+        initLayers(p.id);
+        render();
+      };
+      grid.appendChild(tile);
+    });
+  }
+}
+
+function presetIcon(id){
+  const stroke = 'currentColor';
+  const icons = {
+    vocal: `<svg viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="1.6"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg>`,
+    guitar: `<svg viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="1.6"><circle cx="8" cy="16" r="5"/><path d="M11 12l7-9"/><path d="M15 2l3 3"/></svg>`,
+    amp: `<svg viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="1.6"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="12" r="3"/><circle cx="16" cy="7" r="1"/><circle cx="16" cy="17" r="1"/></svg>`,
+    snare: `<svg viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="1.6"><ellipse cx="12" cy="8" rx="8" ry="3"/><path d="M4 8v6c0 1.7 3.6 3 8 3s8-1.3 8-3V8"/></svg>`,
+    kick: `<svg viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="1.6"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>`,
+    ethnic: `<svg viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="1.6"><ellipse cx="12" cy="6" rx="7" ry="2.5"/><path d="M5 6l2 13h10l2-13"/><path d="M8.5 12h7"/></svg>`,
+  };
+  return `<span style="display:inline-block">${icons[id]||''}</span>`;
+}
+
+/* ---------- Preview ---------- */
+function renderPreview(){
+  const titleEl = document.getElementById('previewTitle');
+  const subEl = document.getElementById('previewSub');
+  const multiPreview = document.getElementById('multiPreview');
+  const simplePreview = document.getElementById('simplePreview');
+  const viewToggle = document.getElementById('viewToggle');
+
+  if(state.technique === 'multi'){
+    const presetName = PRESETS.find(p => p.id === state.preset).name;
+    titleEl.textContent = presetName;
+    subEl.textContent = 'Multi-miked preview';
+    multiPreview.style.display = 'block';
+    simplePreview.style.display = 'none';
+    viewToggle.style.display = 'flex';
+    renderViewToggle();
+    renderDiagram();
+    renderLayerChips();
+    renderStepNav();
+  } else {
+    const t = TECHNIQUES.find(t => t.id === state.technique);
+    titleEl.textContent = t.name;
+    subEl.textContent = 'Single-position preview';
+    multiPreview.style.display = 'none';
+    simplePreview.style.display = 'block';
+    viewToggle.style.display = 'none';
+    document.getElementById('simpleNote').textContent =
+      `${t.name} uses one mic (or matched pair, for Stereo Miking) positioned relative to the source — no layers to balance. Switch to Multi Miking to build a blended setup.`;
+  }
+}
+
+function renderViewToggle(){
+  const wrap = document.getElementById('viewToggle');
+  wrap.querySelectorAll('button').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === state.viewMode);
+    b.onclick = () => { state.viewMode = b.dataset.mode; state.stepIndex = 0; render(); };
+  });
+}
+
+function activeLayerIds(){
+  return Object.keys(state.layers).filter(k => state.layers[k]);
+}
+
+function renderDiagram(){
+  const svg = document.getElementById('diagramSvg');
+  const layerSet = LAYER_SETS[state.preset];
+  const active = activeLayerIds();
+  const stepId = state.viewMode === 'step' ? active[state.stepIndex % Math.max(active.length,1)] : null;
+
+  let html = `
+    <ellipse cx="200" cy="330" rx="60" ry="10" fill="#000" opacity="0.35"/>
+    <path d="M150 340 L165 200 Q200 175 235 200 L250 340 Z" fill="#2c2418" stroke="#4a3d24" stroke-width="2"/>
+    <ellipse cx="200" cy="200" rx="35" ry="14" fill="#5a4426" stroke="#7a5d33" stroke-width="2"/>
+    <ellipse cx="200" cy="197" rx="30" ry="11" fill="#7a5d33" opacity="0.5"/>
+  `;
+
+  layerSet.forEach(l => {
+    const isOn = !!state.layers[l.id];
+    const isVisible = state.viewMode === 'all' ? true : (l.id === stepId);
+    let cls = 'mic-marker ' + (isOn ? 'on' : 'off');
+    if(state.viewMode === 'step' && !isVisible) cls += ' step-hidden';
+    html += `
+      <g class="${cls}" data-layer="${l.id}" transform="translate(${l.x},${l.y})">
+        <circle class="ring" r="13"/>
+        <path class="glyph" d="M0 -6a4 4 0 0 1 4 4v3a4 4 0 0 1 -8 0v-3a4 4 0 0 1 4 -4z"/>
+        <line class="ring" x1="0" y1="7" x2="0" y2="12" stroke-width="1.5"/>
+        <text class="mlabel" x="0" y="26" text-anchor="middle">${l.label}</text>
+      </g>
+    `;
+  });
+
+  svg.innerHTML = html;
+  svg.querySelectorAll('.mic-marker').forEach(g => {
+    g.addEventListener('click', () => {
+      const id = g.dataset.layer;
+      if(state.viewMode === 'all'){
+        state.layers[id] = !state.layers[id];
+        render();
+      }
+    });
+  });
+}
+
+function renderLayerChips(){
+  const row = document.getElementById('layersRow');
+  row.innerHTML = '';
+  const layerSet = LAYER_SETS[state.preset];
+  layerSet.forEach(l => {
+    const on = !!state.layers[l.id];
+    const chip = el('button', 'chip' + (on ? ' on' : ''));
+    chip.innerHTML = `<span class="dot"></span>${l.label}`;
+    chip.disabled = state.viewMode === 'step';
+    chip.onclick = () => { state.layers[l.id] = !state.layers[l.id]; render(); };
+    row.appendChild(chip);
+  });
+  const clear = el('button', 'clear-link', 'Clear all');
+  clear.onclick = () => { layerSet.forEach(l => state.layers[l.id] = false); render(); };
+  row.appendChild(clear);
+}
+
+function renderStepNav(){
+  const nav = document.getElementById('stepNav');
+  const active = activeLayerIds();
+  if(state.viewMode !== 'step' || active.length === 0){
+    nav.style.display = 'none';
+    return;
+  }
+  nav.style.display = 'flex';
+  const idx = state.stepIndex % active.length;
+  const layerSet = LAYER_SETS[state.preset];
+  const label = layerSet.find(l => l.id === active[idx]).label;
+  document.getElementById('stepLabel').textContent = `${label} (${idx+1} of ${active.length})`;
+  document.getElementById('stepPrev').onclick = () => { state.stepIndex = (idx - 1 + active.length) % active.length; render(); };
+  document.getElementById('stepNext').onclick = () => { state.stepIndex = (idx + 1) % active.length; render(); };
+}
+
+/* ---------- Readout ---------- */
+function renderReadout(){
+  const r = document.getElementById('readout');
+  const parts = [MIC_TYPES[state.micType].toUpperCase(), TECHNIQUES.find(t=>t.id===state.technique).name.toUpperCase()];
+  if(state.technique === 'multi'){
+    parts.push(PRESETS.find(p=>p.id===state.preset).name.toUpperCase());
+    parts.push(activeLayerIds().length + ' MIC' + (activeLayerIds().length===1?'':'S') + ' ACTIVE');
+  }
+  r.innerHTML = parts.map(p => `<span>${p}</span>`).join('<span class="sep">/</span>');
+}
+
+function render(){
+  renderMicType();
+  renderTechnique();
+  renderPreview();
+  renderReadout();
+}
+render();
+</script>
+</body>
+</html>
