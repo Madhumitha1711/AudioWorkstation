@@ -366,6 +366,11 @@
   line-height: 1.45;
   margin-bottom: 10px;
 }
+/* Polar compare columns: breathing room between the polar diagram and
+   the description under it (.lab-intro has no top margin). */
+.mic-polar-wrap + .mic-compare-copy {
+  margin-top: 16px;
+}
 
 .mic-compare-select-wrap {
   position: relative;
