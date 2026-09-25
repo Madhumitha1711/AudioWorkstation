@@ -1,0 +1,270 @@
+/* StudioComponentsLab — ported from design/studio-components-chapter.html.
+   Chrome (panels, borders, text) uses the course theme tokens defined on
+   .svr-course (CoursePage.css) so it follows light/dark automatically. The
+   only lab-specific colors are the four per-section accents below; each
+   section/detail pane sets --c from one of them via .scl-tone-*. Light
+   values are darker so they keep contrast on white, same pairs as the
+   mockup's [data-theme="light"] block. */
+
+.scl {
+  --scl-amber: #e8934a;
+  --scl-green: #5fd9a0;
+  --scl-blue: #6fa8e0;
+  --scl-purple: #a78bfa;
+  --scl-well: rgba(0, 0, 0, 0.25);
+  --scl-row: rgba(255, 255, 255, 0.03);
+}
+:root[data-theme='light'] .scl {
+  --scl-amber: #c96f24;
+  --scl-green: #1f9a67;
+  --scl-blue: #2f72b8;
+  --scl-purple: #6d4fd6;
+  --scl-well: rgba(var(--ink-tint-rgb), 0.05);
+  --scl-row: rgba(var(--ink-tint-rgb), 0.03);
+}
+.scl-tone-amber { --c: var(--scl-amber); }
+.scl-tone-green { --c: var(--scl-green); }
+.scl-tone-blue { --c: var(--scl-blue); }
+.scl-tone-purple { --c: var(--scl-purple); }
+
+/* The mockup had a global `* { box-sizing: border-box }`; the app doesn't,
+   so without this the detail pane's `max-height: 100%` capped only its
+   content box and its padding + borders (~44px) spilled out below the lab,
+   under the course page's Previous/Next row. */
+.scl,
+.scl *,
+.scl *::before,
+.scl *::after { box-sizing: border-box; }
+
+:where(.scl) button { font: inherit; color: inherit; }
+
+/* Desktop: list and detail scroll independently inside a bounded height,
+   the in-column equivalent of the mockup's full-viewport layout. */
+.scl-layout {
+  display: grid;
+  /* Slim list column so the detail pane gets most of the width. */
+  grid-template-columns: 236px minmax(0, 1fr);
+  gap: 14px;
+  height: min(820px, 84vh);
+  min-height: 480px;
+}
+
+/* ---------- left: section list ---------- */
+.scl-nav {
+  overflow: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 2px;
+}
+.scl-sec-wrap { display: flex; flex-direction: column; gap: 8px; }
+.scl-room-label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-dimmer);
+  margin: 6px 4px 0;
+}
+.scl-sec {
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--c);
+  border-radius: 10px;
+}
+.scl-sec-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 10px;
+}
+.scl-sec-head:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
+.scl-sec-n { font-family: var(--mono); font-size: 11px; color: var(--c); }
+.scl-sec-t { flex: 1; font-weight: 600; font-size: 13.5px; color: var(--text); }
+.scl-sec-count { font-size: 11.5px; color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
+.scl-chev { width: 16px; height: 16px; color: var(--text-dimmer); transition: transform 0.2s; flex: none; }
+.scl-sec.is-open .scl-chev { transform: rotate(180deg); color: var(--c); }
+
+.scl-items { display: flex; flex-direction: column; gap: 2px; padding: 0 6px 6px; }
+.scl-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 6px 6px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: none;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--text-dim);
+}
+.scl-item:hover { background: var(--panel-hover); color: var(--text); }
+.scl-item:focus-visible { outline: 2px solid var(--c); outline-offset: 1px; }
+.scl-item[aria-current='true'] {
+  background: var(--scl-row);
+  border-color: var(--c);
+  color: var(--text);
+  font-weight: 500;
+}
+.scl-item-name { flex: 1; min-width: 0; }
+.scl-ic {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 7px;
+  background: var(--scl-well);
+  border: 1px solid var(--border-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--c);
+}
+.scl-ic svg { width: 15px; height: 15px; }
+.scl-seen {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c);
+  opacity: 0.7;
+}
+
+/* ---------- right: detail pane ---------- */
+.scl-detail {
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-top: 3px solid var(--c);
+  border-radius: 14px;
+  min-height: 0;
+  max-height: 100%;
+  align-self: start;
+  overflow: auto;
+  display: grid;
+  /* Always one column: photo banner on top, copy underneath at full
+     pane width. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  padding: 20px 24px;
+  align-content: start;
+}
+.scl-media { display: flex; flex-direction: column; gap: 10px; }
+.scl-frame {
+  position: relative;
+  /* Banner crop rather than 16:10 so the photo doesn't push the copy
+     below the fold on wide panes. */
+  height: clamp(180px, 26vw, 340px);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--scl-well);
+  border: 1px solid var(--border-soft);
+}
+.scl-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.scl-ph {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--c);
+  background: repeating-linear-gradient(45deg, transparent 0 12px, color-mix(in srgb, var(--c) 6%, transparent) 12px 24px);
+}
+.scl-ph svg { width: 56px; height: 56px; opacity: 0.85; }
+.scl-ph span { font-family: var(--mono); font-size: 11px; color: var(--text-dimmer); }
+.scl-caption { font-size: 12px; color: var(--text-dimmer); }
+
+.scl-pager { display: flex; gap: 8px; padding-top: 16px; border-top: 1px solid var(--border-soft); }
+.scl-pager button {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border-soft);
+  background: var(--scl-row);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-align: left;
+}
+.scl-pager button:last-child { text-align: right; }
+.scl-pager button:hover:not(:disabled) { color: var(--text); border-color: var(--c); }
+.scl-pager button:focus-visible { outline: 2px solid var(--c); outline-offset: 1px; }
+.scl-pager button:disabled { opacity: 0.4; cursor: default; }
+.scl-pager small {
+  display: block;
+  font-size: 10.5px;
+  color: var(--text-dimmer);
+  font-family: var(--mono);
+  letter-spacing: 0.08em;
+}
+
+.scl-text { min-width: 0; }
+.scl-title {
+  font-family: var(--heading);
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  line-height: 1.2;
+  color: var(--text);
+}
+.scl-lead { font-size: 15px; color: var(--text); line-height: 1.55; margin: 0 0 14px; }
+.scl-body { font-size: 14px; line-height: 1.7; color: var(--text-dim); margin: 0 0 12px; }
+.scl-body strong { color: var(--text); font-weight: 600; }
+.scl-kp {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  font-weight: 500;
+  margin: 18px 0 8px;
+}
+.scl-points { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.scl-points li {
+  font-size: 13.5px;
+  line-height: 1.5;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: var(--scl-row);
+  border: 1px solid var(--border-soft);
+  display: flex;
+  gap: 10px;
+  color: var(--text);
+}
+.scl-points li::before {
+  content: '';
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c);
+  margin-top: 7px;
+}
+
+.scl-fade { animation: scl-fade 0.2s ease; }
+@keyframes scl-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scl-fade { animation: none; }
+}
+
+/* The course content column is narrower than the mockup's viewport, so the
+   breakpoints sit a bit higher. */
+@media (max-width: 860px) {
+  .scl-layout { display: flex; flex-direction: column; height: auto; min-height: 0; }
+  .scl-nav, .scl-detail { overflow: visible; max-height: none; }
+  .scl-detail { padding: 16px; }
+}

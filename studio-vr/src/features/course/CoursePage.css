@@ -31,14 +31,13 @@
   display: flex;
   flex-direction: column;
   /* LabButtonDialog.jsx's overlay is positioned absolute/inset:0 so it
-     covers this entire course panel (topbar + sidebar + content) rather
+     covers this entire course panel (sidebar + content) rather
      than the whole browser viewport (which would also cover the app
      shell header rendered above this page — see App.jsx) — this is what
      makes that overlay resolve against .svr-course instead of reaching
      further up the DOM for a positioned ancestor. */
   position: relative;
-  /* Above 960px wide, .course-topbar and .course-layout below each own
-     their own scrolling (course-layout's two columns scroll independently
+  /* Above 960px wide, .course-layout owns the scrolling (course-layout's two columns scroll independently
      via flex + min-height: 0), so this container itself doesn't need to
      scroll — see the media query at the bottom of this file for the <960px
      case, which stacks the columns and switches this back to being the one
@@ -103,65 +102,6 @@
     }
   }
 
-  .course-topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 32px;
-    border-bottom: 1px solid var(--border-soft);
-    flex-shrink: 0;
-    background: rgba(5, 5, 7, 0.92);
-    backdrop-filter: blur(8px);
-    z-index: 10;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-
-  .course-topbar-left {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
-
-  .course-brand-mark {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--gradient-accent);
-    color: var(--accent-ink);
-    font-size: 14px;
-    font-weight: 800;
-    cursor: pointer;
-    border: none;
-    flex-shrink: 0;
-  }
-
-  .course-crumb {
-    font-size: 11.5px;
-    color: var(--text-dimmer);
-    margin-bottom: 3px;
-  }
-  .course-crumb b {
-    color: var(--text-dim);
-    font-weight: 600;
-  }
-
-  .course-title-block h1 {
-    color: var(--text);
-    font-size: 16.5px;
-    margin: 0 0 4px;
-    font-weight: 800;
-  }
-
-  .progress-wrap {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
   .progress-track {
     width: 160px;
     height: 6px;
@@ -180,18 +120,6 @@
   .progress-label {
     font-size: 11.5px;
     color: var(--text-dimmer);
-  }
-
-  .course-topbar .btn-primary {
-    padding: 11px 22px;
-    font-size: 13px;
-  }
-
-  .course-topbar-right {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-shrink: 0;
   }
 
   .theme-toggle-btn {
@@ -214,8 +142,8 @@
   .course-layout {
     display: grid;
     grid-template-columns: 360px 1fr;
-    /* Definite height (the leftover space below .course-topbar in the flex
-       column above), so the single implicit row fills it and the sidebar/
+    /* Definite height (the full height of the flex column above — there
+       is no topbar anymore), so the single implicit row fills it and the sidebar/
        main columns below can each scroll within their own share of it. */
     flex: 1;
     min-height: 0;
@@ -261,6 +189,42 @@
     align-items: center;
     justify-content: space-between;
     padding: 0 22px 14px;
+  }
+  /* Overall course progress — moved here from the removed topbar. */
+  .sidebar-progress {
+    margin: 0 22px 18px;
+    padding: 12px 14px;
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .sidebar-progress-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .sidebar-progress-pct {
+    color: var(--accent);
+    font-size: 13px;
+    letter-spacing: 0;
+  }
+  .sidebar-progress .progress-track {
+    width: 100%;
+  }
+  .sidebar-progress-mini {
+    text-align: center;
+    font-size: 10.5px;
+    font-weight: 800;
+    color: var(--accent);
+    margin: 0 0 14px;
   }
   .course-sidebar.collapsed .sidebar-toggle-row {
     justify-content: center;
@@ -600,16 +564,31 @@
     font-size: 14.5px;
     line-height: 1.7;
     color: var(--text-dim);
-    margin: 0 0 8px;
+    /* was 8px + the old progress row's 30px below it */
+    margin: 0 0 28px;
+  }
+  /* Eyebrow + compact chapter progress share one line (progress pinned
+     right via margin-left: auto, so it stays right even when a chapter
+     has no eyebrow). */
+  .topic-top-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+  .topic-top-row .topic-eyebrow {
+    margin-bottom: 0;
   }
   .topic-progress-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 30px;
+    gap: 8px;
+    margin-left: auto;
+    flex-shrink: 0;
   }
   .topic-progress-row .progress-track {
-    width: 120px;
+    width: 72px;
+    height: 5px;
   }
 
   /* A touch smaller/tighter than the standard .btn-primary (e.g. "Back to
@@ -685,6 +664,11 @@
   .nav-arrows {
     display: flex;
     gap: 10px;
+    margin-left: auto;
+  }
+  .studio-back-btn {
+    padding: 10px 16px;
+    font-size: 12.5px;
   }
   .arrow-btn {
     padding: 10px 16px;
@@ -783,9 +767,6 @@
   --text-dim: rgba(12, 19, 15, 0.7);
   --text-dimmer: rgba(12, 19, 15, 0.5);
 
-  .course-topbar {
-    background: rgba(var(--page-tint-rgb), 0.92);
-  }
   .btn-secondary {
     background: rgba(var(--ink-tint-rgb), 0.05);
   }

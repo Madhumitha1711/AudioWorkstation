@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Types of Studios — Studio VR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!--
+  DESIGN MOCKUP — "Types of Recording Studios" briefing, six switchable tabs.
+  Content is verbatim from the brief (do not reword when implementing).
+
+  Palette/type system matched to design/the-studio-chapter.html (the
+  "interactive lab" family: Space Grotesk / Inter / JetBrains Mono, amber +
+  green accents on near-black panels).
+
+  Images: each tab has an inline-SVG plan-view illustration of that studio's
+  layout, drawn with CSS classes so it follows the tokens below. Each sits in
+  a .media slot — swap the <svg> for an <img> (e.g. a real photo under
+  public/) without touching the layout.
+
+  Tabs follow the WAI-ARIA tabs pattern: arrow keys / Home / End move between
+  tabs, and the active tab is kept in the URL hash (#tab-3) so a tab can be
+  linked directly.
+-->
+<style>
+  :root{
+    --bg:#0b0b0d;
+    --panel:#16161a;
+    --panel-alt:#1c1c21;
+    --panel-raised:#1f1f25;
+    --border:#2a2a30;
+    --border-soft:#232328;
+    --text:#ede9e3;
+    --text-muted:#8b8890;
+    --text-faint:#54525a;
+    --amber:#e8934a;
+    --amber-dim:#6b4a2c;
+    --green:#5fd9a0;
+    --green-dim:#2c5f49;
+    --blue:#5fa3d9;
+    --blue-dim:#2c4a5f;
+    --red:#e8615f;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;}
+  ::selection{background:var(--amber-dim);}
+  @media (prefers-reduced-motion: reduce){ *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;} }
+
+  main{max-width:1080px; margin:0 auto; padding:40px 28px 64px;}
+
+  /* ---------- page heading ---------- */
+  .eyebrow{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--green); margin-bottom:10px;}
+  h1{font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:32px; letter-spacing:-.02em; margin:0 0 28px;}
+
+  /* ---------- tab bar ---------- */
+  .tabs{
+    display:flex; gap:6px; overflow-x:auto; scrollbar-width:none;
+    padding:6px; background:var(--panel); border:1px solid var(--border-soft); border-radius:14px;
+    scroll-snap-type:x mandatory;
+  }
+  .tabs::-webkit-scrollbar{display:none;}
+  .tab{
+    flex:1 0 auto; scroll-snap-align:start;
+    display:flex; align-items:center; gap:10px;
+    padding:10px 14px; border-radius:10px; border:1px solid transparent;
+    background:transparent; color:var(--text-muted); cursor:pointer;
+    font:500 13.5px/1.2 'Inter',sans-serif; text-align:left; white-space:nowrap;
+    transition:background .15s, color .15s, border-color .15s;
+  }
+  .tab:hover{color:var(--text); background:var(--panel-alt);}
+  .tab:focus-visible{outline:2px solid var(--green); outline-offset:1px;}
+  .tab .n{
+    font-family:'JetBrains Mono',monospace; font-size:11px;
+    width:22px; height:22px; border-radius:6px; display:grid; place-items:center;
+    border:1px solid var(--border); color:var(--text-faint); flex:none;
+  }
+  .tab[aria-selected="true"]{background:var(--panel-raised); color:var(--text); border-color:var(--border);}
+  .tab[aria-selected="true"] .n{color:var(--amber); border-color:var(--amber-dim); background:rgba(232,147,74,.08);}
+
+  /* ---------- panel ---------- */
+  .panel{
+    margin-top:20px; display:grid; grid-template-columns:1.05fr 1fr; gap:28px; align-items:start;
+    animation:fade .25s ease;
+  }
+  .panel[hidden]{display:none;}
+  @keyframes fade{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
+
+  .media{
+    position:relative; aspect-ratio:16/11; border-radius:14px; overflow:hidden;
+    background:
+      linear-gradient(var(--border-soft) 1px, transparent 1px) 0 0/24px 24px,
+      linear-gradient(90deg, var(--border-soft) 1px, transparent 1px) 0 0/24px 24px,
+      var(--panel);
+    border:1px solid var(--border);
+  }
+  .media svg, .media img{position:absolute; inset:0; width:100%; height:100%; display:block; object-fit:cover;}
+  .media figcaption{
+    position:absolute; left:12px; bottom:10px;
+    font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--text-faint);
+  }
+
+  .body h2{font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:26px; letter-spacing:-.015em; margin:2px 0 10px; line-height:1.15;}
+  .body .kicker{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; color:var(--amber);}
+  .body .lede{color:var(--text-muted); font-size:15.5px; line-height:1.6; margin:0 0 22px;}
+
+  .facts{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px;}
+  .facts li{
+    display:grid; grid-template-columns:28px 1fr; gap:12px;
+    padding:14px 16px; background:var(--panel); border:1px solid var(--border-soft); border-radius:12px;
+  }
+  .facts .ic{width:28px; height:28px; border-radius:8px; display:grid; place-items:center; background:var(--panel-alt); border:1px solid var(--border);}
+  .facts .ic svg{width:15px; height:15px; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;}
+  .facts .ic.layout svg{stroke:var(--green);}
+  .facts .ic.build svg{stroke:var(--amber);}
+  .facts .ic.use svg{stroke:var(--blue);}
+  .facts .label{font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px;}
+  .facts p{margin:0; font-size:14.5px; line-height:1.55;}
+
+  /* ---------- footer nav ---------- */
+  .pager{display:flex; align-items:center; justify-content:space-between; margin-top:28px; padding-top:20px; border-top:1px solid var(--border-soft);}
+  .pager button{
+    display:inline-flex; align-items:center; gap:8px; padding:9px 16px; border-radius:999px;
+    border:1px solid var(--border); background:var(--panel); color:var(--text); cursor:pointer;
+    font:500 13px 'Inter',sans-serif;
+  }
+  .pager button:hover:not(:disabled){border-color:var(--text-faint);}
+  .pager button:disabled{opacity:.35; cursor:default;}
+  .dots{display:flex; gap:6px;}
+  .dots span{width:6px; height:6px; border-radius:50%; background:var(--border); transition:all .2s;}
+  .dots span.on{background:var(--amber); width:18px; border-radius:3px;}
+
+  /* ---------- SVG illustration tokens ---------- */
+  .ill .wall{fill:none; stroke:var(--text-muted); stroke-width:2;}
+  .ill .wall2{fill:none; stroke:var(--text-faint); stroke-width:1.5;}
+  .ill .thick{fill:var(--panel-raised); stroke:var(--text-muted); stroke-width:1.5;}
+  .ill .room{fill:var(--panel-alt);}
+  .ill .obj{fill:var(--panel-raised); stroke:var(--text-muted); stroke-width:1.5;}
+  .ill .amber{fill:rgba(232,147,74,.14); stroke:var(--amber); stroke-width:1.5;}
+  .ill .green{fill:rgba(95,217,160,.12); stroke:var(--green); stroke-width:1.5;}
+  .ill .blue{fill:rgba(95,163,217,.12); stroke:var(--blue); stroke-width:1.5;}
+  .ill .dash{fill:none; stroke:var(--green); stroke-width:1.2; stroke-dasharray:4 4;}
+  .ill .glass{stroke:var(--blue); stroke-width:3;}
+  .ill .foam{fill:none; stroke:var(--amber-dim); stroke-width:1.5;}
+  .ill text{font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.08em; fill:var(--text-muted); text-transform:uppercase;}
+  .ill text.hi{fill:var(--text);}
+
+  @media (max-width:820px){
+    main{padding:24px 16px 48px;}
+    h1{font-size:26px; margin-bottom:20px;}
+    .panel{grid-template-columns:1fr; gap:20px;}
+    .body h2{font-size:22px;}
+    .tab{flex:0 0 auto;}
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">The Studio · Briefing</div>
+  <h1>Types of Recording Studios</h1>
+
+  <div class="tabs" role="tablist" aria-label="Studio types">
+    <button class="tab" role="tab" id="t1" aria-controls="p1" aria-selected="true"><span class="n">01</span>Commercial</button>
+    <button class="tab" role="tab" id="t2" aria-controls="p2" aria-selected="false" tabindex="-1"><span class="n">02</span>Home &amp; Project</button>
+    <button class="tab" role="tab" id="t3" aria-controls="p3" aria-selected="false" tabindex="-1"><span class="n">03</span>Mixing &amp; Mastering</button>
+    <button class="tab" role="tab" id="t4" aria-controls="p4" aria-selected="false" tabindex="-1"><span class="n">04</span>Voiceover &amp; Podcast</button>
+    <button class="tab" role="tab" id="t5" aria-controls="p5" aria-selected="false" tabindex="-1"><span class="n">05</span>Post &amp; Foley</button>
+    <button class="tab" role="tab" id="t6" aria-controls="p6" aria-selected="false" tabindex="-1"><span class="n">06</span>Broadcast &amp; Streaming</button>
+  </div>
+
+  <!-- shared fact-row icons -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-layout" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 10h18M10 10v11"/></symbol>
+    <symbol id="i-build" viewBox="0 0 24 24"><path d="M2 12h3l2-6 4 12 3-9 2 3h6"/></symbol>
+    <symbol id="i-use" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></symbol>
+  </svg>
+
+  <!-- ============ 1. COMMERCIAL ============ -->
+  <section class="panel" role="tabpanel" id="p1" aria-labelledby="t1">
+    <figure class="media" style="margin:0">
+      <svg class="ill" viewBox="0 0 480 330" role="img" aria-label="Plan view of a multi-room commercial studio">
+        <!-- double-leaf outer shell -->
+        <rect x="24" y="24" width="432" height="270" rx="4" class="wall"/>
+        <rect x="31" y="31" width="418" height="256" rx="2" class="wall2"/>
+        <!-- live room -->
+        <rect x="40" y="40" width="240" height="160" class="room"/>
+        <rect x="40" y="40" width="240" height="160" class="wall"/>
+        <text x="54" y="60" class="hi">Live Room</text>
+        <circle cx="120" cy="125" r="22" class="amber"/><circle cx="104" cy="110" r="7" class="obj"/><circle cx="138" cy="108" r="7" class="obj"/>
+        <rect x="175" y="95" width="60" height="26" rx="3" class="obj"/><circle cx="205" cy="150" r="10" class="obj"/>
+        <!-- booths -->
+        <rect x="40" y="210" width="115" height="68" class="room"/><rect x="40" y="210" width="115" height="68" class="wall"/>
+        <text x="52" y="230">Booth A</text><circle cx="98" cy="252" r="8" class="green"/>
+        <rect x="165" y="210" width="115" height="68" class="room"/><rect x="165" y="210" width="115" height="68" class="wall"/>
+        <text x="177" y="230">Booth B</text><circle cx="222" cy="252" r="8" class="green"/>
+        <!-- control room -->
+        <rect x="292" y="40" width="148" height="160" class="room"/><rect x="292" y="40" width="148" height="160" class="wall"/>
+        <line x1="292" y1="80" x2="292" y2="160" class="glass"/>
+        <text x="306" y="60" class="hi">Control</text>
+        <rect x="318" y="100" width="100" height="36" rx="4" class="amber"/>
+        <rect x="330" y="150" width="76" height="14" rx="3" class="obj"/>
+        <!-- machine room -->
+        <rect x="292" y="210" width="148" height="68" class="room"/><rect x="292" y="210" width="148" height="68" class="wall"/>
+        <text x="304" y="230">Machine Rm</text>
+        <rect x="306" y="242" width="20" height="26" class="obj"/><rect x="332" y="242" width="20" height="26" class="obj"/><rect x="358" y="242" width="20" height="26" class="obj"/>
+        <text x="24" y="316">Double-leaf walls · floating floor</text>
+      </svg>
+    </figure>
+    <div class="body">
+      <div class="kicker">01</div>
+      <h2>Commercial Recording Studios</h2>
+      <p class="lede">Large-scale, multi-room facilities designed for professional music production, record labels, and commercial projects.</p>
+      <ul class="facts">
+        <li><span class="ic layout"><svg><use href="#i-layout"/></svg></span><div><div class="label">Layout</div><p>Multiple specialized spaces including a main control room, a spacious live tracking room, isolated vocal/instrument booths, and dedicated machine rooms.</p></div></li>
+        <li><span class="ic build"><svg><use href="#i-build"/></svg></span><div><div class="label">Acoustics &amp; Build</div><p>Heavy acoustic isolation (floating floors, double-leaf walls) to handle high sound pressure levels without leakage.</p></div></li>
+        <li><span class="ic use"><svg><use href="#i-use"/></svg></span><div><div class="label">Key Use Case</div><p>Capturing full bands, acoustic drum kits, orchestral sections, and high-budget album productions.</p></div></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ 2. HOME & PROJECT ============ -->
+  <section class="panel" role="tabpanel" id="p2" aria-labelledby="t2" hidden>
+    <figure class="media" style="margin:0">
+      <svg class="ill" viewBox="0 0 480 330" role="img" aria-label="Plan view of a single-room home studio">
+        <rect x="90" y="36" width="300" height="250" class="room"/>
+        <rect x="90" y="36" width="300" height="250" class="wall"/>
+        <!-- bass traps in corners -->
+        <path d="M91 37h34L91 71z" class="amber"/><path d="M389 37h-34l34 34z" class="amber"/>
+        <path d="M91 285h34l-34-34z" class="amber"/><path d="M389 285h-34l34-34z" class="amber"/>
+        <!-- wall panels -->
+        <rect x="160" y="38" width="44" height="7" class="amber"/><rect x="276" y="38" width="44" height="7" class="amber"/>
+        <rect x="92" y="130" width="7" height="50" class="amber"/><rect x="381" y="130" width="7" height="50" class="amber"/>
+        <!-- desk + monitors -->
+        <rect x="175" y="70" width="130" height="40" rx="4" class="obj"/>
+        <rect x="183" y="76" width="16" height="16" rx="2" class="obj"/><rect x="281" y="76" width="16" height="16" rx="2" class="obj"/>
+        <rect x="212" y="78" width="56" height="10" rx="2" class="blue"/>
+        <circle cx="240" cy="132" r="11" class="obj"/>
+        <!-- mic + keyboard -->
+        <circle cx="240" cy="228" r="9" class="green"/><line x1="240" y1="219" x2="240" y2="206" class="wall2"/>
+        <rect x="120" y="200" width="70" height="20" rx="3" class="obj"/>
+        <text x="104" y="306">One room · record · edit · mix</text>
+        <text x="203" y="258">Vocal</text><text x="124" y="238">Keys</text>
+      </svg>
+    </figure>
+    <div class="body">
+      <div class="kicker">02</div>
+      <h2>Home &amp; Project Studios</h2>
+      <p class="lede">Personal workspaces built in residential or private spaces, ranging from bedroom setups to dedicated garage conversions.</p>
+      <ul class="facts">
+        <li><span class="ic layout"><svg><use href="#i-layout"/></svg></span><div><div class="label">Layout</div><p>Typically a single combined room where the recording, editing, and mixing happen in one space.</p></div></li>
+        <li><span class="ic build"><svg><use href="#i-build"/></svg></span><div><div class="label">Acoustics &amp; Build</div><p>Basic acoustic treatment (wall panels, bass traps) rather than structural isolation.</p></div></li>
+        <li><span class="ic use"><svg><use href="#i-use"/></svg></span><div><div class="label">Key Use Case</div><p>Solo artists, songwriters, electronic music producers, and indie musicians tracking vocals, guitars, or virtual instruments.</p></div></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ 3. MIXING & MASTERING ============ -->
+  <section class="panel" role="tabpanel" id="p3" aria-labelledby="t3" hidden>
+    <figure class="media" style="margin:0">
+      <svg class="ill" viewBox="0 0 480 330" role="img" aria-label="Plan view of a symmetric mixing suite with a reflection-free zone">
+        <path d="M110 36h260l30 250H80z" class="room"/>
+        <path d="M110 36h260l30 250H80z" class="wall"/>
+        <!-- front soffit speakers -->
+        <rect x="160" y="46" width="30" height="24" rx="3" class="obj"/><rect x="290" y="46" width="30" height="24" rx="3" class="obj"/>
+        <!-- equilateral triangle -->
+        <path d="M175 70L305 70L240 180z" class="dash"/>
+        <!-- RFZ -->
+        <ellipse cx="240" cy="172" rx="58" ry="30" class="green"/>
+        <text x="215" y="210" class="hi">RFZ</text>
+        <!-- desk -->
+        <path d="M170 128q70 -22 140 0v18q-70 -18 -140 0z" class="amber"/>
+        <circle cx="240" cy="172" r="10" class="obj"/>
+        <!-- rear diffuser -->
+        <g class="obj">
+          <rect x="150" y="262" width="12" height="16"/><rect x="164" y="266" width="12" height="12"/><rect x="178" y="258" width="12" height="20"/>
+          <rect x="192" y="264" width="12" height="14"/><rect x="206" y="260" width="12" height="18"/><rect x="220" y="268" width="12" height="10"/>
+          <rect x="234" y="258" width="12" height="20"/><rect x="248" y="266" width="12" height="12"/><rect x="262" y="260" width="12" height="18"/>
+          <rect x="276" y="264" width="12" height="14"/><rect x="290" y="258" width="12" height="20"/><rect x="304" y="266" width="12" height="12"/>
+          <rect x="318" y="262" width="12" height="16"/>
+        </g>
+        <text x="186" y="250">Rear diffuser</text>
+        <text x="80" y="310">Symmetric room · flat response</text>
+      </svg>
+    </figure>
+    <div class="body">
+      <div class="kicker">03</div>
+      <h2>Mixing &amp; Mastering Suites</h2>
+      <p class="lede">Specialized control rooms built purely for post-production audio processing rather than live tracking.</p>
+      <ul class="facts">
+        <li><span class="ic layout"><svg><use href="#i-layout"/></svg></span><div><div class="label">Layout</div><p>Single room centered around an ergonomic mix desk and hyper-accurate monitoring environment, often with no live recording booth.</p></div></li>
+        <li><span class="ic build"><svg><use href="#i-build"/></svg></span><div><div class="label">Acoustics &amp; Build</div><p>Designed for extreme acoustic precision (flat frequency response, Reflection-Free Zones) to reveal subtle audio detail.</p></div></li>
+        <li><span class="ic use"><svg><use href="#i-use"/></svg></span><div><div class="label">Key Use Case</div><p>Fine-tuning mixed audio tracks, balancing frequencies, stereo mastering, and preparing final audio deliverables.</p></div></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ 4. VOICEOVER & PODCAST ============ -->
+  <section class="panel" role="tabpanel" id="p4" aria-labelledby="t4" hidden>
+    <figure class="media" style="margin:0">
+      <svg class="ill" viewBox="0 0 480 330" role="img" aria-label="Plan view of a vocal booth beside a production desk">
+        <!-- booth with thick deadened walls -->
+        <rect x="60" y="50" width="190" height="220" class="thick"/>
+        <rect x="80" y="70" width="150" height="180" class="room"/>
+        <g class="foam">
+          <path d="M84 74l8 8 8-8 8 8 8-8 8 8 8-8 8 8 8-8 8 8 8-8 8 8 8-8 8 8 8-8 8 8 8-8 8 8 6-6"/>
+          <path d="M84 246l8-8 8 8 8-8 8 8 8-8 8 8 8-8 8 8 8-8 8 8 8-8 8 8 8-8 8 8 8-8 8 8 8-8 6 6"/>
+          <path d="M84 74l8 8-8 8 8 8-8 8 8 8-8 8 8 8-8 8 8 8-8 8 8 8-8 8 8 8-8 8 8 8-8 8 8 8-8 8 8 8-8 8"/>
+        </g>
+        <text x="100" y="104" class="hi">Vocal Booth</text>
+        <circle cx="155" cy="170" r="12" class="green"/><line x1="155" y1="182" x2="155" y2="206" class="wall2"/>
+        <path d="M143 158a18 18 0 0 1 24 0" class="dash"/>
+        <text x="100" y="236">RT60 ≈ 0</text>
+        <!-- window -->
+        <line x1="250" y1="130" x2="250" y2="200" class="glass"/>
+        <line x1="230" y1="130" x2="230" y2="200" class="glass"/>
+        <!-- production desk -->
+        <rect x="290" y="60" width="140" height="210" class="room"/><rect x="290" y="60" width="140" height="210" class="wall"/>
+        <text x="304" y="84" class="hi">Production</text>
+        <rect x="300" y="130" width="34" height="80" rx="4" class="amber"/>
+        <rect x="306" y="150" width="8" height="40" rx="2" class="blue"/>
+        <circle cx="360" cy="170" r="11" class="obj"/>
+        <text x="60" y="300">Deadened booth · streamlined desk</text>
+      </svg>
+    </figure>
+    <div class="body">
+      <div class="kicker">04</div>
+      <h2>Voiceover &amp; Podcast Studios</h2>
+      <p class="lede">Compact, highly insulated spaces engineered specifically for speech clarity and spoken-word media.</p>
+      <ul class="facts">
+        <li><span class="ic layout"><svg><use href="#i-layout"/></svg></span><div><div class="label">Layout</div><p>Usually consists of an ultra-quiet vocal booth and a streamlined production desk.</p></div></li>
+        <li><span class="ic build"><svg><use href="#i-build"/></svg></span><div><div class="label">Acoustics &amp; Build</div><p>Heavily deadened acoustic environments with near-zero reverberation to produce clean, intimate voice tracks.</p></div></li>
+        <li><span class="ic use"><svg><use href="#i-use"/></svg></span><div><div class="label">Key Use Case</div><p>Podcasts, audiobooks, dubbing, animated voice acting, video game dialogue, and radio commercials.</p></div></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ 5. POST & FOLEY ============ -->
+  <section class="panel" role="tabpanel" id="p5" aria-labelledby="t5" hidden>
+    <figure class="media" style="margin:0">
+      <svg class="ill" viewBox="0 0 480 330" role="img" aria-label="Plan view of a dubbing stage with surround speakers and a Foley pit">
+        <!-- dubbing stage -->
+        <rect x="24" y="30" width="270" height="250" class="room"/><rect x="24" y="30" width="270" height="250" class="wall"/>
+        <rect x="54" y="40" width="210" height="8" class="blue"/>
+        <text x="138" y="84" class="hi">Screen</text>
+        <!-- surround ring -->
+        <circle cx="159" cy="170" r="84" class="dash"/>
+        <g class="obj">
+          <rect x="72" y="52" width="14" height="12"/><rect x="152" y="52" width="14" height="12"/><rect x="232" y="52" width="14" height="12"/>
+          <rect x="30" y="140" width="12" height="14"/><rect x="276" y="140" width="12" height="14"/>
+          <rect x="30" y="210" width="12" height="14"/><rect x="276" y="210" width="12" height="14"/>
+          <rect x="100" y="264" width="14" height="12"/><rect x="204" y="264" width="14" height="12"/>
+        </g>
+        <path d="M109 180q50 -18 100 0v16q-50 -14 -100 0z" class="amber"/>
+        <text x="110" y="228">Atmos mix</text>
+        <!-- foley pits -->
+        <rect x="306" y="30" width="150" height="250" class="room"/><rect x="306" y="30" width="150" height="250" class="wall"/>
+        <text x="320" y="54" class="hi">Foley Pits</text>
+        <rect x="320" y="68" width="58" height="58" class="obj"/>
+        <g fill="var(--text-muted)"><circle cx="330" cy="80" r="2"/><circle cx="344" cy="88" r="2"/><circle cx="360" cy="78" r="2"/><circle cx="336" cy="104" r="2"/><circle cx="356" cy="112" r="2"/><circle cx="368" cy="96" r="2"/><circle cx="348" cy="98" r="2"/></g>
+        <rect x="386" y="68" width="58" height="58" class="amber"/>
+        <g class="foam"><path d="M386 82h58M386 96h58M386 110h58"/></g>
+        <rect x="320" y="136" width="58" height="58" class="blue"/>
+        <g fill="none" stroke="var(--blue)" stroke-width="1.2"><path d="M324 156q7-6 14 0t14 0 14 0 8 0"/><path d="M324 172q7-6 14 0t14 0 14 0 8 0"/></g>
+        <rect x="386" y="136" width="58" height="58" class="obj"/>
+        <g class="wall2"><path d="M405 136v58M425 136v58M386 155h58M386 175h58"/></g>
+        <text x="322" y="214">Gravel · Wood</text><text x="322" y="230">Water · Tile</text>
+        <text x="24" y="306">Dubbing stage · Foley · ADR</text>
+      </svg>
+    </figure>
+    <div class="body">
+      <div class="kicker">05</div>
+      <h2>Post-Production &amp; Foley Facilities</h2>
+      <p class="lede">Audio-for-picture workspaces built specifically to create, edit, and sync sound effects, film scores, and dialogue for film, television, and gaming.</p>
+      <ul class="facts">
+        <li><span class="ic layout"><svg><use href="#i-layout"/></svg></span><div><div class="label">Layout</div><p>Includes dubbing stages with projection screens, editing suites, and dedicated Foley pits (pits filled with gravel, hardwood, water, dirt, or tile to recreate realistic physical sound effects).</p></div></li>
+        <li><span class="ic build"><svg><use href="#i-build"/></svg></span><div><div class="label">Acoustics &amp; Build</div><p>Tuned for surround sound or immersive audio standards (like Dolby Atmos) to mirror cinematic environments.</p></div></li>
+        <li><span class="ic use"><svg><use href="#i-use"/></svg></span><div><div class="label">Key Use Case</div><p>Sound design, Automatic Dialogue Replacement (ADR), game audio implementation, and film re-recording mixing.</p></div></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ 6. BROADCAST & STREAMING ============ -->
+  <section class="panel" role="tabpanel" id="p6" aria-labelledby="t6" hidden>
+    <figure class="media" style="margin:0">
+      <svg class="ill" viewBox="0 0 480 330" role="img" aria-label="Plan view of a broadcast desk with mics, cameras and a switcher">
+        <rect x="40" y="36" width="400" height="250" class="room"/><rect x="40" y="36" width="400" height="250" class="wall"/>
+        <!-- on air light -->
+        <rect x="190" y="46" width="100" height="24" rx="4" fill="rgba(232,97,95,.15)" stroke="var(--red)" stroke-width="1.5"/>
+        <text x="213" y="62" fill="var(--red)" style="fill:var(--red)">On Air</text>
+        <!-- curved desk w/ mics -->
+        <path d="M130 110q110 70 220 0v26q-110 64 -220 0z" class="amber"/>
+        <g><circle cx="170" cy="140" r="8" class="green"/><circle cx="240" cy="158" r="8" class="green"/><circle cx="310" cy="140" r="8" class="green"/></g>
+        <g class="obj"><circle cx="160" cy="98" r="10"/><circle cx="240" cy="116" r="10"/><circle cx="320" cy="98" r="10"/></g>
+        <!-- cameras -->
+        <g class="blue"><path d="M120 236h30v20h-30z"/><path d="M225 246h30v20h-30z"/><path d="M330 236h30v20h-30z"/></g>
+        <g class="dash"><path d="M135 236L170 150M240 246V168M345 236L310 150"/></g>
+        <text x="206" y="280">Cameras</text>
+        <!-- switcher -->
+        <rect x="370" y="150" width="56" height="64" rx="4" class="obj"/>
+        <g fill="var(--amber)"><rect x="378" y="160" width="8" height="8" rx="1"/><rect x="392" y="160" width="8" height="8" rx="1"/><rect x="406" y="160" width="8" height="8" rx="1"/></g>
+        <g fill="var(--text-faint)"><rect x="378" y="174" width="8" height="8" rx="1"/><rect x="392" y="174" width="8" height="8" rx="1"/><rect x="406" y="174" width="8" height="8" rx="1"/></g>
+        <text x="372" y="230">Switcher</text>
+        <text x="40" y="310">Multi-mic desk · low ambient noise</text>
+      </svg>
+    </figure>
+    <div class="body">
+      <div class="kicker">06</div>
+      <h2>Broadcast &amp; Streaming Suites</h2>
+      <p class="lede">On-air spaces designed for real-time radio, live television, news production, and high-end digital streaming.</p>
+      <ul class="facts">
+        <li><span class="ic layout"><svg><use href="#i-layout"/></svg></span><div><div class="label">Layout</div><p>Integrated media desks with multi-mic setups, video cameras, automated switcher panels, and acoustic insulation.</p></div></li>
+        <li><span class="ic build"><svg><use href="#i-build"/></svg></span><div><div class="label">Acoustics &amp; Build</div><p>Designed for low ambient noise and fast turnaround without requiring deep acoustic isolation for live instruments.</p></div></li>
+        <li><span class="ic use"><svg><use href="#i-use"/></svg></span><div><div class="label">Key Use Case</div><p>Live radio broadcasts, video podcasts, live news feeds, and professional content streaming.</p></div></li>
+      </ul>
+    </div>
+  </section>
+
+  <nav class="pager" aria-label="Studio type navigation">
+    <button id="prev" type="button">← Previous</button>
+    <div class="dots" aria-hidden="true"></div>
+    <button id="next" type="button">Next →</button>
+  </nav>
+</main>
+
+<script>
+  /* Tab switching — WAI-ARIA tabs pattern with roving tabindex.
+     Active tab mirrored to location.hash (#tab-N) for deep links. */
+  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  const panels = [...document.querySelectorAll('[role="tabpanel"]')];
+  const dots = document.querySelector('.dots');
+  const prev = document.getElementById('prev');
+  const next = document.getElementById('next');
+  tabs.forEach(() => dots.appendChild(document.createElement('span')));
+
+  function select(i, focus){
+    i = Math.max(0, Math.min(tabs.length - 1, i));
+    tabs.forEach((t, j) => {
+      const on = j === i;
+      t.setAttribute('aria-selected', on);
+      t.tabIndex = on ? 0 : -1;
+      panels[j].hidden = !on;
+      dots.children[j].classList.toggle('on', on);
+    });
+    tabs[i].scrollIntoView({block:'nearest', inline:'nearest', behavior:'smooth'});
+    if (focus) tabs[i].focus();
+    prev.disabled = i === 0;
+    next.disabled = i === tabs.length - 1;
+    history.replaceState(null, '', '#tab-' + (i + 1));
+  }
+  const current = () => tabs.findIndex(t => t.getAttribute('aria-selected') === 'true');
+
+  tabs.forEach((t, i) => {
+    t.addEventListener('click', () => select(i));
+    t.addEventListener('keydown', e => {
+      const map = {ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1};
+      if (e.key in map){ e.preventDefault(); select((map[e.key] + tabs.length) % tabs.length, true); }
+    });
+  });
+  prev.addEventListener('click', () => select(current() - 1));
+  next.addEventListener('click', () => select(current() + 1));
+
+  const fromHash = () => { const m = location.hash.match(/tab-(\d)/); select(m ? +m[1] - 1 : 0); };
+  window.addEventListener('hashchange', fromHash);
+  fromHash();
+</script>
+</body>
+</html>

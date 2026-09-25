@@ -69,6 +69,13 @@ export const TOPICS = [
     title: "Types of Studios and Audio Workspaces",
     intro:
       "Not every studio looks like this one — home rigs, podcast booths, broadcast suites, and mastering rooms all trade the same fundamentals for different priorities.",
+    // This chapter's interactive lab already exists — "studio-types-lab"
+    // (interactives/foundations/StudioTypesLab, ported from
+    // design/studio-types-tabs.html). The interactive below is the mapping;
+    // it only takes effect once this topic is `ready: true` (buildStepList
+    // skips non-ready topics) or the same kind is referenced from this
+    // chapter's interactive block in studio-cms.
+    interactive: { id: "studio-types-interactive", title: "Explore Studio Types", kind: "studio-types-lab" },
     ready: false,
   },
   {

@@ -11,6 +11,9 @@ interactives/
     labs.css             #   base .lab / .sound-lab-* chrome
     useLabAudio.js       #   per-lab AudioContext lifecycle hook
     soundLabShared.js    #   oscilloscope drawing, palettes, freq/note math
+  foundations/           # Foundations briefings (Ch.2 "The Studio", Ch.3 "Types of Studios")
+    StudioComponentsLab/ #   studio-components-lab: 16-component browser
+    StudioTypesLab/      #   studio-types-lab: 6 studio types, tabbed (Ch.3)
   sound/                 # Ch.1 "What Is Sound?"
     FrequencyLab/ AmplitudeLab/ WavelengthLab/ PhaseLab/ HarmonicsLab/ TimbreLab/
   speakers/

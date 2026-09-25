@@ -22,6 +22,8 @@ import MicPolarPatternLab from "./microphones/MicPolarPatternLab";
 import MicPolarCompareLab from "./microphones/MicPolarCompareLab";
 import MicPlacementLab from "./microphones/MicPlacementLab";
 import MicTechniqueLab from "./mic-techniques/MicTechniqueLab";
+import StudioComponentsLab from "./foundations/StudioComponentsLab";
+import StudioTypesLab from "./foundations/StudioTypesLab";
 
 export const LABS = {
   "speaker-lab": SpeakerLab,
@@ -80,4 +82,22 @@ export const LABS = {
   // referenced from courseData.js's stereo-overheads topic — same "ready
   // ahead of studio-cms content" status as mic-placement-lab above.
   "mic-technique-lab": MicTechniqueLab,
+  // "Studio Components" briefing (Foundations, alongside chapter 2
+  // courseData.js TOPICS[id="the-studio"]) — ported from
+  // design/studio-components-chapter.html: a master/detail browser of the
+  // 16 components across Control Room / Recording Room × Electronic /
+  // Non-electronic. Content only, no audio. Same "ready ahead of
+  // studio-cms content" status as the mic labs above — reference this
+  // kind from the-studio's interactive block in studio-cms.
+  "studio-components-lab": StudioComponentsLab,
+  // "Types of Studios and Audio Workspaces" (Foundations, chapter 3,
+  // courseData.js TOPICS[id="studio-types"]) — ported from
+  // design/studio-types-tabs.html: six switchable tabs (Commercial, Home &
+  // Project, Mixing & Mastering, Voiceover & Podcast, Post & Foley,
+  // Broadcast & Streaming), each an image + Layout / Acoustics & Build /
+  // Key Use Case. Content only, no audio. Photos load from
+  // public/studio-types/<id>.jpg once added (placeholder until then).
+  // Reference this kind from the studio-types chapter's interactive block
+  // in studio-cms.
+  "studio-types-lab": StudioTypesLab,
 };

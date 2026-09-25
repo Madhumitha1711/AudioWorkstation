@@ -156,7 +156,6 @@ function CoursePage() {
   // the student back in whichever room they left, unfocused.
   const goToStudio = (hotspotId = activeTopic?.hotspotId) =>
     navigate("/studio", { state: { focusHotspotId: hotspotId } });
-  const goHome = () => navigate("/");
 
   const toggleModule = (moduleId) => {
     setOpenModules((prev) => {
@@ -233,35 +232,34 @@ function CoursePage() {
     );
   }
 
+  // Bottom-of-step navigation, shared by every step kind: "Back to the
+  // studio" on the left (moved here from the removed topbar), Previous/
+  // Next on the right.
+  const lessonNav = (
+    <div className="lesson-actions">
+      <button type="button" className="btn-secondary studio-back-btn" onClick={() => goToStudio()}>
+        ← Back to the studio
+      </button>
+      <div className="nav-arrows">
+        <button className="arrow-btn" onClick={goPrev} disabled={activeIndex === 0}>
+          ← Previous
+        </button>
+        <button className="arrow-btn" onClick={goNext} disabled={activeIndex === STEPS.length - 1}>
+          Next →
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="svr-course">
-      <div className="course-topbar">
-        <div className="course-topbar-left">
-          <button className="course-brand-mark" onClick={goHome} aria-label="Back to landing">
-            ◎
-          </button>
-          <div className="course-title-block">
-            <div className="course-crumb">
-              {activeTopic?.moduleTitle ?? "Control Room"} &nbsp;/&nbsp; <b>{activeTopic?.title}</b>
-            </div>
-            <h1>Studio VR — Audio Engineering</h1>
-            <div className="progress-wrap">
-              <div className="progress-track">
-                <div className="progress-fill" style={{ width: `${overallPct}%` }} />
-              </div>
-              <span className="progress-label">
-                {completed.size} / {STEPS.length} sections complete
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="course-topbar-right">
-          <button className="btn-primary" onClick={() => goToStudio()}>
-            ← Back to the studio
-          </button>
-        </div>
-      </div>
-
+      {/* There used to be a .course-topbar here (brand mark, "module /
+          topic" crumb, course title, overall progress bar, and "← Back to
+          the studio") — it cost a full row of vertical space above every
+          lesson. Its pieces moved: overall progress now sits at the top of
+          the sidebar (.sidebar-progress), "Back to the studio" joins
+          Previous/Next at the bottom of each step (lessonNav below), and
+          the module name moved into .topic-eyebrow. */}
       <div className={`course-layout${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
         <aside className={`course-sidebar${sidebarCollapsed ? " collapsed" : ""}`}>
           <div className="sidebar-toggle-row">
@@ -277,6 +275,29 @@ function CoursePage() {
               {sidebarCollapsed ? "»" : "«"}
             </button>
           </div>
+          {/* Overall course progress (moved here from the old topbar). The
+              collapsed rail only has room for the percentage. */}
+          {sidebarCollapsed ? (
+            <div
+              className="sidebar-progress-mini"
+              title={`${completed.size} / ${STEPS.length} sections complete`}
+            >
+              {overallPct}%
+            </div>
+          ) : (
+            <div className="sidebar-progress">
+              <div className="sidebar-progress-head">
+                <span>Overall progress</span>
+                <span className="sidebar-progress-pct">{overallPct}%</span>
+              </div>
+              <div className="progress-track">
+                <div className="progress-fill" style={{ width: `${overallPct}%` }} />
+              </div>
+              <span className="progress-label">
+                {completed.size} / {STEPS.length} sections complete
+              </span>
+            </div>
+          )}
           {!sidebarCollapsed && moduleList.map((mod) => {
             const moduleTopics = (topics ?? []).filter((t) => t.module === mod.id);
             const isModuleOpen = openModules.has(mod.id);
@@ -390,20 +411,40 @@ function CoursePage() {
         <main className="course-main">
           {activeTopic && activeStep && (
             <div className="course-content">
-              {/* The topbar just above (.course-crumb) already shows
+              {/* (History: the old topbar's .course-crumb used to show
                   "{module} / {topic title}" for this exact topic, and
                   .topic-heading right below repeats the topic title again
                   as a big page heading — so this line used to just be a
                   third restatement of the same "module / topic" pair,
                   right at the top of the scroll area where it read as
                   extra clutter rather than orientation. It only carries
-                  content the crumb doesn't: the chapter's syllabus number
-                  — so that's all it shows now, and it disappears entirely
-                  for chapters that don't have one instead of rendering an
-                  empty-ish line. */}
-              {activeTopic.number ? (
-                <div className="topic-eyebrow">Chapter {activeTopic.number}</div>
-              ) : null}
+                  content the crumb doesn't: the chapter's syllabus number.
+                  With the topbar gone, it now also carries the module
+                  name — "Foundations · Chapter 2" — and still disappears
+                  entirely when there's neither.) */}
+              {/* Eyebrow on the left, this chapter's section progress as a
+                  compact readout in the top-right corner — it used to be
+                  its own full-width row under the intro. */}
+              <div className="topic-top-row">
+                {activeTopic.moduleTitle || activeTopic.number ? (
+                  <div className="topic-eyebrow">
+                    {[activeTopic.moduleTitle, activeTopic.number && `Chapter ${activeTopic.number}`]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </div>
+                ) : null}
+                <div
+                  className="topic-progress-row"
+                  title={`${doneInTopic} of ${stepsInTopic.length} sections complete in this chapter`}
+                >
+                  <span className="progress-label">
+                    {doneInTopic}/{stepsInTopic.length} sections
+                  </span>
+                  <div className="progress-track">
+                    <div className="progress-fill" style={{ width: `${topicPct}%` }} />
+                  </div>
+                </div>
+              </div>
               {/* Chapter-level lab (see courseData.js's
                   CHAPTER_LEVEL_LAB_KINDS) — sits inline with the chapter
                   title, shown regardless of which lesson/step within the
@@ -439,14 +480,6 @@ function CoursePage() {
                 </div>
               )}
               <p className="topic-intro">{activeTopic.intro}</p>
-              <div className="topic-progress-row">
-                <div className="progress-track">
-                  <div className="progress-fill" style={{ width: `${topicPct}%` }} />
-                </div>
-                <span className="progress-label">
-                  {doneInTopic} / {stepsInTopic.length} sections in this topic
-                </span>
-              </div>
 
               {activeStep.kind === "lesson" && (
                 <>
@@ -467,20 +500,7 @@ function CoursePage() {
                     onInteractiveComplete={() => markComplete(activeStep.id)}
                   />
 
-                  <div className="lesson-actions">
-                    <div className="nav-arrows">
-                      <button className="arrow-btn" onClick={goPrev} disabled={activeIndex === 0}>
-                        ← Previous
-                      </button>
-                      <button
-                        className="arrow-btn"
-                        onClick={goNext}
-                        disabled={activeIndex === STEPS.length - 1}
-                      >
-                        Next →
-                      </button>
-                    </div>
-                  </div>
+                  {lessonNav}
                 </>
               )}
 
@@ -490,20 +510,7 @@ function CoursePage() {
                     assessment={activeStep.data}
                     onComplete={() => markComplete(activeStep.id)}
                   />
-                  <div className="lesson-actions">
-                    <div className="nav-arrows">
-                      <button className="arrow-btn" onClick={goPrev} disabled={activeIndex === 0}>
-                        ← Previous
-                      </button>
-                      <button
-                        className="arrow-btn"
-                        onClick={goNext}
-                        disabled={activeIndex === STEPS.length - 1}
-                      >
-                        Next →
-                      </button>
-                    </div>
-                  </div>
+                  {lessonNav}
                 </>
               )}
 
@@ -513,20 +520,7 @@ function CoursePage() {
                     interactive={activeStep.data}
                     onComplete={() => markComplete(activeStep.id)}
                   />
-                  <div className="lesson-actions">
-                    <div className="nav-arrows">
-                      <button className="arrow-btn" onClick={goPrev} disabled={activeIndex === 0}>
-                        ← Previous
-                      </button>
-                      <button
-                        className="arrow-btn"
-                        onClick={goNext}
-                        disabled={activeIndex === STEPS.length - 1}
-                      >
-                        Next →
-                      </button>
-                    </div>
-                  </div>
+                  {lessonNav}
                 </>
               )}
 
