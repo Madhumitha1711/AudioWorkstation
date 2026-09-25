@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Studio Acoustics — Same Source, Different Rooms</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!--
+  DESIGN MOCKUP (simple version) — "Studio Acoustics".
+  One source recorded in several rooms. Each room = one audio player +
+  a short explanation. Ends with a short "why it matters".
+
+  AUDIO PLACEHOLDERS
+    Each .player has data-src="". When recordings exist, put them at
+      public/audio/studio-acoustics/<room-id>.wav
+    (booth, liveroom, bedroom, bathroom, hall) and swap the placeholder
+    for a real <audio> / player. Level-match the files so no room wins
+    just by being louder.
+
+  Tokens match the rest of design/ (dark default, light via data-theme).
+-->
+<style>
+  :root, [data-theme="dark"]{
+    --bg:#0b0b0d; --panel:#16161a; --panel-alt:#1c1c21;
+    --border:#2a2a30; --border-soft:#232328;
+    --text:#ede9e3; --text-muted:#8b8890; --text-faint:#54525a;
+    --amber:#e8934a; --amber-dim:#6b4a2c; --green:#5fd9a0; --green-dim:#2c5f49;
+  }
+  [data-theme="light"]{
+    --bg:#f5f3ef; --panel:#ffffff; --panel-alt:#f1eee8;
+    --border:#dcd7cf; --border-soft:#e7e3dc;
+    --text:#1b1a1d; --text-muted:#6b6770; --text-faint:#a39ea6;
+    --amber:#c4691c; --amber-dim:#f4dcc5; --green:#1c9463; --green-dim:#cdeedd;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;}
+  button{font:inherit;color:inherit;}
+  :focus-visible{outline:2px solid var(--amber); outline-offset:2px;}
+
+  main{max-width:760px; margin:0 auto; padding:48px 24px 80px;}
+  .top{display:flex; justify-content:space-between; align-items:flex-start; gap:16px;}
+  .eyebrow{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--green); margin-bottom:12px;}
+  h1{font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:34px; letter-spacing:-.02em; margin:0 0 12px; line-height:1.1;}
+  .intro{color:var(--text-muted); font-size:16px; line-height:1.6; margin:0;}
+  .theme{width:36px; height:36px; border-radius:8px; border:1px solid var(--border); background:var(--panel); cursor:pointer; flex:none; display:grid; place-items:center;}
+  .theme svg{width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.8;}
+
+  .setup{margin:24px 0 36px; padding:12px 16px; border-radius:10px; background:var(--panel); border:1px solid var(--border-soft);
+    font-size:13.5px; color:var(--text-muted); line-height:1.6;}
+  .setup b{color:var(--text); font-weight:500;}
+
+  .rooms{display:flex; flex-direction:column; gap:14px;}
+  .room{padding:20px; border-radius:14px; background:var(--panel); border:1px solid var(--border-soft);}
+  .room h2{font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:19px; margin:0 0 4px;}
+  .room .tag{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.08em; color:var(--amber); text-transform:uppercase;}
+  .room p{margin:12px 0 0; font-size:14.5px; line-height:1.6; color:var(--text-muted);}
+
+  /* audio placeholder */
+  .player{margin-top:14px; display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:10px;
+    border:1px dashed var(--border); background:var(--panel-alt);}
+  .play{width:36px; height:36px; border-radius:50%; border:1px solid var(--border); background:var(--panel); cursor:pointer; display:grid; place-items:center; flex:none;}
+  .play svg{width:13px; height:13px; fill:var(--text); margin-left:2px;}
+  .track{flex:1; height:4px; border-radius:2px; background:var(--border);}
+  .ph{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-faint); white-space:nowrap;}
+
+  .why{margin-top:44px;}
+  .why h2{font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:24px; margin:0 0 14px;}
+  .why ul{margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:12px;}
+  .why li{font-size:15px; line-height:1.6; padding-left:18px; position:relative;}
+  .why li::before{content:''; position:absolute; left:0; top:9px; width:7px; height:7px; border-radius:50%; background:var(--amber);}
+  .why li b{font-weight:500;}
+  .takeaway{margin-top:22px; padding:14px 16px; border-radius:10px; border:1px solid var(--green-dim); font-size:15px; line-height:1.6;}
+  .takeaway b{color:var(--green); font-weight:500;}
+
+  @media (max-width:600px){
+    main{padding:28px 16px 64px;}
+    h1{font-size:28px;}
+    .ph{display:none;}
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div>
+      <div class="eyebrow">The Studio · Acoustics</div>
+      <h1>Same source, different rooms</h1>
+      <p class="intro">We recorded the same sound in five different places. Listen to each one. The sound didn't change, only the room did.</p>
+    </div>
+    <button class="theme" id="themeBtn" aria-label="Toggle theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+  </div>
+
+  <div class="setup"><b>Kept the same every time:</b> source, microphone, mic distance, recording level, no effects.</div>
+
+  <div class="rooms">
+    <article class="room">
+      <div class="tag">01 · Dead</div>
+      <h2>Vocal booth</h2>
+      <div class="player" data-src="" data-room="booth">
+        <button class="play" aria-label="Play vocal booth"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg></button>
+        <div class="track"></div><span class="ph">Audio coming soon</span>
+      </div>
+      <p>A small room covered in absorbing foam. Almost no echo reaches the mic, so you hear only the source: close, clear and dry. This is our reference sound.</p>
+    </article>
+
+    <article class="room">
+      <div class="tag">02 · Balanced</div>
+      <h2>Treated studio room</h2>
+      <div class="player" data-src="" data-room="liveroom">
+        <button class="play" aria-label="Play treated studio room"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg></button>
+        <div class="track"></div><span class="ph">Audio coming soon</span>
+      </div>
+      <p>A bigger room with some absorption and some diffusion. You hear a little natural space around the sound, but it stays clear. Good for drums and acoustic instruments.</p>
+    </article>
+
+    <article class="room">
+      <div class="tag">03 · Boxy</div>
+      <h2>Untreated bedroom</h2>
+      <div class="player" data-src="" data-room="bedroom">
+        <button class="play" aria-label="Play untreated bedroom"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg></button>
+        <div class="track"></div><span class="ph">Audio coming soon</span>
+      </div>
+      <p>Bare walls close to the mic bounce sound back almost instantly. The echo is short, but it colours the tone, making it sound "boxy". Some bass notes also boom more than others.</p>
+    </article>
+
+    <article class="room">
+      <div class="tag">04 · Harsh</div>
+      <h2>Tiled bathroom</h2>
+      <div class="player" data-src="" data-room="bathroom">
+        <button class="play" aria-label="Play tiled bathroom"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg></button>
+        <div class="track"></div><span class="ph">Audio coming soon</span>
+      </div>
+      <p>Tiles and glass reflect almost everything. The sound rings for over a second, turns bright and harsh, and words start to blur into each other.</p>
+    </article>
+
+    <article class="room">
+      <div class="tag">05 · Spacious</div>
+      <h2>Large hall</h2>
+      <div class="player" data-src="" data-room="hall">
+        <button class="play" aria-label="Play large hall"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg></button>
+        <div class="track"></div><span class="ph">Audio coming soon</span>
+      </div>
+      <p>A long, smooth echo makes the source sound far away, even though the mic was just as close. Lovely for orchestras and choirs, but muddy for speech.</p>
+    </article>
+  </div>
+
+  <section class="why">
+    <h2>Why this matters</h2>
+    <ul>
+      <li><b>The mic records the room too.</b> It can't separate the source from the echoes, so both end up in the recording.</li>
+      <li><b>You can add echo later, but you can't remove it.</b> A dry recording can be given any reverb in the mix. A recording made in a bathroom stays a bathroom recording.</li>
+      <li><b>Echo affects clarity.</b> Too much of it blurs words and notes together and pushes the sound further back.</li>
+      <li><b>Takes need to match.</b> Recording in a controlled room means a retake tomorrow will sound the same as today's.</li>
+    </ul>
+    <div class="takeaway"><b>Takeaway:</b> before reaching for EQ or plugins, get the room right. The room shapes the sound before anything else does.</div>
+  </section>
+</main>
+
+<script>
+  document.getElementById('themeBtn').onclick = () => {
+    const h = document.documentElement;
+    h.dataset.theme = h.dataset.theme === 'dark' ? 'light' : 'dark';
+  };
+</script>
+</body>
+</html>

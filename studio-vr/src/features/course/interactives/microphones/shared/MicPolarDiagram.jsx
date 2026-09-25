@@ -1,4 +1,4 @@
-import { CYAN, POLAR_POSITIONS, polarGainOf, polarLobePoints } from "./micLabShared";
+import { POLAR_POSITIONS, polarGainOf, polarLobePoints } from "./micLabShared";
 
 // Pulled out of MicPolarPatternLab.jsx so the same compass/lobe diagram
 // can also render, statically, inside MicPolarCompareLab's three
@@ -15,12 +15,15 @@ function spotXY(deg) {
   return { x: CX + SPOT_R * Math.sin(rad), y: CY - SPOT_R * Math.cos(rad) };
 }
 
-function spotColor(gain) {
+// Dot fill = the pattern's gain at that spot, blended from the "dead"
+// spot tone (0 = null) to the lobe color (1 = on-axis). Done with CSS
+// color-mix() against theme tokens (--mic-spot-off / --mic-lobe in
+// micLabs.css) instead of interpolating fixed RGB values in JS, so the
+// dots re-tint with the light/dark theme without a re-render. The dark
+// tokens equal the old hardcoded endpoints, so dark mode is unchanged.
+function spotMix(gain) {
   const t = Math.max(0, Math.min(1, gain));
-  const r = Math.round(58 + t * (84 - 58));
-  const g = Math.round(58 + t * (214 - 58));
-  const b = Math.round(66 + t * (224 - 66));
-  return `rgb(${r},${g},${b})`;
+  return `${Math.round(t * 100)}%`;
 }
 
 // `interactive` controls whether the 8 fixed source positions render as
@@ -52,7 +55,7 @@ function MicPolarDiagram({ pattern, angle = 0, interactive = false, onSelectAngl
       <text x="30" y="142" textAnchor="middle" className="mic-compass-label">
         LEFT
       </text>
-      <path d={lobeD} className="mic-polar-lobe" style={{ fill: `${CYAN}29`, stroke: CYAN }} />
+      <path d={lobeD} className="mic-polar-lobe" />
       {interactive && (
         <line x1={CX} y1={CY} x2={connector.x} y2={connector.y} className="mic-polar-connector" />
       )}
@@ -71,7 +74,7 @@ function MicPolarDiagram({ pattern, angle = 0, interactive = false, onSelectAngl
               cy={y}
               r="9"
               className={`mic-polar-spot${pos.angle === angle ? " active" : ""}`}
-              style={{ fill: spotColor(polarGainOf(pattern, pos.angle)) }}
+              style={{ "--mic-spot-mix": spotMix(polarGainOf(pattern, pos.angle)) }}
               onClick={() => onSelectAngle?.(pos.angle)}
             />
           );

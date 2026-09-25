@@ -26,6 +26,8 @@ import StudioComponentsLab from "./foundations/StudioComponentsLab";
 import StudioTypesLab from "./foundations/StudioTypesLab";
 import CriticalListeningLab from "./listening/CriticalListeningLab";
 import HearingAgeLab from "./listening/HearingAgeLab";
+import StudioAcousticsLab from "./acoustics/StudioAcousticsLab";
+import RoomTreatmentLab from "./acoustics/RoomTreatmentLab";
 
 export const LABS = {
   "speaker-lab": SpeakerLab,
@@ -107,9 +109,10 @@ export const LABS = {
   // design/critical-listening-lab-1.html: "Spot the problem" ear training.
   // A Train tab (8-question A/B quiz, Beginner/Intermediate/Pro) and a
   // Problem library tab (15 problems across Frequency / Dynamics /
-  // Distortion / Noise / Stereo & phase / Space & time). All audio is live
-  // Web Audio — a synthesized loop plus a per-problem processing chain —
-  // with its own AudioContext, not spatialAudioEngine. Reference this kind
+  // Distortion / Noise / Stereo & phase / Space & time). All audio is real
+  // recordings played as-is — a clean/problem pair per problem from
+  // public/audio/critical-listening/, no processing — with its own
+  // AudioContext, not spatialAudioEngine. Reference this kind
   // from the listening-skills chapter's interactive block in studio-cms.
   "critical-listening-lab": CriticalListeningLab,
   // Same chapter 4, "Hearing Health" subchapter — ported from
@@ -123,4 +126,16 @@ export const LABS = {
   // trend. Reference this kind from the listening-skills chapter's
   // Hearing Health interactive block in studio-cms.
   "hearing-age-lab": HearingAgeLab,
+  // "Studio Acoustics and Room Treatment" (Room & Acoustics, chapter 5,
+  // courseData.js TOPICS[id="diffuser-panel"]) — two companion labs ported
+  // from design/studio-acoustics-rooms.html ("Same source, different
+  // rooms": booth / treated room / bedroom / bathroom / hall, plus a blind
+  // "Guess the room" test) and design/room-treatment.html ("Same room, step
+  // by step": bare → absorption → bass traps → diffusers → fully treated,
+  // with a top-down plan per step and an over-foamed experiment). Plain
+  // playback of recorded files — public/audio/studio-acoustics/<room>.wav
+  // and public/audio/room-treatment/<step>.wav — with an "Audio coming
+  // soon" placeholder per card until each file exists.
+  "studio-acoustics-lab": StudioAcousticsLab,
+  "room-treatment-lab": RoomTreatmentLab,
 };

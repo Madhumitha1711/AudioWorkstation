@@ -16,9 +16,17 @@ interactives/
     StudioTypesLab/      #   studio-types-lab: 6 studio types, tabbed (Ch.3)
   listening/             # Ch.4 "Listening Skills, Hearing Health, and Critical Listening"
     CriticalListeningLab/ #  critical-listening-lab: "Spot the problem" A/B ear-training
-                         #   quiz + problem library (live Web Audio, own AudioContext)
+                         #   quiz + problem library (recorded A/B pairs, no processing)
     HearingAgeLab/       #  hearing-age-lab: "How old are your ears?" headphone screen ->
                          #   Hearing Age (ISO 7029 fit), audiogram, the-scale explainer
+  acoustics/             # Ch.5 "Studio Acoustics and Room Treatment"
+    shared/              #   useRoomAudio.js (plays each card's recording, A/B,
+                         #   placeholder until the file exists), AcousticsUI.jsx,
+                         #   acousticsLabs.css
+    StudioAcousticsLab/  #   studio-acoustics-lab: same source in 5 rooms + blind test
+    RoomTreatmentLab/    #   room-treatment-lab: bare -> fully treated, per-step
+                         #   RoomPlan SVG + over-foamed experiment
+                         #   Recordings: public/audio/{studio-acoustics,room-treatment}/<id>.wav
   sound/                 # Ch.1 "What Is Sound?"
     FrequencyLab/ AmplitudeLab/ WavelengthLab/ PhaseLab/ HarmonicsLab/ TimbreLab/
   speakers/

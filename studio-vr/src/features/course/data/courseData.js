@@ -111,6 +111,17 @@ export const TOPICS = [
     hotspotId: "diffuser-panel",
     title: "Studio Acoustics and Room Treatment",
     intro: "Not every acoustic problem should be absorbed away — diffusion is what keeps a treated room sounding alive.",
+    // This chapter's two interactive labs already exist —
+    // "studio-acoustics-lab" (interactives/acoustics/StudioAcousticsLab,
+    // ported from design/studio-acoustics-rooms.html) and
+    // "room-treatment-lab" (interactives/acoustics/RoomTreatmentLab, ported
+    // from design/room-treatment.html). Same as studio-types above: the
+    // mapping only takes effect once this topic is `ready: true` or the
+    // kind is referenced from this chapter's interactive blocks in
+    // studio-cms. A topic only carries one `interactive` here, so the Room
+    // Treatment lab is mapped from its own lesson's interactive Section
+    // block in studio-cms (swap the kind below to preview it locally).
+    interactive: { id: "diffuser-panel-interactive", title: "Same Source, Different Rooms", kind: "studio-acoustics-lab" },
     ready: false,
   },
 

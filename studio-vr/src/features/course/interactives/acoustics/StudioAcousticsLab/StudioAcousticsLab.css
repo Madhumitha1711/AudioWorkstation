@@ -1,0 +1,88 @@
+/* StudioAcousticsLab — only the blind-test panel; everything else is in
+   ../shared/acousticsLabs.css. */
+
+.acl-guess {
+  margin-top: 28px;
+  padding: 20px;
+  border-radius: 14px;
+  border: 1px solid rgba(var(--acl-amber-rgb), 0.3);
+  background:
+    linear-gradient(135deg, rgba(var(--acl-amber-rgb), 0.07), transparent 60%),
+    var(--panel);
+}
+.acl-guess-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.acl-guess h3 { margin: 4px 0 0; font-family: var(--heading); font-weight: 600; font-size: 19px; color: var(--text); }
+.acl-guess-score {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.acl-guess-lead { margin: 10px 0 0; font-size: 14px; line-height: 1.6; color: var(--text-dim); max-width: 640px; }
+
+.acl-guess-actions { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
+.acl-btn {
+  padding: 9px 16px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--panel-hover);
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, opacity 0.15s;
+}
+.acl-btn:hover:not(:disabled) { border-color: var(--acl-amber); }
+.acl-btn:disabled { opacity: 0.5; cursor: default; }
+.acl-btn--primary { background: var(--acl-amber); border-color: var(--acl-amber); color: #111; }
+.acl-btn--primary:hover:not(:disabled) { filter: brightness(1.08); }
+
+.acl-guess-live { display: inline-flex; align-items: flex-end; gap: 3px; height: 16px; }
+.acl-guess-live i { width: 3px; border-radius: 2px; background: var(--acl-amber); animation: acl-eq 0.9s ease-in-out infinite; }
+.acl-guess-live i:nth-child(2) { animation-delay: -0.3s; }
+.acl-guess-live i:nth-child(3) { animation-delay: -0.6s; }
+@keyframes acl-eq { 0%, 100% { height: 4px; } 50% { height: 16px; } }
+
+.acl-guess-options { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.acl-guess-opt {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s, opacity 0.15s;
+}
+.acl-guess-opt:hover:not(:disabled) { color: var(--text); border-color: var(--acl-amber); }
+.acl-guess-opt:disabled { cursor: default; }
+.acl-guess-opt.is-right { color: var(--acl-green); border-color: var(--acl-green); background: rgba(var(--acl-green-rgb), 0.1); }
+.acl-guess-opt.is-wrong { color: var(--danger); border-color: var(--danger); background: rgba(var(--danger-rgb), 0.08); }
+.acl-guess-opt.is-dim { opacity: 0.45; }
+
+.acl-guess-result { margin: 14px 0 0; font-size: 14px; line-height: 1.6; color: var(--text); }
+.acl-guess-result.is-right b { color: var(--acl-green); }
+.acl-guess-result.is-wrong b { color: var(--danger); }
+.acl-guess-wait { font-size: 13px; color: var(--text-dimmer); }
+
+/* round progress: one dot per question */
+.acl-guess-progress { display: flex; gap: 6px; margin: 14px 0 0; padding: 0; list-style: none; }
+.acl-guess-progress li { flex: 1; max-width: 48px; height: 5px; border-radius: 3px; background: var(--border); transition: background 0.2s; }
+.acl-guess-progress li.is-current { background: var(--acl-amber); opacity: 0.6; }
+.acl-guess-progress li.is-right { background: var(--acl-green); }
+.acl-guess-progress li.is-wrong { background: var(--danger); }
+
+/* results */
+.acl-guess-summary .acl-guess-result { margin-top: 16px; }
+.acl-guess-review { margin: 12px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; max-width: 520px; }
+.acl-guess-review li { display: flex; align-items: baseline; gap: 10px; font-size: 13.5px; color: var(--text); }
+.acl-guess-review-n { font-family: inherit; font-size: 11px; color: var(--text-dimmer); width: 22px; }
+.acl-guess-review-you { margin-left: auto; font-size: 12.5px; }
+.acl-guess-review li.is-right .acl-guess-review-you { color: var(--acl-green); }
+.acl-guess-review li.is-wrong .acl-guess-review-you { color: var(--danger); }

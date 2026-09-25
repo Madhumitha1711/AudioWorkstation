@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import "../../shared/labs.css";
 import "../shared/micLabs.css";
-import { MIC_TYPES, SOURCES, micAudioPath } from "../shared/micLabShared";
+import { MIC_TYPES, SOURCES, micAccent, micAudioPath } from "../shared/micLabShared";
 import MicPortrait from "../shared/MicPortrait";
+import { useTheme } from "../../../../../theme/ThemeContext";
 
 // Ported from design/mic-types-chapter.html's "02 Types of Microphone"
 // lesson, trimmed down to just the interactive listen panel — no
@@ -29,6 +30,7 @@ import MicPortrait from "../shared/MicPortrait";
 // and that kind now just renders this component instead.
 
 function MicTypeLab({ onInteract }) {
+  const { theme } = useTheme();
   const [typeId, setTypeId] = useState(MIC_TYPES[0].id);
   const [sourceId, setSourceId] = useState(SOURCES[0].id);
   const [playing, setPlaying] = useState(false);
@@ -104,8 +106,8 @@ function MicTypeLab({ onInteract }) {
           {type.label.toUpperCase()}
         </div>
         <div className="mic-type-row">
-          <div className="mic-portrait mic-portrait--feature" style={{ color: type.accent }}>
-            <MicPortrait shape={type.shape} color={type.accent} />
+          <div className="mic-portrait mic-portrait--feature" style={{ color: micAccent(type, theme) }}>
+            <MicPortrait shape={type.shape} color={micAccent(type, theme)} />
           </div>
           <div className="mic-type-controls">
             <div className="lab-control-label">Source</div>

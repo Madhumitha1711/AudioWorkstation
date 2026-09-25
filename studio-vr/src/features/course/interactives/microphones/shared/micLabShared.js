@@ -15,9 +15,19 @@
 // working immediately, no code changes required. Each lab shows a small
 // "clip pending" note whenever a path 404s instead of failing silently.
 
-import { COLORS } from "../../shared/soundLabShared";
+import { COLORS, scopePalette } from "../../shared/soundLabShared";
 
-export const CYAN = "#54d6e0"; // polar-pattern lobe accent; not part of soundLabShared's COLORS since only this lab uses it
+export const CYAN = "#54d6e0"; // polar-pattern lobe accent (dark theme); the diagram itself now reads it from --mic-lobe in micLabs.css, which also carries the light-theme value
+
+// Theme-resolved accent for a mic type. MIC_TYPES[].accent stores the
+// dark-theme COLORS value (bright amber/green tuned for a near-black
+// screen); on the light "graph paper" screen those wash out, so map it back
+// to its COLORS key and return that key from scopePalette(theme) instead —
+// the same deepened light hues the What-Is-Sound scopes already use.
+export function micAccent(type, theme) {
+  const key = Object.keys(COLORS).find((k) => COLORS[k] === type.accent);
+  return key ? scopePalette(theme).colors[key] : type.accent;
+}
 
 export const SOURCES = [
   { id: "vocal", label: "Vocal" },

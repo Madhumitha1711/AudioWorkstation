@@ -14,9 +14,41 @@
    columns, no dropdown — see .mic-compare-static-label below), and the
    room-toggle pill picker shared by MicTypeLab and MicPolarPatternLab.
    Panel/border/text colors use the app's real theme tokens so these adapt
-   to light/dark mode; only the polar diagram's dark "instrument screen"
-   background stays a fixed hex, matching the sound-lab-frame convention
-   in labs.css. */
+   to light/dark mode. The two "instrument screens" (.mic-portrait and
+   .mic-polar-wrap) and everything drawn on them (rings, compass labels,
+   mic silhouettes, polar lobe, position dots) read from the --mic-screen-*
+   / --mic-* tokens defined just below — dark values equal the original
+   hardcoded colors, and the light-theme block at the bottom of this file
+   swaps them for the same "graph paper" screen (#e7eae1) the sound labs'
+   scopes and EQ graph use, instead of leaving a dark rectangle on a light
+   page. */
+
+/* Screen tokens — set on the two screen containers so every SVG inside
+   inherits them. */
+.mic-portrait,
+.mic-polar-wrap {
+  --mic-screen-bg: #0e0e11;
+  --mic-screen-line: rgba(255, 255, 255, 0.12);
+  --mic-screen-label: #8b8890;
+  --mic-body-fill: #1c1c21;
+  --mic-body-stroke: #8b8890;
+  --mic-stand: #54525a;
+  --mic-lobe: #54d6e0;
+  --mic-lobe-fill: rgba(84, 214, 224, 0.16);
+  --mic-spot-off: rgb(58, 58, 66);
+}
+
+/* MicPortrait silhouette parts (see MicPortrait.jsx) — the accent outline
+   itself comes from the `color` prop; these are the neutral tones. */
+.mic-art-body {
+  fill: var(--mic-body-fill);
+}
+.mic-art-detail {
+  stroke: var(--mic-body-stroke);
+}
+.mic-art-stand {
+  stroke: var(--mic-stand);
+}
 
 .mic-panel {
   border: 1px solid var(--border-soft);
@@ -74,7 +106,7 @@
 }
 
 .mic-portrait {
-  background: #0e0e11;
+  background: var(--mic-screen-bg);
   border: 1px solid var(--border-soft);
   border-radius: 10px;
   padding: 18px;
@@ -96,7 +128,7 @@
   margin-bottom: 12px;
 }
 .mic-spec-chip {
-  font-size: 11px;
+  font-size: 13px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -123,7 +155,7 @@
   margin-top: 14px;
 }
 .mic-best-for-label {
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -136,7 +168,7 @@
   gap: 6px;
 }
 .mic-best-for-tag {
-  font-size: 11.5px;
+  font-size: 13px;
   background: var(--panel);
   border: 1px solid var(--border-soft);
   border-radius: 20px;
@@ -145,7 +177,7 @@
 }
 
 .mic-now-playing {
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--text-dimmer);
 }
 
@@ -157,12 +189,12 @@
 }
 .mic-char-row {
   display: grid;
-  grid-template-columns: 104px 1fr 26px;
+  grid-template-columns: 120px 1fr 30px;
   align-items: center;
   gap: 8px;
 }
 .mic-char-label {
-  font-size: 10.5px;
+  font-size: 12px;
   line-height: 1.25;
   color: var(--text-dim);
 }
@@ -178,12 +210,15 @@
   background: linear-gradient(90deg, var(--accent), var(--warning));
 }
 .mic-char-val {
-  font-size: 10px;
+  font-size: 11.5px;
   color: var(--text-dimmer);
   text-align: right;
 }
 
-/* --- Polar pattern compass --- */
+/* --- Polar pattern compass ---
+   Type scale across this file was bumped ~1.5-2px (copy now matches
+   labs.css's 14px .lab-intro) after light-mode review found the chips,
+   blurbs and compass labels too small to read comfortably. */
 .mic-polar-grid {
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;
@@ -196,7 +231,7 @@
   }
 }
 .mic-polar-wrap {
-  background: #0e0e11;
+  background: var(--mic-screen-bg);
   border: 1px solid var(--border-soft);
   border-radius: 12px;
   padding: 16px;
@@ -212,27 +247,29 @@
 }
 .mic-polar-ring {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.12);
+  stroke: var(--mic-screen-line);
   stroke-width: 1;
 }
 .mic-polar-gridline {
-  stroke: rgba(255, 255, 255, 0.12);
+  stroke: var(--mic-screen-line);
   stroke-width: 1;
   stroke-dasharray: 2, 4;
 }
 .mic-compass-label {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.1em;
-  fill: #8b8890;
+  fill: var(--mic-screen-label);
 }
 .mic-polar-lobe {
+  fill: var(--mic-lobe-fill);
+  stroke: var(--mic-lobe);
   stroke-width: 2;
   stroke-linejoin: round;
   stroke-linecap: round;
 }
 .mic-polar-mic-body {
-  fill: #1c1c21;
-  stroke: #8b8890;
+  fill: var(--mic-body-fill);
+  stroke: var(--mic-body-stroke);
   stroke-width: 1.5;
 }
 .mic-polar-connector {
@@ -242,7 +279,10 @@
   opacity: 0.85;
 }
 .mic-polar-spot {
-  stroke: #0e0e11;
+  /* --mic-spot-mix (0–100%) is set inline per dot from its gain — see
+     spotMix() in MicPolarDiagram.jsx. */
+  fill: color-mix(in srgb, var(--mic-lobe) var(--mic-spot-mix, 0%), var(--mic-spot-off));
+  stroke: var(--mic-screen-bg);
   stroke-width: 2;
   cursor: pointer;
   transition: stroke-width 0.12s ease;
@@ -256,14 +296,14 @@
   margin-bottom: 18px;
 }
 .mic-pr-name {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   margin-bottom: 8px;
   color: var(--text);
 }
 .mic-pr-tag {
   display: inline-block;
-  font-size: 10px;
+  font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -293,7 +333,7 @@
 }
 .mic-pr-db {
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: 13.5px;
 }
 /* --- Comparison grid (MicTypeCompareLab, MicPolarCompareLab) ---
    Three equal columns. MicTypeCompareLab uses one column per independently
@@ -325,7 +365,7 @@
   background: var(--panel);
 }
 .mic-compare-copy {
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.45;
   margin-bottom: 10px;
 }
@@ -344,7 +384,7 @@
   border-radius: 10px;
   padding: 9px 30px 9px 12px;
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text);
   cursor: pointer;
@@ -364,7 +404,7 @@
   transform: translateY(-50%);
   color: var(--text-dimmer);
   pointer-events: none;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 /* Static column heading for MicPolarCompareLab — sits where
@@ -373,7 +413,7 @@
    border, no chevron, no pointer cursor): there are always exactly three
    polar patterns, so this column's pattern is fixed, not a choice. */
 .mic-compare-static-label {
-  font-size: 12.5px;
+  font-size: 14.5px;
   font-weight: 700;
   color: var(--text);
   margin-bottom: 10px;
@@ -422,7 +462,7 @@
   background: transparent;
   color: var(--text-dimmer);
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
   padding: 9px 16px;
@@ -441,7 +481,26 @@
   opacity: 0.92;
 }
 
+/* ── Light theme ─────────────────────────────────────────────────────────
+   Screen tokens: graph-paper background (== LIGHT_SCOPE_BG in
+   soundLabShared.js), ink-tinted rings, and a deepened teal lobe that
+   keeps ~4:1 against the screen (the dark theme's bright #54d6e0 drops
+   to ~1.4:1 there). Mic silhouettes become light-grey bodies with darker
+   detail lines, mirroring SweetSpotLab's light --sslab-room-cabinet tones. */
 :root[data-theme='light'] .svr-course .lab {
+  .mic-portrait,
+  .mic-polar-wrap {
+    --mic-screen-bg: #e7eae1;
+    --mic-screen-line: rgba(var(--ink-tint-rgb), 0.18);
+    --mic-screen-label: #5c6055;
+    --mic-body-fill: #d3d8c9;
+    --mic-body-stroke: #5c6055;
+    --mic-stand: #8d9186;
+    --mic-lobe: #0b7c86;
+    --mic-lobe-fill: rgba(11, 124, 134, 0.14);
+    --mic-spot-off: #bcc2b0;
+  }
+
   .mic-compare-select {
     background: rgba(var(--ink-tint-rgb), 0.04);
   }

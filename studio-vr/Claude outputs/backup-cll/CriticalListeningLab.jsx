@@ -15,20 +15,18 @@ import {
 // Ported from design/critical-listening-lab-1.html — "Spot the problem", the
 // Critical Listening lab for Foundations chapter 4 (courseData.js
 // TOPICS[id="listening-skills"]). Two tabs:
-//   - Train: an 8-question quiz. Each question plays a pair of real
-//     recordings with an instant, sample-aligned A/B flip between the clean
-//     take and the same material with one problem in it (EQ, compression,
-//     clipping, hum, comb filtering, reverb…); the student names the
-//     problem, then gets What it is / Listen for / Common cause / How to
-//     fix. Beginner / Intermediate / Pro change which problems are in the
-//     pool. The spectrum is hidden until answered, or revealed early as a
-//     half-point hint.
+//   - Train: an 8-question quiz. Each question plays a synthesized loop
+//     with an instant, sample-aligned A/B flip between the clean reference
+//     and a copy with one problem applied (EQ, compression, clipping, hum,
+//     comb filtering, reverb…); the student names the problem, then gets
+//     What it is / Listen for / Common cause / How to fix. Beginner /
+//     Intermediate / Pro change which problems are in the pool and how
+//     strongly they're applied. The spectrum is hidden until answered,
+//     or revealed early as a half-point hint.
 //   - Problem library: every problem, grouped by category and searchable,
 //     each auditionable with the same A/B player.
-// All audio is recorded and played as-is — no processing, no uploads (see
-// criticalListeningAudio.js; file paths in criticalListeningData.js). A
-// problem whose recordings aren't in public/audio/critical-listening/ yet
-// shows a "recording coming soon" note instead of playing.
+// All audio is real Web Audio processing (criticalListeningAudio.js +
+// each problem's build() in criticalListeningData.js), nothing prerecorded.
 //
 // Differences from the mockup, because it renders inside a course lesson
 // rather than as a standalone page:
@@ -41,6 +39,19 @@ import {
 //     document, so they only fire while focus is inside the lab and can't
 //     hijack Space for the rest of the course page.
 //   - audio stops on tab switch and is torn down on unmount.
+//
+// Added after the port:
+//   - Reference uploads (bar just below the Train / Problem library tabs):
+//     the student can upload any number of their own audio files. Each is
+//     prepared once (stereo + fixed headroom, same level on A and B — see
+//     criticalListeningAudio.js) and kept for the session. Which one plays
+//     is picked with the "Reference track" select under the A card, in both
+//     the quiz and the library (one shared choice; built-in loop is the
+//     default). Uploading doesn't switch tracks by itself except for the
+//     very first upload batch, so a student mid-quiz isn't surprised.
+//   - Clip B is unity gain apart from the problem itself (no level-matching
+//     make-up gains — see criticalListeningData.js), hence the "Unity gain"
+//     tag instead of the mockup's "Level-matched".
 //   - While the spectrum is hidden it isn't drawn at all (not blurred), so
 //     there's nothing to squint at through the veil — the L/R meters are
 //     hidden too, since they'd give away an imbalance.
@@ -49,8 +60,8 @@ import {
 // answers a question or auditions a problem in the library.
 const fmt = (x) => (Number.isInteger(x) ? x : x.toFixed(1));
 
-function ABSwitch({ side, onSide, bLabel, bDesc, aLabel = "Clean", aDesc = "Recorded clean" }) {
-  return (
+function ABSwitch({ side, onSide, bLabel, bDesc, aLabel = "Reference", aDesc = "Clean mix", aFooter = null }) {
+  const group = (
     <div className="cll-ab" role="radiogroup" aria-label="Which clip to hear">
       {[
         ["A", aLabel, aDesc],
@@ -71,6 +82,16 @@ function ABSwitch({ side, onSide, bLabel, bDesc, aLabel = "Clean", aDesc = "Reco
           <span className="cll-ab-d">{d}</span>
         </button>
       ))}
+    </div>
+  );
+  if (!aFooter) return group;
+  // The footer sits in its own 2-column grid under the switch, in the A
+  // column, so it reads as part of the reference card without being nested
+  // inside the A <button> (interactive content can't live in a button).
+  return (
+    <div className="cll-ab-wrap">
+      {group}
+      <div className="cll-ab-foot">{aFooter}</div>
     </div>
   );
 }
@@ -108,14 +129,105 @@ function LearnGrid({ p, withWhat = true, className = "" }) {
   );
 }
 
-// Shown in place of the spectrum's caption row when a problem's
-// recordings haven't been added to public/audio/critical-listening/ yet.
-function MissingNote({ id }) {
+const fmtDur = (sec) => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
+
+// Upload strip (below the tabs): add one or many reference files, see
+// what's loaded, remove files. The file input is hidden behind a styled
+// button; the whole strip is also a drop target.
+function ReferenceUploads({ refs, activeId, busy, errors, onFiles, onSelect, onRemove }) {
+  const inputRef = useRef(null);
+  const [drag, setDrag] = useState(false);
   return (
-    <p className="cll-missing" role="status">
-      Recording coming soon. Add <code>{id}-clean.wav</code> and <code>{id}-problem.wav</code> to{" "}
-      <code>public/audio/critical-listening/</code>.
-    </p>
+    <div
+      className={`cll-source${drag ? " drag" : ""}`}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDrag(true);
+      }}
+      onDragLeave={() => setDrag(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDrag(false);
+        onFiles([...(e.dataTransfer.files ?? [])]);
+      }}
+    >
+      <div className="cll-source-main">
+        <svg className="cll-source-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>
+        <div className="cll-source-txt">
+          <span className="cll-source-k">Reference audio</span>
+          <span className="cll-source-v">
+            {refs.length
+              ? `${refs.length} file${refs.length > 1 ? "s" : ""} uploaded · pick one under the A card`
+              : "Built-in practice loop · upload or drop your own files here"}
+          </span>
+        </div>
+      </div>
+      <div className="cll-source-actions">
+        <button type="button" className="cll-btn ghost cll-source-btn" onClick={() => inputRef.current?.click()} disabled={busy}>
+          {busy ? "Loading…" : refs.length ? "Add more" : "Upload references"}
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.flac"
+          hidden
+          onChange={(e) => {
+            onFiles([...(e.target.files ?? [])]);
+            e.target.value = "";
+          }}
+        />
+      </div>
+      {refs.length > 0 && (
+        <ul className="cll-chips" aria-label="Uploaded reference files">
+          {refs.map((r) => (
+            <li key={r.id} className={`cll-chip${r.id === activeId ? " active" : ""}`}>
+              <button type="button" className="cll-chip-name" title={`Use ${r.name}`} aria-pressed={r.id === activeId} onClick={() => onSelect(r.id)}>
+                <span className="nm">{r.name}</span>
+                <span className="du">{fmtDur(r.duration)}</span>
+              </button>
+              <button type="button" className="cll-chip-x" aria-label={`Remove ${r.name}`} title="Remove" onClick={() => onRemove(r.id)} disabled={busy}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M7 7l10 10M17 7L7 17" /></svg>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {errors.length > 0 && (
+        <div className="cll-source-err" role="alert">
+          {errors.map((m, i) => (
+            <p key={i}>{m}</p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// "Reference track" select, rendered in the reference (A) column of the
+// A/B switch. `null` = built-in loop.
+function ReferencePicker({ refs, activeId, onSelect }) {
+  const active = refs.find((r) => r.id === activeId);
+  return (
+    <label className="cll-refpick">
+      <span className="cll-refpick-k">Reference track</span>
+      <select value={activeId ?? ""} onChange={(e) => onSelect(e.target.value === "" ? null : Number(e.target.value))}>
+        <option value="">Built-in practice loop</option>
+        {refs.map((r) => (
+          <option key={r.id} value={r.id}>
+            {r.name} ({fmtDur(r.duration)})
+          </option>
+        ))}
+      </select>
+      {active && active.trimDb < -0.05 && (
+        <span
+          className="cll-refpick-note"
+          title="Turned down once, equally on A and B, so the processing on clip B can't clip. It's the same file, just quieter."
+        >
+          Played {Math.abs(active.trimDb).toFixed(1)} dB lower for headroom (same on A and B)
+        </span>
+      )}
+    </label>
   );
 }
 
@@ -138,10 +250,12 @@ function CriticalListeningLab({ onInteract }) {
   const [libId, setLibId] = useState(null);
   const [libQuery, setLibQuery] = useState("");
 
-  // ---- recordings ----
-  // Problem ids whose A/B recordings failed to load (not added yet).
-  const [missing, setMissing] = useState(() => new Set());
-  const [loadingWho, setLoadingWho] = useState(null); // "train" | "lib" | null
+  // ---- reference source ----
+  const [refs, setRefs] = useState([]); // [{ id, name, duration, trimDb }]
+  const [sourceId, setSourceId] = useState(null); // null = built-in loop
+  const [srcBusy, setSrcBusy] = useState(false);
+  const [srcErrors, setSrcErrors] = useState([]);
+  const usingUpload = sourceId != null;
   // Category accordion in the library side panel: one group open at a time
   // (the one holding the selected problem, unless the student collapses or
   // opens another). While a search is active every matching group is shown
@@ -160,6 +274,10 @@ function CriticalListeningLab({ onInteract }) {
   useEffect(() => () => engine.close(), [engine]);
 
   const q = qs[idx];
+  const latestRef = useRef({ owner, q, libId });
+  useEffect(() => {
+    latestRef.current = { owner, q, libId };
+  });
   const answered = chosen !== null;
   const score = results.reduce((a, r) => a + r.pts, 0);
 
@@ -170,51 +288,78 @@ function CriticalListeningLab({ onInteract }) {
   }
 
   // ---------- audio ----------
-  // playTokenRef guards against a slow first load (each pair is fetched and
-  // decoded the first time it's played) resolving after the student has
-  // already stopped, switched tabs or moved on — only the latest request
-  // starts. A pair that fails to load is marked missing.
-  async function play(who, problem) {
+  // playTokenRef guards against a slow first ensure() (the loop renders
+  // offline on first play) resolving after the student has already
+  // stopped, switched tabs or moved on — only the latest request starts.
+  async function play(who, problem, strength) {
     const token = ++playTokenRef.current;
-    setLoadingWho(who);
     const ok = await engine.ensure();
     if (!ok || token !== playTokenRef.current) return;
-    const pair = await engine.loadPair(problem.clips);
-    if (token !== playTokenRef.current) return;
-    setLoadingWho(null);
-    setMissing((m) => {
-      if (!pair === m.has(problem.id)) return m;
-      const n = new Set(m);
-      if (pair) n.delete(problem.id);
-      else n.add(problem.id);
-      return n;
-    });
-    if (!pair) {
-      engine.stop();
-      setOwner(null);
-      return;
-    }
-    engine.start(pair);
+    engine.start(problem, strength);
     setOwner(who);
+  }
+  // Restart whatever is playing so it picks up a new source buffer. Reads
+  // the latest state through latestRef because it runs after an await.
+  function restartIfPlaying() {
+    const { owner: o, q: cq, libId: lid } = latestRef.current;
+    if (o === "train") play("train", P[cq.id], cq.s);
+    else if (o === "lib" && lid) play("lib", P[lid], 1);
+  }
+  // Upload one or more files. Decoded one at a time (keeps peak memory
+  // down); bad files are reported and skipped, good ones still land. The
+  // very first upload switches the reference to the first new file; later
+  // uploads only add to the list, so a track change is always the
+  // student's own choice via the picker.
+  async function onFiles(files) {
+    if (!files?.length || srcBusy) return;
+    setSrcErrors([]);
+    setSrcBusy(true);
+    const added = [], errors = [];
+    for (const file of files) {
+      try {
+        const info = await engine.addReference(file);
+        if (info) added.push({ name: file.name, ...info });
+      } catch (err) {
+        errors.push(err instanceof Error ? err.message : `Couldn't load ${file.name}.`);
+      }
+    }
+    setSrcBusy(false);
+    setSrcErrors(errors);
+    if (!added.length) return;
+    const first = refs.length === 0;
+    setRefs((r) => [...r, ...added]);
+    if (first) selectSource(added[0].id);
+  }
+  function selectSource(id) {
+    engine.selectSource(id);
+    setSourceId(id);
+    restartIfPlaying();
+  }
+  function removeReference(id) {
+    engine.removeReference(id);
+    setRefs((r) => r.filter((x) => x.id !== id));
+    if (sourceId === id) {
+      setSourceId(null);
+      restartIfPlaying();
+    }
   }
 
   function stop() {
     playTokenRef.current++;
     engine.stop();
     setOwner(null);
-    setLoadingWho(null);
   }
   function setSide(s) {
     engine.setSide(s);
     setSideState(s);
   }
   function toggle(who) {
-    if (owner === who || loadingWho === who) return stop();
-    if (who === "train") play("train", P[q.id]);
+    if (owner === who) return stop();
+    if (who === "train") play("train", P[q.id], q.s);
     else {
       const id = libId ?? PROBLEMS[0].id;
       if (!libId) selectLib(id);
-      play("lib", P[id]);
+      play("lib", P[id], 1);
     }
   }
 
@@ -224,7 +369,7 @@ function CriticalListeningLab({ onInteract }) {
     setChosen(null);
     setHint(false);
     setSide("A");
-    if (owner === "train") play("train", P[list[i].id]);
+    if (owner === "train") play("train", P[list[i].id], list[i].s);
   }
   function newSession(ids, lvl = level) {
     const list = buildQuestions(lvl, ids);
@@ -268,7 +413,7 @@ function CriticalListeningLab({ onInteract }) {
     setOpenCat(P[id].cat);
     setSide("B");
     if (owner === "lib" || autoplay) {
-      play("lib", P[id]);
+      play("lib", P[id], 1);
       interacted();
     }
     // Keep the active row visible in the scrolling list.
@@ -291,7 +436,7 @@ function CriticalListeningLab({ onInteract }) {
   // ---------- keyboard (scoped to the lab root) ----------
   function onKeyDown(e) {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.target.tagName === "INPUT") return;
+    if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
     const k = e.key.toLowerCase();
     const inTrain = tab === "train";
     if (k === " ") {
@@ -356,6 +501,16 @@ function CriticalListeningLab({ onInteract }) {
         ))}
       </div>
 
+      <ReferenceUploads
+        refs={refs}
+        activeId={sourceId}
+        busy={srcBusy}
+        errors={srcErrors}
+        onFiles={onFiles}
+        onSelect={selectSource}
+        onRemove={removeReference}
+      />
+
       {/* =================== TRAIN =================== */}
       {tab === "train" && (
         <section>
@@ -394,22 +549,23 @@ function CriticalListeningLab({ onInteract }) {
                 </span>
                 <span
                   className="cll-tag"
-                  title="Both clips are real recordings, played exactly as recorded — no processing."
+                  title="Clip B is clip A with only the problem applied — no extra volume changes. Any level difference you hear is part of the problem itself."
                 >
-                  Recorded
+                  Unity gain
                 </span>
               </div>
 
               <ABSwitch
                 side={side}
                 onSide={setSide}
-                aDesc="Clean recording"
+                aDesc={usingUpload ? "Your file, untouched" : "Clean mix"}
+                aFooter={<ReferencePicker refs={refs} activeId={sourceId} onSelect={selectSource} />}
                 bLabel="Mystery clip"
                 bDesc="Something's off"
               />
 
               <div className="cll-transport">
-                <PlayButton on={owner === "train" || loadingWho === "train"} onClick={() => toggle("train")} />
+                <PlayButton on={owner === "train"} onClick={() => toggle("train")} />
                 <div className="cll-scope">
                   <Spectrum
                     engine={engine}
@@ -428,7 +584,7 @@ function CriticalListeningLab({ onInteract }) {
                   )}
                 </div>
               </div>
-              {missing.has(q.id) ? <MissingNote id={q.id} /> : <ScopeCaption />}
+              <ScopeCaption />
 
               <div className="cll-question">What&apos;s wrong with clip B?</div>
               <div className="cll-options">
@@ -630,17 +786,18 @@ function CriticalListeningLab({ onInteract }) {
               side={side}
               onSide={setSide}
               aLabel="Clean"
-              aDesc="Recorded clean"
+              aDesc={usingUpload ? "Your file" : "Reference"}
               bLabel="With problem"
               bDesc={libP.short}
+              aFooter={<ReferencePicker refs={refs} activeId={sourceId} onSelect={selectSource} />}
             />
             <div className="cll-transport">
-              <PlayButton on={owner === "lib" || loadingWho === "lib"} onClick={() => toggle("lib")} />
+              <PlayButton on={owner === "lib"} onClick={() => toggle("lib")} />
               <div className="cll-scope">
                 <Spectrum engine={engine} side={side} band={libP.band} active={owner === "lib"} />
               </div>
             </div>
-            {missing.has(libP.id) ? <MissingNote id={libP.id} /> : <ScopeCaption />}
+            <ScopeCaption />
             <LearnGrid p={libP} withWhat={false} className="cll-lib-learn" />
           </div>
         </section>

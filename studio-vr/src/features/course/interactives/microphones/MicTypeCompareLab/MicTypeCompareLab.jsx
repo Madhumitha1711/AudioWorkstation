@@ -1,8 +1,9 @@
 import { useRef, useState } from "react";
 import "../../shared/labs.css";
 import "../shared/micLabs.css";
-import { MIC_TYPES, micTypeById } from "../shared/micLabShared";
+import { MIC_TYPES, micAccent, micTypeById } from "../shared/micLabShared";
 import MicPortrait from "../shared/MicPortrait";
+import { useTheme } from "../../../../../theme/ThemeContext";
 
 // Sits alongside mic-type-lab as its own interactive section rather than
 // a mode inside it — three columns, each with its own dropdown, side by
@@ -17,6 +18,7 @@ import MicPortrait from "../shared/MicPortrait";
 // instead, next to its Source picker.)
 
 function MicTypeCompareLab({ onInteract }) {
+  const { theme } = useTheme();
   // Defaults to a spread across families (moving-coil, FET condenser,
   // ribbon) rather than the first three in list order, so the initial
   // view already shows real contrast — condenser-tube and contact are
@@ -63,8 +65,8 @@ function MicTypeCompareLab({ onInteract }) {
                 </span>
               </div>
 
-              <div className="mic-portrait mic-portrait--compact" style={{ color: t.accent }}>
-                <MicPortrait shape={t.shape} color={t.accent} />
+              <div className="mic-portrait mic-portrait--compact" style={{ color: micAccent(t, theme) }}>
+                <MicPortrait shape={t.shape} color={micAccent(t, theme)} />
               </div>
 
               <p className="lab-intro mic-compare-copy">{t.summary}</p>

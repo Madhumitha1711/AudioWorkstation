@@ -12,8 +12,10 @@ import {
   TRY_TONES,
   ZONES,
   ageForCeil,
+  ALPHA,
   ceilForAge,
   computeResults,
+  earAge,
   fmtAge,
   levelGain,
   loadHistory,
@@ -22,6 +24,7 @@ import {
   saveHistoryEntry,
   sweepFreqAt,
   whoGrade,
+  zoneFor,
 } from "./hearingAgeModel";
 
 // Ported from design/hearing-health-age.html — "How old are your ears?", the
@@ -104,12 +107,16 @@ const ICONS = {
     </>
   ),
 };
+// Research sources — every link opens free, full text (no paywall / cart).
+// ISO 7029 itself is a paid standard, so it points to the official free
+// preview, which already contains the median formula and α coefficients.
 const SOURCES = [
-  ["ISO 7029:2017 — ", "Statistical distribution of hearing thresholds related to age and gender", "https://www.iso.org/standard/42916.html"],
-  ["Trends in hearing thresholds by age: ISO 7029 vs newer country-specific data — ", "PMC10808389", "https://pmc.ncbi.nlm.nih.gov/articles/PMC10808389/"],
-  ["Extended high-frequency audiometry by age (0.25–20 kHz, ages 21–70) — ", "J. Otolaryngology – Head & Neck Surgery", "https://link.springer.com/10.1186/s40463-021-00534-w"],
-  ["WHO hearWHO app & safe listening guidance — ", "who.int", "https://www.who.int/news-room/questions-and-answers/item/deafness-and-hearing-loss-hearing-checks-and-the-hearwho-app"],
-  ["Accuracy of app-based hearing tests — ", "PMC11950885", "https://pmc.ncbi.nlm.nih.gov/articles/PMC11950885/"],
+  ["ISO 7029:2017 (free preview: median formula & coefficient tables) — ", "Statistical distribution of hearing thresholds related to age and gender", "https://cdn.standards.iteh.ai/samples/42916/a2207a1a6c474475a6db216c9a44983c/ISO-7029-2017.pdf"],
+  ["Jin et al. (2024), Journal of Audiology & Otology — ", "Trends in hearing thresholds by age: ISO 7029 vs newer country-specific data", "https://www.ejao.org/journal/view.php?doi=10.7874/jao.2023.00626"],
+  ["Wang et al. (2021), J. Otolaryngology – Head & Neck Surgery — ", "Extended high-frequency audiometry in healthy adults with different age groups", "https://journals.sagepub.com/doi/full/10.1186/s40463-021-00534-w"],
+  ["Hassan et al. (2025), Audiology Research — ", "The accuracy of self-administered web- and app-based hearing tests (systematic review)", "https://www.mdpi.com/2039-4349/15/3/73"],
+  ["WHO & ITU (2019) — ", "Safe listening devices and systems: a WHO-ITU standard (80 dB for 40 hours a week)", "https://www.who.int/publications/i/item/9789241515276"],
+  ["World Health Organization — ", "hearWHO: WHO's free hearing-check app", "https://www.who.int/teams/noncommunicable-diseases/sensory-functions-disability-and-rehabilitation/hearwho"],
 ];
 
 function Icon({ name }) {
@@ -789,34 +796,7 @@ export default function HearingAgeLab({ onInteract }) {
         </div>
 
         <div className="hha-panel hha-mt">
-          <p className="hha-label">How we calculate it</p>
-          <ol className="hha-steps">
-            <li>
-              <div>
-                <b>Measure two things.</b>{" "}
-                <span className="hha-muted">The highest tone you can hear, and the quietest sound you can hear at 1, 2, 4, 6 and 8 kHz, for each ear.</span>
-              </div>
-            </li>
-            <li>
-              <div>
-                <b>Compare with the age tables.</b>{" "}
-                <span className="hha-muted">ISO 7029 gives the typical hearing loss at each age, pitch and sex. Its simple form is:</span>
-                <div className="hha-formula">
-                  typical loss (dB) = α<sub>pitch, sex</sub> × (age − 18)²
-                </div>
-                <span className="hha-muted" style={{ display: "block", marginTop: 8, fontSize: 13 }}>
-                  α is small for low pitches (0.004 at 1 kHz) and large for high ones (0.022 at 8 kHz, men). We find the age whose curve best fits your results.
-                </span>
-              </div>
-            </li>
-            <li>
-              <div>
-                <b>Blend the two.</b>{" "}
-                <span className="hha-muted">Hearing age = 70% chart fit + 30% top-frequency age, per ear. Your overall hearing age is your better ear, with a flag if the ears differ a lot.</span>
-              </div>
-            </li>
-          </ol>
-          <p className="hha-note">Why the better ear? It's how the WHO grades hearing overall. A big left/right difference is shown separately because it's a reason to see a doctor, not just a sign of age.</p>
+          <HowWeCalculate />
         </div>
 
         <div className="hha-panel hha-mt">
@@ -834,6 +814,288 @@ export default function HearingAgeLab({ onInteract }) {
         </div>
       </section>
     </div>
+  );
+}
+
+/* ----------------------------------------------------------------
+   "How we calculate it" — the whole hearing-age calculation walked through
+   with one worked example (a 32-year-old man's right ear). Every number is
+   computed live from hearingAgeModel.js (median / earAge / ALPHA), so the
+   explanation can never drift from the maths the lab actually runs.
+---------------------------------------------------------------- */
+const EX = {
+  age: 32,
+  sex: "m",
+  // Right-ear thresholds from the beep test (3 kHz = average of 2k & 4k, rounded)
+  thr: { 1000: 5, 2000: 5, 3000: 13, 4000: 20, 6000: 15, 8000: 10 },
+  ceil: 15000, // highest tone heard in the sweep
+  leftEarAge: 38, // the other ear, calculated the same way
+};
+const FIT_FREQS = [1000, 2000, 3000, 4000, 6000, 8000];
+const kHz = (f) => `${f / 1000}k`;
+const r1 = (x) => (Math.round(x * 10) / 10).toFixed(1);
+const r2 = (x) => (Math.round(x * 100) / 100).toFixed(2);
+const exScore = (age) => FIT_FREQS.reduce((sum, f) => sum + (Math.max(EX.thr[f], 0) - median(f, age, EX.sex)) ** 2, 0);
+
+function HowWeCalculate() {
+  const ex = earAge(EX.thr, EX.ceil, EX.sex); // { fit, ceilAge, age }
+  const fit = ex.fit;
+  const overall = Math.min(ex.age, EX.leftEarAge);
+  const delta = overall - EX.age;
+  const zone = ZONES[zoneFor(delta)];
+  const scoreAges = [30, 40, 44, fit, 48, 50, 60];
+
+  return (
+    <>
+      <p className="hha-label">How we calculate it</p>
+      <p className="hha-muted" style={{ marginTop: 0 }}>
+        Each step has a worked example you can open — all five follow the same person, <b>a {EX.age}-year-old man's right ear</b>, and the numbers
+        are worked out by the same code that calculates your result.
+      </p>
+
+      <ol className="hha-steps">
+        {/* ---- Step 1 ---- */}
+        <li>
+          <div>
+            <b>Find the quietest sound you can hear at each pitch.</b>{" "}
+            <span className="hha-muted">
+              At 1, 2, 4, 6 and 8 kHz the beeps get 10 dB quieter every time you hear them and 5 dB louder when you don't. The quietest level you
+              reliably hear is your <b>threshold</b>, written <b>T</b>. A low T (0–10) means good hearing; a high T means sounds must be louder before
+              you notice them.
+            </span>
+            <details className="hha-example">
+              <summary>
+                <span className="hha-example-tag">Example</span>
+                <span className="hha-example-toggle" />
+              </summary>
+              <div className="hha-example-body">
+              
+              He heard the beeps at 15 dB twice but missed them at 10 dB, so at that pitch <b>T = 15</b>. Across all pitches his right ear gave:
+              <div className="hha-table-scroll">
+                <table className="hha-table hha-table-compact">
+                  <thead>
+                    <tr>
+                      <th>Pitch</th>
+                      {FIT_FREQS.map((f) => (
+                        <th key={f}>{kHz(f)}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>His T (dB)</td>
+                      {FIT_FREQS.map((f) => (
+                        <td key={f} className="num">{EX.thr[f]}</td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <span className="hha-example-foot">3 kHz isn't tested — it's the average of 2k and 4k: (5 + 20) ÷ 2 = 12.5 → 13.</span>
+            </div>
+            </details>
+          </div>
+        </li>
+
+        {/* ---- Step 2 ---- */}
+        <li>
+          <div>
+            <b>Work out what's typical at every age.</b>{" "}
+            <span className="hha-muted">
+              The international standard ISO 7029 gives the threshold of the <i>typical</i> (median) person at each age — as extra dB compared with a
+              healthy 18-year-old. Half of people that age hear better, half worse.
+            </span>
+            <div className="hha-formula">typical T = α × (age − 18)²</div>
+            <span className="hha-muted hha-sub">
+              α depends on pitch and sex — small for low pitches, big for high ones, because high pitches fade first. For men: 1k = {ALPHA.m[1000]},
+              4k = {ALPHA.m[4000]}, 8k = {ALPHA.m[8000]}.
+            </span>
+            <details className="hha-example">
+              <summary>
+                <span className="hha-example-tag">Example</span>
+                <span className="hha-example-toggle" />
+              </summary>
+              <div className="hha-example-body">
+              
+              Typical threshold at <b>4 kHz</b> for men (α = {ALPHA.m[4000]}):
+              <div className="hha-table-scroll">
+                <table className="hha-table hha-table-compact">
+                  <thead>
+                    <tr>
+                      <th>Age</th>
+                      <th>Sum</th>
+                      <th>Typical T</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[18, 30, 46, 60].map((a) => (
+                      <tr key={a}>
+                        <td className="num">{a}</td>
+                        <td className="num">{a <= 18 ? "same as an 18-year-old" : `${ALPHA.m[4000]} × ${a - 18}² = ${ALPHA.m[4000]} × ${(a - 18) ** 2}`}</td>
+                        <td className="num">
+                          <b>{r1(median(4000, a, "m"))} dB</b>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <span className="hha-example-foot">So a typical 60-year-old man needs a 4 kHz sound about 28 dB louder than an 18-year-old before he hears it.</span>
+            </div>
+            </details>
+          </div>
+        </li>
+
+        {/* ---- Step 3 ---- */}
+        <li>
+          <div>
+            <b>Find the age that matches you best.</b>{" "}
+            <span className="hha-muted">
+              For every age from 18 to 90 (in quarter-year steps) we measure how far your thresholds are from that age's typical ones. Each gap is
+              squared so bigger misses count more, then added up. The age with the <b>smallest total</b> is your <b>chart-fit age</b>.
+            </span>
+            <div className="hha-formula">score(age) = Σ (your T − typical T)²</div>
+            <details className="hha-example">
+              <summary>
+                <span className="hha-example-tag">Example</span>
+                <span className="hha-example-toggle" />
+              </summary>
+              <div className="hha-example-body">
+              
+              His thresholds against a typical {r2(fit)}-year-old:
+              <div className="hha-table-scroll">
+                <table className="hha-table hha-table-compact">
+                  <thead>
+                    <tr>
+                      <th>Pitch</th>
+                      <th>His T</th>
+                      <th>Typical T</th>
+                      <th>Gap</th>
+                      <th>Gap²</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {FIT_FREQS.map((f) => {
+                      const typ = median(f, fit, EX.sex);
+                      const gap = EX.thr[f] - typ;
+                      return (
+                        <tr key={f}>
+                          <td>{kHz(f)}</td>
+                          <td className="num">{EX.thr[f]}</td>
+                          <td className="num">{r2(typ)}</td>
+                          <td className="num">{r2(gap)}</td>
+                          <td className="num">{r2(gap * gap)}</td>
+                        </tr>
+                      );
+                    })}
+                    <tr className="hha-total">
+                      <td colSpan={4}>Score</td>
+                      <td className="num">{r1(exScore(fit))}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              Doing the same for other ages:
+              <div className="hha-table-scroll">
+                <table className="hha-table hha-table-compact">
+                  <thead>
+                    <tr>
+                      <th>Age</th>
+                      {scoreAges.map((a) => (
+                        <th key={a} className={a === fit ? "hha-best" : undefined}>{a}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Score</td>
+                      {scoreAges.map((a) => (
+                        <td key={a} className={`num${a === fit ? " hha-best" : ""}`}>{r1(exScore(a))}</td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <span className="hha-example-foot">
+                Lowest score is at <b>{r2(fit)}</b> → his chart-fit age is <b>{r2(fit)}</b>.
+              </span>
+            </div>
+            </details>
+          </div>
+        </li>
+
+        {/* ---- Step 4 ---- */}
+        <li>
+          <div>
+            <b>Turn your highest tone into an age.</b>{" "}
+            <span className="hha-muted">
+              The highest pitch people can hear falls with age — about 17 kHz at 25, 16 kHz at 30, 14.5 kHz at 40, 12.5 kHz at 50. Your highest
+              tone is placed on that scale; if it falls between two ages we take the matching point in between. That's your <b>top-pitch age</b>.
+            </span>
+            <details className="hha-example">
+              <summary>
+                <span className="hha-example-tag">Example</span>
+                <span className="hha-example-toggle" />
+              </summary>
+              <div className="hha-example-body">
+              
+              He heard up to <b>15 kHz</b> — between 30 years (16 kHz) and 40 years (14.5 kHz):
+              <div className="hha-formula">30 + 10 × (16,000 − 15,000) ÷ (16,000 − 14,500) = {r2(ex.ceilAge)}</div>
+              <span className="hha-example-foot">
+                His top-pitch age is <b>{r1(ex.ceilAge)}</b>.
+              </span>
+            </div>
+            </details>
+          </div>
+        </li>
+
+        {/* ---- Step 5 ---- */}
+        <li>
+          <div>
+            <b>Blend the two, then pick your better ear.</b>{" "}
+            <span className="hha-muted">
+              Each ear's hearing age is a weighted average: the chart fit counts 70% (it uses five pitches, so it's steadier) and the top pitch 30%
+              (a single button press). Your overall hearing age is your <b>better ear</b>.
+            </span>
+            <div className="hha-formula">ear age = 0.7 × chart-fit age + 0.3 × top-pitch age</div>
+            <details className="hha-example">
+              <summary>
+                <span className="hha-example-tag">Example</span>
+                <span className="hha-example-toggle" />
+              </summary>
+              <div className="hha-example-body">
+              
+              <div className="hha-calc">
+                <span>Right ear</span>
+                <b>
+                  0.7 × {r2(fit)} + 0.3 × {r2(ex.ceilAge)} = {r2(0.7 * fit + 0.3 * ex.ceilAge)} → {ex.age}
+                </b>
+                <span>Left ear (same steps)</span>
+                <b>{EX.leftEarAge}</b>
+                <span>Hearing age (better ear)</span>
+                <b>
+                  lower of {ex.age} and {EX.leftEarAge} = {overall}
+                </b>
+                <span>Compared with his real age</span>
+                <b>
+                  {overall} − {EX.age} = {delta > 0 ? "+" : ""}
+                  {delta} years
+                </b>
+              </div>
+              <span className="hha-example-foot">
+                Result: <b className={`hha-tone-${zone.tone}`}>{zone.label}</b> — {zone.title.toLowerCase()}.
+              </span>
+            </div>
+            </details>
+          </div>
+        </li>
+      </ol>
+      <p className="hha-note">
+        Why the better ear? It's how the WHO grades hearing overall. A big left/right difference is shown separately because it's a reason to see a
+        doctor, not just a sign of age. And because levels aren't calibrated to your headphones, compare results over time using the same headphones,
+        room and volume.
+      </p>
+    </>
   );
 }
 
