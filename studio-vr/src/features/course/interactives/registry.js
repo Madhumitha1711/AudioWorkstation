@@ -25,6 +25,7 @@ import MicTechniqueLab from "./mic-techniques/MicTechniqueLab";
 import StudioComponentsLab from "./foundations/StudioComponentsLab";
 import StudioTypesLab from "./foundations/StudioTypesLab";
 import CriticalListeningLab from "./listening/CriticalListeningLab";
+import HearingAgeLab from "./listening/HearingAgeLab";
 
 export const LABS = {
   "speaker-lab": SpeakerLab,
@@ -111,4 +112,15 @@ export const LABS = {
   // with its own AudioContext, not spatialAudioEngine. Reference this kind
   // from the listening-skills chapter's interactive block in studio-cms.
   "critical-listening-lab": CriticalListeningLab,
+  // Same chapter 4, "Hearing Health" subchapter — ported from
+  // design/hearing-health-age.html: "How old are your ears?". A headphone
+  // screen (high-frequency sweep + threshold staircase per ear) that turns
+  // into a Hearing Age vs calendar age result using ISO 7029 medians
+  // (hearingAgeModel.js), plus an audiogram, insights, studio ear-care tips
+  // and a "The scale" tab explaining the maths. Live Web Audio tones via its
+  // own AudioContext (useLabAudio), not spatialAudioEngine. Past results are
+  // saved per browser (localStorage "svr-hearing-age-history") for the
+  // trend. Reference this kind from the listening-skills chapter's
+  // Hearing Health interactive block in studio-cms.
+  "hearing-age-lab": HearingAgeLab,
 };

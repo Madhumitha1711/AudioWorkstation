@@ -17,6 +17,8 @@ interactives/
   listening/             # Ch.4 "Listening Skills, Hearing Health, and Critical Listening"
     CriticalListeningLab/ #  critical-listening-lab: "Spot the problem" A/B ear-training
                          #   quiz + problem library (live Web Audio, own AudioContext)
+    HearingAgeLab/       #  hearing-age-lab: "How old are your ears?" headphone screen ->
+                         #   Hearing Age (ISO 7029 fit), audiogram, the-scale explainer
   sound/                 # Ch.1 "What Is Sound?"
     FrequencyLab/ AmplitudeLab/ WavelengthLab/ PhaseLab/ HarmonicsLab/ TimbreLab/
   speakers/

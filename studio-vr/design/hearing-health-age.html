@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hearing Health — Hearing Age</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!--
+  HEARING HEALTH — "How old are your ears?"
+  ------------------------------------------------------------------
+  Design mockup for a hearing-check feature. Three views:
+    1. Take the test  — setup → high-frequency sweep → threshold finder → done
+    2. Results        — Hearing Age vs Calendar Age, per-ear, audiogram, insights
+    3. The scale      — the research behind the Hearing Age number
+
+  THE HEARING AGE SCALE (analogous to "metabolic age" vs calendar age)
+  Hearing age = the age whose population-median hearing best matches yours.
+  Two signals are combined:
+    a) Audiogram fit (70%): ISO 7029 gives the median threshold shift from an
+       otologically normal 18-year-old as a function of age, frequency and sex.
+       We use the parabolic ISO 7029:2000 form  ΔH = α_f · (age − 18)²  and
+       find the age that minimises squared error against the user's measured
+       thresholds (1–8 kHz). ISO 7029:2017 refines these values with polynomial
+       surfaces; swap the ALPHA table for the licensed 2017 tables in production.
+    b) High-frequency ceiling (30%): the highest tone the user can hear,
+       mapped to age with a piecewise table (extended-high-frequency audiometry
+       shows the ceiling falls steadily from ~30 years on).
+  Everything is uncalibrated in this mockup — production needs per-headphone
+  RETSPL calibration offsets before dB values mean dB HL.
+-->
+<style>
+  :root, [data-theme="dark"]{
+    --bg:#0b0b0d; --panel:#16161a; --panel-alt:#1c1c21; --well:#0e0e11;
+    --border:#2a2a30; --border-soft:#232328;
+    --text:#ede9e3; --text-muted:#8b8890;
+    --amber:#e8934a; --amber-dim:#6b4a2c;
+    --green:#5fd9a0; --green-dim:#2c5f49;
+    --red:#e8615f;   --red-dim:#6b2c2c;
+    --blue:#6fa8e0;  --blue-dim:#2c4a6b;
+    --grid:rgba(255,255,255,.05);
+    --purple:#a78bfa; --teal:#4fc9c0;
+  }
+  [data-theme="light"]{
+    --bg:#f5f3ef; --panel:#ffffff; --panel-alt:#f1eee8; --well:#f4f2ee;
+    --border:#dcd7cf; --border-soft:#e7e3dc;
+    --text:#1b1a1d; --text-muted:#6b6770;
+    --amber:#c4691c; --amber-dim:#f4dcc5;
+    --green:#1c9463; --green-dim:#cdeedd;
+    --red:#c63e3b;   --red-dim:#f6d4d3;
+    --blue:#2f6fae;  --blue-dim:#d4e3f3;
+    --grid:rgba(0,0,0,.06);
+    --purple:#7457d6; --teal:#1d8f88;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;}
+  ::selection{background:var(--amber-dim);}
+  button,input,select{font:inherit;color:inherit;}
+  :focus-visible{outline:2px solid var(--amber); outline-offset:2px;}
+  @media (prefers-reduced-motion: reduce){ *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;} }
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .display{font-family:'Space Grotesk',sans-serif;}
+  [hidden]{display:none !important;}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 20px 120px;}
+
+  /* ---------- hero ---------- */
+  .hero{padding:48px 0 28px; display:flex; justify-content:space-between; gap:20px; align-items:flex-start;}
+  .eyebrow{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--teal); display:flex; align-items:center; gap:8px; margin-bottom:14px;}
+  .eyebrow::before{content:''; width:6px; height:6px; border-radius:50%; background:var(--teal); box-shadow:0 0 8px var(--teal);}
+  h1.display{font-size:clamp(28px,5vw,42px); line-height:1.1; margin:0 0 12px; font-weight:600; letter-spacing:-.01em;}
+  .hero p{color:var(--text-muted); font-size:15px; line-height:1.6; max-width:60ch; margin:0;}
+  .icon-btn{width:38px;height:38px;border-radius:8px;border:1px solid var(--border);background:var(--panel);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+  .icon-btn:hover{border-color:var(--amber);}
+  .icon-btn svg{width:17px;height:17px;}
+
+  /* ---------- tabs ---------- */
+  .tabs{display:flex; gap:4px; border-bottom:1px solid var(--border-soft); margin-bottom:24px; overflow-x:auto;}
+  .tabs button{background:none;border:none;padding:12px 14px;cursor:pointer;color:var(--text-muted);white-space:nowrap;
+    font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;
+    border-bottom:2px solid transparent;margin-bottom:-1px;}
+  .tabs button[aria-selected="true"]{color:var(--text);border-bottom-color:var(--amber);}
+
+  /* ---------- generic ---------- */
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:22px;}
+  @media (max-width:520px){ .panel{padding:16px;} }
+  .grid{display:grid; gap:18px;}
+  .g2{grid-template-columns:1fr;} @media (min-width:760px){ .g2{grid-template-columns:1fr 1fr;} }
+  .g3{grid-template-columns:1fr;} @media (min-width:760px){ .g3{grid-template-columns:repeat(3,1fr);} }
+  .label{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted);margin:0 0 12px;}
+  h2.display{font-size:22px;font-weight:600;margin:0 0 8px;}
+  h3.display{font-size:17px;font-weight:600;margin:0 0 6px;}
+  p.muted,.muted{color:var(--text-muted);}
+  p{line-height:1.6;font-size:14px;}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:9px;border:1px solid var(--border);
+    background:var(--panel-alt);cursor:pointer;font-weight:500;font-size:14px;transition:border-color .15s,background .15s;}
+  .btn:hover{border-color:var(--text-muted);}
+  .btn.primary{background:var(--amber);border-color:var(--amber);color:#1b1208;}
+  .btn.primary:hover{filter:brightness(1.07);}
+  .btn.ghost{background:transparent;}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .spacer{flex:1;}
+  .tag{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;padding:4px 8px;border-radius:5px;
+    border:1px solid var(--border);color:var(--text-muted);white-space:nowrap;}
+  .seg{display:inline-flex; background:var(--well); border:1px solid var(--border); border-radius:8px; padding:3px; gap:3px;}
+  .seg button{background:transparent;border:none;color:var(--text-muted);padding:8px 12px;border-radius:6px;cursor:pointer;
+    font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.03em;}
+  .seg button.active{background:var(--panel-alt);color:var(--text);box-shadow:inset 0 0 0 1px var(--border);}
+  kbd{font-family:'JetBrains Mono',monospace;font-size:10px;border:1px solid var(--border);border-bottom-width:2px;border-radius:4px;padding:1px 5px;color:var(--text);}
+
+  /* ---------- stepper ---------- */
+  .stepper{display:flex;gap:6px;margin-bottom:18px;}
+  .stepper div{flex:1;}
+  .stepper i{display:block;height:4px;border-radius:2px;background:var(--border);margin-bottom:8px;transition:background .2s;}
+  .stepper span{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);}
+  .stepper .done i{background:var(--green);} .stepper .cur i{background:var(--amber);} .stepper .cur span{color:var(--text);}
+  @media (max-width:560px){ .stepper span{display:none;} }
+
+  .checklist{list-style:none;padding:0;margin:0;display:grid;gap:10px;}
+  .checklist li{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--well);cursor:pointer;}
+  .checklist input{accent-color:var(--green);width:17px;height:17px;margin-top:1px;flex-shrink:0;}
+  .checklist b{font-weight:500;font-size:14px;display:block;}
+  .checklist small{color:var(--text-muted);font-size:12.5px;}
+
+  .field{display:grid;gap:6px;}
+  .field label{font-size:12.5px;color:var(--text-muted);}
+  .field input{background:var(--well);border:1px solid var(--border);border-radius:8px;padding:10px 12px;width:110px;font-family:'JetBrains Mono',monospace;}
+
+  /* calibration */
+  .cal{display:flex;align-items:center;gap:14px;padding:14px;border:1px dashed var(--border);border-radius:10px;}
+  .cal .play{width:46px;height:46px;border-radius:50%;border:1px solid var(--border);background:var(--panel-alt);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+  .cal .play:hover{border-color:var(--amber);}
+  .play svg{width:16px;height:16px;}
+
+  /* ---------- sweep ---------- */
+  .ear-pill{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;font-family:'JetBrains Mono',monospace;font-size:12px;border:1px solid;}
+  .ear-pill.R{color:var(--red);border-color:var(--red-dim);} .ear-pill.L{color:var(--blue);border-color:var(--blue-dim);}
+  .sweep-stage{display:flex;flex-direction:column;align-items:center;gap:18px;padding:28px 10px 8px;text-align:center;}
+  .freq-read{font-family:'Space Grotesk',sans-serif;font-size:clamp(46px,9vw,72px);font-weight:600;letter-spacing:-.02em;line-height:1;}
+  .freq-read small{font-size:.35em;color:var(--text-muted);margin-left:6px;}
+  .sweep-track{width:100%;max-width:620px;height:10px;border-radius:5px;background:var(--well);border:1px solid var(--border);position:relative;overflow:hidden;}
+  .sweep-track .fill{position:absolute;inset:0 auto 0 0;width:0;background:linear-gradient(90deg,var(--green),var(--amber),var(--red));}
+  .sweep-ticks{width:100%;max-width:620px;display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);}
+  .big-stop{width:min(100%,360px);padding:22px;border-radius:14px;font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:600;
+    border:1px solid var(--amber);background:color-mix(in srgb,var(--amber) 12%,var(--panel));cursor:pointer;}
+  .big-stop:disabled{border-color:var(--border);background:var(--panel-alt);color:var(--text-muted);cursor:not-allowed;}
+  .ring{width:120px;height:120px;border-radius:50%;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;position:relative;}
+  .ring::before,.ring::after{content:'';position:absolute;inset:-1px;border-radius:50%;border:1px solid var(--teal);opacity:0;}
+  body.tone .ring::before{animation:ripple 1.6s ease-out infinite;} body.tone .ring::after{animation:ripple 1.6s .8s ease-out infinite;}
+  @keyframes ripple{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.6);opacity:0}}
+  .ring svg{width:44px;height:44px;color:var(--teal);}
+
+  /* threshold */
+  .yn{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:min(100%,460px);}
+  .yn button{padding:18px;border-radius:12px;border:1px solid var(--border);background:var(--panel-alt);cursor:pointer;font-weight:600;font-size:16px;}
+  .yn button.yes:hover{border-color:var(--green);} .yn button.no:hover{border-color:var(--red);}
+  .yn button:disabled{opacity:.4;cursor:not-allowed;}
+  .mini-dots{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;}
+  .mini-dots i{width:32px;height:5px;border-radius:3px;background:var(--border);}
+  .mini-dots i.ok{background:var(--green);} .mini-dots i.cur{background:var(--amber);}
+
+  .note{font-size:12.5px;color:var(--text-muted);border-left:2px solid var(--amber-dim);padding:4px 0 4px 12px;margin:16px 0 0;line-height:1.55;}
+
+  /* ---------- results ---------- */
+  .banner{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:var(--well);border:1px solid var(--border);font-size:13px;color:var(--text-muted);margin-bottom:18px;}
+  .banner b{color:var(--text);font-weight:500;}
+  .age-hero{display:grid;grid-template-columns:1fr;gap:22px;align-items:center;}
+  @media (min-width:760px){ .age-hero{grid-template-columns:1.1fr 1fr;} }
+  .ages{display:flex;gap:28px;align-items:flex-end;flex-wrap:wrap;}
+  .age-num{font-family:'Space Grotesk',sans-serif;font-weight:600;line-height:.9;letter-spacing:-.03em;}
+  .age-num.big{font-size:clamp(72px,14vw,112px);}
+  .age-num.small{font-size:44px;color:var(--text-muted);}
+  .age-cap{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-top:10px;}
+  .delta{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:500;border:1px solid;margin-top:14px;}
+  .verdict{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:600;margin:12px 0 6px;}
+
+  .ruler{position:relative;margin:34px 0 8px;}
+  .ruler .track{height:12px;border-radius:6px;background:linear-gradient(90deg,var(--green-dim),var(--blue-dim) 45%,var(--amber-dim) 70%,var(--red-dim));}
+  .ruler .span{position:absolute;top:0;height:12px;border-radius:6px;}
+  .ruler .mk{position:absolute;top:-6px;width:24px;height:24px;margin-left:-12px;border-radius:50%;border:3px solid var(--bg);}
+  .ruler .mk.cal{background:var(--panel);box-shadow:inset 0 0 0 2px var(--text-muted);}
+  .ruler .mk.hear{box-shadow:0 0 0 1px var(--border);}
+  .ruler .lbl{position:absolute;top:-30px;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:10.5px;white-space:nowrap;}
+  .ruler-ticks{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);margin-top:10px;}
+  .zones{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:16px;}
+  .zones div{padding:8px 10px;border-radius:8px;background:var(--well);border:1px solid var(--border-soft);font-size:11.5px;}
+  .zones b{display:block;font-size:12px;margin-bottom:2px;}
+  .zones div.on{border-color:currentColor;}
+  @media (max-width:560px){ .zones{grid-template-columns:1fr 1fr;} }
+
+  .ear-card{display:flex;flex-direction:column;gap:10px;}
+  .ear-card .top{display:flex;justify-content:space-between;align-items:center;}
+  .kv{display:grid;grid-template-columns:1fr auto;gap:8px 12px;font-size:13px;}
+  .kv span{color:var(--text-muted);} .kv b{font-family:'JetBrains Mono',monospace;font-weight:500;text-align:right;}
+
+  .chart-wrap{width:100%;overflow:hidden;}
+  svg.chart{width:100%;height:auto;display:block;font-family:'JetBrains Mono',monospace;}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text-muted);margin-top:10px;}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .legend i{display:inline-block;width:18px;height:0;border-top:2px solid;}
+
+  .insight{display:flex;gap:14px;padding:14px;border-radius:10px;background:var(--well);border:1px solid var(--border-soft);}
+  .insight .ic{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid;}
+  .insight .ic svg{width:17px;height:17px;}
+  .insight h4{margin:0 0 4px;font-size:14px;font-weight:600;}
+  .insight p{margin:0;font-size:13px;color:var(--text-muted);line-height:1.55;}
+  .stack{display:grid;gap:10px;}
+
+  .trend-bars{display:flex;align-items:flex-end;gap:10px;height:90px;margin-top:8px;}
+  .trend-bars div{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;justify-content:flex-end;height:100%;}
+  .trend-bars i{width:100%;max-width:40px;border-radius:5px 5px 2px 2px;background:var(--border);}
+  .trend-bars i.now{background:var(--amber);}
+  .trend-bars span{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);}
+
+  .disclaimer{font-size:12px;color:var(--text-muted);line-height:1.6;padding:14px 16px;border-radius:10px;border:1px solid var(--border-soft);margin-top:18px;}
+
+  /* ---------- scale ---------- */
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--border-soft);}
+  th{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);font-weight:500;}
+  td.num{font-family:'JetBrains Mono',monospace;}
+  .table-scroll{overflow-x:auto;}
+  .tone-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;}
+  .tone-grid button{padding:12px 10px;border-radius:10px;border:1px solid var(--border);background:var(--well);cursor:pointer;text-align:left;}
+  .tone-grid button:hover{border-color:var(--teal);}
+  .tone-grid button.playing{border-color:var(--teal);background:color-mix(in srgb,var(--teal) 10%,var(--well));}
+  .tone-grid b{display:block;font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:600;}
+  .tone-grid small{color:var(--text-muted);font-size:11.5px;}
+  .formula{font-family:'JetBrains Mono',monospace;font-size:14px;padding:14px 16px;border-radius:10px;background:var(--well);border:1px solid var(--border);overflow-x:auto;white-space:nowrap;}
+  .steps{counter-reset:s;list-style:none;padding:0;margin:0;display:grid;gap:12px;}
+  .steps li{counter-increment:s;display:flex;gap:14px;font-size:14px;line-height:1.55;}
+  .steps li::before{content:counter(s);width:26px;height:26px;border-radius:50%;border:1px solid var(--amber-dim);color:var(--amber);
+    display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:12px;flex-shrink:0;}
+  .compare{display:grid;grid-template-columns:1fr;gap:10px;}
+  @media (min-width:640px){ .compare{grid-template-columns:1fr 1fr;} }
+  .compare div{padding:14px;border-radius:10px;background:var(--well);border:1px solid var(--border-soft);}
+  .compare b{display:block;margin-bottom:4px;font-size:14px;}
+  .compare p{margin:0;font-size:13px;color:var(--text-muted);}
+  .sources{font-size:12.5px;line-height:1.7;color:var(--text-muted);padding-left:18px;margin:0;}
+  .sources a{color:var(--blue);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div>
+      <div class="eyebrow">Hearing Health · Ear Age Check</div>
+      <h1 class="display">How old are your ears?</h1>
+      <p>Your calendar age says how long you've been around. Your <b style="color:var(--text)">hearing age</b> says how your ears compare with the average person — like metabolic age for your hearing. A 6-minute headphone check, repeated every few months, lets you track it over time.</p>
+    </div>
+    <button class="icon-btn" id="themeBtn" aria-label="Toggle light or dark theme" title="Toggle theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="test">01 · Take the test</button>
+    <button role="tab" aria-selected="false" data-tab="results">02 · Results</button>
+    <button role="tab" aria-selected="false" data-tab="scale">03 · The scale</button>
+  </nav>
+
+  <!-- ===================================================== TEST ===== -->
+  <section id="tab-test">
+    <div class="stepper" id="stepper">
+      <div data-s="0"><i></i><span>Set up</span></div>
+      <div data-s="1"><i></i><span>Top frequency</span></div>
+      <div data-s="2"><i></i><span>Quietest sounds</span></div>
+      <div data-s="3"><i></i><span>Done</span></div>
+    </div>
+
+    <!-- step 0: setup -->
+    <div class="panel" data-step="0">
+      <div class="grid g2">
+        <div>
+          <p class="label">Before you start</p>
+          <ul class="checklist">
+            <li><input type="checkbox" class="pre"><div><b>Wired headphones on</b><small>Over-ear or in-ear. Laptop speakers can't play the highest tones cleanly.</small></div></li>
+            <li><input type="checkbox" class="pre"><div><b>Quiet room</b><small>No fan, TV or traffic. Background noise hides the quietest tones.</small></div></li>
+            <li><input type="checkbox" class="pre"><div><b>No loud music in the last hour</b><small>Loud sound dulls your hearing for a while and would make you look older.</small></div></li>
+          </ul>
+        </div>
+        <div>
+          <p class="label">About you</p>
+          <p class="muted" style="margin:0 0 14px;">Ears age a little differently in men and women, so we compare you with the right group.</p>
+          <div class="row" style="gap:18px;align-items:flex-end;margin-bottom:18px;">
+            <div class="field"><label for="ageIn">Age</label><input id="ageIn" type="number" min="18" max="90" value="32"></div>
+            <div class="field"><label>Compare with</label>
+              <div class="seg" id="sexSeg"><button data-v="m" class="active">Men</button><button data-v="f">Women</button><button data-v="x">Everyone</button></div>
+            </div>
+          </div>
+          <p class="label">Set your volume</p>
+          <div class="cal">
+            <button class="play" id="calBtn" aria-label="Play reference tone"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l12-7z"/></svg></button>
+            <div style="font-size:13px;line-height:1.5;">Play the tone and set your device volume so it's <b>clearly audible but comfortable</b>. Don't change volume during the test.</div>
+          </div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:22px;">
+        <button class="btn ghost" id="demoBtn">Skip — show demo results</button>
+        <span class="spacer"></span>
+        <button class="btn primary" id="startBtn" disabled>Start test →</button>
+      </div>
+    </div>
+
+    <!-- step 1: HF sweep -->
+    <div class="panel" data-step="1" hidden>
+      <div class="row"><p class="label" style="margin:0;">Part 1 of 2 · Highest tone you can hear</p><span class="spacer"></span><span class="ear-pill" id="sweepEar"></span></div>
+      <div class="sweep-stage">
+        <div class="ring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg></div>
+        <div class="freq-read" id="sweepFreq">8.0<small>kHz</small></div>
+        <div class="sweep-track"><div class="fill" id="sweepFill"></div></div>
+        <div class="sweep-ticks"><span>8k</span><span>10k</span><span>12k</span><span>14k</span><span>16k</span><span>18k</span><span>20k</span></div>
+        <p class="muted" style="margin:0;max-width:46ch;" id="sweepHint">A steady tone will rise in pitch. Press the button the moment it <b>disappears</b>.</p>
+        <button class="big-stop" id="sweepBtn">Start tone</button>
+        <span class="muted" style="font-size:12px;">or press <kbd>Space</kbd></span>
+      </div>
+    </div>
+
+    <!-- step 2: thresholds -->
+    <div class="panel" data-step="2" hidden>
+      <div class="row"><p class="label" style="margin:0;">Part 2 of 2 · Quietest sound you can hear</p><span class="spacer"></span><span class="ear-pill" id="thrEar"></span></div>
+      <div class="sweep-stage">
+        <div class="mini-dots" id="thrDots"></div>
+        <div class="ring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg></div>
+        <div class="freq-read" id="thrFreq">1<small>kHz</small></div>
+        <p class="muted" style="margin:0;max-width:46ch;" id="thrHint">You'll hear three short beeps — or maybe nothing. They get quieter until you can't hear them.</p>
+        <div class="yn"><button class="yes" id="yesBtn">✓ Heard it</button><button class="no" id="noBtn">✗ Nothing</button></div>
+        <span class="muted" style="font-size:12px;"><kbd>Y</kbd> heard · <kbd>N</kbd> nothing</span>
+      </div>
+      <p class="note">Mockup note: levels are relative, not calibrated dB HL. Production needs per-headphone calibration (reference sound levels per model) before these numbers are medically meaningful.</p>
+    </div>
+
+    <!-- step 3: done -->
+    <div class="panel" data-step="3" hidden style="text-align:center;padding:48px 22px;">
+      <div class="ring" style="margin:0 auto 18px;border-color:var(--green);"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round"><path d="M5 12.5 10 17 19 7"/></svg></div>
+      <h2 class="display">All done.</h2>
+      <p class="muted" style="max-width:44ch;margin:0 auto 20px;">We compared your ears with thousands of people's hearing, age by age.</p>
+      <button class="btn primary" id="seeResults">See my hearing age →</button>
+    </div>
+  </section>
+
+  <!-- ===================================================== RESULTS ===== -->
+  <section id="tab-results" hidden>
+    <div class="banner" id="srcBanner"></div>
+
+    <div class="panel">
+      <div class="age-hero">
+        <div>
+          <p class="label">Your hearing age</p>
+          <div class="ages">
+            <div><div class="age-num big" id="rHear">—</div><div class="age-cap">Hearing age</div></div>
+            <div><div class="age-num small" id="rCal">—</div><div class="age-cap">Calendar age</div></div>
+          </div>
+          <div class="delta" id="rDelta"></div>
+          <div class="verdict" id="rVerdict"></div>
+          <p class="muted" style="margin:0;max-width:48ch;" id="rVerdictTxt"></p>
+        </div>
+        <div>
+          <div class="ruler" id="ruler">
+            <div class="track"></div>
+            <div class="span" id="rSpan"></div>
+            <span class="lbl" id="lblCal"></span><span class="lbl" id="lblHear"></span>
+            <div class="mk cal" id="mkCal"></div><div class="mk hear" id="mkHear"></div>
+          </div>
+          <div class="ruler-ticks"><span>15</span><span>25</span><span>35</span><span>45</span><span>55</span><span>65</span><span>75</span><span>85</span></div>
+          <div class="zones" id="zones">
+            <div data-z="0" style="color:var(--green)"><b>Younger</b><span class="muted">3+ yrs below</span></div>
+            <div data-z="1" style="color:var(--blue)"><b>In step</b><span class="muted">within ±3–5</span></div>
+            <div data-z="2" style="color:var(--amber)"><b>Ahead</b><span class="muted">5–10 yrs older</span></div>
+            <div data-z="3" style="color:var(--red)"><b>Get checked</b><span class="muted">10+ yrs older</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:18px;" id="earCards"></div>
+
+    <div class="panel" style="margin-top:18px;">
+      <div class="row" style="margin-bottom:6px;"><p class="label" style="margin:0;">Your hearing chart (audiogram)</p><span class="spacer"></span><span class="tag">Lower on the chart = quieter sounds you missed</span></div>
+      <div class="chart-wrap"><svg class="chart" id="audiogram" viewBox="0 0 680 340"></svg></div>
+      <div class="legend">
+        <span><b style="color:var(--red)">○</b> Right ear</span>
+        <span><b style="color:var(--blue)">✕</b> Left ear</span>
+        <span><i style="border-color:var(--text-muted);border-top-style:dashed"></i> Typical at your calendar age</span>
+        <span><i style="border-color:var(--amber);border-top-style:dashed"></i> Typical at your hearing age</span>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:18px;">
+      <div class="panel">
+        <p class="label">What this means for you</p>
+        <div class="stack" id="insights"></div>
+      </div>
+      <div class="panel">
+        <p class="label">Protect your ears in the studio</p>
+        <div class="stack">
+          <div class="insight"><div class="ic" style="color:var(--teal);border-color:var(--teal)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 18V8M9 18V4M14 18v-7M19 18v-4"/></svg></div>
+            <div><h4>Mix at 79–85 dB SPL</h4><p>That's loud enough to judge balance. Check loud passages briefly, not for whole sessions.</p></div></div>
+          <div class="insight"><div class="ic" style="color:var(--teal);border-color:var(--teal)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></div>
+            <div><h4>Take 10 minutes off every hour</h4><p>Tired ears lose top end first — and you'll push the treble up to compensate.</p></div></div>
+          <div class="insight"><div class="ic" style="color:var(--teal);border-color:var(--teal)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3a6 6 0 0 0-6 6c0 3 2 4 2 7a3 3 0 0 0 6 0"/><path d="M12 9a2 2 0 0 1 2 2"/></svg></div>
+            <div><h4>Wear musician's earplugs at gigs</h4><p>Flat-response plugs cut the level evenly, so music still sounds natural. The WHO suggests no more than 40 hours a week at 80 dB.</p></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:18px;">
+      <div class="panel">
+        <div class="row"><p class="label" style="margin:0;">Hearing age over time</p><span class="spacer"></span><span class="tag">Illustrative history</span></div>
+        <div class="trend-bars" id="trend"></div>
+        <p class="muted" style="font-size:12.5px;margin:10px 0 0;">A single result can be off by a few years. The trend is what matters — a jump between tests is worth acting on.</p>
+      </div>
+      <div class="panel" style="display:flex;flex-direction:column;justify-content:space-between;gap:14px;">
+        <div><p class="label">Next check</p><h3 class="display">Retest in 3 months</h3><p class="muted" style="margin:0;font-size:13px;">Same headphones, same room, same volume — so results are comparable.</p></div>
+        <div class="row"><button class="btn primary" id="remindBtn">Remind me</button><button class="btn" id="retestBtn">Retake now</button></div>
+      </div>
+    </div>
+
+    <div class="disclaimer"><b style="color:var(--text)">This is a screening check, not a diagnosis.</b> Hearing age compares you with population averages (ISO 7029). See an audiologist if your hearing age is 10+ years above your calendar age, your two ears differ a lot, or you have ringing, pain or sudden change in hearing.</div>
+  </section>
+
+  <!-- ===================================================== SCALE ===== -->
+  <section id="tab-scale" hidden>
+    <div class="panel">
+      <p class="label">The idea</p>
+      <h2 class="display">Two ages, one pair of ears</h2>
+      <div class="compare" style="margin-top:14px;">
+        <div><b>Calendar age</b><p>How many years you've lived. Fixed — you can't change it.</p></div>
+        <div><b>Hearing age</b><p>The age at which an average person hears like you do. Noise, genes and health can push it up or keep it down.</p></div>
+      </div>
+      <p class="muted" style="margin:14px 0 0;">It works like "metabolic age" on a smart scale: we compare your result with large population tables of how hearing normally changes with age, and find the age you match best.</p>
+    </div>
+
+    <div class="panel" style="margin-top:18px;">
+      <div class="row" style="margin-bottom:6px;"><p class="label" style="margin:0;">How ears age — typical hearing by decade</p><span class="spacer"></span>
+        <div class="seg" id="scaleSex"><button data-v="m" class="active">Men</button><button data-v="f">Women</button></div></div>
+      <div class="chart-wrap"><svg class="chart" id="ageFamily" viewBox="0 0 680 340"></svg></div>
+      <p class="muted" style="font-size:13px;margin:8px 0 0;">Low pitches barely change. High pitches (4–8 kHz) fade first and fastest — which is why the test focuses there.</p>
+    </div>
+
+    <div class="grid g2" style="margin-top:18px;">
+      <div class="panel">
+        <p class="label">The scale</p>
+        <div class="table-scroll"><table id="scaleTable"></table></div>
+        <p class="muted" style="font-size:12px;margin:10px 0 0;">Hearing loss in dB compared with a healthy 18-year-old (median person). Top frequency is a rough guide; it varies a lot between people.</p>
+      </div>
+      <div class="panel">
+        <p class="label">Try it — which tones can you hear?</p>
+        <div class="tone-grid" id="toneGrid"></div>
+        <p class="muted" style="font-size:12px;margin:12px 0 0;">Use headphones at a moderate volume. Your device may cut off above ~18 kHz.</p>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:18px;">
+      <p class="label">How we calculate it</p>
+      <ol class="steps">
+        <li><div><b>Measure two things.</b> <span class="muted">The highest tone you can hear, and the quietest sound you can hear at 1, 2, 4, 6 and 8 kHz, for each ear.</span></div></li>
+        <li><div><b>Compare with the age tables.</b> <span class="muted">ISO 7029 gives the typical hearing loss at each age, pitch and sex. Its simple form is:</span>
+          <div class="formula" style="margin-top:10px;">typical loss (dB) = α<sub>pitch, sex</sub> × (age − 18)²</div>
+          <span class="muted" style="display:block;margin-top:8px;font-size:13px;">α is small for low pitches (0.004 at 1 kHz) and large for high ones (0.022 at 8 kHz, men). We find the age whose curve best fits your results.</span></div></li>
+        <li><div><b>Blend the two.</b> <span class="muted">Hearing age = 70% chart fit + 30% top-frequency age, per ear. Your overall hearing age is your better ear, with a flag if the ears differ a lot.</span></div></li>
+      </ol>
+      <p class="note">Why the better ear? It's how the WHO grades hearing overall. A big left/right difference is shown separately because it's a reason to see a doctor, not just a sign of age.</p>
+    </div>
+
+    <div class="panel" style="margin-top:18px;">
+      <p class="label">Research sources</p>
+      <ol class="sources">
+        <li>ISO 7029:2017 — <a href="https://www.iso.org/standard/42916.html" target="_blank" rel="noopener">Statistical distribution of hearing thresholds related to age and gender</a></li>
+        <li>Trends in hearing thresholds by age: ISO 7029 vs newer country-specific data — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10808389/" target="_blank" rel="noopener">PMC10808389</a></li>
+        <li>Extended high-frequency audiometry by age (0.25–20 kHz, ages 21–70) — <a href="https://link.springer.com/10.1186/s40463-021-00534-w" target="_blank" rel="noopener">J. Otolaryngology – Head &amp; Neck Surgery</a></li>
+        <li>WHO hearWHO app &amp; safe listening guidance — <a href="https://www.who.int/news-room/questions-and-answers/item/deafness-and-hearing-loss-hearing-checks-and-the-hearwho-app" target="_blank" rel="noopener">who.int</a></li>
+        <li>Accuracy of app-based hearing tests — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11950885/" target="_blank" rel="noopener">PMC11950885</a></li>
+      </ol>
+    </div>
+  </section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+/* ================================================================
+   HEARING-AGE MODEL
+   ALPHA = ISO 7029:2000 median coefficients (dB per year² past 18).
+   'x' (everyone) is the mean of men and women.
+================================================================ */
+const ALPHA = {
+  m:{250:.0030,500:.0035,1000:.0040,2000:.0070,3000:.0115,4000:.0160,6000:.0180,8000:.0220},
+  f:{250:.0030,500:.0035,1000:.0040,2000:.0060,3000:.0075,4000:.0090,6000:.0120,8000:.0150},
+};
+ALPHA.x = Object.fromEntries(Object.keys(ALPHA.m).map(k => [k,(ALPHA.m[k]+ALPHA.f[k])/2]));
+const FREQS = [250,500,1000,2000,3000,4000,6000,8000];
+const median = (f, age, sex) => age <= 18 ? 0 : ALPHA[sex][f] * (age-18) ** 2;
+
+/* Top audible frequency vs age — rough, consumer-grade guide consistent
+   with EHF audiometry (everyone <30 hears 16 kHz; 18 kHz gone by 60s). */
+const CEIL = [[12,20000],[18,18500],[25,17000],[30,16000],[40,14500],[50,12500],[60,10500],[70,9000],[85,7500]];
+function ceilForAge(a){ for(let i=1;i<CEIL.length;i++){ const [a0,f0]=CEIL[i-1],[a1,f1]=CEIL[i]; if(a<=a1) return f0+(f1-f0)*(a-a0)/(a1-a0);} return CEIL.at(-1)[1]; }
+function ageForCeil(f){ if(f>=CEIL[0][1]) return CEIL[0][0]; for(let i=1;i<CEIL.length;i++){ const [a0,f0]=CEIL[i-1],[a1,f1]=CEIL[i]; if(f>=f1) return a0+(a1-a0)*(f0-f)/(f0-f1);} return CEIL.at(-1)[0]; }
+
+/* Fit: brute-force the age (18–90) minimising squared error at 1–8 kHz. */
+function fitAge(thr, sex){
+  const fs = [1000,2000,3000,4000,6000,8000].filter(f => thr[f] != null);
+  let best = 18, err = Infinity;
+  for(let y=18; y<=90; y+=0.25){
+    let e = 0; fs.forEach(f => { e += (Math.max(thr[f],0) - median(f,y,sex)) ** 2; });
+    if(e < err){ err = e; best = y; }
+  }
+  return best;
+}
+function earAge(thr, ceil, sex){
+  const a = fitAge(thr, sex), c = ageForCeil(ceil);
+  return { fit:a, ceilAge:c, age: Math.round(0.7*a + 0.3*c) };
+}
+/* Noise notch: dip at 3–6 kHz that recovers at 8 kHz (classic noise damage). */
+function notch(thr){
+  const peak = Math.max(...[3000,4000,6000].map(f => thr[f] ?? -99));
+  const low = Math.min(thr[1000] ?? 99, thr[2000] ?? 99);
+  return thr[8000] != null && peak - low >= 10 && peak - thr[8000] >= 10;
+}
+const pta = t => { const v=[500,1000,2000,4000].map(f=>t[f]).filter(v=>v!=null); return v.reduce((a,b)=>a+b,0)/v.length; };
+
+/* ================================================================
+   STATE
+================================================================ */
+const DEMO = {
+  demo:true, age:32, sex:'m',
+  ceil:{R:15000, L:15600},
+  thr:{ R:{250:5,500:5,1000:5,2000:5,3000:10,4000:20,6000:15,8000:10},
+        L:{250:5,500:0,1000:0,2000:5,3000:5,4000:10,6000:10,8000:10} }
+};
+let state = { demo:false, age:32, sex:'m', ceil:{}, thr:{R:{},L:{}} };
+let results = DEMO;
+
+/* ================================================================
+   AUDIO
+================================================================ */
+let ctx;
+const ac = () => (ctx ||= new (window.AudioContext||window.webkitAudioContext)());
+function tone({freq, gain=.08, pan=0, dur=1, ramp=.03}){
+  const c=ac(), o=c.createOscillator(), g=c.createGain(), p=c.createStereoPanner();
+  o.frequency.value=freq; p.pan.value=pan; o.connect(g).connect(p).connect(c.destination);
+  const t=c.currentTime; g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(gain,t+ramp);
+  g.gain.setValueAtTime(gain,t+dur-ramp); g.gain.linearRampToValueAtTime(0,t+dur);
+  o.start(t); o.stop(t+dur+.02); return o;
+}
+
+/* ================================================================
+   TABS / THEME
+================================================================ */
+function showTab(name){
+  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab===name));
+  ['test','results','scale'].forEach(t => $('tab-'+t).hidden = t!==name);
+  if(name==='results') renderResults();
+  if(name==='scale') renderScale();
+}
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+$('themeBtn').onclick = () => { const r=document.documentElement; r.dataset.theme = r.dataset.theme==='dark'?'light':'dark';
+  if(!$('tab-results').hidden) renderResults(); if(!$('tab-scale').hidden) renderScale(); };
+
+/* ================================================================
+   TEST FLOW
+================================================================ */
+let step = 0;
+function goStep(n){
+  step = n;
+  document.querySelectorAll('[data-step]').forEach(p => p.hidden = +p.dataset.step !== n);
+  document.querySelectorAll('#stepper div').forEach(d => { const s=+d.dataset.s; d.className = s<n?'done':s===n?'cur':''; });
+  if(n===1) initSweep();
+  if(n===2) initThr();
+}
+goStep(0);
+
+const pres = [...document.querySelectorAll('.pre')];
+document.querySelectorAll('.checklist li').forEach(li => li.onclick = e => { if(e.target.tagName!=='INPUT'){ const c=li.querySelector('input'); c.checked=!c.checked; } updStart(); });
+pres.forEach(p => p.onchange = updStart);
+function updStart(){ $('startBtn').disabled = !pres.every(p => p.checked); }
+$('sexSeg').onclick = e => { const b=e.target.closest('button'); if(!b) return; [...$('sexSeg').children].forEach(x=>x.classList.toggle('active',x===b)); state.sex=b.dataset.v; };
+$('calBtn').onclick = () => tone({freq:1000, gain:.12, dur:1.5});
+$('startBtn').onclick = () => { state.age = Math.max(18, Math.min(90, +$('ageIn').value || 32)); goStep(1); };
+$('demoBtn').onclick = () => { results = DEMO; showTab('results'); };
+
+/* ---- Part 1: rising sweep 8→20 kHz over 14 s, per ear ---- */
+const SW = {lo:8000, hi:20000, dur:14};
+let sweep = {ear:'R', osc:null, gain:null, t0:0, raf:0, running:false};
+function setEarPill(el, ear){ el.className='ear-pill '+ear; el.textContent = ear==='R' ? '● Right ear' : '● Left ear'; }
+function initSweep(){ sweep.ear='R'; setEarPill($('sweepEar'),'R'); resetSweepUI(); }
+function resetSweepUI(){ $('sweepBtn').textContent='Start tone'; $('sweepFreq').innerHTML='8.0<small>kHz</small>'; $('sweepFill').style.width='0%'; }
+const sweepF = t => SW.lo * (SW.hi/SW.lo) ** Math.min(t/SW.dur,1);
+function startSweep(){
+  const c=ac(); const o=c.createOscillator(), g=c.createGain(), p=c.createStereoPanner();
+  p.pan.value = sweep.ear==='R'?1:-1; o.connect(g).connect(p).connect(c.destination);
+  const t=c.currentTime; o.frequency.setValueAtTime(SW.lo,t); o.frequency.exponentialRampToValueAtTime(SW.hi,t+SW.dur);
+  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.06,t+.2);
+  o.start(t); Object.assign(sweep,{osc:o,gain:g,t0:t,running:true});
+  document.body.classList.add('tone'); $('sweepBtn').textContent="I can't hear it";
+  const loop=()=>{ const el=c.currentTime-sweep.t0, f=sweepF(el);
+    $('sweepFreq').innerHTML=(f/1000).toFixed(1)+'<small>kHz</small>';
+    $('sweepFill').style.width = (Math.log(f/SW.lo)/Math.log(SW.hi/SW.lo)*100)+'%';
+    if(el>=SW.dur){ stopSweep(); return; } sweep.raf=requestAnimationFrame(loop); };
+  loop();
+}
+function stopSweep(){
+  const c=ac(), f=sweepF(c.currentTime-sweep.t0);
+  sweep.gain.gain.cancelScheduledValues(c.currentTime); sweep.gain.gain.setTargetAtTime(0,c.currentTime,.02); sweep.osc.stop(c.currentTime+.1);
+  cancelAnimationFrame(sweep.raf); sweep.running=false; document.body.classList.remove('tone');
+  state.ceil[sweep.ear] = Math.round(f);
+  if(sweep.ear==='R'){ sweep.ear='L'; setEarPill($('sweepEar'),'L'); $('sweepBtn').textContent='Next: left ear';
+    $('sweepHint').innerHTML=`Right ear: <b>${(f/1000).toFixed(1)} kHz</b>. Now the same for your left ear.`; }
+  else { goStep(2); }
+}
+$('sweepBtn').onclick = () => { if(sweep.running) stopSweep(); else { if(sweep.ear==='L') resetSweepUI(); startSweep(); } };
+
+/* ---- Part 2: simplified up-down staircase (10 dB down / 5 dB up) ----
+   Threshold = first level heard twice on an ascending run, or the
+   lowest level heard after 12 trials. Levels are relative "dB". */
+const TF = [1000,2000,4000,6000,8000];
+let thr = {};
+const levelGain = L => .25 * 10 ** ((L-70)/20);
+function initThr(){ thr = {i:0, L:40, asc:{}, lastNo:false, n:0, lowestYes:null}; renderThrDots(); presentTrial(); }
+function thrEar(){ return thr.i < TF.length ? 'R' : 'L'; }
+function thrFreq(){ return TF[thr.i % TF.length]; }
+function renderThrDots(){ const total=TF.length*2; $('thrDots').innerHTML = Array.from({length:total},(_,k)=>`<i class="${k<thr.i?'ok':k===thr.i?'cur':''}"></i>`).join(''); }
+function presentTrial(){
+  const ear=thrEar(), f=thrFreq(); setEarPill($('thrEar'),ear);
+  $('thrFreq').innerHTML = (f/1000)+'<small>kHz</small>';
+  $('yesBtn').disabled = $('noBtn').disabled = true; document.body.classList.add('tone');
+  const c=ac(), pan=ear==='R'?1:-1;
+  [0,.45,.9].forEach(d => setTimeout(()=>tone({freq:f,gain:levelGain(thr.L),pan,dur:.25,ramp:.02}), d*1000));
+  setTimeout(()=>{ document.body.classList.remove('tone'); $('yesBtn').disabled=$('noBtn').disabled=false; }, 1300);
+}
+function answer(heard){
+  if($('yesBtn').disabled) return;
+  thr.n++;
+  if(heard){
+    if(thr.lastNo){ thr.asc[thr.L]=(thr.asc[thr.L]||0)+1; }
+    thr.lowestYes = thr.lowestYes==null ? thr.L : Math.min(thr.lowestYes, thr.L);
+    if(thr.asc[thr.L]>=2 || thr.n>=12){ return recordThr(thr.L); }
+    thr.L = Math.max(-10, thr.L-10); thr.lastNo=false;
+  } else {
+    thr.lastNo=true; thr.L = Math.min(90, thr.L+5);
+    if(thr.n>=12) return recordThr(thr.lowestYes ?? thr.L);
+  }
+  presentTrial();
+}
+function recordThr(L){
+  state.thr[thrEar()][thrFreq()] = L;
+  thr.i++; if(thr.i >= TF.length*2){ finishTest(); return; }
+  Object.assign(thr,{L:40,asc:{},lastNo:false,n:0,lowestYes:null}); renderThrDots(); setTimeout(presentTrial,500);
+}
+$('yesBtn').onclick = () => answer(true); $('noBtn').onclick = () => answer(false);
+function finishTest(){
+  // Fill untested audiogram points so the chart reads cleanly.
+  ['R','L'].forEach(e => { const t=state.thr[e]; t[250]=t[500]=t[1000]; t[3000]=Math.round((t[2000]+t[4000])/2); });
+  results = JSON.parse(JSON.stringify(state)); goStep(3);
+}
+$('seeResults').onclick = () => showTab('results');
+$('retestBtn').onclick = () => { showTab('test'); goStep(0); };
+$('remindBtn').onclick = e => { e.target.textContent='✓ Reminder set for 3 months'; e.target.disabled=true; };
+
+document.addEventListener('keydown', e => {
+  if($('tab-test').hidden) return;
+  if(step===1 && e.code==='Space'){ e.preventDefault(); $('sweepBtn').click(); }
+  if(step===2 && e.key.toLowerCase()==='y') answer(true);
+  if(step===2 && e.key.toLowerCase()==='n') answer(false);
+});
+
+/* ================================================================
+   RESULTS
+================================================================ */
+function zoneFor(d){ return d<=-3?0 : d<=5?1 : d<=10?2 : 3; }
+const ZONE = [
+  {c:'--green', t:'Your ears are younger than you', d:'Your hearing is better than most people your age. Keep protecting it — it\'s a real advantage when mixing.'},
+  {c:'--blue',  t:'Your ears match your age', d:'Your hearing is typical for your age. Small differences of a few years are normal from test to test.'},
+  {c:'--amber', t:'Your ears are ahead of your age', d:'Your hearing has aged faster than average, mostly in the high pitches. Protect it and retest in 3 months.'},
+  {c:'--red',   t:'Worth a proper hearing test', d:'Your hearing is well behind people your age. Book a check with an audiologist to find out why.'},
+];
+function renderResults(){
+  const r = results, sex = r.sex;
+  $('srcBanner').innerHTML = r.demo
+    ? `<span class="tag">Demo</span> Showing sample results for a <b>32-year-old</b> engineer. <a href="#" id="goTest" style="color:var(--amber)">Take the test</a> for your own.`
+    : `<span class="tag" style="color:var(--green);border-color:var(--green-dim)">Your test</span> Results from today · compared with <b>${{m:'men',f:'women',x:'everyone'}[sex]}</b> aged ${r.age}.`;
+  const g=$('goTest'); if(g) g.onclick = e => { e.preventDefault(); showTab('test'); };
+
+  const ears = { R: earAge(r.thr.R, r.ceil.R, sex), L: earAge(r.thr.L, r.ceil.L, sex) };
+  const hear = Math.min(ears.R.age, ears.L.age);  // better ear
+  const delta = hear - r.age, z = zoneFor(delta), Z = ZONE[z], col = css(Z.c);
+
+  $('rHear').textContent = hear<=18 ? '≤18' : hear; $('rHear').style.color = col;
+  $('rCal').textContent = r.age;
+  const dEl=$('rDelta'); dEl.style.color=col; dEl.style.borderColor=col;
+  dEl.textContent = delta===0 ? 'Same as your age' : `${delta>0?'+':'−'}${Math.abs(delta)} years ${delta>0?'older':'younger'}`;
+  $('rVerdict').textContent = Z.t; $('rVerdictTxt').textContent = Z.d;
+  document.querySelectorAll('#zones div').forEach(d => d.classList.toggle('on', +d.dataset.z===z));
+
+  // ruler 15–85
+  const pos = a => Math.max(0,Math.min(100,(a-15)/70*100));
+  const pc=pos(r.age), ph=pos(hear);
+  $('mkCal').style.left=pc+'%'; $('mkHear').style.left=ph+'%'; $('mkHear').style.background=col;
+  $('lblCal').style.left=pc+'%'; $('lblCal').textContent='You '+r.age; $('lblCal').style.color=css('--text-muted');
+  $('lblHear').style.left=ph+'%'; $('lblHear').textContent='Ears '+(hear<=18?'≤18':hear); $('lblHear').style.color=col;
+  if(Math.abs(pc-ph)<9){ $('lblCal').style.top='26px'; } else { $('lblCal').style.top='-30px'; }
+  const sp=$('rSpan'); sp.style.left=Math.min(pc,ph)+'%'; sp.style.width=Math.abs(pc-ph)+'%'; sp.style.background=col; sp.style.opacity=.55;
+
+  // ear cards
+  const asym = Math.abs(pta(r.thr.R)-pta(r.thr.L));
+  $('earCards').innerHTML = ['R','L'].map(e => {
+    const E=ears[e], c = e==='R'?'--red':'--blue', typ=ceilForAge(r.age);
+    return `<div class="panel ear-card">
+      <div class="top"><span class="ear-pill ${e}">● ${e==='R'?'Right':'Left'} ear</span><span class="tag">${E.age===hear?'Better ear':'—'}</span></div>
+      <div><span class="age-num" style="font-size:48px;color:var(${c})">${E.age<=18?'≤18':E.age}</span> <span class="muted" style="font-size:13px;">hearing age</span></div>
+      <div class="kv">
+        <span>Highest tone heard</span><b>${(r.ceil[e]/1000).toFixed(1)} kHz</b>
+        <span>Typical at ${r.age}</span><b class="muted">${(typ/1000).toFixed(1)} kHz</b>
+        <span>Average loss (0.5–4 kHz)</span><b>${pta(r.thr[e]).toFixed(0)} dB</b>
+        <span>Hearing grade (WHO)</span><b>${pta(r.thr[e])<20?'Normal':pta(r.thr[e])<35?'Mild':'See audiologist'}</b>
+      </div></div>`;
+  }).join('');
+
+  // insights
+  const ins = [];
+  const nR=notch(r.thr.R), nL=notch(r.thr.L);
+  if(nR||nL) ins.push({c:'--amber', h:`Noise dip at 4 kHz (${nR&&nL?'both ears':nR?'right ear':'left ear'})`,
+    p:'A dip around 4 kHz that recovers at 8 kHz is the classic sign of loud-sound exposure — gigs, clubs or loud monitoring — rather than normal ageing.',
+    i:'<path d="M3 7l5 0 3 9 3-9 7 0"/>'});
+  const worst = [2000,3000,4000,6000,8000].map(f=>({f, d:Math.max(r.thr.R[f]??0,r.thr.L[f]??0)-median(f,r.age,sex)})).sort((a,b)=>b.d-a.d)[0];
+  if(worst.d>5) ins.push({c:'--blue', h:`Biggest gap: ${worst.f/1000} kHz`, p:`You hear ${worst.f/1000} kHz about ${Math.round(worst.d)} dB worse than is typical at ${r.age}. That's the range of cymbal shimmer, "s" sounds and vocal presence — double-check it on a spectrum analyser when mixing.`,
+    i:'<circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/>'});
+  if(asym>=15) ins.push({c:'--red', h:'Your ears differ a lot', p:`Your right and left ears differ by ${asym.toFixed(0)} dB on average. That's worth checking with a doctor, whatever your hearing age.`, i:'<path d="M12 8v5M12 16.5v.5"/><circle cx="12" cy="12" r="9"/>'});
+  else ins.push({c:'--green', h:'Ears are balanced', p:`Left and right are within ${Math.max(1,asym).toFixed(0)} dB of each other, so your stereo image should be reliable.`, i:'<path d="M5 12.5 10 17 19 7"/>'});
+  $('insights').innerHTML = ins.map(x=>`<div class="insight"><div class="ic" style="color:var(${x.c});border-color:var(${x.c})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${x.i}</svg></div><div><h4>${x.h}</h4><p>${x.p}</p></div></div>`).join('');
+
+  // trend (illustrative)
+  const hist = [['Mar',hear-3],['Jun',hear-2],['Sep',hear-1],['Now',hear]];
+  const mx = Math.max(...hist.map(h=>h[1]), r.age)+5;
+  $('trend').innerHTML = hist.map((h,i)=>`<div><span>${h[1]}</span><i class="${i===3?'now':''}" style="height:${h[1]/mx*70}px"></i><span>${h[0]}</span></div>`).join('');
+
+  drawAudiogram(r, hear);
+}
+
+/* ---- audiogram: log-frequency x, dB HL y (inverted) ---- */
+function axes(svg, {W=680,H=340,pad={l:52,r:96,t:24,b:40}, yMin=-10, yMax=80, bandLabels=true}={}){
+  const x = f => pad.l + Math.log2(f/250)/5 * (W-pad.l-pad.r);
+  const y = d => pad.t + (d-yMin)/(yMax-yMin) * (H-pad.t-pad.b);
+  const grid=css('--border-soft'), mut=css('--text-muted');
+  let s='';
+  // WHO grade bands
+  [[yMin,20,'Normal',css('--green')],[20,35,'Mild',css('--blue')],[35,50,'Moderate',css('--amber')],[50,yMax,'Severe+',css('--red')]].forEach(([a,b,l,c])=>{
+    s+=`<rect x="${pad.l}" y="${y(a)}" width="${W-pad.l-pad.r}" height="${y(b)-y(a)}" fill="${c}" opacity=".05"/>`;
+    if(bandLabels) s+=`<text x="${W-pad.r+10}" y="${(y(a)+y(b))/2+4}" font-size="10.5" fill="${c}">${l}</text>`;
+  });
+  for(let d=yMin; d<=yMax; d+=10){ s+=`<line x1="${pad.l}" x2="${W-pad.r}" y1="${y(d)}" y2="${y(d)}" stroke="${grid}"/><text x="${pad.l-10}" y="${y(d)+4}" font-size="10.5" fill="${mut}" text-anchor="end">${d}</text>`; }
+  FREQS.forEach(f=>{ s+=`<line x1="${x(f)}" x2="${x(f)}" y1="${pad.t}" y2="${H-pad.b}" stroke="${grid}"/><text x="${x(f)}" y="${H-pad.b+18}" font-size="10.5" fill="${mut}" text-anchor="middle">${f>=1000?f/1000+'k':f}</text>`; });
+  s+=`<text x="${pad.l}" y="${H-4}" font-size="10" fill="${mut}">Pitch (Hz) →</text>`;
+  s+=`<text x="14" y="${pad.t+4}" font-size="10" fill="${mut}" transform="rotate(-90 14 ${pad.t+4})" text-anchor="end">dB loss ↓</text>`;
+  return {x,y,s};
+}
+const path = (pts) => pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1)).join('');
+function drawAudiogram(r, hear){
+  const svg=$('audiogram'), A=axes(svg), mut=css('--text-muted'), amb=css('--amber'), red=css('--red'), blue=css('--blue');
+  let s=A.s;
+  s+=`<path d="${path(FREQS.map(f=>[A.x(f),A.y(median(f,r.age,r.sex))]))}" fill="none" stroke="${mut}" stroke-width="1.6" stroke-dasharray="5 5"/>`;
+  s+=`<path d="${path(FREQS.map(f=>[A.x(f),A.y(median(f,Math.max(hear,18),r.sex))]))}" fill="none" stroke="${amb}" stroke-width="1.8" stroke-dasharray="5 5"/>`;
+  const pts = e => FREQS.filter(f=>r.thr[e][f]!=null).map(f=>[A.x(f),A.y(r.thr[e][f])]);
+  const R=pts('R'), L=pts('L');
+  s+=`<path d="${path(R)}" fill="none" stroke="${red}" stroke-width="2"/><path d="${path(L)}" fill="none" stroke="${blue}" stroke-width="2"/>`;
+  R.forEach(([x,y])=> s+=`<circle cx="${x}" cy="${y}" r="6" fill="${css('--panel')}" stroke="${red}" stroke-width="2"/>`);
+  L.forEach(([x,y])=> s+=`<path d="M${x-5},${y-5}L${x+5},${y+5}M${x+5},${y-5}L${x-5},${y+5}" stroke="${blue}" stroke-width="2.2" stroke-linecap="round"/>`);
+  svg.innerHTML = s;
+}
+
+/* ================================================================
+   SCALE TAB
+================================================================ */
+let scaleSex='m';
+$('scaleSex').onclick = e => { const b=e.target.closest('button'); if(!b) return; [...$('scaleSex').children].forEach(x=>x.classList.toggle('active',x===b)); scaleSex=b.dataset.v; renderScale(); };
+function renderScale(){
+  const svg=$('ageFamily'), A=axes(svg,{yMax:80, bandLabels:false});
+  let s=A.s; const ages=[20,30,40,50,60,70,80]; let lastY=-99;
+  const c0=css('--teal'), c1=css('--red');
+  ages.forEach((a,i)=>{
+    const col = `color-mix(in srgb, ${c1} ${i/(ages.length-1)*100}%, ${c0})`;
+    const pts = FREQS.map(f=>[A.x(f),A.y(Math.min(median(f,a,scaleSex),80))]);
+    s+=`<path d="${path(pts)}" fill="none" stroke="${col}" stroke-width="2"/>`;
+    const last=pts.at(-1); const ly=Math.max(last[1]+4,lastY+13); lastY=ly; s+=`<text x="${last[0]+8}" y="${ly}" font-size="10.5" fill="${col}">${a} yrs</text>`;
+  });
+  svg.innerHTML=s;
+
+  $('scaleTable').innerHTML = `<thead><tr><th>Age</th><th>Loss @ 4 kHz</th><th>Loss @ 8 kHz</th><th>Top tone</th></tr></thead><tbody>` +
+    ages.map(a=>`<tr><td class="num">${a}</td><td class="num">${median(4000,a,scaleSex).toFixed(0)} dB</td><td class="num">${median(8000,a,scaleSex).toFixed(0)} dB</td><td class="num">~${(ceilForAge(a)/1000).toFixed(1)} kHz</td></tr>`).join('') + '</tbody>';
+}
+const TONES = [[8000],[10000],[12000],[14000],[15000],[16000],[17000],[18000],[19000]];
+$('toneGrid').innerHTML = TONES.map(([f])=>{ const a=Math.round(ageForCeil(f)); return `<button data-f="${f}"><b>${f/1000} kHz</b><small>${f<=9000?'Most people':'Typical under ~'+a}</small></button>`; }).join('');
+$('toneGrid').onclick = e => { const b=e.target.closest('button'); if(!b) return; b.classList.add('playing'); tone({freq:+b.dataset.f,gain:.06,dur:1.5}); setTimeout(()=>b.classList.remove('playing'),1500); };
+</script>
+</body>
+</html>

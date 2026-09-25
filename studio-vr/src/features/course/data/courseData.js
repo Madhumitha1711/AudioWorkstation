@@ -92,6 +92,12 @@ export const TOPICS = [
     // design/critical-listening-lab-1.html). Same as studio-types above: the
     // mapping only takes effect once this topic is `ready: true` or the same
     // kind is referenced from this chapter's interactive block in studio-cms.
+    // The chapter's Hearing Health subchapter has its own lab too —
+    // "hearing-age-lab" (interactives/listening/HearingAgeLab, ported from
+    // design/hearing-health-age.html). A topic only carries one
+    // `interactive` here, so that one is mapped by referencing its kind
+    // from the Hearing Health lesson's interactive Section block in
+    // studio-cms (swap the kind below to preview it locally).
     interactive: { id: "listening-skills-interactive", title: "Spot the Problem", kind: "critical-listening-lab" },
     ready: false,
   },
