@@ -1,10 +1,7 @@
 /* Shared styles for the "Microphones" chapter's interactive labs
-   (MicTypeLab, MicTypeCompareLab, MicPolarPatternLab, MicPolarCompareLab).
-   There used to be a fifth, MicSelectionLab, but it converged on being
-   visually identical to MicTypeLab (same room-toggle type picker, same
-   listen panel) and was removed — the "mic-selection-lab" kind in
-   interactives/registry.js now just aliases MicTypeLab directly instead of
-   a separate component.
+   (MicTypeLab, MicTypeCompareLab, MicPolarPatternLab, MicPolarCompareLab,
+   and MicSelectionLab, which reuses .mic-portrait for its pick and keeps
+   its own styles in MicSelectionLab/MicSelectionLab.css).
    Reuses labs.css's .lab / .lab-toggle-row / .lab-play-btn / .sound-lab-*
    chrome wherever it already fits (see labs.css) — this file only adds the
    mic-specific pieces the mockup (design/mic-types-chapter.html) needed

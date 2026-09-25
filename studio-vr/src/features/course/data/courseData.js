@@ -139,8 +139,9 @@ export const TOPICS = [
     // subchapters already exist (see InteractiveSection.jsx's
     // "mic-type-lab" / "mic-type-compare-lab" / "mic-polar-pattern-lab" /
     // "mic-polar-compare-lab" / "mic-selection-lab", ported from
-    // design/mic-types-chapter.html — "mic-selection-lab" just aliases the
-    // mic-type-lab component, and "mic-polar-compare-lab" is the polar-
+    // design/mic-types-chapter.html — "mic-selection-lab" is the "Pick the
+    // mic for the job" lab from design/mic-selection-lab.html, and
+    // "mic-polar-compare-lab" is the polar-
     // pattern equivalent of mic-type-compare-lab, minus a dropdown since
     // there are only three fixed patterns to compare; see that file's
     // comment), and its Placement subchapter now has one too

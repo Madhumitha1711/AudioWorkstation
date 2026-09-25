@@ -1,0 +1,228 @@
+/* MicSelectionLab — ported from design/mic-selection-lab.html.
+   Chrome uses the course theme tokens on .svr-course (--panel, --border*,
+   --text*, --accent), so light/dark follows ThemeContext. Type follows the
+   app, not the mockup's Space Grotesk / JetBrains Mono: body text inherits
+   the .svr-course font, titles use var(--heading), small uppercase labels
+   match .lab-control-label / .lab-section-label (labs.css). Brand --accent
+   stands in for the mockup's green (best pick); amber marks alternatives /
+   trade-offs and --danger marks "not practical", each with a deeper
+   light-theme value for contrast on white (same approach as
+   acousticsLabs.css). The two panels stack vertically (questions above,
+   recommendation below); the factor grid uses container queries so it
+   adapts to the course column's width, not the viewport's. */
+
+.msl {
+  --msl-amber: #e8934a;
+  --msl-amber-rgb: 232, 147, 74;
+  --msl-well: rgba(0, 0, 0, 0.22);
+  container-type: inline-size;
+  min-width: 0;
+}
+:root[data-theme='light'] .msl {
+  --msl-amber: #c4691c;
+  --msl-amber-rgb: 196, 105, 28;
+  --msl-well: rgba(var(--ink-tint-rgb), 0.05);
+}
+.msl,
+.msl *,
+.msl *::before,
+.msl *::after { box-sizing: border-box; }
+
+.msl-intro {
+  margin: 0 0 20px;
+  max-width: 720px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+
+/* ---------- layout ---------- */
+/* Stacked vertically: "Describe the recording" on top, "Recommendation"
+   directly below it, both full width. */
+.msl-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+.msl-card {
+  padding: 20px;
+  border-radius: 14px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  min-width: 0;
+}
+
+/* ---------- questions ---------- */
+.msl-q + .msl-q { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border-soft); }
+.msl-q-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.msl-q-num { font-size: 11px; font-weight: 700; color: var(--msl-amber); font-variant-numeric: tabular-nums; }
+.msl-q-label { font-size: 14px; font-weight: 600; color: var(--text); }
+.msl-q-hint { margin: -4px 0 10px; font-size: 12.5px; line-height: 1.45; color: var(--text-dimmer); }
+
+.msl-chips { gap: 6px; }
+.lab-toggle.msl-chip { padding: 7px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 500; }
+.lab-toggle.msl-chip.selected { font-weight: 600; }
+.msl-auto {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+/* ---------- best pick ---------- */
+.msl-pick {
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(var(--brand-accent-rgb), 0.4);
+  background: linear-gradient(180deg, rgba(var(--brand-accent-rgb), 0.08), transparent 75%);
+}
+.msl-pick-tag { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.msl-pick-row { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
+.mic-portrait.msl-portrait {
+  width: 60px;
+  height: 76px;
+  padding: 8px;
+  margin: 0;
+  flex: none;
+}
+.mic-portrait.msl-portrait svg { height: 58px; }
+.msl-pick-text { min-width: 0; }
+.msl-pick-name {
+  font-family: var(--heading);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: var(--text);
+}
+.msl-pick-sub { margin-top: 3px; font-size: 13px; color: var(--text-dim); }
+.msl-specs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.msl-spec {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--msl-well);
+  border: 1px solid var(--border-soft);
+  font-size: 11.5px;
+  color: var(--text-dimmer);
+}
+.msl-spec b { color: var(--text); font-weight: 600; }
+
+/* ---------- reasons ---------- */
+.msl-h {
+  margin: 22px 0 10px;
+  font-family: var(--heading);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+.msl-reasons { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.msl-reasons li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: start;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text);
+}
+.msl-ftag {
+  margin-top: 2px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  border: 1px solid rgba(var(--brand-accent-rgb), 0.4);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.msl-ftag--trade { border-color: rgba(var(--msl-amber-rgb), 0.45); color: var(--msl-amber); }
+.msl-examples { margin: 14px 0 0; font-size: 13px; line-height: 1.5; color: var(--text-dim); }
+.msl-examples b { color: var(--text); font-weight: 600; }
+
+/* ---------- ranked fit meter ---------- */
+.msl-rank { display: flex; flex-direction: column; gap: 4px; }
+.msl-rank-row {
+  display: grid;
+  grid-template-columns: 136px 1fr 36px;
+  gap: 10px;
+  align-items: center;
+  margin: 0 -6px;
+  padding: 5px 6px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.msl-rank-row:hover:not(:disabled) { background: var(--panel-hover); }
+.msl-rank-row:disabled { cursor: default; }
+.msl-rank-name { color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.msl-rank-row.is-win .msl-rank-name { color: var(--text); font-weight: 600; }
+.msl-bar { height: 8px; border-radius: 4px; background: var(--border-soft); overflow: hidden; }
+.msl-bar i { display: block; height: 100%; border-radius: 4px; background: var(--text-dimmer); transition: width 0.35s ease; }
+.msl-rank-row.is-win .msl-bar i { background: var(--accent); }
+.msl-rank-row.is-alt .msl-bar i { background: var(--msl-amber); }
+.msl-rank-row.is-no .msl-bar i { background: var(--danger); }
+.msl-pct { font-size: 11.5px; color: var(--text-dimmer); text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---------- why not ---------- */
+.msl-whynot { display: flex; flex-direction: column; gap: 10px; }
+.msl-wn { display: grid; grid-template-columns: 136px 1fr; gap: 10px; font-size: 13.5px; line-height: 1.5; }
+.msl-wn-name { font-weight: 600; color: var(--text); }
+.msl-wn-text { color: var(--text-dim); }
+.msl-wn-text em { font-style: normal; color: var(--msl-amber); }
+
+/* ---------- player ---------- */
+.msl-player {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px dashed var(--border);
+  background: var(--msl-well);
+}
+
+/* ---------- why a specific mic ---------- */
+.msl-why { margin-top: 44px; }
+.msl-why h3 { margin: 0 0 6px; font-family: var(--heading); font-weight: 600; font-size: 22px; color: var(--text); }
+.msl-why-lead { margin: 0 0 18px; max-width: 720px; font-size: 15px; line-height: 1.6; color: var(--text-dim); }
+.msl-factors { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@container (max-width: 760px) {
+  .msl-factors { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (max-width: 480px) {
+  .msl-factors { grid-template-columns: 1fr; }
+  .msl-rank-row { grid-template-columns: 108px 1fr 32px; }
+  .msl-wn { grid-template-columns: 1fr; gap: 2px; }
+  .msl-card { padding: 16px; }
+}
+.msl-factor { padding: 16px; border-radius: 12px; background: var(--panel); border: 1px solid var(--border-soft); }
+.msl-factor-tag { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--msl-amber); }
+.msl-factor h4 { margin: 6px 0; font-family: var(--heading); font-size: 16px; font-weight: 600; color: var(--text); }
+.msl-factor p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--text-dim); }
+.msl-factor p b { color: var(--text); font-weight: 600; }
+.msl-takeaway {
+  margin-top: 20px;
+  max-width: 720px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(var(--brand-accent-rgb), 0.4);
+  background: rgba(var(--brand-accent-rgb), 0.05);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text);
+}
+.msl-takeaway b { color: var(--accent); font-weight: 600; }
+
+@media (prefers-reduced-motion: reduce) {
+  .msl *, .msl *::before, .msl *::after { transition: none !important; }
+}

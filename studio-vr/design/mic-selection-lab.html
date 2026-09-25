@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mic Selection — Pick the Mic for the Job</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!--
+  DESIGN MOCKUP — "Microphone Selection" (Chapter 6 · Lesson 04).
+  Replaces the static scenario-card grid in design/mic-types-chapter.html
+  (stage "selection") and the current "mic-selection-lab" alias of
+  MicTypeLab in courseData.js. Same tokens/typography as
+  design/room-treatment.html and design/studio-acoustics-rooms.html.
+
+  UX IDEA
+    Instead of telling the student "use a condenser for vocals", the lab
+    asks four questions an engineer asks before reaching for a mic —
+      1. What's the source?   2. How loud is it?
+      3. Where are you recording?   4. What do you want it to sound like?
+    — then scores all five mic families (same set as micLabShared.js
+    MIC_TYPES) against those answers and explains the pick:
+      • "Why this mic" — the top reasons, each tagged with the factor it
+        comes from, so the student learns the *reasoning*, not the answer.
+      • "Why not the others" — the single biggest weakness of every other
+        family for this job.
+      • A ranked fit meter for all five, so trade-offs are visible.
+    Changing any answer re-ranks live — e.g. switch "Lead vocal" from
+    Treated studio → Live stage and watch the condenser drop and the
+    dynamic take over, with the reason spelled out.
+
+  SCORING (see SCORE() below)
+    score = source fit  + loudness term + room term + goal term
+    Each term is (attribute − 3) × weight, attributes 1–5 per mic family
+    (ATTR). Terms are kept per-factor so the UI can explain them.
+    Source fit 0 = not practical (e.g. a contact mic on a vocal) → forced
+    to the bottom with a "not practical" reason.
+
+  AUDIO PLACEHOLDERS
+    "Hear the difference" plays public/audio/mic-selection/<mic>-<source>.mp3
+    (mic ids: dynamic, condenser-fet, condenser-tube, ribbon, contact;
+    source ids: SOURCES[].id). Same "clip pending" convention as
+    micLabShared.js — drop files in and playback works. Level-match them.
+
+  IMPLEMENTATION NOTE
+    When porting to React, put ATTR / FIT / SOURCES / reason copy in
+    microphones/shared/micLabShared.js next to MIC_TYPES and build a
+    MicSelectionLab component; register it as "mic-selection-lab"
+    (replacing the MicTypeLab alias).
+-->
+<style>
+  :root, [data-theme="dark"]{
+    --bg:#0b0b0d; --panel:#16161a; --panel-alt:#1c1c21;
+    --border:#2a2a30; --border-soft:#232328;
+    --text:#ede9e3; --text-muted:#8b8890; --text-faint:#54525a;
+    --amber:#e8934a; --amber-dim:#6b4a2c; --green:#5fd9a0; --green-dim:#2c5f49;
+    --red:#e66a6a; --red-dim:#5a2a2a;
+  }
+  [data-theme="light"]{
+    --bg:#f5f3ef; --panel:#ffffff; --panel-alt:#f1eee8;
+    --border:#dcd7cf; --border-soft:#e7e3dc;
+    --text:#1b1a1d; --text-muted:#6b6770; --text-faint:#a39ea6;
+    --amber:#c4691c; --amber-dim:#f4dcc5; --green:#1c9463; --green-dim:#cdeedd;
+    --red:#c0392b; --red-dim:#f6d6d2;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;}
+  button{font:inherit;color:inherit;}
+  :focus-visible{outline:2px solid var(--amber); outline-offset:2px;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+
+  main{max-width:1040px; margin:0 auto; padding:48px 24px 80px;}
+  .top{display:flex; justify-content:space-between; align-items:flex-start; gap:16px; max-width:760px;}
+  .top-wrap{display:flex; justify-content:space-between; gap:16px;}
+  .eyebrow{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--green); margin-bottom:12px;}
+  h1{font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:34px; letter-spacing:-.02em; margin:0 0 12px; line-height:1.1;}
+  .intro{color:var(--text-muted); font-size:16px; line-height:1.6; margin:0;}
+  .theme{width:36px; height:36px; border-radius:8px; border:1px solid var(--border); background:var(--panel); cursor:pointer; flex:none; display:grid; place-items:center;}
+  .theme svg{width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.8;}
+
+  /* ---------- layout ---------- */
+  .lab{display:grid; grid-template-columns:minmax(0,5fr) minmax(0,6fr); gap:20px; margin-top:32px; align-items:start;}
+  .card{padding:20px; border-radius:14px; background:var(--panel); border:1px solid var(--border-soft);}
+  .col-title{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-faint); margin:0 0 14px;}
+
+  /* ---------- questions ---------- */
+  .q + .q{margin-top:20px; padding-top:18px; border-top:1px solid var(--border-soft);}
+  .q-head{display:flex; align-items:baseline; gap:10px; margin-bottom:10px;}
+  .q-num{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--amber);}
+  .q-label{font-size:14px; font-weight:600;}
+  .q-hint{font-size:12.5px; color:var(--text-faint); margin:-4px 0 10px; line-height:1.45;}
+  .chips{display:flex; flex-wrap:wrap; gap:6px;}
+  .chip{border:1px solid var(--border); background:var(--panel-alt); border-radius:999px; padding:7px 12px; font-size:13px; cursor:pointer; color:var(--text-muted); transition:border-color .15s, color .15s, background .15s;}
+  .chip:hover{color:var(--text); border-color:var(--text-faint);}
+  .chip[aria-pressed="true"]{border-color:var(--amber); color:var(--text); background:var(--amber-dim);}
+  [data-theme="light"] .chip[aria-pressed="true"]{color:#5a2e08;}
+  .chip .auto{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--amber); margin-left:6px;}
+
+  /* ---------- result ---------- */
+  .result{position:sticky; top:20px;}
+  .pick{border:1px solid var(--green-dim); border-radius:12px; padding:18px; background:linear-gradient(180deg, color-mix(in srgb, var(--green-dim) 35%, transparent), transparent 70%);}
+  .pick-tag{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--green);}
+  .pick-row{display:flex; align-items:center; gap:14px; margin-top:8px;}
+  .pick-icon{width:52px; height:52px; border-radius:12px; background:var(--panel-alt); border:1px solid var(--border); display:grid; place-items:center; flex:none;}
+  .pick-icon svg{width:30px; height:30px;}
+  .pick-name{font-family:'Space Grotesk',sans-serif; font-size:24px; font-weight:600; letter-spacing:-.01em; line-height:1.15;}
+  .pick-sub{font-size:13px; color:var(--text-muted); margin-top:3px;}
+  .specs{display:flex; flex-wrap:wrap; gap:6px; margin-top:14px;}
+  .spec{font-family:'JetBrains Mono',monospace; font-size:11px; padding:4px 8px; border-radius:6px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text-muted);}
+  .spec b{color:var(--text); font-weight:500;}
+
+  .sec-h{font-family:'Space Grotesk',sans-serif; font-size:16px; font-weight:600; margin:22px 0 10px;}
+  .reasons{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px;}
+  .reasons li{display:grid; grid-template-columns:auto 1fr; gap:10px; align-items:start; font-size:14px; line-height:1.55;}
+  .ftag{font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.06em; text-transform:uppercase; padding:3px 7px; border-radius:5px; margin-top:2px; white-space:nowrap;
+    color:var(--green); border:1px solid var(--green-dim);}
+  .reasons.neg .ftag{color:var(--red); border-color:var(--red-dim);}
+  .examples{font-size:13px; color:var(--text-muted); margin-top:14px; line-height:1.5;}
+  .examples b{color:var(--text); font-weight:500;}
+
+  /* ranked fit meter */
+  .rank{display:flex; flex-direction:column; gap:8px;}
+  .rank-row{display:grid; grid-template-columns:128px 1fr 38px; gap:10px; align-items:center; font-size:13px; cursor:pointer; border-radius:8px; padding:4px 6px; margin:0 -6px; border:none; background:none; text-align:left;}
+  .rank-row:hover{background:var(--panel-alt);}
+  .rank-row .nm{color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .rank-row.win .nm{color:var(--text); font-weight:600;}
+  .bar{height:8px; border-radius:4px; background:var(--border-soft); overflow:hidden;}
+  .bar i{display:block; height:100%; border-radius:4px; background:var(--text-faint); transition:width .35s ease;}
+  .rank-row.win .bar i{background:var(--green);}
+  .rank-row.alt .bar i{background:var(--amber);}
+  .rank-row.no .bar i{background:var(--red);}
+  .rank-row .pct{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-faint); text-align:right;}
+
+  .whynot{display:flex; flex-direction:column; gap:10px;}
+  .wn{display:grid; grid-template-columns:128px 1fr; gap:10px; font-size:13.5px; line-height:1.5;}
+  .wn .nm{font-weight:500;}
+  .wn .tx{color:var(--text-muted);}
+  .wn .tx em{font-style:normal; color:var(--amber);}
+
+  /* audio placeholder */
+  .player{margin-top:10px; display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:10px; border:1px dashed var(--border); background:var(--panel-alt);}
+  .play{width:36px; height:36px; border-radius:50%; border:1px solid var(--border); background:var(--panel); cursor:pointer; display:grid; place-items:center; flex:none;}
+  .play svg{width:13px; height:13px; fill:var(--text); margin-left:2px;}
+  .ab{display:flex; gap:4px; flex-wrap:wrap;}
+  .ab .chip{padding:5px 10px; font-size:12px;}
+  .ph{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-faint); white-space:nowrap; margin-left:auto;}
+
+  /* ---------- factors ---------- */
+  .why{margin-top:56px;}
+  .why h2{font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:24px; margin:0 0 6px;}
+  .why .lead{color:var(--text-muted); font-size:15px; line-height:1.6; margin:0 0 18px; max-width:68ch;}
+  .factors{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}
+  .factor{padding:16px; border-radius:12px; background:var(--panel); border:1px solid var(--border-soft);}
+  .factor .fn{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--amber); letter-spacing:.08em; text-transform:uppercase;}
+  .factor h3{font-family:'Space Grotesk',sans-serif; font-size:16px; font-weight:600; margin:6px 0 6px;}
+  .factor p{font-size:13.5px; line-height:1.55; color:var(--text-muted); margin:0;}
+  .factor p b{color:var(--text); font-weight:500;}
+
+  .takeaway{margin-top:22px; padding:14px 16px; border-radius:10px; border:1px solid var(--green-dim); font-size:15px; line-height:1.6;}
+  .takeaway b{color:var(--green); font-weight:500;}
+
+  @media (max-width:880px){
+    .lab{grid-template-columns:1fr;}
+    .result{position:static;}
+    .factors{grid-template-columns:1fr 1fr;}
+  }
+  @media (max-width:600px){
+    main{padding:28px 16px 64px;}
+    h1{font-size:28px;}
+    .factors{grid-template-columns:1fr;}
+    .rank-row{grid-template-columns:104px 1fr 34px;}
+    .wn{grid-template-columns:1fr; gap:2px;}
+    .ph{display:none;}
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="top-wrap">
+    <div class="top">
+      <div>
+        <div class="eyebrow">Microphones · Lesson 04 · Selection</div>
+        <h1>Pick the mic for the job</h1>
+        <p class="intro">There’s no “best” microphone — only the best one for a specific source, in a specific room, for a specific sound. Answer the four questions an engineer asks before reaching for a mic, and see which one wins and <em>why</em>.</p>
+      </div>
+    </div>
+    <button class="theme" id="themeBtn" aria-label="Toggle theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+  </div>
+
+  <div class="lab">
+    <!-- ============ QUESTIONS ============ -->
+    <section class="card" aria-label="Describe the recording">
+      <p class="col-title">Describe the recording</p>
+
+      <div class="q">
+        <div class="q-head"><span class="q-num">01</span><span class="q-label">What are you recording?</span></div>
+        <div class="chips" data-q="source"></div>
+      </div>
+
+      <div class="q">
+        <div class="q-head"><span class="q-num">02</span><span class="q-label">How loud is it at the mic?</span></div>
+        <p class="q-hint">Set automatically from the source — change it if your situation is different.</p>
+        <div class="chips" data-q="level"></div>
+      </div>
+
+      <div class="q">
+        <div class="q-head"><span class="q-num">03</span><span class="q-label">Where are you recording?</span></div>
+        <div class="chips" data-q="room"></div>
+      </div>
+
+      <div class="q">
+        <div class="q-head"><span class="q-num">04</span><span class="q-label">What should it sound like?</span></div>
+        <div class="chips" data-q="goal"></div>
+      </div>
+    </section>
+
+    <!-- ============ RESULT ============ -->
+    <section class="card result" aria-live="polite" aria-label="Recommendation">
+      <p class="col-title">Recommendation</p>
+
+      <div class="pick">
+        <div class="pick-tag" id="pickTag">Best pick</div>
+        <div class="pick-row">
+          <div class="pick-icon" id="pickIcon"></div>
+          <div>
+            <div class="pick-name" id="pickName"></div>
+            <div class="pick-sub" id="pickSub"></div>
+          </div>
+        </div>
+        <div class="specs" id="pickSpecs"></div>
+      </div>
+
+      <h3 class="sec-h">Why this mic</h3>
+      <ul class="reasons" id="whyList"></ul>
+      <div class="examples" id="examples"></div>
+
+      <h3 class="sec-h">How all five fit this job</h3>
+      <div class="rank" id="rank"></div>
+
+      <h3 class="sec-h">Why not the others</h3>
+      <div class="whynot" id="whyNot"></div>
+
+      <h3 class="sec-h">Hear the difference</h3>
+      <div class="player" id="player">
+        <button class="play" aria-label="Play clip"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg></button>
+        <div class="ab" id="ab"></div>
+        <span class="ph" id="clipPath">Audio coming soon</span>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ WHY A SPECIFIC MIC ============ -->
+  <section class="why">
+    <h2>Why choose one mic over another?</h2>
+    <p class="lead">Every recommendation above comes from the same six questions. Learn these and you can reason your way to a good choice with any mic locker, even one you’ve never seen before.</p>
+    <div class="factors">
+      <div class="factor">
+        <div class="fn">01 · Loudness</div>
+        <h3>Can it take the level?</h3>
+        <p>A kick drum or cranked amp can hit 130 dB+ at the grille. <b>Dynamics</b> barely notice; sensitive <b>condensers</b> may need a pad, and a <b>ribbon</b> can be damaged by a blast of air.</p>
+      </div>
+      <div class="factor">
+        <div class="fn">02 · Detail</div>
+        <h3>How much detail do you need?</h3>
+        <p>A lighter diaphragm follows air pressure faster. That’s why <b>condensers</b> win on breath, finger noise, cymbal shimmer and acoustic transients, and dynamics sound a little rounder.</p>
+      </div>
+      <div class="factor">
+        <div class="fn">03 · Room</div>
+        <h3>Do you want the room in it?</h3>
+        <p>A sensitive mic hears the room as clearly as the source. In an <b>untreated room or on stage</b>, a less sensitive, tight-pattern mic gives a cleaner take. In a <b>treated studio</b>, that sensitivity becomes an asset.</p>
+      </div>
+      <div class="factor">
+        <div class="fn">04 · Pattern</div>
+        <h3>Where should it not listen?</h3>
+        <p><b>Cardioid</b> rejects the back (monitors, other players). <b>Figure-8</b> rejects the sides and hears front and back. <b>Omni</b> hears everything, sounds most natural and has no proximity effect.</p>
+      </div>
+      <div class="factor">
+        <div class="fn">05 · Character</div>
+        <h3>What colour do you want?</h3>
+        <p>Neutral and detailed (<b>FET condenser</b>), warm and flattering (<b>tube</b>), smooth and dark (<b>ribbon</b>), punchy midrange (<b>dynamic</b>). Pick the mic whose colour moves the source toward the sound you want.</p>
+      </div>
+      <div class="factor">
+        <div class="fn">06 · Practical</div>
+        <h3>Will it work on the day?</h3>
+        <p>Power (48 V phantom, tube PSU), fragility, size, handling noise and cost. A <b>budget dynamic</b> that survives a stage beats an <b>expensive tube mic</b> that can’t go on one.</p>
+      </div>
+    </div>
+    <div class="takeaway"><b>Takeaway:</b> start from the source and the room, not the price tag. Choose the mic that solves your biggest problem first (level, spill or harshness), then choose for character.</div>
+  </section>
+</main>
+
+<script>
+/* ============================================================
+   DATA — mic families match micLabShared.js MIC_TYPES ids.
+   ATTR 1–5: spl (level handling), detail (transients / low-level
+   detail), room (how little room/ambience it picks up), durable,
+   warmth (harmonic colour), smooth (soft top end), iso (isolation
+   from everything that isn't the source).
+   ============================================================ */
+const MICS = {
+  'dynamic':        { label:'Dynamic',           sub:'Moving-coil · usually cardioid',
+                      specs:[['Power','none'],['Max SPL','very high'],['Pattern','cardioid / super'],['Build','rugged']],
+                      examples:'Shure SM57 / SM7B, Electro-Voice RE20, Sennheiser MD 421',
+                      attr:{spl:5,detail:2,room:4,durable:5,warmth:3,smooth:3,iso:3} },
+  'condenser-fet':  { label:'Condenser (FET)',   sub:'Capacitor capsule · 48 V phantom',
+                      specs:[['Power','48 V phantom'],['Max SPL','moderate–high'],['Pattern','cardioid / multi'],['Build','handle with care']],
+                      examples:'Neumann U 87 Ai, AKG C414 (large-diaphragm); Neumann KM 184, Rode NT5 (small-diaphragm)',
+                      attr:{spl:3,detail:5,room:1,durable:2,warmth:2,smooth:2,iso:2} },
+  'condenser-tube': { label:'Condenser (Tube)',  sub:'Capacitor capsule · tube + own PSU',
+                      specs:[['Power','external PSU'],['Warm-up','~10–15 min'],['Pattern','cardioid / multi'],['Build','fragile']],
+                      examples:'Neumann U 47, AKG C12, Telefunken ELA M 251 (and their modern reissues)',
+                      attr:{spl:3,detail:4,room:1,durable:1,warmth:5,smooth:4,iso:2} },
+  'ribbon':         { label:'Ribbon',            sub:'Aluminium ribbon · figure-8',
+                      specs:[['Power','none (passive)'],['Pattern','figure-8'],['Top end','smooth roll-off'],['Build','fragile ribbon']],
+                      examples:'Royer R-121, Coles 4038, AEA R84',
+                      attr:{spl:3,detail:4,room:1,durable:1,warmth:4,smooth:5,iso:1} },
+  'contact':        { label:'Contact mic',       sub:'Piezo · senses vibration, not air',
+                      specs:[['Power','needs DI / preamp'],['Isolation','near total'],['Tone','coloured'],['Build','tough']],
+                      examples:'Piezo pickups and clip-on contact transducers',
+                      attr:{spl:5,detail:1,room:5,durable:4,warmth:1,smooth:1,iso:5} },
+};
+const MIC_IDS = Object.keys(MICS);
+
+/* Sources: fit 0–5 per mic (0 = not practical), default loudness,
+   and a one-line "why it suits this source" per mic. */
+const SOURCES = [
+  { id:'lead-vocal', label:'Lead vocal', level:'medium',
+    fit:{'dynamic':3,'condenser-fet':5,'condenser-tube':5,'ribbon':3,'contact':0},
+    note:{'dynamic':'Forgiving on a loud or untrained singer and hides mouth noise.',
+          'condenser-fet':'Captures every breath, consonant and vibrato — the modern studio vocal sound.',
+          'condenser-tube':'The classic flattering vocal mic: detail plus a warm, silky top end.',
+          'ribbon':'Smooths sibilance and harsh top end on a bright voice.'}},
+  { id:'podcast', label:'Podcast / voiceover', level:'quiet',
+    fit:{'dynamic':5,'condenser-fet':4,'condenser-tube':3,'ribbon':2,'contact':0},
+    note:{'dynamic':'Close-talk broadcast sound with a full low end and little room.',
+          'condenser-fet':'Clear, crisp voice with lots of detail — if the room is quiet.',
+          'condenser-tube':'Rich, warm “announcer” voice in a treated booth.',
+          'ribbon':'Dark, vintage radio tone.'}},
+  { id:'acoustic', label:'Acoustic guitar', level:'quiet',
+    fit:{'dynamic':2,'condenser-fet':5,'condenser-tube':3,'ribbon':4,'contact':2},
+    note:{'dynamic':'Usable, but the string shimmer and pick detail get dulled.',
+          'condenser-fet':'A small-diaphragm pencil condenser catches pick attack and string shimmer accurately.',
+          'condenser-tube':'Big, warm solo guitar tone.',
+          'ribbon':'Warm, natural body without harsh string squeak.',
+          'contact':'Captures the body’s resonance directly, with no spill.'}},
+  { id:'guitar-amp', label:'Electric guitar amp', level:'loud',
+    fit:{'dynamic':5,'condenser-fet':2,'condenser-tube':1,'ribbon':5,'contact':0},
+    note:{'dynamic':'The studio standard on a speaker cone: handles the level and gives a punchy midrange.',
+          'condenser-fet':'Works from a distance for room tone, but is easily overloaded up close.',
+          'condenser-tube':'Rarely used close on a loud cab.',
+          'ribbon':'Its natural high-frequency roll-off tames fizzy distortion without EQ.'}},
+  { id:'kick-snare', label:'Kick / snare', level:'very-loud',
+    fit:{'dynamic':5,'condenser-fet':3,'condenser-tube':0,'ribbon':1,'contact':2},
+    note:{'dynamic':'Built for close, hard-hitting drums — no distortion, no damage.',
+          'condenser-fet':'Adds snap and air on a snare if it has a pad and high SPL rating.',
+          'ribbon':'Occasionally used for a vintage kick, but a hard hit can damage the ribbon.',
+          'contact':'A drum trigger-style pickup: isolated, good for layering or sampling.'}},
+  { id:'overheads', label:'Drum overheads', level:'loud',
+    fit:{'dynamic':1,'condenser-fet':5,'condenser-tube':3,'ribbon':4,'contact':0},
+    note:{'dynamic':'Lacks the high-end detail to capture cymbals well.',
+          'condenser-fet':'A matched small-diaphragm pair gives accurate cymbals and a stable stereo image.',
+          'condenser-tube':'A lush, vintage-sounding kit picture.',
+          'ribbon':'A ribbon pair softens harsh cymbals, giving a classic, darker kit sound.'}},
+  { id:'brass-strings', label:'Brass / strings', level:'medium',
+    fit:{'dynamic':3,'condenser-fet':4,'condenser-tube':3,'ribbon':5,'contact':1},
+    note:{'dynamic':'Handles a loud trumpet close up, but loses some of the air.',
+          'condenser-fet':'Detailed and airy, especially for strings at a distance.',
+          'condenser-tube':'Rich, warm orchestral colour.',
+          'ribbon':'The classic brass and strings mic: smooth top end with no harsh edge.',
+          'contact':'A pickup on a violin or cello body works live, but sounds less natural.'}},
+];
+const LEVELS = [
+  {id:'quiet', label:'Quiet'},
+  {id:'medium', label:'Medium'},
+  {id:'loud', label:'Loud'},
+  {id:'very-loud', label:'Very loud'},
+];
+const ROOMS = [
+  {id:'treated', label:'Treated studio'},
+  {id:'untreated', label:'Untreated room'},
+  {id:'stage', label:'Live stage'},
+  {id:'noisy', label:'Noisy location'},
+];
+const GOALS = [
+  {id:'natural', label:'Natural & detailed'},
+  {id:'warm', label:'Warm & vintage'},
+  {id:'smooth', label:'Smooth, tame harshness'},
+  {id:'punchy', label:'Punchy & upfront'},
+];
+
+/* Reason copy per factor/attribute — positive (why this mic) and
+   negative (why not), phrased for the student. */
+const COPY = {
+  spl:{ pos:'Handles high sound pressure without distorting — it won’t clip or get damaged by this level.',
+        neg:'Loud sources can overload it (or, for a ribbon, damage it).'},
+  detail:{ pos:'Its light diaphragm picks up fast transients and quiet detail.',
+           neg:'Its heavier diaphragm rounds off quiet detail and transients.'},
+  room:{ pos:'Its lower sensitivity and tight pattern keep reflections and background noise out of the take.',
+         neg:'It picks up the room as clearly as the source, so reflections and noise end up in the take.'},
+  durable:{ pos:'Rugged enough to survive knocks, drops and spill on stage.',
+            neg:'Too fragile and too prone to handling noise for a stage.'},
+  warmth:{ pos:'Adds gentle harmonic colour, the “warm, vintage” sound.',
+           neg:'Too clean or too thin to give a warm, vintage colour.'},
+  smooth:{ pos:'Its soft, rolled-off top end smooths harsh highs without EQ.',
+           neg:'Its bright, detailed top end can make harshness worse.'},
+  iso:{ pos:'Senses the source directly, so bleed and ambient noise almost disappear.',
+        neg:'It picks up everything around it, so other instruments and noise bleed in.'},
+  punch:{ pos:'Its natural midrange presence and close-up proximity effect sound punchy and upfront.',
+          neg:'It sounds more open and distant than punchy.'},
+};
+const FACTOR_TAG = {fit:'Source', spl:'Loudness', detail:'Detail', room:'Room', durable:'Practical', warmth:'Character', smooth:'Character', iso:'Isolation', punch:'Character'};
+
+/* ============================================================
+   SCORING — returns total + per-factor contributions so the UI
+   can explain the result. Each term = (attr − 3) × weight.
+   ============================================================ */
+function SCORE(micId, s){
+  const a = MICS[micId].attr;
+  const src = SOURCES.find(x=>x.id===s.source);
+  const fit = src.fit[micId];
+  const parts = [];
+  const add = (key, attrVal, w) => { if(w) parts.push({key, v:(attrVal-3)*w}); };
+
+  parts.push({key:'fit', v:(fit-3)*2.2});
+
+  // loudness
+  const lw = {quiet:0, medium:0.4, loud:1.2, 'very-loud':2}[s.level];
+  add('spl', a.spl, lw);
+  if(s.level==='quiet') add('detail', a.detail, 1);
+
+  // room
+  if(s.room==='untreated'){ add('room', a.room, 1.8); }
+  if(s.room==='stage'){ add('room', a.room, 1.2); add('durable', a.durable, 1.2); }
+  if(s.room==='noisy'){ add('room', a.room, 2); add('iso', a.iso, 2); }
+  if(s.room==='treated'){ add('detail', a.detail, 0.5); }
+
+  // goal
+  if(s.goal==='natural') add('detail', a.detail, 1.1);
+  if(s.goal==='warm')    add('warmth', a.warmth, 1.4);
+  if(s.goal==='smooth')  add('smooth', a.smooth, 1.4);
+  if(s.goal==='punchy')  add('punch', {dynamic:5,'condenser-fet':2,'condenser-tube':3,ribbon:3,contact:2}[micId], 1.2);
+
+  // merge duplicate keys (e.g. detail from room + goal)
+  const merged = {};
+  parts.forEach(p=>{ merged[p.key]=(merged[p.key]||0)+p.v; });
+  let total = Object.values(merged).reduce((t,v)=>t+v, 0);
+  if(fit===0) total -= 20;  // not practical for this source
+  return { id:micId, total, fit, parts:Object.entries(merged).map(([key,v])=>({key,v})) };
+}
+
+/* ---------- state ---------- */
+const state = { source:'lead-vocal', level:'medium', room:'treated', goal:'natural', levelAuto:true, hear:null };
+
+/* ---------- icons (simple, generic mic silhouettes) ---------- */
+function micIcon(id){
+  const c='currentColor';
+  const shapes = {
+    'dynamic':'<ellipse cx="16" cy="9" rx="7" ry="7" fill="none" stroke="'+c+'" stroke-width="1.8"/><path d="M11 6h10M10 9h12M11 12h10" stroke="'+c+'" stroke-width="1"/><path d="M13 16l1 12h4l1-12" fill="none" stroke="'+c+'" stroke-width="1.8" stroke-linejoin="round"/>',
+    'condenser-fet':'<rect x="10" y="2" width="12" height="18" rx="6" fill="none" stroke="'+c+'" stroke-width="1.8"/><path d="M11 8h10M11 11h10M11 14h10" stroke="'+c+'" stroke-width="1"/><path d="M13 20h6v9h-6z" fill="none" stroke="'+c+'" stroke-width="1.8"/>',
+    'condenser-tube':'<rect x="10" y="2" width="12" height="16" rx="6" fill="none" stroke="'+c+'" stroke-width="1.8"/><path d="M11 8h10M11 11h10" stroke="'+c+'" stroke-width="1"/><rect x="12" y="18" width="8" height="11" rx="1.5" fill="none" stroke="'+c+'" stroke-width="1.8"/><circle cx="16" cy="23.5" r="1.8" fill="'+c+'"/>',
+    'ribbon':'<rect x="9" y="3" width="14" height="18" rx="3" fill="none" stroke="'+c+'" stroke-width="1.8"/><path d="M16 5v14" stroke="'+c+'" stroke-width="1.4" stroke-dasharray="2 1.4"/><path d="M14 21v8h4v-8" fill="none" stroke="'+c+'" stroke-width="1.8"/>',
+    'contact':'<circle cx="16" cy="13" r="8" fill="none" stroke="'+c+'" stroke-width="1.8"/><circle cx="16" cy="13" r="3.5" fill="none" stroke="'+c+'" stroke-width="1.4"/><path d="M16 21c0 4 4 4 6 8" fill="none" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/>',
+  };
+  return '<svg viewBox="0 0 32 32" style="color:var(--green)">'+shapes[id]+'</svg>';
+}
+
+/* ---------- render questions ---------- */
+function renderChips(q, list){
+  const el = document.querySelector(`[data-q="${q}"]`);
+  const src = SOURCES.find(x=>x.id===state.source);
+  el.innerHTML = list.map(o=>{
+    const auto = q==='level' && state.levelAuto && src.level===o.id ? '<span class="auto">auto</span>' : '';
+    return `<button class="chip" data-v="${o.id}" aria-pressed="${state[q]===o.id}">${o.label}${auto}</button>`;
+  }).join('');
+  el.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{
+    state[q]=b.dataset.v;
+    if(q==='source' && state.levelAuto) state.level = SOURCES.find(x=>x.id===state.source).level;
+    if(q==='level') state.levelAuto = false;
+    if(q==='source'){ state.levelAuto = true; state.level = SOURCES.find(x=>x.id===state.source).level; }
+    state.hear = null;
+    render();
+  });
+}
+
+/* ---------- render result ---------- */
+function render(){
+  renderChips('source', SOURCES);
+  renderChips('level', LEVELS);
+  renderChips('room', ROOMS);
+  renderChips('goal', GOALS);
+
+  const results = MIC_IDS.map(id=>SCORE(id, state)).sort((a,b)=>b.total-a.total);
+  const win = results[0];
+  const src = SOURCES.find(x=>x.id===state.source);
+  const m = MICS[win.id];
+
+  // normalise to 0–100 for the meter (fixed range so bars are comparable across answers)
+  const pct = t => Math.max(4, Math.min(100, Math.round(((t + 14) / 28) * 100)));
+
+  // pick header
+  const close = results[1] && (win.total - results[1].total) < 1.2;
+  document.getElementById('pickTag').textContent = close ? 'Best pick · close call' : 'Best pick';
+  document.getElementById('pickIcon').innerHTML = micIcon(win.id);
+  let name = m.label;
+  if(win.id==='condenser-fet' && (state.source==='acoustic' || state.source==='overheads'))
+    name += state.source==='overheads' ? ' — small-diaphragm pair' : ' — small-diaphragm';
+  document.getElementById('pickName').textContent = name;
+  document.getElementById('pickSub').textContent = m.sub + ' · for ' + src.label.toLowerCase();
+  document.getElementById('pickSpecs').innerHTML = m.specs.map(([k,v])=>`<span class="spec">${k} <b>${v}</b></span>`).join('');
+
+  // why this mic: source note first, then strongest positive factors
+  const pos = win.parts.filter(p=>p.key!=='fit' && p.v>0.4).sort((a,b)=>b.v-a.v).slice(0,3);
+  const why = [];
+  if(src.note[win.id]) why.push({tag:'Source', text:src.note[win.id]});
+  pos.forEach(p=>why.push({tag:FACTOR_TAG[p.key], text:COPY[p.key].pos}));
+  // honest trade-off: its biggest weakness, if any
+  const weak = win.parts.filter(p=>p.v<-0.5).sort((a,b)=>a.v-b.v)[0];
+  let html = why.map(r=>`<li><span class="ftag">${r.tag}</span><span>${r.text}</span></li>`).join('');
+  if(weak){
+    html += `<li><span class="ftag" style="color:var(--amber);border-color:var(--amber-dim)">Trade-off</span><span>${weakText(weak.key, win.id)}</span></li>`;
+  }
+  document.getElementById('whyList').innerHTML = html;
+  document.getElementById('examples').innerHTML = `<b>Classic examples:</b> ${m.examples}`;
+
+  // ranked meter
+  const rank = document.getElementById('rank');
+  rank.innerHTML = results.map((r,i)=>{
+    const cls = i===0 ? 'win' : r.fit===0 ? 'no' : i<3 ? 'alt' : '';
+    return `<button class="rank-row ${cls}" data-mic="${r.id}" title="Hear ${MICS[r.id].label}">
+      <span class="nm">${MICS[r.id].label}</span>
+      <span class="bar"><i style="width:${r.fit===0?4:pct(r.total)}%"></i></span>
+      <span class="pct">${r.fit===0?'n/a':pct(r.total)}</span></button>`;
+  }).join('');
+  rank.querySelectorAll('.rank-row').forEach(b=>b.onclick=()=>{ if(results.find(r=>r.id===b.dataset.mic).fit>0){ state.hear=b.dataset.mic; renderPlayer(results); }});
+
+  // why not the others
+  // each mic gets its biggest weakness, but skip a reason already shown for
+  // another mic so the list teaches something different on every row
+  const usedKeys = new Set();
+  document.getElementById('whyNot').innerHTML = results.slice(1).map(r=>{
+    let txt;
+    if(r.fit===0) txt = `<em>Not practical</em> for ${src.label.toLowerCase()}. It isn’t used this way.`;
+    else {
+      const negs = r.parts.filter(p=>p.v<0).sort((a,b)=>a.v-b.v);
+      const worst = negs.find(p=>!usedKeys.has(p.key)) || negs[0];
+      if(worst) usedKeys.add(worst.key);
+      txt = worst ? weakText(worst.key, r.id, src) : `<em>Also a good choice.</em> ${src.note[r.id]||''}`;
+    }
+    return `<div class="wn"><span class="nm">${MICS[r.id].label}</span><span class="tx">${txt}</span></div>`;
+  }).join('');
+
+  renderPlayer(results);
+}
+
+function weakText(key, micId, src){
+  if(key==='fit'){
+    const s = src || SOURCES.find(x=>x.id===state.source);
+    return `<em>Not a usual choice</em> for ${s.label.toLowerCase()}. ${s.note[micId] || ''}`;
+  }
+  return COPY[key].neg;
+}
+
+/* ---------- A/B player (top 3 practical mics) ---------- */
+function renderPlayer(results){
+  const opts = results.filter(r=>r.fit>0).slice(0,3).map(r=>r.id);
+  if(!state.hear || !opts.includes(state.hear)) state.hear = state.hear && MICS[state.hear] ? state.hear : opts[0];
+  const list = opts.includes(state.hear) ? opts : [...opts, state.hear];
+  const ab = document.getElementById('ab');
+  ab.innerHTML = list.map(id=>`<button class="chip" data-mic="${id}" aria-pressed="${state.hear===id}">${MICS[id].label}</button>`).join('');
+  ab.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{ state.hear=b.dataset.mic; renderPlayer(results); });
+  document.getElementById('clipPath').textContent = `mic-selection/${state.hear}-${state.source}.mp3`;
+}
+
+/* placeholder playback — swap for ClipPlayer from mic-types-chapter.html */
+const audio = new Audio();
+document.querySelector('#player .play').onclick = () => {
+  audio.src = `audio/mic-selection/${state.hear}-${state.source}.mp3`;
+  audio.play().catch(()=>{ document.getElementById('clipPath').textContent = 'Clip pending'; });
+};
+
+document.getElementById('themeBtn').onclick = () => {
+  const h = document.documentElement;
+  h.dataset.theme = h.dataset.theme === 'dark' ? 'light' : 'dark';
+};
+
+render();
+</script>
+</body>
+</html>

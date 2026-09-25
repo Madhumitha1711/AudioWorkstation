@@ -142,6 +142,31 @@ export function saveHistoryEntry(entry) {
   return next;
 }
 
+/* A result's calendar age / comparison group can be corrected after the
+   test (they don't change the measurements, only what they're compared
+   with) — keep the saved trend entry for that test in step. */
+export function updateHistoryEntry(date, patch) {
+  const next = loadHistory().map((h) => (h.date === date ? { ...h, ...patch } : h));
+  try {
+    window.localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+  } catch {
+    /* storage unavailable */
+  }
+  return next;
+}
+
+/* Calendar age from the setup field: whole years 18–90, else null. No
+   silent clamping — a clamped age (e.g. 16 → 18) is exactly the "my
+   calendar age doesn't match what I entered" bug. */
+export const AGE_MIN = 18;
+export const AGE_MAX = 90;
+export function parseAge(str) {
+  const v = String(str).trim();
+  if (!/^\d{1,3}$/.test(v)) return null;
+  const a = Number(v);
+  return a >= AGE_MIN && a <= AGE_MAX ? a : null;
+}
+
 /* Everything the Results tab shows, derived from one result object. */
 export function computeResults(r) {
   const { sex } = r;

@@ -407,3 +407,22 @@
 .hha-calc span { color: var(--text-dim); }
 .hha-calc b { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
 @media (max-width: 520px) { .hha-calc { grid-template-columns: 1fr; gap: 2px; } .hha-calc b { margin-bottom: 6px; } }
+
+/* Age validation + the inline calendar-age box on the Results banner. */
+.hha-field-error { min-height: 1.2em; font-size: 12.5px; color: var(--hha-red); }
+.hha-field input[aria-invalid='true'], .hha-inline-age[aria-invalid='true'] { border-color: var(--hha-red); }
+.hha-inline-age {
+  width: 4.2em; padding: 2px 6px; font: inherit; font-weight: 600; color: var(--text);
+  background: var(--hha-well); border: 1px solid var(--border); border-radius: 6px;
+}
+
+/* Part 2 trace: every level tried for the current tone, so the
+   down-10 / up-5 zig-zag reads as deliberate rather than random. */
+.hha-trace { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin: 0; padding: 0; list-style: none; min-height: 22px; max-width: 420px; }
+.hha-trace li {
+  font-size: 11.5px; font-variant-numeric: tabular-nums; padding: 2px 7px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--hha-well); color: var(--text-dim);
+}
+.hha-trace li span { margin-left: 3px; }
+.hha-trace li.yes span { color: var(--hha-green); }
+.hha-trace li.no span { color: var(--hha-amber); }

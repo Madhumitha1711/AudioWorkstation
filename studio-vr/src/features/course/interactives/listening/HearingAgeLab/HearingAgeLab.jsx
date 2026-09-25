@@ -20,8 +20,10 @@ import {
   levelGain,
   loadHistory,
   median,
+  parseAge,
   pta,
   saveHistoryEntry,
+  updateHistoryEntry,
   sweepFreqAt,
   whoGrade,
   zoneFor,
@@ -332,13 +334,25 @@ export default function HearingAgeLab({ onInteract }) {
          the next trial plays; the answer buttons are locked during it.
          Without it the next, quieter beeps started the instant "Heard it"
          was pressed and sounded like the same tone carrying on. */
-  const MAX_TRIALS = 8;
+  // 14 answers per tone is enough for three ascending runs; a normal
+  // listener confirms in ~9–10 (40✓ 30✓ 20✓ 10✓ 0✗ 5✓ -5✗ 0✗ 5✓ → 5 dB).
+  // The old cap of 8 cut most tones off before the second ascending "heard",
+  // so the result fell back to a (less reliable) descending answer.
+  const MAX_TRIALS = 14;
   const thrRef = useRef(null);
-  const [thrView, setThrView] = useState({ i: 0, busy: true, live: false, waiting: false, L: 40, msg: null });
+  const [thrView, setThrView] = useState({ i: 0, busy: true, live: false, waiting: false, L: 40, msg: null, path: [] });
   const needsReplayRef = useRef(false);
   const thrEar = (i) => (i < THR_FREQS.length ? "R" : "L");
   const thrFreq = (i) => THR_FREQS[i % THR_FREQS.length];
-  const freshTrialState = () => ({ L: 40, asc: {}, lastNo: false, n: 0, lowestYes: null, live: false });
+  // asc[L]  = "heard" answers at level L that came right after a "nothing"
+  //           (i.e. on the way up) — only these count towards the threshold.
+  // ascYes  = every such level, for the fallback when the cap is hit.
+  // path    = every level tried + answer, shown on screen as a trace.
+  const freshTrialState = () => ({ L: 40, asc: {}, ascYes: [], lastNo: false, n: 0, lowestYes: null, live: false, path: [] });
+  /* Cap reached without two matching ascending answers: use the lowest
+     level heard on the way up; failing that the lowest heard at all; never
+     heard → the level we stopped at (no response). */
+  const fallbackThr = (t) => (t.ascYes.length ? Math.min(...t.ascYes) : t.lowestYes ?? t.L);
 
   function initThr() {
     thrRef.current = { i: 0, ...freshTrialState() };
@@ -350,7 +364,7 @@ export default function HearingAgeLab({ onInteract }) {
     const f = thrFreq(t.i);
     clearTimers();
     t.live = true; // a trial is on screen — answers now count
-    setThrView({ i: t.i, busy: true, live: true, waiting: false, L: t.L, msg });
+    setThrView({ i: t.i, busy: true, live: true, waiting: false, L: t.L, msg, path: t.path });
     setToneOn(true);
     needsReplayRef.current = true;
     [0, 450, 900].forEach((d) => later(() => tone({ freq: f, gain: levelGain(t.L), pan, dur: 0.25, ramp: 0.02 }), d));
@@ -374,18 +388,32 @@ export default function HearingAgeLab({ onInteract }) {
     silenceTrial();
     t.n++;
     const was = t.L;
+    t.path = [...t.path, { L: was, heard }];
     if (heard) {
-      if (t.lastNo) t.asc[t.L] = (t.asc[t.L] || 0) + 1;
-      t.lowestYes = t.lowestYes == null ? t.L : Math.min(t.lowestYes, t.L);
-      if (t.asc[t.L] >= 2 || t.L <= -10 || t.n >= MAX_TRIALS) return recordThr(t.L);
-      t.L = Math.max(-10, t.L - 10);
+      const ascending = t.lastNo;
+      if (ascending) {
+        t.asc[was] = (t.asc[was] || 0) + 1;
+        t.ascYes.push(was);
+      }
+      t.lowestYes = t.lowestYes == null ? was : Math.min(t.lowestYes, was);
+      if (t.asc[was] >= 2 || was <= -10) return recordThr(was);
+      if (t.n >= MAX_TRIALS) return recordThr(fallbackThr(t));
+      t.L = Math.max(-10, was - 10);
       t.lastNo = false;
-      queueTrial({ tone: "green", text: `Heard at ${was} dB — trying quieter` });
+      queueTrial(
+        ascending
+          ? { tone: "green", text: `Heard at ${was} dB on the way up (${t.asc[was]} of 2) — dropping 10 dB to double-check` }
+          : { tone: "green", text: `Heard at ${was} dB — trying 10 dB quieter` },
+      );
     } else {
       t.lastNo = true;
-      if (t.n >= MAX_TRIALS || t.L >= 90) return recordThr(t.lowestYes ?? t.L);
-      t.L = Math.min(90, t.L + 5);
-      queueTrial({ tone: "amber", text: `Not heard at ${was} dB — a little louder` });
+      if (was >= 90) return recordThr(90);
+      if (t.n >= MAX_TRIALS) return recordThr(fallbackThr(t));
+      t.L = Math.min(90, was + 5);
+      queueTrial({
+        tone: "amber",
+        text: `Not heard at ${was} dB — going up in small 5 dB steps. Close to your limit the beeps will stay faint; that's expected.`,
+      });
     }
   }
   /* Lock the answers, wait a short silent pause, then play the next trial. */
@@ -393,7 +421,7 @@ export default function HearingAgeLab({ onInteract }) {
     const t = thrRef.current;
     t.live = false;
     needsReplayRef.current = true; // leaving the tab mid-pause replays on return
-    setThrView({ i: t.i, busy: true, live: false, waiting: true, L: t.L, msg });
+    setThrView({ i: t.i, busy: true, live: false, waiting: true, L: t.L, msg, path: t.path });
     later(() => presentTrial(msg), base + Math.random() * 800);
   }
   function replayTrial() {
@@ -411,7 +439,7 @@ export default function HearingAgeLab({ onInteract }) {
     Object.assign(t, freshTrialState()); // live=false until the next trial starts
     const msg = {
       tone: "green",
-      text: `✓ ${f / 1000} kHz done. Next: ${thrFreq(t.i) / 1000} kHz${t.i === THR_FREQS.length ? " in your left ear" : ""}`,
+      text: `✓ ${f / 1000} kHz: your quietest level is ${L} dB. Next: ${thrFreq(t.i) / 1000} kHz${t.i === THR_FREQS.length ? " in your left ear" : ""}`,
     };
     queueTrial(msg, 1200);
   }
@@ -437,10 +465,23 @@ export default function HearingAgeLab({ onInteract }) {
     if (n === 2) initThr();
   }
   function startTest() {
-    const age = Math.max(18, Math.min(90, parseInt(ageInput, 10) || 32));
-    setAgeInput(String(age));
+    const age = parseAge(ageInput);
+    if (age == null) return; // Start is disabled; the field shows why
     testRef.current = { age, sex, ceil: {}, thr: { R: {}, L: {} } };
     goStep(1);
+  }
+  /* Age / comparison group changed (setup form or the Results banner).
+     They don't affect the measurements, only what they're compared with,
+     so an existing result is re-scored straight away instead of showing
+     the age that was typed before the test. */
+  function updateProfile(nextAgeInput, nextSex) {
+    setAgeInput(nextAgeInput);
+    setSex(nextSex);
+    const a = parseAge(nextAgeInput);
+    if (a == null || !results || (results.age === a && results.sex === nextSex)) return;
+    const r = { ...results, age: a, sex: nextSex };
+    setResults(r);
+    setHistory(updateHistoryEntry(r.date, { age: a, hear: computeResults(r).hear }));
   }
   function retake() {
     abortAudio();
@@ -505,6 +546,7 @@ export default function HearingAgeLab({ onInteract }) {
   /* ================= derived ================= */
   const res = useMemo(() => (results ? computeResults(results) : null), [results]);
   const allChecked = checks.every(Boolean);
+  const ageOk = parseAge(ageInput) != null;
 
   return (
     <div
@@ -561,13 +603,27 @@ export default function HearingAgeLab({ onInteract }) {
                 <div className="hha-row" style={{ gap: 18, alignItems: "flex-end", marginBottom: 18 }}>
                   <div className="hha-field">
                     <label htmlFor="hha-age">Age</label>
-                    <input id="hha-age" type="number" min="18" max="90" value={ageInput} onChange={(e) => setAgeInput(e.target.value)} />
+                    <input
+                      id="hha-age"
+                      type="number"
+                      inputMode="numeric"
+                      min="18"
+                      max="90"
+                      step="1"
+                      value={ageInput}
+                      aria-invalid={!ageOk}
+                      aria-describedby="hha-age-err"
+                      onChange={(e) => updateProfile(e.target.value, sex)}
+                    />
                   </div>
                   <div className="hha-field">
                     <span className="hha-field-label">Compare with</span>
-                    <Seg label="Compare with" value={sex} onChange={setSex} options={[["m", "Men"], ["f", "Women"], ["x", "Everyone"]]} />
+                    <Seg label="Compare with" value={sex} onChange={(v) => updateProfile(ageInput, v)} options={[["m", "Men"], ["f", "Women"], ["x", "Everyone"]]} />
                   </div>
                 </div>
+                <p id="hha-age-err" className="hha-field-error" role="alert" style={{ margin: "-8px 0 14px" }}>
+                  {ageOk ? "" : "Enter your age in whole years, 18 to 90 (the hearing tables start at 18)."}
+                </p>
                 <p className="hha-label">Set your volume</p>
                 <div className="hha-cal">
                   <button type="button" className="hha-play" aria-label="Play reference tone" onClick={() => tone({ freq: 1000, gain: 0.12, dur: 1.5 })}>
@@ -583,7 +639,7 @@ export default function HearingAgeLab({ onInteract }) {
             </div>
             <div className="hha-row" style={{ marginTop: 22 }}>
               <span className="hha-spacer" />
-              <button type="button" className="hha-btn primary" disabled={!allChecked} onClick={startTest}>
+              <button type="button" className="hha-btn primary" disabled={!allChecked || !ageOk} onClick={startTest}>
                 Start test →
               </button>
             </div>
@@ -655,7 +711,7 @@ export default function HearingAgeLab({ onInteract }) {
                   ? "Get ready — next beeps in a moment…"
                   : thrView.busy
                   ? "Listen… press Heard it as soon as you hear the beeps."
-                  : "Did you hear three short beeps? They get quieter each time you hear them."}
+                  : "Did you hear three short beeps? Quieter after each ✓, a little louder after each ✗ — that zig-zag homes in on your limit."}
               </p>
               <div className="hha-level" role="img" aria-label={`Level ${thrView.L} dB`}>
                 <span>Level</span>
@@ -664,6 +720,14 @@ export default function HearingAgeLab({ onInteract }) {
                 </div>
                 <b>{thrView.L} dB</b>
               </div>
+              <ol className="hha-trace" aria-label="Levels tried for this tone">
+                {thrView.path.map((p, k) => (
+                  <li key={k} className={p.heard ? "yes" : "no"}>
+                    {p.L}
+                    <span aria-label={p.heard ? "heard" : "not heard"}>{p.heard ? "✓" : "✗"}</span>
+                  </li>
+                ))}
+              </ol>
               <p className={`hha-feedback${thrView.msg ? ` hha-tone-${thrView.msg.tone}` : ""}`} aria-live="polite">
                 {thrView.msg?.text ?? " "}
               </p>
@@ -709,7 +773,7 @@ export default function HearingAgeLab({ onInteract }) {
       {/* ============================ RESULTS ============================ */}
       <section role="tabpanel" hidden={tab !== "results"}>
         {results ? (
-          <ResultsView r={results} res={res} history={history} onRetake={retake} />
+          <ResultsView r={results} res={res} history={history} onRetake={retake} onAge={(v) => updateProfile(v, results.sex)} />
         ) : (
           <div className="hha-panel hha-empty">
             <SpeakerRing />
@@ -1100,8 +1164,11 @@ function HowWeCalculate() {
 }
 
 /* ---------------------------------------------------------------- */
-function ResultsView({ r, res, history, onRetake }) {
+function ResultsView({ r, res, history, onRetake, onAge }) {
   const { ears, hear, delta, zone, insights } = res;
+  // Text being typed into the banner's age box (null = show r.age). Only a
+  // valid age is applied, so half-typed values never re-score the result.
+  const [ageDraft, setAgeDraft] = useState(null);
   const Z = ZONES[zone];
   const tone = Z.tone;
 
@@ -1124,7 +1191,24 @@ function ResultsView({ r, res, history, onRetake }) {
           <>
             <span className="hha-tag hha-tag-ok">Your test</span>
             <span>
-              Results from {new Date(r.date).toLocaleDateString()} · compared with <b>{SEX_LABEL[r.sex]}</b> aged {r.age}.
+              Results from {new Date(r.date).toLocaleDateString()} · compared with <b>{SEX_LABEL[r.sex]}</b> aged{" "}
+              <input
+                className="hha-inline-age"
+                type="number"
+                inputMode="numeric"
+                min="18"
+                max="90"
+                step="1"
+                aria-label="Calendar age"
+                value={ageDraft ?? String(r.age)}
+                aria-invalid={ageDraft != null && parseAge(ageDraft) == null}
+                onChange={(e) => {
+                  setAgeDraft(e.target.value);
+                  if (parseAge(e.target.value) != null) onAge(e.target.value);
+                }}
+                onBlur={() => setAgeDraft(null)}
+              />
+              .
             </span>
           </>
       </div>

@@ -34,6 +34,8 @@ interactives/
   microphones/           # Ch.6 "Microphones: Types, Characteristics & Selection"
     shared/              #   micLabShared.js, micLabs.css, MicPortrait, MicPolarDiagram
     MicTypeLab/ MicTypeCompareLab/ MicPolarPatternLab/ MicPolarCompareLab/
+    MicSelectionLab/     #   mic-selection-lab: "Pick the mic for the job" — 4 questions ->
+                         #   scored pick + why / why not (micSelectionData.js)
     MicPlacementLab/     #   embed frame + MikingRoom/ (3D room, three.js)
   mic-techniques/        # Ch.7 "Microphone Techniques and Stereo Recording"
     MicTechniqueLab/     #   embed frame + MicTechniqueRoom/ (3D room, three.js)

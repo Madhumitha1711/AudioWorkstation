@@ -20,6 +20,7 @@ import MicTypeLab from "./microphones/MicTypeLab";
 import MicTypeCompareLab from "./microphones/MicTypeCompareLab";
 import MicPolarPatternLab from "./microphones/MicPolarPatternLab";
 import MicPolarCompareLab from "./microphones/MicPolarCompareLab";
+import MicSelectionLab from "./microphones/MicSelectionLab";
 import MicPlacementLab from "./microphones/MicPlacementLab";
 import MicTechniqueLab from "./mic-techniques/MicTechniqueLab";
 import StudioComponentsLab from "./foundations/StudioComponentsLab";
@@ -55,11 +56,14 @@ export const LABS = {
   // listen panel, no prose); mic-type-compare-lab is the three-column
   // spec-comparison view, image plus a short clean summary sentence per
   // type (MIC_TYPES[].summary in micLabShared.js) instead of the full
-  // paragraphs. There used to be a third, separate mic-selection-lab
-  // (MicSelectionLab.jsx), but it converged on being visually identical
-  // to mic-type-lab — same room-toggle type picker, same listen panel —
-  // so it was removed; the kind below just aliases MicTypeLab directly
-  // now rather than keeping a duplicate component around.
+  // paragraphs.
+  //
+  // mic-selection-lab ("Pick the mic for the job", ported from
+  // design/mic-selection-lab.html) is its own component again: the student
+  // answers source / loudness / room / desired sound, all five mic families
+  // are re-scored live, and the lab explains the pick ("Why this mic",
+  // ranked fit for all five, "Why not the others") plus the six factors
+  // behind any mic choice. It used to just alias MicTypeLab.
   //
   // mic-polar-pattern-lab/mic-polar-compare-lab are the same browse/
   // compare pairing applied to polar patterns instead of mic types, and
@@ -73,7 +77,7 @@ export const LABS = {
   "mic-type-compare-lab": MicTypeCompareLab,
   "mic-polar-pattern-lab": MicPolarPatternLab,
   "mic-polar-compare-lab": MicPolarCompareLab,
-  "mic-selection-lab": MicTypeLab,
+  "mic-selection-lab": MicSelectionLab,
   // "Placement" subchapter — a 3D room (src/features/course/interactives/microphones/MicPlacementLab/MikingRoom) instead of
   // the 2D layouts the other mic-stand labs use above; MicPlacementLab is
   // just the fixed-height embed frame it needs (see that file).

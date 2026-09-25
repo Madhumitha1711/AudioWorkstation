@@ -24,10 +24,8 @@ import { useTheme } from "../../../../../theme/ThemeContext";
 // boxed .lab-toggle tabs the mockup used. Pick a type and the
 // portrait/source picker/audio update together.
 //
-// Also registered under interactives/registry.js's "mic-selection-lab" kind
-// — that used to be a separate component (MicSelectionLab.jsx) but
-// converged on being visually identical to this one, so it was removed
-// and that kind now just renders this component instead.
+// ("mic-selection-lab" used to alias this component; it is now its own
+// MicSelectionLab, ported from design/mic-selection-lab.html.)
 
 function MicTypeLab({ onInteract }) {
   const { theme } = useTheme();
