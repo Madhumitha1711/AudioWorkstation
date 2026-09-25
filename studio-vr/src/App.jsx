@@ -1,19 +1,19 @@
 import { Route, Routes, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import Header from "./components/Header";
-import RequireAuth from "./components/RequireAuth";
-import LandingPage from "./pages/LandingPage";
-import PaymentPage from "./pages/PaymentPage";
-import PaymentCompletePage from "./pages/PaymentCompletePage";
-import CoursePage from "./pages/CoursePage";
-import LoginPage from "./pages/LoginPage";
-import SignupPage from "./pages/SignupPage";
-import ForgotPasswordPage from "./pages/ForgotPasswordPage";
-import DiscussionPage from "./pages/DiscussionPage";
-import PanoramaTour from "./panorama/PanoramaTour";
-import PanoramaImageTester from "./panorama/PanoramaImageTester";
-import GaussianSplatTester from "./panorama/GaussianSplatTester";
-import ObjectModelTester from "./panorama/ObjectModelTester";
+import RequireAuth from "./features/auth/components/RequireAuth";
+import LandingPage from "./features/landing/LandingPage";
+import PaymentPage from "./features/payment/PaymentPage";
+import PaymentCompletePage from "./features/payment/PaymentCompletePage";
+import CoursePage from "./features/course/CoursePage";
+import LoginPage from "./features/auth/LoginPage";
+import SignupPage from "./features/auth/SignupPage";
+import ForgotPasswordPage from "./features/auth/ForgotPasswordPage";
+import DiscussionPage from "./features/discussion/DiscussionPage";
+import PanoramaTour from "./features/tour/PanoramaTour";
+import PanoramaImageTester from "./dev-tools/PanoramaImageTester";
+import GaussianSplatTester from "./dev-tools/GaussianSplatTester";
+import ObjectModelTester from "./dev-tools/ObjectModelTester";
 
 function App() {
   const { pathname } = useLocation();

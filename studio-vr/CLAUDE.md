@@ -61,46 +61,55 @@ DSPs (every interactive gear lab) will silently fail in production.
 
 ```
 src/
-  App.jsx            # all routes live here
-  main.jsx           # Redux Provider + ThemeProvider + BrowserRouter
-  store/              # Redux: session.js (student/paid), checkoutSlice.js (email/name)
-  theme/               # light/dark ThemeContext, persisted to localStorage
-  components/          # shared UI: Header, Fader, Knob, FaustPanel, StudioDoor
-  pages/                # LandingPage, LoginPage, SignupPage, PaymentPage,
-                        # CoursePage, DiscussionPage
-  panorama/             # the 360° tour itself
-    PanoramaTour.jsx     # photo-sphere-viewer setup, hotspot markers, room nav
-    roomsData.js          # data-only: rooms, doorway links, hotspot yaw/pitch,
-                           # narration audio paths, per-room ambience
-    EqCompressorHotspot.jsx  # live EQ+Compressor channel-strip hotspot panel,
-                              # reuses the same Faust patches as the course chapters
-    GearModelViewer / GaussianSplatTester / ObjectModelTester / PanoramaImageTester
-                           # 3D/testing utility views (also reachable via
-                           # /model-test, /splat-test, /panorama-test routes)
-  chapters/             # full-featured, standalone "gear studio" lessons —
-                        # Compressor.jsx, Equalizer.jsx, DeEsser.jsx, Delay.jsx,
-                        # Limiter.jsx, NoiseGate.jsx, Reverb.jsx, Saturator.jsx,
-                        # MixingConsole.jsx — each drives a real Faust WASM patch
-  course/               # course content + interactive labs
-    courseData.js         # TOPICS: lessons/paragraphs/assessments per hotspot
-                           # (currently only "Speakers" and "DAW Workstation"
-                           # are fully built; others are stubbed "coming soon")
-    AssessmentSection.jsx
-    interactive/           # hands-on labs (SweetSpotLab, DawCompingLab, SpeakerLab)
-  audio/
+  main.jsx  App.jsx  index.css   # entry, all routes (App.jsx), global tokens
+  api/            # HTTP client + auth / discussions / payments endpoints
+  store/          # Redux: sessionSlice (student/paid), checkoutSlice, controlRoomSlice
+  theme/          # ThemeContext (light/dark), PaletteContext + palettes, toggles
+  audio/          # app-wide audio infrastructure (no React UI)
     spatialAudioEngine.js  # singleton Web Audio wrapper: HRTF binaural panning
                             # tied to camera look direction, ambient room bed,
                             # hotspot narration playback, master mute vs.
                             # binaural toggle (two independent, non-interacting
                             # controls — see the comments at the top of the file)
     wavRender.js            # render an AudioBuffer to a downloadable WAV
-  faust/
-    useFaustDsp.js          # hook: fetch dsp-meta.json + compile dsp-module.wasm
-                             # into a mono AudioWorkletNode
-    faustTypes.js            # Faust UI-metadata types/helpers + compileFaustWasm()
-                              # (WebAssembly.compileStreaming with a buffered
-                              # fallback for hosts that don't send the right
-                              # Content-Type for .wasm)
+    effects/                # *Engine.js — Faust param addresses/defaults/meter
+                            # helpers per effect; shared by gear-studio lessons
+                            # AND the DAW insert chain
+    faust/faustTypes.js     # Faust UI-metadata helpers + compileFaustWasm()
+                            # (compileStreaming with a buffered fallback)
+  components/     # UI shared by 2+ features only
+    Header/                 # app header
+    controls/               # Knob, Fader
+  features/       # one folder per product area; a feature's page, CSS and
+                  # private components live together
+    landing/                # LandingPage
+    auth/                   # Login/Signup/ForgotPassword pages, AuthPage.css,
+                            # components/ (GoogleAuthButton, StudioDoor, RequireAuth)
+    payment/                # PaymentPage, PaymentCompletePage
+    discussion/             # DiscussionPage
+    course/                 # CoursePage + course content
+      data/                   # courseData.js (TOPICS), useCourseTopics.js
+      components/             # generic course UI: AssessmentSection, SectionBlocks,
+                              # VideoPlayer, InteractiveSection, LabButtonDialog
+      interactives/           # every course lab, by chapter — see its README.md
+    tour/                   # the 360° studio tour
+      PanoramaTour.jsx        # photo-sphere-viewer setup, hotspot markers, room nav
+      data/                   # roomsData.js (rooms, doorways, hotspot yaw/pitch,
+                              # narration, ambience), hotspotDevices.js
+      components/             # WelcomeVideoDialog, StudioHotspotsPanel, HotspotPrecheck
+      help/                   # QuickHelpPanel + helpHover
+      hotspot-labs/<Lab>/     # per-gear hotspot labs; shared/ = hardwareTokens.css,
+                              # speakerListeningLab.css (base), listeningLabShared
+      daw/                    # DAW workstation screen opened from the tour
+        DawWorkstationScreen.jsx  # state/audio controller
+        components/ engine/ lib/  # presentational pieces / audio-graph + offline
+                                  # render / constants, format, track helpers
+    gear-studio/            # full "gear studio" effect lessons — Compressor,
+                            # Equalizer, DeEsser, Delay, Limiter, NoiseGate, Reverb
+                            # (+ chapters.css); each drives a real Faust WASM patch.
+                            # Also embedded by the DAW plugin popup + course labs.
+  dev-tools/      # /panorama-test, /splat-test, /model-test utility pages
+  _unused/        # not imported anywhere — kept for reference, safe to delete
 
 public/
   faust/<patch>/dsp-module.wasm + dsp-meta.json   # exported straight from the
@@ -124,12 +133,11 @@ design/                  # static HTML/CSS mockups (source of truth for visual
 - **Faust DSP loading pattern**: `dsp-module.wasm`/`dsp-meta.json` live under
   `public/faust/<patch>/` and are loaded via plain `fetch()`, not ESM import —
   Vite's dev server won't serve public-folder JS through `import()`, so all
-  loading logic lives in `src/faust/` and is bundled normally while the
-  wasm/json assets stay static. `chapters/*.jsx` and
-  `panorama/EqCompressorHotspot.jsx` both drive the *same* underlying patches
-  (e.g. `public/faust/compressor`) — the panorama hotspot is a simplified,
-  shared-signal-path version of the full chapter lesson, so param addresses
-  should stay in sync between them if a `.dsp` patch changes.
+  loading logic lives in `src/audio/faust/` and is bundled normally while the
+  wasm/json assets stay static. `features/gear-studio/*.jsx` and the DAW
+  (`features/tour/daw/`) both drive the *same* underlying patches (e.g.
+  `public/faust/compressor`) through the shared `audio/effects/*Engine.js`
+  modules, so param addresses stay in one place if a `.dsp` patch changes.
 - **Spatial audio engine is a singleton module** (`src/audio/spatialAudioEngine.js`),
   not a React hook/context — it holds module-level `let` state (audioCtx,
   gain nodes, etc.) so multiple components can call into the same audio
@@ -143,12 +151,12 @@ design/                  # static HTML/CSS mockups (source of truth for visual
   up/down position poorly, so `createElevationShelf()` layers a manual
   high-shelf boost/cut on top of the HRTF panner as a secondary elevation
   cue. Don't remove this thinking it's redundant with the panner.
-- **Hotspot data is data-only**: `panorama/roomsData.js` defines rooms,
+- **Hotspot data is data-only**: `features/tour/data/roomsData.js` defines rooms,
   doorway links, and gear-hotspot yaw/pitch/audio/description — no component
   logic. To add a new tour stop, add a room object here (see the in-file
   comment for how to capture yaw/pitch using the app's own "P" placement
   mode) rather than hardcoding coordinates in `PanoramaTour.jsx`.
-- **Course content gating**: `course/courseData.js` `TOPICS[].ready` controls
+- **Course content gating**: `features/course/data/courseData.js` `TOPICS[].ready` controls
   whether a topic is live or shown as "coming soon" — only Speakers and DAW
   Workstation are currently `ready: true`.
 - **Design mockups precede implementation**: the `design/` folder holds
@@ -158,7 +166,7 @@ design/                  # static HTML/CSS mockups (source of truth for visual
 - **Theme**: `ThemeContext` persists light/dark to `localStorage` under
   `svr-theme` and sets `data-theme` on `<html>`; component CSS should read
   theme via CSS variables keyed off that attribute rather than hardcoding
-  colors (see the comment in `SweetSpotLab.jsx` for an example of a past bug
+  colors (see the comment in `features/course/interactives/speakers/SpeakerLab/SweetSpotLab.jsx` for an example of a past bug
   from hardcoded colors not following the theme).
 - **Session vs. checkout state**: `session` slice = who's currently signed in
   and whether they've ever paid (`hasPaid` persists through log-off —
@@ -176,6 +184,10 @@ design/                  # static HTML/CSS mockups (source of truth for visual
   editor tooling.
 - Per-component CSS files (`Component.css` next to `Component.jsx`), not
   CSS-in-JS or Tailwind.
+- Feature-first layout: code used by one feature lives inside
+  `src/features/<feature>/`; move it to `src/components/` or `src/audio/`
+  only once a second feature needs it. Components with their own CSS or
+  sub-parts get their own folder with an `index.js` re-export.
 - Heavy use of explanatory block comments above non-obvious logic (audio
   routing, knob curve math, theme/state interactions) — match this style
   when adding similarly non-obvious code, especially anything touching the

@@ -1,0 +1,2391 @@
+/* Styles for the full-screen DAW Workstation hotspot (see
+   DawWorkstationScreen.jsx). Ported from
+   design/daw-workstation-screen-ui.html, namespaced so nothing here collides
+   with the rest of the app. The floating overlay chrome (backdrop, exit
+   button) reuses the app's --shell-* tokens exactly like
+   PanoramaTour.jsx's own panels; everything inside the "monitor" reuses the
+   --console/--panel/--surface/--border(-bright)/--amber/--teal/etc "hardware
+   module" tokens from features/gear-studio/chapters.css, which is why this component
+   wraps its whole render in a `.chapter-lab` div (same pattern the old
+   EqCompressorHotspot used). */
+
+/* Reverb's accent, plus two extra track colors, aren't among chapters.css's
+   tokens — defined once here so every descendant (insert slots, track
+   swatches, the New Track color picker, dock title) can use them exactly
+   like the other module colors. Rounds TRACK_COLORS out to a 9-color set
+   closer to Logic Pro's own track-color palette. */
+.daw-root {
+  font-family: var(--body);
+  --cyan: #22d3ee;
+  --cyan-dim: rgba(34, 211, 238, 0.15);
+  --cyan-glow: rgba(34, 211, 238, 0.4);
+  --pink: #f472b6;
+  --pink-dim: rgba(244, 114, 182, 0.15);
+  --pink-glow: rgba(244, 114, 182, 0.4);
+  --lime: #a3e635;
+  --lime-dim: rgba(163, 230, 53, 0.15);
+  --lime-glow: rgba(163, 230, 53, 0.4);
+  /* Dark ink for text sitting on top of a solid bright module color (e.g.
+     the "is-playing" transport button below) - not part of the brand
+     palette, just a fixed readable ink for this DAW screen's own hardware
+     LED colors, same idea as chapters.css's module-color system. */
+  --ink-on-bright: #04160a;
+  /* Single source of truth for a tracklist row's height, shared by
+     .track-row (left pane) and .arr-row (right pane, its waveform lane) —
+     see the long comment on .track-row below for why these two MUST stay
+     numerically identical. Changing this one variable is now the only thing
+     that needs to happen to resize a row; the two panes can't drift apart
+     from each other the way two separately-hand-tuned pixel values could.
+     136px was sized for the old vertically-stacked Inserts/Sends racks; 100px
+     fit the volume slider's own full-width row below the head (see
+     .track-row__btn-col — it used to be .track-row__vol-col, with the slider
+     stacked above the transport buttons). The slider now sits inline next to
+     the subtitle line instead (see .track-sub-row/.track-vol--inline), so
+     that whole row's worth of height is gone — 84px is this fallback's best
+     guess at the new real height; this is only a first-paint estimate (the
+     real height comes from actually measuring .track-row — see
+     rowSlotHeights), so nudge it if fonts/line-heights on your build render
+     shorter or taller than this. */
+  --track-row-h: 84px;
+}
+
+/* Light theme: same treatment chapters.css gives the other module accents
+   (darker/more saturated base so text/borders hold contrast, dim tint
+   strengthened so it doesn't wash out over the light --surface/--panel). */
+:root[data-theme='light'] .daw-root {
+  --cyan: #0e7f92;
+  --cyan-dim: rgba(14, 127, 146, 0.22);
+  --cyan-glow: rgba(14, 127, 146, 0.45);
+  --pink: #b23771;
+  --pink-dim: rgba(178, 55, 113, 0.22);
+  --pink-glow: rgba(178, 55, 113, 0.45);
+  --lime: #5c8a0e;
+  --lime-dim: rgba(92, 138, 14, 0.22);
+  --lime-glow: rgba(92, 138, 14, 0.45);
+}
+
+.daw-overlay {
+  position: fixed;
+  inset: 0;
+  /* Position + a non-auto z-index makes this its own stacking context, so
+     every descendant — including the internal popups below that carry their
+     own z-index: 60/61 (InsertRack, PluginEditorPopup, etc.) — is capped at
+     whatever layer this value paints on in the *outer* document, regardless
+     of those inner numbers. PanoramaTour.jsx's floating toolbar
+     (.svr-tour-toolbar, the "Studio / Binaural on" pill) sits in that outer
+     stacking context at z-index: 60 (see PanoramaTour.css), so this overlay
+     — meant to be a full-screen modal above the whole tour while open — has
+     to clear that, not just the z-index: 30 of Photo Sphere Viewer's own
+     markers. Previously this was 20, which let the tour toolbar paint on
+     top of the DAW's own top bar. */
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3.2vh 3vw;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+.daw-overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+.daw-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(8, 10, 14, 0.88) 0%, rgba(3, 4, 6, 0.97) 75%);
+  backdrop-filter: blur(4px);
+}
+
+.monitor-frame {
+  position: relative;
+  width: min(1360px, 100%);
+  height: 100%;
+  max-height: 900px;
+  border-radius: 20px;
+  padding: 16px;
+  background: linear-gradient(165deg, #232329, #101014 55%, #0a0a0d);
+  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  transform: scale(0.96) translateY(8px);
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.daw-overlay.is-open .monitor-frame {
+  transform: scale(1) translateY(0);
+}
+.monitor-frame::before {
+  content: "";
+  position: absolute;
+  inset: 16px;
+  border-radius: 12px;
+  pointer-events: none;
+  z-index: 3;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.05) 0%, transparent 18%, transparent 82%, rgba(255, 255, 255, 0.03) 100%);
+}
+
+.daw-app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--console);
+  display: flex;
+  flex-direction: column;
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text);
+}
+
+/* ── Exit control ── */
+.exit-btn {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--shell-text-dim);
+  background: var(--shell-panel);
+  border: 1px solid var(--shell-border);
+  padding: 7px 12px 7px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.exit-btn:hover {
+  background: var(--shell-panel-hover);
+  color: var(--shell-text);
+}
+.daw-crumb {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+  margin-top: 3px;
+}
+.daw-crumb b {
+  color: var(--text-dim);
+}
+
+/* ── Top bar: transport ── */
+.daw-topbar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 18px;
+  /* Was a hardcoded #1c1c22 mixed with the theme-aware var(--panel) — the
+     two happen to be nearly identical in dark theme (so the seam was
+     invisible), but in light theme var(--panel) flips to a pale tone while
+     the literal stayed near-black, producing a dark band across the very
+     top of the screen. var(--console) is the "recessed" token one step
+     darker than --panel in both themes, so this keeps the same subtle
+     depth cue without breaking light theme. */
+  background: linear-gradient(180deg, var(--console), var(--panel));
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.topbar-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border);
+  flex-shrink: 0;
+}
+.app-id {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-right: 6px;
+  min-width: 0;
+}
+.app-id .name {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 13.5px;
+  letter-spacing: 0.02em;
+}
+
+/* ── Arrange/Mixer view switch (Logic's own X-key toggle) ── */
+.view-switch {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--black);
+  border: 1px solid var(--border);
+}
+.view-switch__btn {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.view-switch__btn:hover {
+  color: var(--text);
+}
+.view-switch__btn.is-active {
+  background: var(--surface);
+  color: var(--teal);
+  box-shadow: inset 0 0 0 1px var(--teal);
+}
+
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.transport-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border-bright);
+  background: var(--surface);
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.transport-btn:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+.transport-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.transport-btn.play {
+  background: var(--green-dim);
+  border-color: var(--green);
+  color: var(--green);
+}
+.transport-btn.play.is-playing {
+  background: var(--green);
+  color: var(--ink-on-bright);
+}
+.transport-btn.loop.is-on {
+  background: var(--blue-dim);
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+/* Unmissable "still previewing a portion" indicator, right next to the
+   transport — a redundant, always-in-view way out alongside the dock's own
+   "✕ Exit Selection" button and the Escape key (see exitSelection in
+   DawWorkstationScreen.jsx), since the dock's copy can scroll out of view
+   or wrap depending on window width. */
+.preview-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px 5px 12px;
+  border-radius: 999px;
+  background: var(--amber-dim);
+  border: 1px solid var(--amber);
+  color: var(--amber);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.preview-pill button {
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink-on-bright);
+  background: var(--amber);
+  border: none;
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.preview-pill button:hover {
+  filter: brightness(1.1);
+}
+
+.timecode {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-family: var(--mono);
+}
+.timecode .big {
+  font-size: 15px;
+  letter-spacing: 0.03em;
+  color: var(--green);
+}
+.timecode .bars {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.daw-topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.master-meter {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 26px;
+}
+.master-meter i {
+  display: block;
+  width: 4px;
+  border-radius: 1px;
+  background: var(--green-dim);
+  border: 1px solid var(--green);
+  transition: height 0.08s linear;
+}
+.master-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  text-align: center;
+  margin-top: 2px;
+}
+
+/* ── Body: tracklist (left) + arrangement/waveforms (right) — same split
+   as design/daw-workstation-screen-ui.html ── */
+.daw-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.tracklist {
+  width: 346px;
+  flex-shrink: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* No top padding — .tracklist-head (below) supplies track 1's whole
+     top offset itself, matching .ruler's own height on the arrangement
+     side exactly. A top padding here on top of that header would push
+     every row down further than its waveform lane, right back into the
+     same kind of row-for-row mismatch fixing this header was for. */
+  padding: 0 6px 6px;
+}
+/* Mirrors .ruler exactly (same height/background/border/sticky behavior) so
+   track 1's row starts at the same offset its waveform lane does — see the
+   comment above this element in DawWorkstationScreen.jsx for why that
+   offset has to match, not just each row's own height (.track-row/.arr-row,
+   both driven off measurement now — see rowSlotHeights there). Sticky, like
+   .ruler, purely so the two panes still visually mirror each other while
+   scrolled — the alignment itself only depends on the space this reserves
+   in normal flow, not on whether it stays pinned. */
+.tracklist-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  padding-left: 4px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.track-row {
+  --track-color: var(--teal);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  margin-bottom: 2px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  /* border-box so this row's actual measured height (border + padding
+     included) is exactly what DawWorkstationScreen.jsx reads via
+     getBoundingClientRect and hands to the matching .arr-row — see
+     rowSlotHeights/trackRowRefs there. Content-box here would leave the
+     border/padding sitting outside that measurement, undercounting it. */
+  box-sizing: border-box;
+  /* --track-row-h (see .daw-root above) is only the FIRST-PAINT fallback,
+     before the JS row-height-sync effect (rowSlotHeights, in
+     DawWorkstationScreen.jsx) has measured anything — it also drives
+     .arr-row's own fallback height so the two panes don't visibly mismatch
+     for that first frame. Once mounted, each .arr-row's real height comes
+     from actually measuring its own .track-row, not this constant — a
+     track row's true height can vary a little (aux vs audio tracks have a
+     different button count, an error message can wrap to two lines, fonts
+     differ slightly across machines), which a single shared constant can't
+     account for. Resize the general row height by editing --track-row-h;
+     don't expect it alone to guarantee row-for-row alignment any more. */
+  min-height: var(--track-row-h);
+}
+/* Head (number/icon/name, plus the subtitle line — see .track-sub-row —
+   which now also carries the volume slider) on top, full width; below it a
+   row with the transport buttons on the left and this track's own
+   Inserts/Sends racks (see .track-row__racks) to the right — the same
+   information a Pro Tools Edit-window track header packs into one row, just
+   reflowed for a narrower column. */
+.track-row__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.track-row__body {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+/* Was .track-row__vol-col — it used to stack the volume slider above the
+   transport buttons in its own 60px column (see .track-sub-row for where
+   the slider moved to). Only the buttons live here now, but this still
+   needs flex-direction: column (even with .track-btns as its one remaining
+   child): a row-direction flex parent only stretches children along the
+   CROSS axis (height), not the main axis (width), so .track-btns would size
+   to its own natural content width instead of being held to 60px — letting
+   its 6 buttons sit in one un-wrapped row that overflows straight across
+   into .track-row__racks instead of wrapping 3-per-row within this column. */
+.track-row__btn-col {
+  width: 60px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* Inserts + Sends, each its own full-width horizontal strip of lettered
+   slots (see .insert-rack.is-dense/.send-rack.is-dense) stacked INSERTS
+   above SENDS, instead of the old side-by-side columns that each stacked
+   their 5 slots vertically — that vertical stacking was what made every
+   track row so tall. Sharing the row's remaining width (flex: 1) instead of
+   a fixed column width also gives each lettered slot more room to show a
+   sliver of its plugin/bus name instead of just a bare letter. */
+.track-row__racks {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: center;
+}
+.track-row__rack-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.track-row__rack-row .insert-rack,
+.track-row__rack-row .send-rack {
+  flex: 1;
+  min-width: 0;
+}
+.track-row__rack-label {
+  width: 28px;
+  flex-shrink: 0;
+  font-size: 7.5px;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  text-align: right;
+}
+.track-row:hover {
+  background: var(--shell-panel-hover, rgba(255, 255, 255, 0.08));
+}
+.track-row.is-selected {
+  background: var(--surface);
+  border-color: var(--track-color);
+}
+/* Soloing any track dims every non-soloed one — same solo-in-place cue a
+   real console gives (see anySoloed/trackIsAudible in
+   DawWorkstationScreen.jsx). */
+.track-row.is-dimmed {
+  opacity: 0.45;
+}
+.track-row.is-soloed {
+  box-shadow: inset 0 0 0 1px var(--amber);
+}
+/* Aux bus rows — a dashed left edge instead of the solid one every audio
+   track's swatch implies, since there's no clip/waveform underneath this
+   one, just inserts fed by other tracks' Sends. */
+.track-row.is-aux {
+  border-left: 2px dashed var(--track-color);
+}
+.track-num {
+  width: 14px;
+  flex-shrink: 0;
+  font-size: 8.5px;
+  color: var(--text-faint);
+  text-align: right;
+}
+.track-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--track-color) 25%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--track-color) 60%, var(--border));
+  color: var(--track-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.track-swatch .track-ico,
+.track-ico {
+  width: 15px;
+  height: 15px;
+}
+.track-meta {
+  flex: 1;
+  min-width: 0;
+}
+.track-name {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Subtitle line (duration/portions/sends text) plus the volume slider,
+   side by side — this used to be volume's own full-width row underneath
+   the whole head (see --track-row-h/.track-row__btn-col above); putting it
+   here instead is what let that row's height go away. */
+.track-sub-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+.track-sub-row .track-sub {
+  margin-top: 0;
+  flex: 1;
+  min-width: 0;
+}
+.track-sub {
+  font-size: 9px;
+  color: var(--text-faint);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.track-sub-error {
+  color: var(--red);
+}
+/* Slimmed down from its old 10px/full-width self (it used to be the only
+   thing in its own row — see .track-sub-row above) to a short, narrow
+   slider that fits inline next to the subtitle text instead. */
+.track-vol {
+  display: block;
+  accent-color: var(--track-color);
+  cursor: pointer;
+}
+.track-vol--inline {
+  width: 74px;
+  height: 6px;
+  flex-shrink: 0;
+}
+.track-btns {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+/* The button strip used to be the only thing in its row, with the full
+   tracklist row's width to spread across; now that it shares that row with
+   this track's own Inserts/Sends (see .track-row__btn-col/.track-row__body
+   above), it wraps into a tighter 3-per-row grid at a slightly smaller icon
+   size instead. */
+.track-row__btn-col .tbtn,
+.track-row__btn-col .tbtn-select-wrap {
+  width: 18px;
+  height: 18px;
+}
+.track-row__btn-col .tbtn svg {
+  width: 11px;
+  height: 11px;
+}
+.tbtn {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid var(--border-bright);
+  background: var(--surface);
+  color: var(--text-faint);
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.tbtn:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+.tbtn.danger:hover {
+  color: var(--red);
+  border-color: var(--red);
+}
+.tbtn svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+.tbtn.m.is-on {
+  background: var(--amber-dim);
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.tbtn.s.is-on {
+  background: var(--green-dim);
+  border-color: var(--green);
+  color: var(--green);
+}
+.tbtn.is-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+/* Record button (mic → filled square) next to Upload — solid red and
+   gently pulsing while armed, same "unmistakably live" language every DAW's
+   own record-enable button uses. */
+.tbtn.rec:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.tbtn.rec.is-recording {
+  background: var(--red-dim, rgba(220, 60, 60, 0.18));
+  border-color: var(--red);
+  color: var(--red);
+  animation: daw-rec-pulse 1.1s ease-in-out infinite;
+}
+@keyframes daw-rec-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(220, 60, 60, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(220, 60, 60, 0);
+  }
+}
+.track-sub-recording {
+  color: var(--red);
+  animation: daw-rec-text-pulse 1.1s ease-in-out infinite;
+}
+@keyframes daw-rec-text-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Demo-clip dropdown (track-btns "D") — a real <select> so the browser's
+   own native listbox handles positioning/keyboard/outside-click dismissal,
+   laid invisibly on top of a plain .tbtn "D" so it still looks like every
+   other icon button in this row; only the select actually receives clicks. */
+.tbtn-select-wrap {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.tbtn-select-wrap .tbtn {
+  pointer-events: none;
+}
+.tbtn-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.daw-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.daw-btn {
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  background: var(--surface);
+  border: 1px solid var(--border-bright);
+  border-radius: 6px;
+  padding: 7px 9px;
+  cursor: pointer;
+  flex: 1;
+  text-align: center;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.daw-btn:hover:not(:disabled) {
+  border-color: var(--text-dim);
+  color: var(--text);
+}
+.daw-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.daw-btn.small {
+  flex: none;
+  padding: 5px 8px;
+  font-size: 9.5px;
+}
+.daw-btn.danger {
+  color: var(--red);
+  border-color: var(--red);
+}
+.daw-btn.danger:hover {
+  background: var(--red-dim);
+}
+.daw-btn.primary {
+  color: var(--green);
+  border-color: var(--green);
+}
+.daw-btn.primary:hover:not(:disabled) {
+  background: var(--green-dim);
+  color: var(--green);
+}
+
+.daw-error {
+  font-size: 10.5px;
+  color: var(--red);
+  line-height: 1.4;
+}
+.daw-status {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+  padding: 4px 0;
+}
+
+/* ── Add-track row (bottom of the tracklist) ── */
+.add-track-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px dashed var(--border-bright);
+  color: var(--text-faint);
+  font-size: 11px;
+  height: 36px;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.add-track-row:hover {
+  border-color: var(--teal);
+  color: var(--teal);
+  background: var(--teal-dim);
+}
+.add-track-plus {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* ── Arrangement (right): ruler + one waveform lane per track ── */
+.arrangement {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  position: relative;
+  background: var(--console);
+}
+.ruler {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 22px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.ruler-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  padding-left: 5px;
+  border-left: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.arr-rows {
+  position: relative;
+}
+.arr-row {
+  --track-color: var(--teal);
+  /* border-box for the same reason as .track-row above: so an inline
+     height (see next) renders as EXACTLY that many px, border included,
+     instead of border-box's own border/padding pushing the rendered box a
+     little taller than the number DawWorkstationScreen.jsx asked for. */
+  box-sizing: border-box;
+  /* This is only the fallback for the very first paint, before the JS
+     row-height-sync effect in DawWorkstationScreen.jsx (rowSlotHeights) has
+     measured anything — derived from the SAME --track-row-h .track-row
+     uses (see .daw-root), plus .track-row's own 2px margin-bottom (.arr-row
+     has no margin of its own — its 1px border-bottom is the visual
+     separator instead), so that first frame doesn't visibly mismatch either.
+     After mount, DawWorkstationScreen.jsx sets each row's real height
+     inline from actually measuring its matching .track-row (see
+     trackRowRefs/rowSlotHeights there) — a track row's true height can
+     vary a little row to row (aux vs audio tracks, a wrapped error message,
+     font rendering differences), which this single constant can't capture
+     on its own. The two panes are independently-scrolled elements kept in
+     lockstep by copying scrollTop 1:1 (onTracklistScroll/
+     onArrangementScroll), which only lines up visually if a row in one is
+     exactly as tall as the matching row in the other — that's what the JS
+     measurement (not this CSS) now actually guarantees. */
+  height: calc(var(--track-row-h) + 2px);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  background-image: repeating-linear-gradient(90deg, var(--border) 0 1px, transparent 1px 60px);
+}
+.add-track-row-spacer {
+  height: 36px;
+  background-image: none;
+  border-bottom: none;
+}
+.arr-row-empty {
+  position: absolute;
+  inset: 4px 8px;
+  display: flex;
+  align-items: center;
+  color: var(--text-faint);
+  font-size: 10.5px;
+  border: 1px dashed var(--border);
+  border-radius: 5px;
+  padding-left: 8px;
+}
+.arr-row-empty--aux {
+  border-style: solid;
+  border-color: var(--track-color, var(--border));
+  color: var(--text-dim);
+  background: color-mix(in srgb, var(--track-color, var(--border)) 8%, transparent);
+}
+.clip {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--track-color) 22%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--track-color) 55%, var(--border));
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+.clip:has(.clip-header:active) {
+  border-color: var(--track-color);
+}
+/* Thin drag handle at the top of the clip — see beginClipDrag/
+   onClipPointerMove/endClipDrag in DawWorkstationScreen.jsx. Dragging
+   anywhere in .clip-body below it draws a portion instead (see
+   beginRegionDrag et al). touch-action: none so a touch-drag moves the clip
+   instead of scrolling the arrangement pane. */
+.clip-header {
+  height: 8px;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--track-color) 45%, transparent);
+  cursor: grab;
+  touch-action: none;
+}
+.clip-header:active {
+  cursor: grabbing;
+}
+/* The rest of the clip — dragging here marks a new portion (see
+   beginRegionDrag/onRegionPointerMove/endRegionDrag in
+   DawWorkstationScreen.jsx). touch-action: none so a touch-drag draws a
+   portion instead of scrolling the arrangement pane. */
+.clip-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  cursor: crosshair;
+  touch-action: none;
+}
+.wave-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  color: var(--track-color);
+  stroke: currentColor;
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+/* ── Portions (regions) drawn on a clip's waveform — see
+   beginRegionDrag/selectRegion/createRegion in DawWorkstationScreen.jsx ── */
+.clip-region {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--amber) 32%, transparent);
+  border: 1px solid color-mix(in srgb, var(--amber) 70%, transparent);
+  cursor: pointer;
+  touch-action: none;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.clip-region:hover {
+  background: color-mix(in srgb, var(--amber) 45%, transparent);
+}
+.clip-region.is-selected {
+  background: color-mix(in srgb, var(--amber) 58%, transparent);
+  border-color: var(--amber);
+  box-shadow: 0 0 0 1px var(--amber), 0 0 10px var(--amber-glow, rgba(255, 176, 32, 0.5));
+}
+.clip-region.is-draft {
+  pointer-events: none;
+  background: color-mix(in srgb, var(--amber) 25%, transparent);
+  border-style: dashed;
+}
+.clip-region__remove {
+  width: 13px;
+  height: 13px;
+  margin: 1px;
+  border-radius: 3px;
+  border: none;
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--text);
+  font-size: 9px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.clip-region:hover .clip-region__remove,
+.clip-region.is-selected .clip-region__remove {
+  opacity: 1;
+}
+.clip-region__count {
+  position: absolute;
+  left: 3px;
+  bottom: 1px;
+  font-size: 8px;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--red);
+  box-shadow: 0 0 8px var(--red-glow);
+  /* Draggable — see beginPlayheadDrag/onPlayheadPointerMove/endPlayheadDrag
+     in DawWorkstationScreen.jsx. touch-action: none so a touch-drag scrubs
+     instead of scrolling the arrangement pane. */
+  pointer-events: auto;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.playhead::before {
+  /* The visible line is only 2px wide — too thin to reliably grab — so the
+     actual hit area is this wider transparent strip centered on it,
+     matching how the line looks with a much more forgiving drag target. */
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -6px;
+  right: -6px;
+}
+.mixer-empty-hint {
+  position: absolute;
+  inset: 22px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-size: 12px;
+  text-align: center;
+  padding: 0 16px;
+}
+
+/* ── Bottom dock: signal chain for the selected CLIP PORTION only — see the
+   comment on the .dock JSX block in DawWorkstationScreen.jsx. Only rendered
+   (mounted) while a portion is selected, so there's nothing here to hide
+   for the whole-track case any more. ── */
+.dock {
+  flex-shrink: 0;
+  /* Same theme bug as .daw-topbar above, mirrored at the bottom edge: was
+     var(--panel) fading into a hardcoded #16161c. Swapped to var(--console)
+     so the dock reads as a flat, theme-correct panel instead of a dark
+     shadow bleeding in from the bottom in light theme. */
+  background: linear-gradient(180deg, var(--panel), var(--console));
+  border-top: 1px solid var(--border);
+  padding: 12px 18px 14px;
+  max-height: 46%;
+  overflow-y: auto;
+}
+.dock-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  gap: 6px 10px;
+}
+.dock-title {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+  min-width: 0;
+}
+.dock-hint {
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+.dock-head-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  flex-shrink: 0;
+}
+
+/* ── Scope tabs: flip the dock between a selected portion's own chain and
+   its track's outer whole-track chain without losing the portion highlight
+   or preview loop. ── */
+.dock-scope-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 7px;
+  background: var(--panel-recess, rgba(0, 0, 0, 0.25));
+  border: 1px solid var(--line-soft, rgba(255, 255, 255, 0.08));
+  flex-shrink: 0;
+}
+.dock-scope-tab {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.dock-scope-tab:hover {
+  color: var(--text);
+}
+.dock-scope-tab.is-active {
+  background: var(--accent, #e0a458);
+  color: #1a140b;
+}
+
+/* ── Insert rack — Logic-style numbered insert slots (see InsertRack in
+   DawWorkstationScreen.jsx). Each occupied slot is a flat row (not a pill
+   or a big tile) with its slot number, icon, name and bypass/move/remove
+   buttons; a trailing empty slot's "+ Insert" opens a category-grouped
+   picker instead of always showing every available plugin at once. Used
+   both in the bottom dock (full-size rows) and, via `.is-compact`, in each
+   Mixer-view channel strip (numbers/reorder trimmed down to fit a narrow
+   column). ── */
+.insert-rack {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.insert-slot {
+  --pc: var(--teal);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 7px;
+  border-radius: 5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--pc);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.15s ease;
+}
+.insert-slot:hover {
+  background: color-mix(in srgb, var(--pc) 12%, var(--surface));
+}
+.insert-slot.is-dragging {
+  opacity: 0.4;
+}
+.insert-slot.is-bypassed {
+  opacity: 0.55;
+}
+.insert-slot.is-error {
+  border-left-color: var(--red);
+}
+.insert-slot__num {
+  width: 14px;
+  flex-shrink: 0;
+  font-size: 9px;
+  color: var(--text-faint);
+  text-align: right;
+}
+.insert-slot .plugin-ico {
+  width: 15px;
+  height: 15px;
+  color: var(--pc);
+  flex-shrink: 0;
+}
+.insert-slot__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.insert-slot__status {
+  font-size: 9px;
+  color: var(--text-faint);
+}
+.insert-slot__btns {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.insert-slot__btns button {
+  width: 17px;
+  height: 17px;
+  border-radius: 4px;
+  border: 1px solid var(--border-bright);
+  background: var(--console);
+  color: var(--text-faint);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.insert-slot__btns button:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+.insert-slot__btns button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.insert-slot__btns button.power svg {
+  width: 9px;
+  height: 9px;
+  color: currentColor;
+}
+.insert-slot__btns button.power.is-on {
+  background: var(--green-dim);
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.insert-slot--empty {
+  position: relative;
+  padding: 0;
+  background: transparent;
+  border: 1px dashed var(--border-bright);
+  border-left: 1px dashed var(--border-bright);
+  cursor: default;
+}
+.insert-add-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 7px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 10.5px;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.insert-add-btn:hover {
+  color: var(--teal);
+  background: var(--teal-dim);
+}
+
+/* Category-grouped plugin picker — opens off the empty slot's "+ Insert"
+   button (Logic's own Audio FX menu groups the same way: Dynamics / EQ /
+   Delay & Reverb). Portaled to <body> (see the createPortal call in
+   InsertRack) and positioned with `position: fixed` from coordinates
+   computed off the button's own getBoundingClientRect (see openPicker) —
+   rendering it inline, nested under the dock's own `overflow-y: auto` (a
+   short, bottom-docked panel) or a Mixer-view channel strip, routinely
+   clipped part of the list against that ancestor's scroll box. Escaping to
+   the body sidesteps that entirely; top/bottom/left/width/max-height all
+   come from the inline style openPicker computes, not from here.
+
+   Portaled to <body> means this escapes .daw-overlay's own stacking
+   context entirely, so its z-index has to clear .daw-overlay's (70, see
+   above) directly in the outer/root stack — being higher than the tour
+   toolbar's 60 isn't enough on its own once it's compared against the
+   overlay it visually sits inside. */
+.insert-picker {
+  position: fixed;
+  z-index: 80;
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border-bright);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+.insert-picker__group + .insert-picker__group {
+  margin-top: 6px;
+}
+.insert-picker__group-label {
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  padding: 3px 6px;
+}
+.insert-picker__item {
+  --pc: var(--teal);
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 7px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  font-size: 10.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.insert-picker__item:hover {
+  background: color-mix(in srgb, var(--pc) 16%, transparent);
+}
+.insert-picker__item .plugin-ico {
+  width: 15px;
+  height: 15px;
+  color: var(--pc);
+  flex-shrink: 0;
+}
+.insert-picker__item span {
+  flex: 1;
+}
+.insert-picker__led {
+  flex: none !important;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pc);
+  box-shadow: 0 0 6px var(--pc);
+}
+.insert-picker__item.c-amber { --pc: var(--amber); }
+.insert-picker__item.c-green { --pc: var(--green); }
+.insert-picker__item.c-blue { --pc: var(--blue); }
+.insert-picker__item.c-red { --pc: var(--red); }
+.insert-picker__item.c-purple { --pc: var(--purple); }
+.insert-picker__item.c-teal { --pc: var(--teal); }
+.insert-picker__item.c-cyan { --pc: var(--cyan); }
+
+/* Compact insert rack (Mixer-view channel strips) — smaller text, no
+   move-earlier/move-later buttons (still draggable to reorder), just
+   enough room for icon + name + bypass + remove in a narrow column. */
+.insert-rack.is-compact .insert-slot__name {
+  font-size: 9.5px;
+}
+.insert-rack.is-compact .insert-slot,
+.insert-rack.is-compact .insert-add-btn {
+  padding: 4px 5px;
+  gap: 5px;
+}
+/* The picker is portaled to <body> (see above), so it's no longer a DOM
+   descendant of .insert-rack.is-compact by the time this would need to
+   match — InsertRack puts `is-compact` directly on the picker's own
+   className instead (see the compact prop in DawWorkstationScreen.jsx). */
+.insert-picker.is-compact {
+  font-size: 9.5px;
+}
+
+/* Dense insert rack — the Arrange tracklist row's own inline Inserts strip
+   (see .track-row__rack-row and `fixedSlots`/`dense` on InsertRack). Every
+   letter A–E always renders a slot (occupied or not, via `fixedSlots`), laid
+   out in a single horizontal row (rather than stacked into 5 tall rows —
+   see --track-row-h) sharing the row's width equally via flex, so this
+   needs to be tight enough that five of them still read at ~40px each: no
+   icon, no bypass/move/remove buttons (those live in the plugin popup
+   instead — see onOpenSlot), just a letter and a sliver of name. */
+.insert-rack.is-dense {
+  flex-direction: row;
+  gap: 3px;
+}
+.insert-rack.is-dense .insert-slot,
+.insert-rack.is-dense .insert-slot--empty {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 3px;
+  min-height: 18px;
+}
+.insert-rack.is-dense .insert-slot {
+  padding: 1px 4px;
+  gap: 3px;
+}
+.insert-rack.is-dense .insert-slot__num {
+  width: auto;
+  flex-shrink: 0;
+  font-size: 7.5px;
+}
+.insert-rack.is-dense .insert-slot__name {
+  font-size: 8.5px;
+  font-weight: 500;
+}
+.insert-rack.is-dense .insert-add-btn {
+  padding: 1px 3px;
+  gap: 3px;
+  justify-content: center;
+  font-size: 8.5px;
+}
+
+/* ── Dock racks — just INSERTS now, for whichever clip portion is selected
+   (Sends moved to the tracklist row — see .track-row__racks — since a send
+   is a whole-track property with no per-portion equivalent; see the
+   .dock-racks wrapper in DawWorkstationScreen.jsx). Kept as a flex row
+   rather than collapsed into .dock-rack-col directly so a second rack could
+   still be added here later without another layout pass. ── */
+.dock-racks {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+.dock-rack-col {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.dock-rack-col + .dock-rack-col {
+  border-left: 1px solid var(--border);
+  padding-left: 20px;
+}
+.dock-rack-label {
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+  margin-bottom: 5px;
+}
+
+/* ── Send rack — Pro Tools-style lettered send slots (see SendRack in
+   DawWorkstationScreen.jsx): one flat row per Aux this track routes to,
+   showing its target bus + current level, plus a trailing "+ Send" that
+   opens a picker of the mix's own Aux tracks. Deliberately mirrors
+   .insert-rack/.insert-slot's own look (same row shape, same lettered
+   left-hand index) so Inserts and Sends read as one family, just addressed
+   a/b/c… instead of 1/2/3… like a real console's own send bank. ── */
+.send-rack {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.send-slot {
+  --pc: var(--teal);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 7px;
+  border-radius: 5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--pc);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.15s ease;
+}
+.send-slot:hover {
+  background: color-mix(in srgb, var(--pc) 12%, var(--surface));
+}
+.send-slot.is-open {
+  background: color-mix(in srgb, var(--pc) 18%, var(--surface));
+  border-color: var(--pc);
+}
+.send-slot.is-muted {
+  opacity: 0.55;
+}
+.send-slot__num {
+  width: 14px;
+  flex-shrink: 0;
+  font-size: 9px;
+  color: var(--text-faint);
+  text-align: right;
+}
+.send-slot__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.send-slot__level {
+  flex-shrink: 0;
+  font-size: 9px;
+  color: var(--pc);
+  min-width: 18px;
+  text-align: right;
+}
+.send-slot__remove {
+  flex-shrink: 0;
+  width: 17px;
+  height: 17px;
+  border-radius: 4px;
+  border: 1px solid var(--border-bright);
+  background: var(--console);
+  color: var(--text-faint);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.send-slot__remove:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+.send-slot--empty {
+  position: relative;
+  padding: 0;
+  background: transparent;
+  border: 1px dashed var(--border-bright);
+  border-left: 1px dashed var(--border-bright);
+  cursor: default;
+}
+.send-add-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 7px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 10.5px;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.send-add-btn:hover:not(:disabled) {
+  color: var(--teal);
+  background: var(--teal-dim);
+}
+.send-add-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Bus picker — opens off "+ Send", portaled to <body> for the same reason
+   as .insert-picker above (same z-index note applies too). */
+.send-picker {
+  position: fixed;
+  z-index: 80;
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border-bright);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+.send-picker__empty {
+  padding: 8px 7px;
+  font-size: 10px;
+  color: var(--text-faint);
+  max-width: 180px;
+}
+.send-picker__item {
+  --pc: var(--teal);
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 7px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  font-size: 10.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.send-picker__item:hover {
+  background: color-mix(in srgb, var(--pc) 16%, transparent);
+}
+.send-picker__item svg {
+  width: 15px;
+  height: 15px;
+  color: var(--pc);
+  flex-shrink: 0;
+}
+.send-picker__item.c-amber { --pc: var(--amber); }
+.send-picker__item.c-green { --pc: var(--green); }
+.send-picker__item.c-blue { --pc: var(--blue); }
+.send-picker__item.c-red { --pc: var(--red); }
+.send-picker__item.c-purple { --pc: var(--purple); }
+.send-picker__item.c-teal { --pc: var(--teal); }
+.send-picker__item.c-cyan { --pc: var(--cyan); }
+.send-picker__item.c-pink { --pc: var(--pink, var(--red)); }
+.send-picker__item.c-lime { --pc: var(--lime, var(--green)); }
+
+/* "+ New Aux Bus" — always the first row in the picker (see SendRack's
+   onCreateAux), dashed-bordered so it reads as "make a new one" rather than
+   another bus in the list, with its own bottom margin standing in for a
+   divider before the real Aux options start. */
+.send-picker__create {
+  border: 1px dashed var(--border-bright);
+  margin-bottom: 4px;
+  color: var(--text-dim);
+}
+.send-picker__create:hover {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 12%, transparent);
+  color: var(--text);
+}
+.send-picker__create-plus {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--teal);
+}
+
+/* The inline name field "+ New Aux Bus" swaps to on click (see SendRack's
+   creatingAux) — a text input plus a small confirm button, same row height
+   and dark-field styling every other in-popup control here uses. */
+.send-picker__create-form {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 7px;
+  margin-bottom: 4px;
+}
+.send-picker__create-input {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 10.5px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border-bright);
+  background: var(--console);
+  color: var(--text);
+}
+.send-picker__create-input:focus {
+  outline: none;
+  border-color: var(--teal);
+}
+.send-picker__create-confirm {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  border: 1px solid var(--border-bright);
+  background: var(--console);
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.send-picker__create-confirm:hover {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 16%, transparent);
+}
+
+/* Send window — the floating level/pan/pre-post/mute popup that opens off a
+   send slot. Reworked to follow Pro Tools' own fuller send-fader window:
+   a SAFE/PRE/FMP toggle row, a pan control, a vertical level fader with a
+   real dB-tick scale plus its own level meter, Mute, then a TRACK section
+   (owning channel's name + Solo) and an AUTO section (automation-mode
+   display). Portaled to <body>, positioned in JS off the clicked slot's own
+   screen position (see openSendWindow in SendRack), same reasoning as
+   .insert-picker/.send-picker above (including the z-index note). Stays
+   one above them since it can open from a slot that's already inside an
+   open .send-picker's screen area. */
+.send-window {
+  --pc: var(--teal);
+  position: fixed;
+  z-index: 81;
+  width: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 12px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--pc);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+.send-window__head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.send-window__name {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--pc);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.send-window__close {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.send-window__close:hover {
+  color: var(--text);
+}
+
+/* SAFE / PRE / FMP row — three equal small toggle buttons, same shape Pro
+   Tools' own send window uses. PRE and FMP are fully wired (see SendRack);
+   SAFE is a real persisted per-send flag with no audio effect (its own
+   tooltip says so — there's no automation-write pass in this build for it
+   to protect). */
+.send-window__toggles {
+  width: 100%;
+  display: flex;
+  gap: 3px;
+}
+.send-window__toggle {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.04em;
+  padding: 3px 0;
+  border-radius: 4px;
+  border: 1px solid var(--border-bright);
+  background: var(--console);
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.send-window__toggle:hover {
+  color: var(--text);
+}
+.send-window__toggle.is-on {
+  background: var(--amber-dim, color-mix(in srgb, var(--amber) 25%, transparent));
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.send-window__pan {
+  display: flex;
+  justify-content: center;
+}
+.send-window__fader-row {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+}
+/* dB tick labels alongside the fader — each one's `top` is set inline from
+   dbTickPct(), so it lines up with where that dB value actually sits on
+   VOLUME_FADER_SPEC's own linear-gain range rather than just guessing at
+   even spacing. */
+.send-window__scale {
+  position: relative;
+  width: 20px;
+  flex-shrink: 0;
+  font-size: 7.5px;
+  color: var(--text-faint);
+}
+.send-window__scale span {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+.send-window__fader {
+  display: flex;
+  justify-content: center;
+}
+.send-window__meter {
+  width: 7px;
+  flex-shrink: 0;
+  border-radius: 3px;
+  background: var(--black);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+.send-window__meter i {
+  display: block;
+  width: 100%;
+  background: linear-gradient(180deg, var(--red), var(--amber) 45%, var(--green) 75%);
+  transition: height 0.08s linear;
+}
+.send-window__mute {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid var(--border-bright);
+  background: var(--console);
+  color: var(--text-faint);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.send-window__mute:hover {
+  color: var(--text);
+}
+.send-window__mute.is-on {
+  background: var(--red-dim, color-mix(in srgb, var(--red) 25%, transparent));
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/* TRACK / AUTO section labels — same small letter-spaced caption style
+   .dock-rack-label/.send-window__name-adjacent text already uses elsewhere,
+   just as a full-width divider line here since each heads its own row. */
+.send-window__section {
+  width: 100%;
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+  margin-top: 2px;
+}
+.send-window__track {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.send-window__track-name {
+  font-size: 10px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Only real way to remove a send once its slot's own inline "×" is hidden
+   (see .send-rack.is-dense below) — always present, not just in dense mode,
+   so there's one consistent place to look for it regardless of which rack
+   style opened this window. */
+.send-window__remove {
+  width: 100%;
+  font-family: inherit;
+  font-size: 9px;
+  padding: 4px 0;
+  border-radius: 4px;
+  border: 1px solid var(--border-bright);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.send-window__remove:hover {
+  color: var(--red);
+  border-color: var(--red);
+  background: var(--red-dim, color-mix(in srgb, var(--red) 12%, transparent));
+}
+
+/* Compact send rack (Mixer-view channel strips) — mirrors
+   .insert-rack.is-compact. */
+.send-rack.is-compact .send-slot__name {
+  font-size: 9.5px;
+}
+.send-rack.is-compact .send-slot,
+.send-rack.is-compact .send-add-btn {
+  padding: 4px 5px;
+  gap: 5px;
+}
+
+/* Dense send rack — the Arrange tracklist row's own inline Sends strip,
+   mirroring .insert-rack.is-dense right above: one horizontal row of
+   lettered slots (see --track-row-h) instead of stacked, sharing the row's
+   width equally via flex. No inline "×" — see .send-window__remove above
+   for where removal lives instead in this mode. The level readout is
+   dropped at this width (click a slot to open its fader window instead) so
+   the letter + a sliver of the target bus's name still fit. */
+.send-rack.is-dense {
+  flex-direction: row;
+  gap: 3px;
+}
+.send-rack.is-dense .send-slot,
+.send-rack.is-dense .send-slot--empty {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 3px;
+  min-height: 18px;
+}
+.send-rack.is-dense .send-slot {
+  padding: 1px 4px;
+  gap: 3px;
+}
+.send-rack.is-dense .send-slot__num {
+  width: auto;
+  flex-shrink: 0;
+  font-size: 7.5px;
+}
+.send-rack.is-dense .send-slot__name {
+  font-size: 8.5px;
+  font-weight: 500;
+}
+.send-rack.is-dense .send-slot__level {
+  display: none;
+}
+.send-rack.is-dense .send-add-btn {
+  padding: 1px 3px;
+  gap: 3px;
+  justify-content: center;
+  font-size: 8.5px;
+}
+.send-picker.is-compact {
+  font-size: 9.5px;
+}
+
+.daw-pill-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+/* ── Plugin popup (opens on selecting a chain item) ── */
+.plugin-popup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3vh 3vw;
+  background: rgba(3, 4, 6, 0.72);
+  backdrop-filter: blur(3px);
+  animation: daw-popup-fade 0.18s ease;
+}
+@keyframes daw-popup-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.plugin-popup {
+  --pc: var(--teal);
+  width: min(760px, 100%);
+  max-height: 88%;
+  overflow-y: auto;
+  background: linear-gradient(165deg, var(--panel), var(--console));
+  border: 1px solid var(--pc);
+  border-radius: 14px;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+  display: flex;
+  flex-direction: column;
+}
+.plugin-popup__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  /* Same fix as .daw-topbar: hardcoded dark literal replaced with
+     var(--console) so the popup header doesn't get a dark shadow banding
+     across it in light theme. */
+  background: linear-gradient(180deg, var(--console), var(--panel));
+  z-index: 1;
+}
+.plugin-popup__head svg {
+  width: 22px;
+  height: 22px;
+  color: var(--pc);
+  flex-shrink: 0;
+}
+.plugin-popup__titles {
+  min-width: 0;
+  flex: 1;
+}
+.plugin-popup__name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.plugin-popup__tag {
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+.plugin-popup__close {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  border: 1px solid var(--border-bright);
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.plugin-popup__close:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+.plugin-popup__body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.editor-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Visualizer: EQ curve / compressor & limiter transfer curves / scope ── */
+.viz-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.viz-screen {
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 10px 6px;
+}
+.viz-screen-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.viz-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+.viz-axis {
+  stroke: var(--border-bright);
+  stroke-width: 1;
+}
+.viz-axis.zero {
+  stroke: var(--text-faint);
+  stroke-dasharray: 2 3;
+}
+.viz-tick {
+  fill: var(--text-faint);
+  font-family: var(--mono);
+  font-size: 8px;
+}
+.viz-note {
+  font-size: 9.5px;
+  color: var(--text-faint);
+  line-height: 1.4;
+  padding: 0 2px;
+}
+
+/* ── Generic meter bank (hbargraph/vbargraph outputs + GR meters) ── */
+.meter-bank {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 4px 2px;
+}
+.meter-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 34px;
+}
+.meter-track {
+  width: 10px;
+  height: 64px;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+.meter-fill {
+  width: 100%;
+  background: linear-gradient(180deg, var(--red), var(--amber) 45%, var(--green) 75%);
+  transition: height 0.08s linear;
+}
+.meter-val {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  color: var(--text-dim);
+}
+.meter-label {
+  font-size: 8px;
+  color: var(--text-faint);
+  text-align: center;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* ── "New Track" dialog — Logic's own New Track sheet, trimmed to what this
+   audio-only app can actually do: name, color, cosmetic source icon (see
+   addTrackDialogOpen/newTrackDraft/confirmAddTrack in
+   DawWorkstationScreen.jsx). Reuses the same overlay/card language as the
+   plugin popup so it doesn't look like a separate UI system. ── */
+.daw-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3vh 3vw;
+  background: rgba(3, 4, 6, 0.72);
+  backdrop-filter: blur(3px);
+  animation: daw-popup-fade 0.18s ease;
+}
+.daw-modal {
+  width: min(380px, 100%);
+  background: linear-gradient(165deg, var(--panel), var(--console));
+  border: 1px solid var(--border-bright);
+  border-radius: 14px;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+}
+.daw-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.daw-modal__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.daw-modal__body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.daw-modal__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+.daw-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.daw-field__label {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--text-faint);
+}
+.daw-field__input {
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 8px 10px;
+}
+.daw-field__input:focus {
+  outline: none;
+  border-color: var(--teal);
+}
+
+/* Audio Track / Aux Bus segmented control — New Track dialog (see
+   newTrackDraft.kind in DawWorkstationScreen.jsx). */
+.type-toggle {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--panel-recess, rgba(0, 0, 0, 0.25));
+  border: 1px solid var(--line-soft, rgba(255, 255, 255, 0.08));
+}
+.type-toggle__btn {
+  flex: 1;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.type-toggle__btn:hover {
+  color: var(--text);
+}
+.type-toggle__btn.is-selected {
+  background: var(--accent, #e0a458);
+  color: #1a140b;
+}
+
+.swatch-grid,
+.icon-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.swatch-btn {
+  --sw: var(--teal);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--sw);
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+.swatch-btn:hover {
+  transform: scale(1.08);
+}
+.swatch-btn.is-selected {
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px var(--sw);
+}
+.icon-btn {
+  --sw: var(--teal);
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+.icon-btn svg {
+  width: 17px;
+  height: 17px;
+}
+.icon-btn:hover {
+  color: var(--sw);
+}
+.icon-btn.is-selected {
+  border-color: var(--sw);
+  color: var(--sw);
+  background: color-mix(in srgb, var(--sw) 16%, var(--surface));
+}
+
+/* ── Mixer view — Logic-style vertical channel strips, one per track (see
+   viewMode in DawWorkstationScreen.jsx). Reuses the exact same Fader/Knob
+   controls (components/controls/Fader.jsx, components/controls/Knob.jsx) every standalone
+   plugin lab in this app already uses, plus the same InsertRack the dock
+   uses in Arrange view, just bound to that track's own whole-track chain
+   and squeezed into a narrow column via `.is-compact`. ── */
+.mixer-view {
+  flex: 1;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  display: flex;
+  gap: 1px;
+  background: var(--border);
+  padding-bottom: 0;
+}
+.mixer-strip {
+  --track-color: var(--teal);
+  width: 128px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 8px 14px;
+  background: var(--console);
+  border-top: 3px solid var(--track-color);
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+.mixer-strip:hover {
+  background: var(--panel);
+}
+.mixer-strip.is-selected {
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--track-color);
+}
+.mixer-strip.is-dimmed {
+  opacity: 0.45;
+}
+.mixer-strip.is-soloed {
+  box-shadow: inset 0 0 0 1px var(--amber);
+}
+.mixer-strip__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+}
+.mixer-strip__name {
+  width: 100%;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mixer-strip .insert-rack,
+.mixer-strip .send-rack {
+  width: 100%;
+}
+/* (The picker itself is portaled to <body> and positioned in JS off the
+   button's own screen position — see .insert-picker above — so it no
+   longer needs, or can be reached by, a rule scoped under .mixer-strip.) */
+.mixer-strip__pan {
+  display: flex;
+  justify-content: center;
+}
+.mixer-strip__fader-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+.mixer-strip__meter {
+  width: 8px;
+  height: 120px;
+  border-radius: 4px;
+  background: var(--black);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+.mixer-strip__meter i {
+  display: block;
+  width: 100%;
+  background: linear-gradient(180deg, var(--red), var(--amber) 45%, var(--green) 75%);
+  transition: height 0.08s linear;
+}
+.mixer-strip__btns {
+  display: flex;
+  gap: 4px;
+}
+
+/* Below this width there isn't room for the tracklist's own inline
+   Inserts/Sends strips *beside* the name/buttons column any more — used to
+   just hide them here (a track's whole-track chain was only reachable via
+   Mixer view, or the dock for a selected portion), but that left no way to
+   see/edit it inline at all below this width. Stack them in their own
+   full-width row under the head/buttons instead — same slots, same
+   dense/lettered look, just reflowed — so they stay visible and clickable
+   at any width; each row simply grows taller to fit (the row-height
+   ResizeObserver in DawWorkstationScreen.jsx re-measures and keeps the
+   matching .arr-row in sync automatically, so nothing here needs to hard-
+   code a shorter row height any more). */
+@media (max-width: 1180px) {
+  .tracklist {
+    width: 240px;
+  }
+  .track-row {
+    min-height: 0;
+  }
+  .track-row__body {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .track-row__btn-col {
+    width: auto;
+  }
+  .track-row__racks {
+    width: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .daw-body {
+    flex-direction: column;
+  }
+  .tracklist {
+    width: 100%;
+    max-height: 40%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+/* Narrower still (the tracklist's own 240px width above, or a phone-width
+   viewport once .daw-body stacks at 720px) — the dense Inserts/Sends rows
+   above still fit (flex:1/min-width:0 on each lettered slot lets them
+   shrink to a bare letter with the name sliver ellipsized away), but the
+   track-row__rack-label ("INS"/"SEND") column can give a few more of those
+   px back to the slots themselves. */
+@media (max-width: 480px) {
+  .track-row__rack-label {
+    width: 20px;
+    font-size: 7px;
+  }
+}

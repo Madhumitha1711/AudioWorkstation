@@ -1,0 +1,149 @@
+/* Styles for LabButtonDialog (see LabButtonDialog.jsx) — the full-panel
+   dialog a chapter's top "lab button" opens (see courseData.js's
+   LAB_BUTTONS and CoursePage.jsx's .chapter-lab-cta/.chapter-lab-btn).
+   Built on CoursePage.css's own .svr-course-scoped tokens (--bg/--panel/
+   --border/--text/...) rather than the app-shell --shell-* tokens (see
+   features/tour/components/WelcomeVideoDialog/WelcomeVideoDialog.css for that pattern's app-shell
+   equivalent), since this only ever renders inside a course page — see
+   the token-scoping comment atop index.css. */
+
+@keyframes svr-lab-dialog-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes svr-lab-dialog-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Covers the entire .svr-course panel — topbar, sidebar, and content, not
+   just the .course-main column — per the "open over the entire course
+   panel" requirement this was built for. .svr-course is the nearest
+   positioned ancestor (see CoursePage.css's ".svr-course { position:
+   relative }"), so this resolves against the whole course page rather
+   than the browser viewport, the same way WelcomeVideoDialog.css's overlay
+   resolves against the PanoramaTour root instead of the viewport. Sits
+   above every other piece of course-page chrome — the sidebar, topbar, and
+   content all stop being reachable until this closes. */
+.lab-dialog-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: svr-lab-dialog-fade-in 0.2s ease;
+}
+
+.lab-dialog {
+  width: 100%;
+  height: 100%;
+  max-height: 920px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  animation: svr-lab-dialog-pop-in 0.22s ease;
+}
+
+.lab-dialog__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border-soft);
+  flex-shrink: 0;
+}
+
+.lab-dialog__title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.lab-dialog__close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--panel);
+  color: var(--text-dim);
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.lab-dialog__close:hover {
+  background: var(--panel-hover);
+  color: var(--text);
+}
+
+.lab-dialog__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto; /* fallback only, see the comment below — normally
+                        nothing in here should be tall enough to need it */
+  padding: 20px 22px 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* This dialog exists specifically for the 3D mic rooms (MikingRoom /
+   MicTechniqueRoom — see the file header comment above): .interactive-section
+   wraps directly around their .mic-placement-lab-frame / .mic-technique-lab-frame
+   (title is always null here, see LabButtonDialog.jsx), and those frames
+   normally size themselves with a fixed vh-based height (see
+   MicPlacementLab.css / MicTechniqueLab.css) — the right call for a
+   lesson's normal flowing page layout, where the viewport is the only
+   sensible reference height available. Inside this dialog they instead
+   have a real, bounded flex parent (.lab-dialog__body, itself capped by
+   .lab-dialog's max-height): stretching to fill exactly that, rather than
+   a separate vh-based guess that can run taller than what the dialog
+   actually has left after its head/padding, is what keeps the 3D room and
+   its controls always inside the visible dialog instead of forcing this
+   body to scroll just to reach them. */
+.lab-dialog__body .interactive-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.lab-dialog__body .mic-placement-lab-frame,
+.lab-dialog__body .mic-technique-lab-frame {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+}
+
+@media (max-width: 640px) {
+  .lab-dialog-overlay {
+    padding: 0;
+  }
+  .lab-dialog {
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+  }
+}

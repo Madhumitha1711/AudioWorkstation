@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cable &amp; Connector Match — Get the Signal Flowing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0b0d;
+    --panel:#16161a;
+    --panel-alt:#1c1c21;
+    --border:#2a2a30;
+    --border-soft:#232328;
+    --text:#ede9e3;
+    --text-muted:#8b8890;
+    --amber:#e8934a;   --amber-dim:#6b4a2c;
+    --green:#5fd9a0;   --green-dim:#2c5f49;
+    --purple:#a78bfa;  --purple-dim:#4a3a6b;
+    --red:#e8615f;     --red-dim:#6b2c2c;
+    --blue:#6fa8e0;    --blue-dim:#2c4a6b;
+    --teal:#4fc9c0;    --teal-dim:#245a56;
+    --yellow:#e8d34a;  --yellow-dim:#6b5f24;
+    --pink:#e893c4;    --pink-dim:#6b3a56;
+    --violet:#8f7bd9;  --violet-dim:#3f3568;
+    --lime:#b7d95f;    --lime-dim:#526b28;
+    --orange:#e0793f;  --orange-dim:#6b3a1e;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;}
+  ::selection{background:var(--amber-dim);}
+  @media (prefers-reduced-motion: reduce){ *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;} }
+
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .display{font-family:'Space Grotesk',sans-serif;}
+
+  .wrap{max-width:860px;margin:0 auto;padding:0 20px 120px;}
+  .hero{padding:56px 0 36px;border-bottom:1px solid var(--border-soft);}
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--green); display:flex; align-items:center; gap:8px; margin-bottom:14px;
+  }
+  .eyebrow::before{content:''; width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green);}
+  h1.display{font-size:clamp(26px,4.6vw,38px); line-height:1.15; margin:0 0 14px; font-weight:600; letter-spacing:-.01em;}
+  .hero p{color:var(--text-muted); font-size:15px; line-height:1.6; max-width:60ch; margin:0;}
+
+  .module{padding:44px 0 56px;}
+
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:22px;}
+
+  /* ---------- quiz header / score ---------- */
+  .quiz-head{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px;}
+  .quiz-head h2.display{font-size:19px; margin:0 0 4px; font-weight:600;}
+  .quiz-head .sub{color:var(--text-muted); font-size:13px; margin:0;}
+  .score-pill{
+    display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0;
+  }
+  .score-num{font-family:'JetBrains Mono',monospace; font-size:13px; letter-spacing:.04em; color:var(--text);}
+  .score-num b{color:var(--green); font-weight:600;}
+  .score-bar{width:150px; height:6px; border-radius:4px; background:#0e0e11; border:1px solid var(--border); overflow:hidden;}
+  .score-bar-fill{height:100%; width:0%; background:linear-gradient(90deg,var(--green-dim),var(--green)); transition:width .35s ease;}
+  .attempts{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-muted); opacity:.8;}
+
+  .legend{display:flex; flex-wrap:wrap; gap:10px 18px; margin-bottom:18px;}
+  .legend span{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-muted); display:flex; align-items:center; gap:6px;}
+  .legend svg{width:13px;height:13px; flex-shrink:0;}
+
+  /* ---------- board ---------- */
+  .board{position:relative; display:flex; justify-content:space-between; gap:18px; padding:2px;}
+  .board-svg{position:absolute; inset:0; width:100%; height:100%; z-index:1; pointer-events:none;}
+  .col{display:flex; flex-direction:column; gap:9px; z-index:2; flex:1; min-width:0;}
+  .col-label{font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); margin-bottom:2px;}
+
+  .card{
+    display:flex; align-items:center; gap:10px; user-select:none; cursor:pointer;
+    background:#0e0e11; border:1px solid var(--border); border-radius:7px; padding:8px 10px;
+    transition:border-color .15s, background .15s, transform .1s;
+  }
+  .card:hover{border-color:var(--border);}
+  .dests .card{flex-direction:row-reverse; text-align:right;}
+
+  .jack-dot{
+    width:17px; height:17px; border-radius:50%; background:var(--panel-alt); border:2px solid var(--jc,var(--border));
+    flex-shrink:0; position:relative; transition:box-shadow .2s, border-color .2s;
+  }
+  .jack-dot::after{content:''; position:absolute; inset:4px; border-radius:50%; background:var(--jc,var(--border)); opacity:.3; transition:opacity .2s;}
+  .card.matched .jack-dot{box-shadow:0 0 9px 1px var(--jc,var(--border));}
+  .card.matched .jack-dot::after{opacity:1;}
+
+  .card-text{min-width:0;}
+  .card-name{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text); line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .card-sub{display:block; font-family:'JetBrains Mono',monospace; font-size:8.5px; color:var(--text-muted); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+
+  .connector-glyph{width:20px; height:20px; flex-shrink:0; color:var(--text-muted); transition:color .2s;}
+  .card.matched .connector-glyph{color:var(--text);}
+
+  /* sources: armable / matched / locked states */
+  .sources .card.armed{border-color:var(--jc,var(--amber)); background:var(--panel-alt); box-shadow:0 0 0 1px var(--jc,var(--amber)) inset, 0 0 14px -4px var(--jc,var(--amber));}
+  .sources .card.matched{cursor:default; opacity:.68; border-color:var(--border-soft);}
+  .sources .card.matched .card-name::after{content:' ✓'; color:var(--green);}
+
+  /* destinations: hint-glow while a source is armed, shake on wrong */
+  .board.arming .dests .card:not(.decoy-used){border-color:#37373f;}
+  .board.arming .dests .card:hover{border-color:var(--text-muted); background:var(--panel-alt);}
+  .dests .card.has-connection{border-color:var(--border-soft);}
+  .dests .card.wrong-flash{animation:shakeErr .38s ease;}
+  @keyframes shakeErr{
+    0%,100%{transform:translateX(0);}
+    20%{transform:translateX(-4px);} 40%{transform:translateX(4px);}
+    60%{transform:translateX(-3px);} 80%{transform:translateX(3px);}
+  }
+  .dests .card.wrong-flash{border-color:var(--red) !important; background:rgba(232,97,95,.07);}
+
+  .status-line{
+    margin-top:16px; padding:10px 12px; background:#0e0e11; border:1px solid var(--border); border-radius:6px;
+    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-muted); text-align:center; line-height:1.6;
+  }
+
+  /* ---------- fact / feedback box ---------- */
+  .fact{
+    margin-top:16px; border:1px solid var(--border-soft); background:var(--panel-alt);
+    border-radius:8px; padding:14px 16px; transition:border-color .25s, background .25s;
+  }
+  .fact-label{font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-muted); margin-bottom:6px; display:flex; align-items:center; gap:7px;}
+  .fact-label svg{width:13px;height:13px;}
+  .fact p{margin:0; font-size:13.5px; line-height:1.55; color:#dcd9d3;}
+  .fact.ok{border-color:var(--green-dim); background:linear-gradient(180deg,rgba(95,217,160,.09),rgba(95,217,160,.02));}
+  .fact.ok .fact-label{color:var(--green);}
+  .fact.err{border-color:var(--red-dim); background:linear-gradient(180deg,rgba(232,97,95,.09),rgba(232,97,95,.02));}
+  .fact.err .fact-label{color:var(--red);}
+
+  /* ---------- completion ---------- */
+  .complete{
+    margin-top:16px; border:1px solid var(--green-dim); border-radius:8px; padding:20px;
+    background:linear-gradient(180deg,rgba(95,217,160,.10),rgba(95,217,160,.02));
+    text-align:center; opacity:0; max-height:0; overflow:hidden; padding-top:0; padding-bottom:0; border-width:0;
+    transition:opacity .5s ease, max-height .6s ease, padding .5s ease, border-width .5s ease, margin .5s ease;
+  }
+  .complete.show{opacity:1; max-height:240px; padding:20px; border-width:1px; margin-top:16px;}
+  .complete-wave{height:26px; margin-bottom:10px;}
+  .complete-wave svg{width:100%; height:100%;}
+  .complete h3.display{font-size:16px; color:var(--green); margin:0 0 6px; letter-spacing:.02em;}
+  .complete p{margin:0 0 14px; color:var(--text-muted); font-size:13px;}
+
+  .footer{padding:36px 0 10px; text-align:center;}
+  .footer p{color:var(--text-muted); font-size:13px; margin:0 0 16px;}
+  .btn{
+    background:transparent; border:1px solid var(--green); color:var(--green); padding:10px 22px; border-radius:6px;
+    font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:13.5px; cursor:pointer; transition:background .15s;
+  }
+  .btn:hover{background:rgba(95,217,160,.08);}
+  .btn.ghost{border-color:var(--border); color:var(--text-muted);}
+  .btn.ghost:hover{background:var(--panel-alt); border-color:var(--text-muted); color:var(--text);}
+
+  .hint-note{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-muted); margin-top:12px; opacity:.7; text-align:center;}
+
+  @media (max-width:560px){
+    .card-name{font-size:10px;}
+    .card-sub{display:none;}
+    .board{gap:8px;}
+    .card{padding:7px 7px;}
+    .connector-glyph{width:17px;height:17px;}
+    .score-bar{width:110px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div class="eyebrow">Interactive Lab · Signal Chain Fundamentals</div>
+    <h1 class="display">Match the cable to the connector — and complete the signal.</h1>
+    <p>Every cable in a studio is built for one kind of signal, and it only works through the right connector. Tap a cable type on the left, then tap the connector you think carries it. Get it right and the signal lights up. Get it wrong and you'll get static — try again.</p>
+  </div>
+
+  <div class="module">
+    <div class="panel">
+
+      <div class="quiz-head">
+        <div>
+          <h2 class="display">Match the Following</h2>
+          <p class="sub">10 cable / signal types · 12 connectors — not every connector gets used.</p>
+        </div>
+        <div class="score-pill">
+          <div class="score-num mono">MATCHED <b id="scoreNum">0</b> / 10</div>
+          <div class="score-bar"><div class="score-bar-fill" id="scoreBar"></div></div>
+          <div class="attempts mono" id="attemptsNote">0 attempts</div>
+        </div>
+      </div>
+
+      <div class="legend">
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg> tap cable, then tap connector</span>
+        <span style="color:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.8"><path d="M4 12l5 5L20 6"/></svg> correct = signal</span>
+        <span style="color:var(--red)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.8"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg> wrong = no signal</span>
+      </div>
+
+      <div class="board" id="board">
+        <svg class="board-svg" id="boardSvg"></svg>
+
+        <div class="col sources">
+          <div class="col-label">Signal / Cable Type</div>
+
+          <div class="card" data-id="mic" style="--jc:var(--amber)">
+            <div class="jack-dot" id="jack-mic"></div>
+            <div class="card-text"><div class="card-name">Microphone Cable</div><span class="card-sub">mic capsule → preamp, low-level balanced</span></div>
+          </div>
+          <div class="card" data-id="instrument" style="--jc:var(--purple)">
+            <div class="jack-dot" id="jack-instrument"></div>
+            <div class="card-text"><div class="card-name">Instrument Cable</div><span class="card-sub">pickup → amp or DI, unbalanced</span></div>
+          </div>
+          <div class="card" data-id="balLine" style="--jc:var(--green)">
+            <div class="jack-dot" id="jack-balLine"></div>
+            <div class="card-text"><div class="card-name">Balanced Line-Level Cable</div><span class="card-sub">hot signal between line gear, hum-rejecting</span></div>
+          </div>
+          <div class="card" data-id="unbalLine" style="--jc:var(--blue)">
+            <div class="jack-dot" id="jack-unbalLine"></div>
+            <div class="card-text"><div class="card-name">Unbalanced Line-Level Cable</div><span class="card-sub">line signal, single conductor + shield</span></div>
+          </div>
+          <div class="card" data-id="speaker" style="--jc:var(--orange)">
+            <div class="jack-dot" id="jack-speaker"></div>
+            <div class="card-text"><div class="card-name">Speaker Cable</div><span class="card-sub">high-current power, amp → speaker</span></div>
+          </div>
+          <div class="card" data-id="digital" style="--jc:var(--teal)">
+            <div class="jack-dot" id="jack-digital"></div>
+            <div class="card-text"><div class="card-name">Digital Audio Cable</div><span class="card-sub">audio as bits, computer ↔ interface</span></div>
+          </div>
+          <div class="card" data-id="midiCable" style="--jc:var(--yellow)">
+            <div class="jack-dot" id="jack-midiCable"></div>
+            <div class="card-text"><div class="card-name">MIDI Cable</div><span class="card-sub">notes &amp; CC data — not audio</span></div>
+          </div>
+          <div class="card" data-id="coax" style="--jc:var(--pink)">
+            <div class="jack-dot" id="jack-coax"></div>
+            <div class="card-text"><div class="card-name">Coaxial Cable (Digital)</div><span class="card-sub">S/PDIF over 75Ω coax</span></div>
+          </div>
+          <div class="card" data-id="aesCable" style="--jc:var(--violet)">
+            <div class="jack-dot" id="jack-aesCable"></div>
+            <div class="card-text"><div class="card-name">AES Cable</div><span class="card-sub">pro balanced digital audio</span></div>
+          </div>
+          <div class="card" data-id="adat" style="--jc:var(--lime)">
+            <div class="jack-dot" id="jack-adat"></div>
+            <div class="card-text"><div class="card-name">ADAT Optical (Lightpipe)</div><span class="card-sub">8 digital channels, sent as light</span></div>
+          </div>
+        </div>
+
+        <div class="col dests">
+          <div class="col-label">Connector</div>
+
+          <div class="card" data-id="xlr">
+            <div class="jack-dot" id="jack-xlr"></div>
+            <svg class="connector-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="7.3" r="1.1" fill="currentColor" stroke="none"/><circle cx="8.6" cy="14.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="15.4" cy="14.5" r="1.1" fill="currentColor" stroke="none"/></svg>
+            <div class="card-text"><div class="card-name">XLR</div><span class="card-sub">3-pin, locking, balanced</span></div>
+          </div>
+          <div class="card" data-id="trs">
+            <div class="jack-dot" id="jack-trs"></div>
+            <svg class="connector-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="10" y="3" width="4" height="18" rx="2"/><line x1="10" y1="9" x2="14" y2="9"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+            <div class="card-text"><div class="card-name">TRS</div><span class="card-sub">1/4&quot; balanced, 2 bands</span></div>
+          </div>
+          <div class="card" data-id="ts">
+            <div class="jack-dot" id="jack-ts"></div>
+            <svg class="connector-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="10" y="3" width="4" height="18" rx="2"/><line x1="10" y1="11" x2="14" y2="11"/></svg>
+            <div class="card-text"><div class="card-name">TS</div><span class="card-sub">1/4&quot; unbalanced, 1 band</span></div>
+          </div>
+          <div class="card" data-id="rca">
+            <div class="jack-dot" id="jack-rca"></div>
+            <svg class="connector-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 4h8l-1.5 8h-5z"/><rect x="10.7" y="12" width="2.6" height="8" rx="1"/></svg>
+            <div class="card-text"><div class="card-name">RCA</div><span class="card-sub">phono plug, single pin</span></div>
+          </div>
+          <div class="card" data-id="midi">
+            <div class="jack-dot" id="jack-midi"></div>
+            <svg class="connector-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="6.3" r="1" fill="currentColor" stroke="none"/><circle cx="7.3" cy="9.6" r="1" fill="currentColor" stroke="none"/><circle cx="9.2" cy="15.4" r="1" fill="currentColor" stroke="none"/><circle cx="14.8" cy="15.4" r="1" fill="currentColor" stroke="none"/><circle cx="16.7" cy="9.6" r="1" fill="currentColor" stroke="none"/></svg>
+            <div class="card-text"><div class="card-name">MIDI</div><span class="card-sub">5-pin DIN</span></div>
+          </div>
+          <div class="card" data-id="usb">
+            <div class="jack-dot" id="jack-usb"></div>
+            <svg class="connector-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="8" width="16" height="8" rx="1.5"/><line x1="9" y1="8" x2="9" y2="16"/><line x1="15" y1="8" x2="15" y2="16"/></svg>
+            <div class="card-text"><div class="card-name">USB</div><span class="card-sub">type-A / B / C</span></div>
+          </div>
+          <div class="card" data-id="speakon">
+            <div class="jack-dot" id="jack-speakon"></div>
+            <svg class="connector-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8.5"/><path d="M7 9a5 5 0 0 1 7-3"/><path d="M17 15a5 5 0 0 1-7 3"/><path d="M14.5 5.6l1 1.5-1.8.4"/><path d="M9.5 18.4l-1-1.5 1.8-.4"/></svg>
+            <div class="card-text"><div class="card-name">Speakon</div><span class="card-sub">twist-lock, high current</span></div>
+          </div>
+          <div class="card" data-id="aes">
+            <div class="jack-dot" id="jack-aes"></div>
+            <svg class="connector-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="9.5" r="6.5"/><circle cx="12" cy="6.3" r="0.9" fill="currentColor" stroke="none"/><circle cx="9.4" cy="11.6" r="0.9" fill="currentColor" stroke="none"/><circle cx="14.6" cy="11.6" r="0.9" fill="currentColor" stroke="none"/><path d="M5 19h2l1.2-3 1.6 6 1.2-4.5 1 2 1.2-2.5 1.4 3.2 1-2.7h2.4" stroke-width="1.3"/></svg>
+            <div class="card-text"><div class="card-name">AES</div><span class="card-sub">XLR-shape, digital</span></div>
+          </div>
+          <div class="card" data-id="bantam">
+            <div class="jack-dot" id="jack-bantam"></div>
+            <svg class="connector-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="10.7" y="5" width="2.6" height="14" rx="1.3"/><line x1="10.7" y1="9.6" x2="13.3" y2="9.6"/><line x1="10.7" y1="13.4" x2="13.3" y2="13.4"/></svg>
+            <div class="card-text"><div class="card-name">Bantam</div><span class="card-sub">TT, mini patchbay</span></div>
+          </div>
+          <div class="card" data-id="banana">
+            <div class="jack-dot" id="jack-banana"></div>
+            <svg class="connector-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3.5c2.4 2 2.4 13 0 17-2.4-4-2.4-15 0-17z"/></svg>
+            <div class="card-text"><div class="card-name">Banana</div><span class="card-sub">binding-post plug</span></div>
+          </div>
+          <div class="card" data-id="optical">
+            <div class="jack-dot" id="jack-optical"></div>
+            <svg class="connector-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="7" width="16" height="10" rx="2"/><path d="M8 12l4-3v6z" fill="currentColor" stroke="none"/></svg>
+            <div class="card-text"><div class="card-name">Optical</div><span class="card-sub">TOSLINK, light pulses</span></div>
+          </div>
+          <div class="card" data-id="dsub">
+            <div class="jack-dot" id="jack-dsub"></div>
+            <svg class="connector-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3.5c0 3-2 6.5-8 6.5s-8-3.5-8-6.5z"/><circle cx="8" cy="9" r=".7" fill="currentColor" stroke="none"/><circle cx="12" cy="9" r=".7" fill="currentColor" stroke="none"/><circle cx="16" cy="9" r=".7" fill="currentColor" stroke="none"/><circle cx="10" cy="12" r=".7" fill="currentColor" stroke="none"/><circle cx="14" cy="12" r=".7" fill="currentColor" stroke="none"/></svg>
+            <div class="card-text"><div class="card-name">D-Sub</div><span class="card-sub">DB25 multichannel snake</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="status-line" id="statusLine">Tap a cable type, then tap the connector you think carries it.</div>
+
+      <div class="fact" id="factBox">
+        <div class="fact-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><circle cx="12" cy="16" r="0.6" fill="currentColor"/></svg> How this works</div>
+        <p>Every cable is built for a specific signal — some need a shield and two hot conductors to reject hum, some carry raw current, some carry pure data. The connector is just the plug that signal is standardized on. Start matching to find out which is which.</p>
+      </div>
+
+      <div class="complete" id="completeBox">
+        <div class="complete-wave"><svg id="completeWaveSvg" viewBox="0 0 300 26" preserveAspectRatio="none"></svg></div>
+        <h3 class="display">FULL SIGNAL CHAIN — all 10 matched</h3>
+        <p>Every cable found the connector built for its signal. That's the backbone of every rig in the studio.</p>
+        <button class="btn" id="restartBtn">Restart Quiz</button>
+      </div>
+
+      <div class="hint-note">Some connectors are decoys — a connector's shape doesn't guarantee it's carrying the right signal.</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Same shape, different signal: XLR carries a mic <em>or</em> AES digital audio. RCA carries unbalanced line-level <em>or</em> S/PDIF digital. The connector never tells you the whole story.</p>
+    <button class="btn ghost" id="resetBtn">Reset Board</button>
+  </div>
+
+</div>
+
+<script>
+(() => {
+  const SOURCES = {
+    mic:        { color:'var(--amber)',  correct:['xlr'],
+      fact:"A balanced 3-pin XLR carries a microphone's low-level signal to a preamp without picking up hum over a long run.",
+      hint:"Hint: you need a locking 3-pin balanced connector built for low-level mic signal." },
+    instrument: { color:'var(--purple)', correct:['ts'],
+      fact:'A 1/4" TS (tip-sleeve) cable carries a guitar or bass pickup\'s unbalanced signal — keep the run short to avoid noise.',
+      hint:'Hint: a simple 2-conductor 1/4" plug — no extra ring, no lock.' },
+    balLine:    { color:'var(--green)',  correct:['trs','bantam'],
+      fact:'A balanced line-level signal travels on two hot conductors plus a shield — a full-size TRS plug, or its mini patchbay twin, Bantam (TT).',
+      hint:'Hint: look for a 3-conductor 1/4" plug — or its miniature patchbay-sized version.' },
+    unbalLine:  { color:'var(--blue)',   correct:['rca'],
+      fact:'An unbalanced line-level signal rides a single center pin plus shield — the classic RCA (phono) plug on consumer and semi-pro gear.',
+      hint:'Hint: a single-pin phono-style plug, common on consumer gear.' },
+    speaker:    { color:'var(--orange)', correct:['speakon','banana'],
+      fact:'Speaker cable carries high-current amplifier power, not a delicate signal — a twist-lock Speakon or a simple banana plug, no shielding required.',
+      hint:'Hint: needs thick conductors for current, not shielding — twist-lock or a simple plug pair.' },
+    digital:    { color:'var(--teal)',   correct:['usb'],
+      fact:'A generic digital audio cable moves audio as bits between a computer and an interface — the same USB plug as any other peripheral.',
+      hint:'Hint: the same plug your keyboard or flash drive uses.' },
+    midiCable:  { color:'var(--yellow)', correct:['midi'],
+      fact:'MIDI never carries sound — a 5-pin DIN cable carries performance data: notes, velocity, and controller messages.',
+      hint:'Hint: a round 5-pin connector that carries notes, not sound.' },
+    coax:       { color:'var(--pink)',   correct:['rca'],
+      fact:'S/PDIF digital audio also rides on an RCA plug — but the cable inside is 75Ω coax built for a digital signal, not analog.',
+      hint:'Hint: looks exactly like an unbalanced analog plug, but the cable inside is 75Ω digital coax.' },
+    aesCable:   { color:'var(--violet)', correct:['aes'],
+      fact:'AES/EBU carries professional balanced digital audio on an XLR-shaped connector — same shape as a mic cable, completely different signal.',
+      hint:"Hint: shaped exactly like a mic connector, but it's carrying digital 1s and 0s." },
+    adat:       { color:'var(--lime)',   correct:['optical'],
+      fact:'ADAT Lightpipe sends up to 8 channels of digital audio as pulses of light through a TOSLINK optical cable — no metal pins at all.',
+      hint:'Hint: no metal pins at all — the signal travels as a beam of light.' },
+  };
+  const SOURCE_ORDER = ['mic','instrument','balLine','unbalLine','speaker','digital','midiCable','coax','aesCable','adat'];
+
+  const board = document.getElementById('board');
+  const svg = document.getElementById('boardSvg');
+  const factBox = document.getElementById('factBox');
+  const statusLine = document.getElementById('statusLine');
+  const scoreNum = document.getElementById('scoreNum');
+  const scoreBar = document.getElementById('scoreBar');
+  const attemptsNote = document.getElementById('attemptsNote');
+  const completeBox = document.getElementById('completeBox');
+
+  let armed = null;          // sourceId currently selected
+  let connections = {};      // sourceId -> destId  (only ever correct pairs)
+  let attempts = 0;
+
+  function boardRect(){ return board.getBoundingClientRect(); }
+  function jackCenter(el){
+    const r = el.getBoundingClientRect();
+    const b = boardRect();
+    return { x: r.left - b.left + r.width/2, y: r.top - b.top + r.height/2 };
+  }
+  function sizeSvg(){
+    const b = boardRect();
+    svg.setAttribute('width', b.width);
+    svg.setAttribute('height', b.height);
+    svg.setAttribute('viewBox', `0 0 ${b.width} ${b.height}`);
+  }
+  function cablePath(p1,p2){
+    const midX = (p1.x + p2.x) / 2;
+    return `M ${p1.x},${p1.y} C ${midX},${p1.y} ${midX},${p2.y} ${p2.x},${p2.y}`;
+  }
+  function resolveColor(varStr){
+    return getComputedStyle(document.documentElement).getPropertyValue(varStr.replace('var(','').replace(')','')).trim() || '#8b8890';
+  }
+  function redraw(){
+    sizeSvg();
+    let html = '';
+    Object.entries(connections).forEach(([srcId, destId]) => {
+      const p1 = jackCenter(document.getElementById('jack-'+srcId));
+      const p2 = jackCenter(document.getElementById('jack-'+destId));
+      const color = resolveColor(SOURCES[srcId].color);
+      html += `<path d="${cablePath(p1,p2)}" fill="none" stroke="${color}" stroke-width="2.4" stroke-linecap="round" opacity="0.85"/>`;
+      html += `<circle cx="${p1.x}" cy="${p1.y}" r="3.5" fill="${color}"/><circle cx="${p2.x}" cy="${p2.y}" r="3.5" fill="${color}"/>`;
+    });
+    svg.innerHTML = html;
+  }
+
+  function cardName(id){
+    const sourceCard = document.querySelector(`.sources .card[data-id="${id}"] .card-name`);
+    const destCard = document.querySelector(`.dests .card[data-id="${id}"] .card-name`);
+    const el = sourceCard || destCard;
+    return el ? el.childNodes[0].textContent.trim() : id;
+  }
+
+  function updateStatus(){
+    const entries = Object.entries(connections);
+    if(!entries.length){
+      statusLine.textContent = 'Tap a cable type, then tap the connector you think carries it.';
+      return;
+    }
+    statusLine.textContent = entries.map(([s,d]) => `${cardName(s)} → ${cardName(d)}`).join('   ·   ');
+  }
+
+  function updateScore(){
+    const n = Object.keys(connections).length;
+    scoreNum.textContent = n;
+    scoreBar.style.width = (n/10*100) + '%';
+    attemptsNote.textContent = attempts + (attempts === 1 ? ' attempt' : ' attempts');
+    if(n === 10){
+      completeBox.classList.add('show');
+      board.querySelectorAll('.dests .card.has-connection').forEach(c => c.style.borderColor = 'var(--green-dim)');
+      buildCompleteWave();
+    }
+  }
+
+  function showFact(kind, html){
+    factBox.className = 'fact ' + kind;
+    const label = kind === 'ok'
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12l5 5L20 6"/></svg> Signal'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg> No Signal';
+    factBox.innerHTML = `<div class="fact-label">${label}</div><p>${html}</p>`;
+  }
+
+  function armSource(id){
+    if(connections[id]) return; // already matched, locked
+    if(armed === id){
+      armed = null;
+      board.classList.remove('arming');
+    } else {
+      armed = id;
+      board.classList.add('arming');
+    }
+    document.querySelectorAll('.sources .card').forEach(c => {
+      c.classList.toggle('armed', c.dataset.id === armed);
+    });
+  }
+
+  function attemptConnect(destId){
+    if(!armed) return;
+    attempts++;
+    const src = SOURCES[armed];
+    const destCard = document.querySelector(`.dests .card[data-id="${destId}"]`);
+    if(src.correct.includes(destId)){
+      connections[armed] = destId;
+      document.querySelector(`.sources .card[data-id="${armed}"]`).classList.add('matched');
+      destCard.classList.add('has-connection', 'matched');
+      showFact('ok', src.fact);
+      armed = null;
+      board.classList.remove('arming');
+      document.querySelectorAll('.sources .card').forEach(c => c.classList.remove('armed'));
+    } else {
+      showFact('err', src.hint);
+      destCard.classList.remove('wrong-flash');
+      void destCard.offsetWidth;
+      destCard.classList.add('wrong-flash');
+      setTimeout(() => destCard.classList.remove('wrong-flash'), 400);
+    }
+    redraw();
+    updateStatus();
+    updateScore();
+  }
+
+  function buildCompleteWave(){
+    const w = document.getElementById('completeWaveSvg');
+    let d = 'M0,13';
+    for(let x = 10; x <= 300; x += 10){
+      const y = 13 + Math.sin(x/12) * 9 * Math.min(1, x/60) * Math.min(1,(300-x)/60 + 0.3);
+      d += ` L${x},${y.toFixed(1)}`;
+    }
+    w.innerHTML = `<path d="${d}" fill="none" stroke="var(--green)" stroke-width="2"/>`;
+  }
+
+  function resetAll(){
+    connections = {};
+    armed = null;
+    attempts = 0;
+    board.classList.remove('arming');
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('armed','matched','has-connection','wrong-flash'));
+    completeBox.classList.remove('show');
+    factBox.className = 'fact';
+    factBox.innerHTML = `<div class="fact-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><circle cx="12" cy="16" r="0.6" fill="currentColor"/></svg> How this works</div><p>Every cable is built for a specific signal — some need a shield and two hot conductors to reject hum, some carry raw current, some carry pure data. The connector is just the plug that signal is standardized on. Start matching to find out which is which.</p>`;
+    redraw();
+    updateStatus();
+    updateScore();
+  }
+
+  function init(){
+    document.querySelectorAll('.sources .card').forEach(card => {
+      card.addEventListener('click', () => armSource(card.dataset.id));
+    });
+    document.querySelectorAll('.dests .card').forEach(card => {
+      card.addEventListener('click', () => attemptConnect(card.dataset.id));
+    });
+    document.getElementById('resetBtn').addEventListener('click', resetAll);
+    document.getElementById('restartBtn').addEventListener('click', resetAll);
+    window.addEventListener('resize', redraw);
+    redraw();
+    updateStatus();
+    updateScore();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

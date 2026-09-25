@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Studio Components — Studio VR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!--
+  DESIGN MOCKUP — "Studio Components" briefing chapter.
+
+  Single-screen master/detail layout:
+    LEFT  — four section dropdowns (Control/Live × Electronic/Non-electronic),
+            each listing its four components.
+    RIGHT — detail pane for the selected component: image, overview text,
+            key points, and prev/next navigation through all 16.
+
+  IMAGES: each item has an `img` path under design/assets/components/.
+  Drop real photos there with those file names (16:9 works best). Until a
+  file exists, the pane shows a labelled placeholder with the item's icon
+  and the expected file name, so it's obvious what to supply.
+
+  On narrow screens the list stacks above the detail pane and the page
+  scrolls. Colors are CSS variables keyed off [data-theme] on <html>
+  so the page follows the app's ThemeContext (svr-theme).
+-->
+<style>
+  :root, [data-theme="dark"]{
+    --bg:#0b0b0d; --panel:#16161a; --row:#1c1c21; --row-hover:#222229; --well:#0e0e11;
+    --border:#2a2a30; --text:#ede9e3; --muted:#8b8890; --faint:#54525a;
+    --amber:#e8934a; --green:#5fd9a0; --blue:#6fa8e0; --purple:#a78bfa;
+  }
+  [data-theme="light"]{
+    --bg:#f5f3ef; --panel:#ffffff; --row:#f8f6f3; --row-hover:#f1eee9; --well:#efece7;
+    --border:#dfdbd4; --text:#1b1a1d; --muted:#5f5c63; --faint:#a09ca5;
+    --amber:#c96f24; --green:#1f9a67; --blue:#2f72b8; --purple:#6d4fd6;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0; height:100%; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif;}
+  button{font:inherit; color:inherit;}
+
+  .page{height:100vh; display:flex; flex-direction:column; padding:14px 24px 18px; gap:12px; max-width:1440px; margin:0 auto;}
+
+  header{display:flex; align-items:center; justify-content:space-between; gap:16px; flex:none;}
+  .eyebrow{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--green);}
+  h1{font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:600; margin:3px 0 0;}
+  .sub{font-size:13px; color:var(--muted); margin-top:2px;}
+  .theme{display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--muted); cursor:pointer; flex:none;}
+
+  .layout{flex:1; min-height:0; display:grid; grid-template-columns:340px 1fr; gap:16px;}
+
+  /* ---------- left: section dropdowns ---------- */
+  .nav{overflow:auto; min-height:0; display:flex; flex-direction:column; gap:8px; padding-right:2px;}
+  .room-label{font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); margin:6px 4px 0;}
+  .room-label:first-child{margin-top:0;}
+  details.sec{background:var(--panel); border:1px solid var(--border); border-left:3px solid var(--c); border-radius:10px;}
+  details.sec > summary{list-style:none; cursor:pointer; display:flex; align-items:center; gap:10px; padding:10px 12px;}
+  details.sec > summary::-webkit-details-marker{display:none;}
+  details.sec > summary:focus-visible{outline:2px solid var(--c); outline-offset:2px; border-radius:8px;}
+  .sec-n{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--c);}
+  .sec-t{flex:1; font-weight:600; font-size:13.5px;}
+  .sec-count{font-size:11.5px; color:var(--faint);}
+  .chev{width:16px; height:16px; color:var(--faint); transition:transform .2s; flex:none;}
+  details.sec[open] > summary .chev{transform:rotate(180deg); color:var(--c);}
+  .items{display:flex; flex-direction:column; gap:3px; padding:0 8px 8px;}
+  .item{display:flex; align-items:center; gap:10px; width:100%; text-align:left; padding:7px 8px; border-radius:8px; border:1px solid transparent; background:none; cursor:pointer; font-size:13.5px; color:var(--muted);}
+  .item:hover{background:var(--row-hover); color:var(--text);}
+  .item[aria-current="true"]{background:var(--row); border-color:var(--c); color:var(--text); font-weight:500;}
+  .item .ic{width:26px; height:26px; flex:none; border-radius:7px; background:var(--well); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; color:var(--c);}
+  .item .ic svg{width:15px; height:15px;}
+
+  /* ---------- right: detail pane ---------- */
+  .detail{background:var(--panel); border:1px solid var(--border); border-top:3px solid var(--c); border-radius:14px; min-height:0; max-height:100%; align-self:start; overflow:auto;
+    display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:24px; padding:22px; align-content:start;}
+  .media{display:flex; flex-direction:column; gap:10px;}
+  .frame{position:relative; aspect-ratio:16/10; border-radius:10px; overflow:hidden; background:var(--well); border:1px solid var(--border);}
+  .frame img{width:100%; height:100%; object-fit:cover; display:block;}
+  .ph{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:var(--c);
+    background:repeating-linear-gradient(45deg, transparent 0 12px, color-mix(in srgb, var(--c) 5%, transparent) 12px 24px);}
+  .ph svg{width:56px; height:56px; opacity:.85;}
+  .ph span{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--faint);}
+  .caption{font-size:12px; color:var(--faint);}
+  .pager{display:flex; gap:8px; margin-top:4px;}
+  .pager button{flex:1; padding:9px 12px; border-radius:9px; border:1px solid var(--border); background:var(--row); cursor:pointer; font-size:13px; color:var(--muted); text-align:left;}
+  .pager button:last-child{text-align:right;}
+  .pager button:hover:not(:disabled){color:var(--text); border-color:var(--c);}
+  .pager button:disabled{opacity:.4; cursor:default;}
+  .pager small{display:block; font-size:10.5px; color:var(--faint); font-family:'JetBrains Mono',monospace; letter-spacing:.08em;}
+
+  .text{min-width:0;}
+  .tags{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;}
+  .tag{font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; padding:3px 8px; border-radius:20px; border:1px solid var(--border); color:var(--muted);}
+  .tag.c{border-color:var(--c); color:var(--c);}
+  h2{font-family:'Space Grotesk',sans-serif; font-size:24px; font-weight:600; margin:0 0 8px; line-height:1.2;}
+  .lead{font-size:15px; color:var(--text); line-height:1.55; margin:0 0 14px;}
+  .text p{font-size:14px; line-height:1.7; color:var(--muted); margin:0 0 12px;}
+  .text p strong{color:var(--text); font-weight:600;}
+  h3{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:500; margin:18px 0 8px;}
+  .points{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px;}
+  .points li{font-size:13.5px; line-height:1.5; padding:9px 12px; border-radius:8px; background:var(--row); border:1px solid var(--border); display:flex; gap:10px;}
+  .points li::before{content:''; flex:none; width:6px; height:6px; border-radius:50%; background:var(--c); margin-top:7px;}
+  .fade{animation:fade .2s ease;}
+  @keyframes fade{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
+  @media (prefers-reduced-motion: reduce){ .fade{animation:none;} }
+
+  @media (max-width:1100px){ .detail{grid-template-columns:1fr;} .pager{margin-top:4px;} }
+  @media (max-width:800px){
+    .page{height:auto; min-height:100vh; padding:14px 16px;}
+    .layout{display:flex; flex-direction:column;}
+    .nav, .detail{overflow:visible;}
+    .detail{padding:16px;}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div>
+      <div class="eyebrow">Foundations · Studio Components</div>
+      <h1>What's inside a recording studio</h1>
+      <div class="sub">Two rooms, each with electronic and non-electronic parts. Pick a component from the list to learn what it does.</div>
+    </div>
+    <button class="theme" id="themeBtn" aria-label="Toggle light/dark theme"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+  </header>
+
+  <div class="layout">
+    <nav class="nav" id="nav" aria-label="Studio components"></nav>
+    <article class="detail" id="detail" aria-live="polite"></article>
+  </div>
+</div>
+
+<script>
+/* Simple 24×24 stroke icons — used in the list and as image placeholders. */
+const I = {
+  console:'<rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="9" x2="6" y2="15"/><line x1="10" y1="9" x2="10" y2="15"/><line x1="14" y1="9" x2="14" y2="15"/><line x1="18" y1="9" x2="18" y2="15"/><rect x="4.5" y="12" width="3" height="2" fill="currentColor"/><rect x="8.5" y="10" width="3" height="2" fill="currentColor"/><rect x="12.5" y="13" width="3" height="2" fill="currentColor"/><rect x="16.5" y="11" width="3" height="2" fill="currentColor"/>',
+  monitors:'<rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="7" r="2"/><circle cx="12" cy="15" r="4"/>',
+  outboard:'<rect x="2" y="4" width="20" height="5" rx="1"/><rect x="2" y="10" width="20" height="5" rx="1"/><rect x="2" y="16" width="20" height="5" rx="1"/><circle cx="7" cy="6.5" r="1"/><circle cx="7" cy="12.5" r="1"/><circle cx="7" cy="18.5" r="1"/>',
+  machine:'<rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="9" x2="16" y2="9"/><circle cx="12" cy="16" r="3"/>',
+  panels:'<rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/>',
+  diffusers:'<rect x="3" y="12" width="3" height="9"/><rect x="7" y="6" width="3" height="15"/><rect x="11" y="15" width="3" height="6"/><rect x="15" y="4" width="3" height="17"/><rect x="19" y="10" width="2" height="11"/>',
+  furniture:'<path d="M2 10h20l-2 3H4z"/><line x1="5" y1="13" x2="5" y2="21"/><line x1="19" y1="13" x2="19" y2="21"/><rect x="9" y="4" width="6" height="6" rx="1"/>',
+  window:'<path d="M3 4l6 1v14l-6 1z"/><path d="M11 5l5 -1v16l-5 -1z"/>',
+  mics:'<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/>',
+  instruments:'<path d="M14 3l7 7-2 2-2-2-5 5a3.5 3.5 0 1 1-4-4l5-5-2-2z"/>',
+  headphones:'<path d="M3 16v-3a9 9 0 0 1 18 0v3"/><rect x="2" y="15" width="5" height="7" rx="2"/><rect x="17" y="15" width="5" height="7" rx="2"/>',
+  wallbox:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="2"/><circle cx="16" cy="8" r="2"/><circle cx="8" cy="16" r="2"/><circle cx="16" cy="16" r="2"/>',
+  floor:'<rect x="2" y="4" width="20" height="4" rx="1"/><rect x="2" y="16" width="20" height="4" rx="1"/><path d="M5 8v8M12 8v8M19 8v8" stroke-dasharray="2 2"/>',
+  stands:'<circle cx="17" cy="4" r="2"/><line x1="15.5" y1="5.5" x2="6" y2="12"/><line x1="10" y1="9.5" x2="10" y2="20"/><line x1="10" y1="20" x2="5" y2="22"/><line x1="10" y1="20" x2="15" y2="22"/>',
+  gobos:'<path d="M4 20V6l6-2v16z"/><path d="M14 20V4l6 2v14z"/><line x1="2" y1="21" x2="22" y2="21"/>',
+  acoustic:'<ellipse cx="12" cy="15" rx="7" ry="6"/><circle cx="12" cy="14" r="2"/><line x1="12" y1="9" x2="12" y2="2"/>',
+};
+const svg = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[k]}</svg>`;
+const chev = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>';
+
+/* ------------------------------------------------------------------
+   Content. Each item: id (also icon key + image file name), name,
+   lead (one-line definition), body (paragraphs), points (key points).
+------------------------------------------------------------------- */
+const SECTIONS = [
+  { n:'01', room:'Control Room', type:'Electronic', c:'var(--amber)', items:[
+    { id:'console', name:'Mixing Console / Desk',
+      lead:'The central hub used for routing, leveling and blending audio signals.',
+      body:['Every signal in the studio passes through the console. Each input has its own <strong>channel strip</strong> with a gain control, EQ, dynamics, aux sends, a pan knob and a fader.',
+            'Channels can be grouped onto <strong>buses</strong>, and the master section sends the finished mix to the recorder and the control-room speakers. Consoles can be analog, digital, or a hardware controller for a DAW.'],
+      points:['Channel strip order: gain → EQ → dynamics → aux → pan → fader.','Aux sends create the musicians\' headphone mixes and feed effects.','Set levels with the gain control first, then balance with faders.'] },
+    { id:'monitors', name:'Audio Monitors (Speakers)',
+      lead:'High-precision speakers positioned in an equilateral triangle for accurate listening.',
+      body:['Studio monitors are designed to sound <strong>flat and honest</strong>, not flattering. What you hear is what was recorded, so a mix made on them sounds right on other systems too.',
+            'The two speakers and your head form an <strong>equilateral triangle</strong>: the distance between the speakers equals the distance from each speaker to you. This creates a clear stereo image at the "sweet spot".'],
+      points:['Tweeters at ear height, angled toward the listener.','Nearfield monitors sit about 1–2 m away to reduce room effects.','Isolation pads stop the desk from vibrating and muddying the bass.'] },
+    { id:'outboard', name:'Outboard Gear & Racks',
+      lead:'Physical processors, such as hardware compressors, equalizers and preamps.',
+      body:['Outboard gear is <strong>hardware signal processing</strong> that sits outside the console. <strong>Preamps</strong> boost weak mic signals, <strong>compressors</strong> control loud and quiet parts, and <strong>equalizers</strong> shape the tone.',
+            'Units are mounted in standard <strong>19-inch racks</strong> and usually wired through a <strong>patchbay</strong>, so any unit can be connected to any channel with a short patch cable.'],
+      points:['Rack height is measured in units: 1U = 1.75 in (44.45 mm).','Each hardware unit has its own sound character.','Clear labels on the patchbay save time during sessions.'] },
+    { id:'machine', name:'Machine Room Gear',
+      lead:'Power units, audio interfaces, central servers and computer processing towers.',
+      body:['Noisy equipment lives in a separate <strong>machine room</strong> so fans and hard drives don\'t add noise to the listening space.',
+            'This includes <strong>power conditioners and UPS</strong> units, <strong>audio interfaces</strong> that convert between analog and digital, <strong>clock</strong> units that keep digital gear in sync, storage servers, and the DAW computer.'],
+      points:['A quieter control room means you hear more detail when mixing.','Word clock keeps all digital devices perfectly in time.','Clean, dedicated power helps avoid hum and ground loops.'] },
+  ]},
+  { n:'02', room:'Control Room', type:'Non-electronic', c:'var(--green)', items:[
+    { id:'panels', name:'Acoustic Panels & Bass Traps',
+      lead:'Wall-mounted panels and corner absorbers that prevent reflections and bass buildup.',
+      body:['Sound from the speakers bounces off walls and ceiling. These <strong>reflections</strong> reach your ears slightly after the direct sound and blur the stereo image. <strong>Absorbent panels</strong> made of mineral wool or fiberglass soak them up.',
+            'Low frequencies build up in corners, causing boomy notes and missing notes. <strong>Bass traps</strong> placed in the corners even this out.'],
+      points:['Panels go at first-reflection points: side walls and ceiling.','Thicker panels with an air gap behind them absorb lower frequencies.','Thin foam only affects high frequencies, not bass.'] },
+    { id:'diffusers', name:'Diffusers',
+      lead:'Geometric wall or ceiling panels that scatter sound to keep the room sounding natural.',
+      body:['Diffusers <strong>scatter</strong> sound in many directions instead of absorbing it. The room keeps its natural energy and sense of space, without harsh echoes.',
+            'Common designs include <strong>QRD</strong> panels (rows of wells with different depths) and <strong>skyline</strong> panels (blocks of different heights). They are usually placed on the rear wall or ceiling.'],
+      points:['Absorbers remove sound energy; diffusers spread it out.','Deeper wells work on lower frequencies.','Rooms with only absorption sound dead and tiring.'] },
+    { id:'furniture', name:'Ergonomic Furniture & Workstations',
+      lead:'Custom studio desks, rack cabinets and adjustable seating.',
+      body:['Studio desks keep the console, screens and keyboards within reach while leaving a <strong>clear path from the speakers to your ears</strong>.',
+            'Built-in <strong>rack bays</strong> hold outboard gear at arm\'s length, and a <strong>quiet, adjustable chair</strong> keeps your ears at the same height in the sweet spot for every session.'],
+      points:['Low desk surfaces reduce reflections into the listening position.','Rack bays use the same 19-inch standard as the gear.','A squeaky chair can be heard on quiet recordings.'] },
+    { id:'window', name:'Acoustic Window Assembly',
+      lead:'Multi-layered, angled glass partition giving a clear sightline into the live room.',
+      body:['The window lets the engineer and musicians <strong>see each other</strong> without letting sound pass between the rooms.',
+            'It uses <strong>two or more panes of laminated glass</strong>, each a different thickness, set in separate frames with an air gap. The glass is <strong>angled</strong> so reflections are sent away from the listener.'],
+      points:['Different glass thicknesses stop sound leaking at the same pitch.','Angling the panes prevents echoes bouncing between them.','Eye contact through the glass is how cues are given during a take.'] },
+  ]},
+  { n:'03', room:'Recording / Live Room', type:'Electronic', c:'var(--blue)', items:[
+    { id:'mics', name:'Microphones',
+      lead:'Transducers (condenser, dynamic, ribbon) that convert sound waves into electrical signals.',
+      body:['A microphone is a <strong>transducer</strong>: it turns changes in air pressure into an electrical signal.',
+            '<strong>Dynamic</strong> mics are rugged and handle loud sources like drums and guitar amps. <strong>Condenser</strong> mics are detailed and sensitive, ideal for vocals, and need <strong>+48 V phantom power</strong>. <strong>Ribbon</strong> mics sound smooth and natural but are delicate.'],
+      points:['The pickup pattern (cardioid, omni, figure-8) decides what the mic hears.','Moving a mic closer increases the bass (proximity effect).','Mic signals are very weak and always need a preamp.'] },
+    { id:'instruments', name:'Electric Instruments & Amps',
+      lead:'Guitars, basses, amplifiers and electronic keyboards/synthesizers.',
+      body:['Electric guitars and basses produce a weak signal that goes to an <strong>amplifier</strong>. The amp\'s speaker is then recorded with a microphone.',
+            'Instruments can also be recorded directly through a <strong>DI box</strong>, which converts the signal so the console can accept it. Keyboards and synths output a stronger <strong>line-level</strong> signal, often in stereo.'],
+      points:['The amp and speaker are a big part of the guitar\'s sound.','A DI box allows long cable runs without noise.','Recording a clean DI track lets you change the amp tone later.'] },
+    { id:'headphones', name:'Headphone Distro Systems',
+      lead:'Individual cue mixers and headphones worn by musicians to hear backing tracks.',
+      body:['While recording, musicians need to hear themselves, each other and the backing track. A <strong>headphone distribution system</strong> sends them a <strong>cue mix</strong>.',
+            'With <strong>personal mixers</strong>, each musician can adjust their own balance, for example "more vocal, less drums". <strong>Closed-back headphones</strong> keep the sound from leaking into the microphones.'],
+      points:['Each musician controls their own headphone mix.','Loose headphones can leak the click track into recordings.','A comfortable cue mix leads to a better performance.'] },
+    { id:'wallbox', name:'Wall Boxes (Stage Snakes)',
+      lead:'Embedded wall plates where microphone cables plug in to send signals to the control room.',
+      body:['Instead of running cables under a door, microphones plug into numbered <strong>wall panels</strong> in the live room.',
+            'Behind the wall, a <strong>multicore cable (snake)</strong> carries every channel to the control room. Return lines send headphone mixes and talkback back out. Digital snakes can carry dozens of channels over one network cable.'],
+      points:['Wall input numbers match console channel numbers.','Fixed cabling keeps doors closed and isolation intact.','Keep an input list: "Wall 3 → Snare top".'] },
+  ]},
+  { n:'04', room:'Recording / Live Room', type:'Non-electronic', c:'var(--purple)', items:[
+    { id:'floor', name:'Floating Floor Substructure',
+      lead:'Decoupled floor layers (neoprene pucks, mineral wool, plywood) that block footfall and structural vibration.',
+      body:['A floating floor is part of a <strong>"room within a room"</strong> design. The floor sits on <strong>rubber or neoprene isolators</strong> with <strong>mineral wool</strong> in the gap, so it never touches the building directly.',
+            'This stops vibrations such as footsteps, kick drums and traffic rumble from travelling through the building structure into other rooms or the microphones.'],
+      points:['Sound travels through air and through solid structures.','The inner walls and ceiling rest on the floating floor.','A single screw or pipe bridging the gap can ruin the isolation.'] },
+    { id:'stands', name:'Microphone Stands & Shock Mounts',
+      lead:'Heavy-duty booms, counterweights and mounts that isolate mics from floor vibrations.',
+      body:['<strong>Boom stands</strong> with heavy bases and <strong>counterweights</strong> hold microphones exactly where they are placed, without drifting during a take.',
+            '<strong>Shock mounts</strong> suspend the mic in elastic bands, so bumps and floor vibrations don\'t become low rumble in the recording. <strong>Pop filters</strong> stop bursts of air from "p" and "b" sounds.'],
+      points:['Condenser mics are especially sensitive to stand rumble.','Point one tripod leg under the boom to prevent tipping.','Loop the cable around the stand to avoid pulling it over.'] },
+    { id:'gobos', name:'Acoustic Gobos & Baffles',
+      lead:'Movable, sound-absorbing walls used to separate instruments in the same room.',
+      body:['<strong>Gobos</strong> ("go-betweens") are portable walls covered in absorbent material. Placing them between instruments reduces <strong>bleed</strong>, the sound of one instrument leaking into another\'s microphone.',
+            'This lets a band play together in one room while still getting cleaner, separate tracks. Gobos can also form a small booth around a vocalist or amp.'],
+      points:['Less bleed gives more control when mixing.','Some gobos have windows so players can still see each other.','A little bleed is fine: it helps a live band sound together.'] },
+    { id:'acoustic', name:'Acoustic Instruments',
+      lead:'Unamplified instruments such as acoustic guitars, grand pianos and drum kits.',
+      body:['Acoustic instruments send sound directly into the air from their bodies, strings and drums. <strong>Microphone choice and placement</strong>, along with the <strong>room\'s sound</strong>, shape the recording as much as the instrument itself.',
+            'A drum kit may use close mics, overhead mics and room mics. A grand piano\'s sound changes with the lid height and where the mics are placed.'],
+      points:['Moving a mic a few centimetres can change the tone a lot.','The live room\'s acoustics become part of the recording.','Move the mic before reaching for EQ.'] },
+  ]},
+];
+const ALL = SECTIONS.flatMap(s => s.items.map(it => ({...it, s})));
+const IMG_DIR = 'assets/components/';
+
+/* ---------- left nav: one dropdown per section, grouped by room ---------- */
+const nav = document.getElementById('nav');
+let lastRoom = '';
+nav.innerHTML = SECTIONS.map(s => {
+  const label = s.room !== lastRoom ? `<div class="room-label">${s.room}</div>` : '';
+  lastRoom = s.room;
+  return `${label}
+  <details class="sec" data-sec="${s.n}" style="--c:${s.c}">
+    <summary><span class="sec-n">${s.n}</span><span class="sec-t">${s.type}</span><span class="sec-count">${s.items.length}</span>${chev}</summary>
+    <div class="items">${s.items.map(it => `
+      <button class="item" data-id="${it.id}"><span class="ic">${svg(it.id)}</span>${it.name}</button>`).join('')}
+    </div>
+  </details>`;
+}).join('');
+
+/* ---------- right detail pane ---------- */
+const detail = document.getElementById('detail');
+function show(id){
+  const i = ALL.findIndex(x => x.id === id), it = ALL[i], s = it.s;
+  const prev = ALL[i-1], next = ALL[i+1];
+
+  nav.querySelectorAll('.item').forEach(b => b.setAttribute('aria-current', b.dataset.id === id));
+  // keep the selected item's section open (others stay as the user left them)
+  nav.querySelector(`details[data-sec="${s.n}"]`).open = true;
+
+  detail.style.setProperty('--c', s.c);
+  detail.innerHTML = `
+    <div class="media fade">
+      <div class="frame">
+        <img src="${IMG_DIR}${it.id}.jpg" alt="${it.name}" onerror="this.remove()">
+        <div class="ph">${svg(it.id)}<span>${IMG_DIR}${it.id}.jpg</span></div>
+      </div>
+      <div class="caption">${it.name} · ${s.room}</div>
+      <div class="pager">
+        <button ${prev ? `data-go="${prev.id}"` : 'disabled'}><small>← PREVIOUS</small>${prev ? prev.name : '—'}</button>
+        <button ${next ? `data-go="${next.id}"` : 'disabled'}><small>NEXT →</small>${next ? next.name : '—'}</button>
+      </div>
+    </div>
+    <div class="text fade">
+      <div class="tags"><span class="tag c">Section ${s.n}</span><span class="tag">${s.room}</span><span class="tag">${s.type}</span></div>
+      <h2>${it.name}</h2>
+      <p class="lead">${it.lead}</p>
+      ${it.body.map(p => `<p>${p}</p>`).join('')}
+      <h3>Key points</h3>
+      <ul class="points">${it.points.map(p => `<li>${p}</li>`).join('')}</ul>
+    </div>`;
+  // the <img> sits on top of the placeholder; once loaded, hide the placeholder
+  const img = detail.querySelector('img');
+  if (img) img.addEventListener('load', () => detail.querySelector('.ph')?.remove());
+  detail.querySelectorAll('[data-go]').forEach(b => b.onclick = () => show(b.dataset.go));
+  detail.scrollTop = 0;
+}
+nav.addEventListener('click', e => { const b = e.target.closest('.item'); if (b) show(b.dataset.id); });
+
+// start with the first section open and its first item selected
+show(ALL[0].id);
+
+/* Theme toggle — same key as the app's ThemeContext. */
+const root = document.documentElement;
+try { const t = localStorage.getItem('svr-theme'); if (t) root.dataset.theme = t; } catch(e){}
+document.getElementById('themeBtn').onclick = () => {
+  root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
+  try { localStorage.setItem('svr-theme', root.dataset.theme); } catch(e){}
+};
+</script>
+</body>
+</html>
