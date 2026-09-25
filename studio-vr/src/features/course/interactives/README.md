@@ -14,6 +14,9 @@ interactives/
   foundations/           # Foundations briefings (Ch.2 "The Studio", Ch.3 "Types of Studios")
     StudioComponentsLab/ #   studio-components-lab: 16-component browser
     StudioTypesLab/      #   studio-types-lab: 6 studio types, tabbed (Ch.3)
+  listening/             # Ch.4 "Listening Skills, Hearing Health, and Critical Listening"
+    CriticalListeningLab/ #  critical-listening-lab: "Spot the problem" A/B ear-training
+                         #   quiz + problem library (live Web Audio, own AudioContext)
   sound/                 # Ch.1 "What Is Sound?"
     FrequencyLab/ AmplitudeLab/ WavelengthLab/ PhaseLab/ HarmonicsLab/ TimbreLab/
   speakers/

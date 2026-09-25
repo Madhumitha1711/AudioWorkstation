@@ -87,6 +87,12 @@ export const TOPICS = [
     title: "Listening Skills, Hearing Health, and Critical Listening",
     intro:
       "Your ears are the actual instrument — critical listening is a trainable skill, and protecting it is what lets you keep training it for decades.",
+    // This chapter's interactive lab already exists — "critical-listening-lab"
+    // (interactives/listening/CriticalListeningLab, ported from
+    // design/critical-listening-lab-1.html). Same as studio-types above: the
+    // mapping only takes effect once this topic is `ready: true` or the same
+    // kind is referenced from this chapter's interactive block in studio-cms.
+    interactive: { id: "listening-skills-interactive", title: "Spot the Problem", kind: "critical-listening-lab" },
     ready: false,
   },
 

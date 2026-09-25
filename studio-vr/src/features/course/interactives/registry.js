@@ -24,6 +24,7 @@ import MicPlacementLab from "./microphones/MicPlacementLab";
 import MicTechniqueLab from "./mic-techniques/MicTechniqueLab";
 import StudioComponentsLab from "./foundations/StudioComponentsLab";
 import StudioTypesLab from "./foundations/StudioTypesLab";
+import CriticalListeningLab from "./listening/CriticalListeningLab";
 
 export const LABS = {
   "speaker-lab": SpeakerLab,
@@ -100,4 +101,14 @@ export const LABS = {
   // Reference this kind from the studio-types chapter's interactive block
   // in studio-cms.
   "studio-types-lab": StudioTypesLab,
+  // "Listening Skills, Hearing Health, and Critical Listening" (Foundations,
+  // chapter 4, courseData.js TOPICS[id="listening-skills"]) — ported from
+  // design/critical-listening-lab-1.html: "Spot the problem" ear training.
+  // A Train tab (8-question A/B quiz, Beginner/Intermediate/Pro) and a
+  // Problem library tab (15 problems across Frequency / Dynamics /
+  // Distortion / Noise / Stereo & phase / Space & time). All audio is live
+  // Web Audio — a synthesized loop plus a per-problem processing chain —
+  // with its own AudioContext, not spatialAudioEngine. Reference this kind
+  // from the listening-skills chapter's interactive block in studio-cms.
+  "critical-listening-lab": CriticalListeningLab,
 };
