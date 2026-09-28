@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import './MikingRoom.css';
+import { canvasFont } from "../../../../../../theme/fonts";
 
 /**
  * <MikingRoom />
@@ -207,7 +208,7 @@ export default function MikingRoom({ className, style, theme, embedded = false, 
       c.width = 320;
       c.height = 80;
       const ctx = c.getContext('2d');
-      ctx.font = '600 40px "IBM Plex Mono", monospace';
+      ctx.font = canvasFont(40, { weight: 600, mono: true });
       ctx.fillStyle = color;
       ctx.textBaseline = 'middle';
       ctx.fillText(text, 4, 42);

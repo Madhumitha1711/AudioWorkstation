@@ -41,7 +41,7 @@
   background: rgba(var(--led-red-rgb), 0.15);
   border: 1px solid var(--led-red-dim);
   color: var(--led-red);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 8.5px;
   letter-spacing: 0.06em;
   padding: 2px 7px;
@@ -53,7 +53,7 @@
   opacity: 1;
 }
 .prlab-scope-caption {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   color: var(--llab-text-muted);
   text-align: center;

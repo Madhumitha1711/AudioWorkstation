@@ -1,5 +1,22 @@
 import { fmtTime } from "../lib/format";
+import { useRef } from "react";
+import { Tabs, useTabTransition } from "../../../../components/Tabs";
 import { InsertRack } from "./InsertRack";
+
+// Outer / This-portion scope tabs — app-wide standard Tabs (segmented).
+const DOCK_SCOPE_TABS = [
+  {
+    id: "track",
+    label: "Outer (this portion)",
+    title:
+      "Starts out showing the track's own chain, applied here same as everywhere else — edit, reorder, bypass, or remove a plugin to fork a private copy for only this portion, or leave it alone to keep following the track chain",
+  },
+  {
+    id: "portion",
+    label: "This portion",
+    title: "Edit this portion's own chain — runs after its outer chain, only within the selected range",
+  },
+];
 
 // Dock: signal chain for the selected CLIP PORTION only. A track's own
 // whole-track Inserts/Sends are edited inline in its tracklist row (see
@@ -22,6 +39,9 @@ export function EditorDock({
   dockRegionId,
   chainActions,
 }) {
+  // Standard tab-panel motion when flipping Outer / This portion.
+  const racksRef = useRef(null);
+  useTabTransition(racksRef, dockScope, DOCK_SCOPE_TABS.findIndex((t) => t.id === dockScope));
   if (!selectedRegionObj) return null;
   return (
     <div className="dock">
@@ -35,28 +55,16 @@ export function EditorDock({
           {dockOnPortionOuterScope &&
             (selectedRegionObj.outerCustomized ? " · outer (this portion only)" : " · outer (inherited from track — not yet customized)")}
         </div>
-        <div className="dock-scope-tabs" role="tablist" aria-label="Chain scope">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={dockScope === "track"}
-            className={"dock-scope-tab" + (dockScope === "track" ? " is-active" : "")}
-            onClick={() => setDockScope("track")}
-            title="Starts out showing the track's own chain, applied here same as everywhere else — edit, reorder, bypass, or remove a plugin to fork a private copy for only this portion, or leave it alone to keep following the track chain"
-          >
-            Outer (this portion)
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={dockScope === "portion"}
-            className={"dock-scope-tab" + (dockScope === "portion" ? " is-active" : "")}
-            onClick={() => setDockScope("portion")}
-            title="Edit this portion's own chain — runs after its outer chain, only within the selected range"
-          >
-            This portion
-          </button>
-        </div>
+        <Tabs
+          className="dock-scope-tabs"
+          variant="segmented"
+          size="sm"
+          items={DOCK_SCOPE_TABS}
+          value={dockScope}
+          onChange={setDockScope}
+          ariaLabel="Chain scope"
+          idPrefix="dock-scope"
+        />
         <div className="dock-head-right">
           <div className="dock-hint">
             {downloadError ? (
@@ -77,7 +85,7 @@ export function EditorDock({
         </div>
       </div>
 
-      <div className="dock-racks">
+      <div ref={racksRef} className="dock-racks">
         {dockTrack && dockChain && (
           <div className="dock-rack-col">
             <div className="dock-rack-label mono">INSERTS</div>

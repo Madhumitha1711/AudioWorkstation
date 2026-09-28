@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Tabs, useTabTransition } from "../../components/Tabs";
 import { useSelector } from "react-redux";
 import {
   createThread,
@@ -8,6 +9,12 @@ import {
   replyToThread,
 } from "../../api/discussions";
 import "./DiscussionPage.css";
+
+// Main Bus / Talkback — app-wide standard Tabs (underline).
+const CHANNEL_TABS = [
+  { id: "main", label: "Main Bus" },
+  { id: "talkback", label: "Talkback" },
+];
 
 // Ported from design/soundcraft-discussion.html — a two-channel Q&A board
 // for the current station: "Main Bus" (visible to the whole lesson) and
@@ -213,6 +220,9 @@ function DiscussionPage() {
   const token = useSelector((state) => state.session.token);
 
   const [channel, setChannel] = useState("main"); // 'main' | 'talkback'
+  // Standard tab-panel motion (components/Tabs) when switching channel.
+  const feedRef = useRef(null);
+  useTabTransition(feedRef, channel, CHANNEL_TABS.findIndex((t) => t.id === channel));
   const [route, setRoute] = useState("main"); // composer's routing switch
   const [mainThreads, setMainThreads] = useState([]);
   const [talkbackThreads, setTalkbackThreads] = useState([]);
@@ -421,20 +431,21 @@ function DiscussionPage() {
           Ask on the Main Bus for everyone to hear, or send a private line to your instructor.
         </div>
 
-        <div className="disc-channels">
-          <button
-            className={`disc-channel-tab${channel === "main" ? " active" : ""}`}
-            onClick={() => selectChannel("main")}
-          >
-            <span className="dot" /> Main Bus <span className="count">· {mainThreads.length}</span>
-          </button>
-          <button
-            className={`disc-channel-tab${channel === "talkback" ? " active" : ""}`}
-            onClick={() => selectChannel("talkback")}
-          >
-            <span className="dot" /> Talkback <span className="count">· {talkbackThreads.length}</span>
-          </button>
-        </div>
+        <Tabs
+          className="disc-channels"
+          tabClassName="disc-channel-tab"
+          items={CHANNEL_TABS}
+          value={channel}
+          onChange={selectChannel}
+          ariaLabel="Discussion channel"
+          idPrefix="disc"
+          renderTab={(t) => (
+            <>
+              <span className="dot" /> {t.label}{" "}
+              <span className="count">· {t.id === "main" ? mainThreads.length : talkbackThreads.length}</span>
+            </>
+          )}
+        />
 
         <div className="disc-channel-note">
           {isTalkback
@@ -442,7 +453,7 @@ function DiscussionPage() {
             : "Visible to everyone in this lesson."}
         </div>
 
-        <div className="disc-feed">
+        <div ref={feedRef} className="disc-feed" role="tabpanel" id={`disc-panel-${channel}`} aria-labelledby={`disc-tab-${channel}`}>
           {loading ? (
             <div className="disc-empty">
               <h3>Loading discussion…</h3>

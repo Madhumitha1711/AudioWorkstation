@@ -4,6 +4,7 @@ import { Knob } from '../../components/controls/Knob';
 import { compileFaustWasm } from '../../audio/faust/faustTypes';
 import { downloadAudioBufferAsWav } from '../../audio/wavRender';
 import { ROOM_PRESETS, PRESET_FREEVERB, PRESET_ORDER, DEFAULT_PRESET, calcEffectiveRt60, DEFAULTS, ADDR, pushFaustParams, METER_FLOOR_DB, analyserPeakLinear } from '../../audio/effects/reverbEngine';
+import { canvasFont } from "../../theme/fonts";
 // ── Types ──────────────────────────────────────────────────────────────────────
 // An uploaded audio track that can be used as the signal source instead of
 // the built-in drum groove, so reverb can be auditioned on real material.
@@ -153,7 +154,7 @@ function drawIR(canvas, preset, fv) {
         ctx.stroke();
     }
     // Labels
-    ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(10, { mono: true });
     ctx.textBaseline = 'top';
     ctx.fillStyle = 'rgba(245,166,35,0.15)';
     ctx.fillRect(8, 6, 56, 18);
@@ -169,7 +170,7 @@ function drawIR(canvas, preset, fv) {
     ctx.fillText('LATE DECAY (TAIL)', tailStart, 8);
     // Time axis — last label shows effective RT60
     ctx.fillStyle = '#8A8A9A';
-    ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(10, { mono: true });
     ctx.textBaseline = 'alphabetic';
     const timeLabels = ['0ms', '50ms', '200ms', '500ms', '1s', `${effectiveRt60.toFixed(1)}s`];
     const labelX = [8, 55, 150, 330, 480, Math.min(W - 30, tailEnd - 5)];
@@ -202,7 +203,7 @@ function drawReverbScope(canvas, history, nowT, active) {
     ctx.strokeStyle = 'rgba(255,255,255,0.03)';
     ctx.lineWidth = 1;
     ctx.fillStyle = '#6A6A7A';
-    ctx.font = '9px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(9, { mono: true });
     for (let db = Math.ceil(SCOPE_MIN_DB / 12) * 12; db <= SCOPE_MAX_DB; db += 12) {
         const y = toY(db);
         ctx.beginPath();
@@ -223,7 +224,7 @@ function drawReverbScope(canvas, history, nowT, active) {
     ctx.setLineDash([]);
     if (!active) {
         ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.font = '10px "JetBrains Mono", monospace';
+        ctx.font = canvasFont(10, { mono: true });
         ctx.fillText('HIT PLAY TO SEE THE TAIL RING OUT', W / 2 - 110, H / 2);
         return;
     }
@@ -665,10 +666,10 @@ export function ReverbEditorPanel({ params, setParams, preset, setPreset, isPlay
             gap: '0.5rem',
         }}>
           {['size', 'decay', 'damping', 'diffusion'].map(key => (<div key={key} style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: '0.75rem', color: '#A855F7', fontWeight: 500 }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: '#A855F7', fontWeight: 500 }}>
                 {KNOB_SPECS[key].fmt(params[key])}
               </div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: '0.5rem', color: 'var(--text-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 2 }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem', color: 'var(--text-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 2 }}>
                 {KNOB_SPECS[key].label}
               </div>
             </div>))}
@@ -1042,7 +1043,7 @@ export default function Reverb() {
             border: `1px solid ${activeSourceId === 'synth' ? 'rgba(45,212,191,0.5)' : 'var(--border)'}`,
             borderRadius: '3px',
             color: activeSourceId === 'synth' ? 'var(--teal)' : 'var(--text-dim)',
-            fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
             cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
         }}>
         <span style={{ fontSize: '0.85rem' }}>🥁</span>
@@ -1058,7 +1059,7 @@ export default function Reverb() {
                     border: `1px solid ${active ? 'rgba(0,255,135,0.5)' : 'var(--border)'}`,
                     borderRadius: '3px',
                     color: active ? 'var(--green)' : 'var(--text-dim)',
-                    fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+                    fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
                     cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
                 }}>
             <span style={{ fontSize: '0.85rem' }}>📁</span>
@@ -1074,7 +1075,7 @@ export default function Reverb() {
             border: '1px dashed var(--border)',
             borderRadius: '3px',
             color: 'var(--text-dim)',
-            fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
             cursor: decoding ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
         }}>
         <span style={{ fontSize: '0.85rem' }}>{decoding ? '⏳' : '+'}</span>
@@ -1087,16 +1088,16 @@ export default function Reverb() {
                 border: '1px dashed var(--border)',
                 borderRadius: '3px',
                 color: 'var(--text-dim)',
-                fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+                fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
                 cursor: downloading ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
             }}>
           <span style={{ fontSize: '0.85rem' }}>{downloading ? '⏳' : '⬇'}</span>
           <span>{downloading ? 'RENDERING…' : 'DOWNLOAD AUDIO'}</span>
         </button>)}
-      {uploadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>
+      {uploadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--font-mono)', alignSelf: 'center' }}>
           {uploadError}
         </span>)}
-      {downloadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>
+      {downloadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--font-mono)', alignSelf: 'center' }}>
           {downloadError}
         </span>)}
     </div>);
@@ -1126,7 +1127,7 @@ export default function Reverb() {
             color: engineStatus === 'ready' ? '#A855F7' :
                 engineStatus === 'loading' ? 'var(--amber)' :
                     engineStatus === 'error' ? 'var(--red)' : 'var(--text-faint)',
-            fontFamily: 'var(--mono)', fontSize: '0.55rem', letterSpacing: '0.06em',
+            fontFamily: 'var(--font-mono)', fontSize: '0.55rem', letterSpacing: '0.06em',
         }}>
             {engineStatus === 'ready' ? '● FAUST WASM' :
             engineStatus === 'loading' ? '◌ LOADING…' :
@@ -1171,7 +1172,7 @@ export default function Reverb() {
         onTestTail={activeSourceId === 'synth' ? triggerTestTail : null}
         engineBadge={(<div style={{
             display: 'flex', alignItems: 'center', gap: '0.4rem',
-            fontFamily: 'var(--mono)', fontSize: '0.55rem',
+            fontFamily: 'var(--font-mono)', fontSize: '0.55rem',
             marginBottom: '0.6rem',
             background: faustActive ? 'rgba(168,85,247,0.08)' : 'var(--surface)',
             border: `1px solid ${faustActive ? 'rgba(168,85,247,0.3)' : 'var(--border)'}`,

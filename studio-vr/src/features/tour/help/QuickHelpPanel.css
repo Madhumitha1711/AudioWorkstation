@@ -24,7 +24,7 @@
   backdrop-filter: blur(14px);
   box-shadow: var(--shadow), 0 0 0 3px rgba(var(--brand-accent-rgb), 0.18);
   padding: 10px 12px;
-  font-family: sans-serif;
+  font-family: var(--font-sans);
   /* Same reasoning as every other floating panel in PanoramaTour.css
      (see the z-index: 60 comment on .svr-tour-toolbar there) — comfortably
      above Photo Sphere Viewer's own marker layer (z-index 30). Unlike a

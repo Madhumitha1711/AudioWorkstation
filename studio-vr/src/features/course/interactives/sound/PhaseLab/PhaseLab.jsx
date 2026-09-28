@@ -3,6 +3,7 @@ import "../../shared/labs.css";
 import { useLabAudio } from "../../shared/useLabAudio";
 import { useTheme } from "../../../../../theme/ThemeContext";
 import { hiDpiCanvas, scopePalette } from "../../shared/soundLabShared";
+import { canvasFont } from "../../../../../theme/fonts";
 
 // Ported from design/what-is-sound-chapter.html's "05 PHASE" panel: two
 // identical 300 Hz tones, started together, with Wave B routed through a
@@ -19,9 +20,9 @@ import { hiDpiCanvas, scopePalette } from "../../shared/soundLabShared";
 // reinforcing → cancelling transition — which is arguably the more useful
 // version of this demo to actually hear.
 //
-// The three-row canvas (Wave A / Wave B / Sum) is specific to this lab so
-// it's drawn locally rather than through soundLabShared's generic
-// single-trace drawScope.
+// The two-section canvas (Wave A "+" Wave B stacked on top, Sum below)
+// is specific to this lab so it's drawn locally rather than through
+// soundLabShared's generic single-trace drawScope.
 
 const TONE_FREQ = 300;
 
@@ -36,64 +37,80 @@ function relationshipLabel(deg) {
   return "Partial cancellation";
 }
 
+// Cycles shown across the canvas width - higher = shorter drawn wavelength.
+const CYCLES = 8;
+
 function drawPhase(canvas, deg, scroll, theme = "dark") {
   const hd = hiDpiCanvas(canvas);
   if (!hd) return;
   const { ctx: c, w, h } = hd;
   const colors = scopePalette(theme).colors;
   c.clearRect(0, 0, w, h);
-  const rowH = h / 3;
 
-  const AMP = rowH * 0.36; // per-wave amplitude for the Wave A / Wave B rows
+  // Section 1 (top half): Wave A on top, a "+" in the gap, Wave B below it.
+  // Section 2 (bottom half): their sum, with the tallest trace so it reads large.
+  const topH = h * 0.5;
+  const sumH = h - topH;
+  const aMid = topH * 0.2;
+  const plusMid = topH * 0.5;
+  const bMid = topH * 0.8;
+  const sumMid = topH + sumH / 2;
+  const phaseRad = (deg * Math.PI) / 180;
+  const tAt = (x) => (x / w) * CYCLES * Math.PI * 2 + scroll;
 
-  function sineRow(offsetY, phaseDeg, color) {
+  // Draws one sine trace across the horizontal span [x0, x1], all sharing
+  // tAt()'s wavelength and time base.
+  function trace(color, width, x0, x1, yFor) {
     c.beginPath();
     c.strokeStyle = color;
-    c.lineWidth = 1.5;
-    for (let x = 0; x <= w; x++) {
-      const t = (x / w) * 4 * Math.PI * 2 + (phaseDeg * Math.PI) / 180 + scroll;
-      const y = offsetY - Math.sin(t) * AMP;
-      if (x === 0) c.moveTo(x, y);
+    c.lineWidth = width;
+    for (let x = x0; x <= x1; x++) {
+      const y = yFor(tAt(x));
+      if (x === x0) c.moveTo(x, y);
       else c.lineTo(x, y);
     }
     c.stroke();
   }
-  sineRow(rowH * 0.5, 0, colors.amber);
-  sineRow(rowH * 1.5, deg, colors.green);
 
-  // Sum row: the true (unnormalized) sum of Wave A + Wave B, not their
-  // average - so it actually reads as a taller wave when the two tones
-  // reinforce (in phase, combined amplitude is ~2x a single wave) and
-  // flattens toward this row's centerline as they cancel near 180°, same
-  // as the acoustic result. Scaled at rowH*0.24 per unit (vs. AMP's 0.36
-  // for a single wave) so the fully-reinforced peak-to-peak swing (the
-  // sum ranges ±2, not ±1) reaches almost to this row's top/bottom edges
-  // without bleeding into the Wave B row above or past the canvas edge
-  // below - both exactly rowH*0.5 away from this row's center.
-  const SUM_UNIT = rowH * 0.24;
+  // Divider between the two sections.
+  c.strokeStyle = colors.label;
+  c.globalAlpha = 0.25;
+  c.lineWidth = 1;
   c.beginPath();
-  c.strokeStyle = colors.blue;
-  c.lineWidth = 2;
-  for (let x = 0; x <= w; x++) {
-    const t = (x / w) * 4 * Math.PI * 2 + scroll;
-    const y1 = Math.sin(t);
-    const y2 = Math.sin(t + (deg * Math.PI) / 180);
-    const y = rowH * 2.5 - (y1 + y2) * SUM_UNIT;
-    if (x === 0) c.moveTo(x, y);
-    else c.lineTo(x, y);
-  }
+  c.moveTo(0, topH);
+  c.lineTo(w, topH);
   c.stroke();
+  c.globalAlpha = 1;
 
-  // Label baselines sit just above each row's peak; clamp to a minimum so
-  // "WAVE A" - whose row starts right at the canvas top, leaving no room
-  // above it - doesn't get its ascenders clipped off above y=0 the way it
-  // was before this row's peak had never had a "row above" to borrow
-  // headroom from.
+  // Section 1: Wave A and Wave B as separate full-width rows, stacked
+  // vertically with a "+" between them - read top-to-bottom as "A + B",
+  // with the Sum section below as the result. Both share tAt()'s time base
+  // so their relative phase lines up column-for-column with the Sum.
+  const AMP = topH * 0.15;
+  trace(colors.amber, 1.5, 0, w, (t) => aMid - Math.sin(t) * AMP);
+  trace(colors.green, 1.5, 0, w, (t) => bMid - Math.sin(t + phaseRad) * AMP);
+
   c.fillStyle = colors.label;
-  c.font = "bold 11px monospace";
-  c.fillText("WAVE A", 8, Math.max(11, rowH * 0.5 - rowH * 0.42));
-  c.fillText("WAVE B", 8, Math.max(11, rowH * 1.5 - rowH * 0.42));
-  c.fillText("SUM", 8, Math.max(11, rowH * 2.5 - rowH * 0.42));
+  c.font = canvasFont(22, { weight: 700, mono: true });
+  c.textAlign = "center";
+  c.textBaseline = "middle";
+  c.fillText("+", w / 2, plusMid);
+  c.textAlign = "start";
+  c.textBaseline = "alphabetic";
+
+  // Section 2: the true (unnormalized) sum, ranging ±2 - scaled so the fully
+  // reinforced peak fills most of this section (with some headroom), and flattens toward the
+  // centerline as the tones cancel near 180°.
+  const SUM_UNIT = sumH * 0.18;
+  trace(colors.blue, 2.5, 0, w, (t) => sumMid - (Math.sin(t) + Math.sin(t + phaseRad)) * SUM_UNIT);
+
+  c.font = canvasFont(11, { weight: 700, mono: true });
+  c.fillStyle = colors.amber;
+  c.fillText("WAVE A", 8, 12);
+  c.fillStyle = colors.green;
+  c.fillText("WAVE B", 8, topH * 0.62);
+  c.fillStyle = colors.label;
+  c.fillText("SUM", 8, topH + 14);
 }
 
 function PhaseLab({ onInteract }) {
@@ -193,7 +210,7 @@ function PhaseLab({ onInteract }) {
       </div>
 
       <div className="sound-lab-frame">
-        <canvas ref={canvasRef} className="sound-lab-canvas" width={560} height={200} style={{ aspectRatio: "560 / 200" }} />
+        <canvas ref={canvasRef} className="sound-lab-canvas" width={560} height={340} style={{ aspectRatio: "560 / 340" }} />
       </div>
 
       <div className="sound-lab-readout-row">

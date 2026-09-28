@@ -504,6 +504,34 @@
   color: var(--text-dimmer);
 }
 
+/* Log-scale tick labels under FrequencyLab's slider. Each tick is placed
+   at its true log position along the thumb's travel (8px inset each side =
+   half the 16px thumb), so the thumb lines up with the printed value. */
+.sound-lab-slider-ticks {
+  position: relative;
+  height: 22px;
+  margin-top: 6px;
+}
+.sound-lab-slider-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  padding-top: 5px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dimmer);
+  white-space: nowrap;
+}
+.sound-lab-slider-tick::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: 4px;
+  background: var(--border);
+}
+
 
 /* Inline edit affordance for the Frequency/Note readout boxes above — a
    pencil toggles that box's value into a text input in place, instead of a

@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import './MicTechniqueRoom.css';
+import { canvasFont } from "../../../../../../theme/fonts";
 
 /**
  * <MicTechniqueRoom />
@@ -260,7 +261,7 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       c.width = 320;
       c.height = 80;
       const ctx = c.getContext('2d');
-      ctx.font = '600 40px "IBM Plex Mono", monospace';
+      ctx.font = canvasFont(40, { weight: 600, mono: true });
       ctx.fillStyle = color;
       ctx.textBaseline = 'middle';
       ctx.fillText(text, 4, 42);
@@ -292,7 +293,7 @@ export default function MicTechniqueRoom({ className, style, theme, embedded = f
       ctx.stroke();
       ctx.globalAlpha = 1;
       ctx.fillStyle = '#ffffff';
-      ctx.font = '700 48px "IBM Plex Mono", monospace';
+      ctx.font = canvasFont(48, { weight: 700, mono: true });
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(String(number), 48, 54);

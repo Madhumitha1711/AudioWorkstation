@@ -1,0 +1,218 @@
+/* Standard tabs (see Tabs.jsx + CLAUDE.md "Tabs standard").
+
+   Re-skin per feature by setting these tokens on any ancestor (or on the
+   component via `className`) — never by restyling .ui-tabs__* rules:
+     --tabs-accent         underline / active accent
+     --tabs-text           idle label color
+     --tabs-text-active    active + hover label color
+     --tabs-line           baseline under an underline bar
+     --tabs-track-bg       segmented: track background
+     --tabs-track-border   segmented: track border
+     --tabs-thumb-bg       segmented: sliding pill background
+     --tabs-thumb-border   segmented: sliding pill border
+     --tabs-thumb-text     segmented: active label color
+     --tabs-dot            "explored" dot + count number colour (default: theme primary)
+     --tabs-count-text     "N/M explored" label colour
+     --tabs-font           defaults to the global --font-sans
+     --tabs-font-size / --tabs-weight / --tabs-letter-spacing / --tabs-transform
+   Colour: by default the indicator (underline / segmented pill) and the
+   active segmented label use the THEME PRIMARY colour, --brand-accent
+   (src/theme/palettes.js via PaletteContext), so every tab set follows the
+   selected palette and light/dark automatically. Features should NOT
+   override --tabs-accent / --tabs-thumb-* with their own colours.
+   Timing comes from the global motion tokens in index.css (--motion-*).
+   Defaults fall back to the course tokens (--text, --text-dim, --border)
+   and then the app-shell tokens, so tabs look right with no setup. */
+
+.ui-tabs {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ui-tabs__list {
+  position: relative;
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  isolation: isolate;
+}
+.ui-tabs__list::-webkit-scrollbar { display: none; }
+
+.ui-tabs__tab {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  padding: var(--tabs-pad-y, 12px) var(--tabs-pad-x, 14px);
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  color: var(--tabs-text, var(--text-dim, var(--shell-text-dim)));
+  font-family: var(--tabs-font, var(--font-sans));
+  font-size: var(--tabs-font-size, 14px);
+  font-weight: var(--tabs-weight, 500);
+  letter-spacing: var(--tabs-letter-spacing, 0);
+  text-transform: var(--tabs-transform, none);
+  line-height: 1.25;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--motion-medium, 260ms) var(--motion-ease-out, ease);
+}
+.ui-tabs__tab:hover:not(:disabled) { color: var(--tabs-text-active, var(--text, var(--shell-text))); }
+.ui-tabs__tab.is-active { color: var(--tabs-text-active, var(--text, var(--shell-text))); }
+.ui-tabs__tab:disabled { opacity: 0.45; cursor: not-allowed; }
+.ui-tabs__tab:focus-visible {
+  outline: 2px solid var(--tabs-accent, var(--brand-accent, var(--accent)));
+  outline-offset: -2px;
+}
+
+.ui-tabs--fill .ui-tabs__tab { flex: 1 1 0; min-width: 0; }
+
+/* The single moving indicator. Positioned from the measured active tab
+   (transform + width/height set inline by Tabs.jsx). */
+.ui-tabs__indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  pointer-events: none;
+  will-change: transform, width;
+}
+.ui-tabs.is-ready .ui-tabs__indicator {
+  transition:
+    transform var(--motion-tab-duration, 340ms) var(--motion-ease-out, ease),
+    width var(--motion-tab-duration, 340ms) var(--motion-ease-out, ease),
+    height var(--motion-tab-duration, 340ms) var(--motion-ease-out, ease),
+    opacity var(--motion-fast, 180ms) ease;
+}
+
+/* "Explored" dot — tabs the user has already opened (Tabs markVisited). */
+.ui-tabs__dot {
+  position: absolute;
+  top: 7px;
+  right: 5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--tabs-dot, var(--brand-accent, var(--accent)));
+  opacity: 0.8;
+  pointer-events: none;
+  animation: ui-tabs-dot-in var(--motion-medium, 260ms) var(--motion-ease-out, ease) both;
+}
+.ui-tabs--sm .ui-tabs__dot { top: 4px; right: 4px; width: 4px; height: 4px; }
+@keyframes ui-tabs-dot-in {
+  from { transform: scale(0); opacity: 0; }
+}
+.ui-tabs__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- underline (default) ---------- */
+.ui-tabs--underline {
+  box-shadow: inset 0 -1px 0 var(--tabs-line, var(--border-soft, var(--border, var(--shell-border-soft))));
+}
+.ui-tabs--underline .ui-tabs__indicator {
+  top: auto;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--tabs-accent, var(--brand-accent, var(--accent)));
+}
+.ui-tabs--underline .ui-tabs__tab { border-radius: 6px 6px 0 0; }
+.ui-tabs__trailing {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 12px;
+}
+
+/* "N/M explored" count — part of every tab bar (Tabs showCount). A UI
+   label, not a meter readout, so it uses the global UI font (--font-sans)
+   like the tab labels; tabular-nums keeps the digits from shifting. */
+.ui-tabs__count {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  letter-spacing: 0;
+  white-space: nowrap;
+  color: var(--tabs-count-text, var(--text-dimmer, var(--shell-text-dimmer)));
+  font-variant-numeric: tabular-nums;
+}
+.ui-tabs__count b {
+  font-weight: 600;
+  color: var(--tabs-dot, var(--brand-accent, var(--accent)));
+}
+.ui-tabs--sm .ui-tabs__count { font-size: 11px; }
+/* Narrow full-width bars (tour gear panels): number only, so labels keep
+   their room — the title tooltip still says "N of M tabs explored". */
+.ui-tabs--fill.ui-tabs--sm .ui-tabs__count-word { display: none; }
+@media (max-width: 600px) {
+  .ui-tabs__count-word { display: none; }
+}
+
+/* ---------- segmented (compact tool bars: DAW, tour gear panels) -------
+   The track is the list itself (so the explored count can sit outside it). */
+.ui-tabs--segmented { display: inline-flex; align-items: center; gap: 10px; max-width: 100%; }
+.ui-tabs--segmented.ui-tabs--fill { display: flex; }
+.ui-tabs--segmented:not(.ui-tabs--fill) .ui-tabs__list { flex: 0 1 auto; }
+.ui-tabs--segmented .ui-tabs__list {
+  gap: 2px;
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--tabs-track-bg, rgba(127, 127, 127, 0.1));
+  border: 1px solid var(--tabs-track-border, var(--border-soft, var(--border, var(--shell-border-soft))));
+}
+.ui-tabs--segmented .ui-tabs__trailing { padding-bottom: 0; }
+.ui-tabs--segmented .ui-tabs__tab { --tabs-pad-y: 7px; --tabs-pad-x: 12px; border-radius: 6px; }
+.ui-tabs--segmented .ui-tabs__tab.is-active {
+  color: var(--tabs-thumb-text, var(--brand-accent, var(--tabs-text-active, var(--text, var(--shell-text)))));
+}
+.ui-tabs--segmented .ui-tabs__indicator {
+  border-radius: 6px;
+  background: var(--tabs-thumb-bg, color-mix(in srgb, var(--brand-accent, var(--accent)) 14%, transparent));
+  box-shadow:
+    inset 0 0 0 1px var(--tabs-thumb-border, color-mix(in srgb, var(--brand-accent, var(--accent)) 45%, transparent)),
+    0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+/* ---------- sizes ---------- */
+.ui-tabs--sm .ui-tabs__tab {
+  --tabs-pad-y: 6px;
+  --tabs-pad-x: 10px;
+  font-size: var(--tabs-font-size, 12px);
+}
+.ui-tabs--sm.ui-tabs--segmented .ui-tabs__tab { --tabs-pad-y: 5px; --tabs-pad-x: 10px; }
+
+/* ---------- panel ---------- */
+.ui-tabpanel-clip { overflow-x: clip; min-width: 0; }
+.ui-tabpanel:focus { outline: none; }
+.ui-tabpanel:focus-visible {
+  outline: 2px solid var(--tabs-accent, var(--brand-accent, var(--accent)));
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-tabs.is-ready .ui-tabs__indicator,
+  .ui-tabs__tab { transition: none; }
+  .ui-tabs__dot { animation: none; }
+}

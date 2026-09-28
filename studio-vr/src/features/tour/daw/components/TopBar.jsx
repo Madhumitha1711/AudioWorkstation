@@ -1,4 +1,6 @@
+import { Tabs } from "../../../../components/Tabs";
 import { clamp, fmtTime } from "../lib/format";
+import { VIEW_TABS } from "../lib/constants";
 
 // Top transport bar: exit, Arrange/Mixer view switch, transport buttons,
 // timecode, the "previewing a portion" pill, Download Mix, and the master
@@ -36,28 +38,16 @@ export function TopBar({
         </div>
       </div>
       <div className="topbar-divider" />
-      <div className="view-switch" role="tablist" aria-label="View">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={viewMode === "arrange"}
-          className={"view-switch__btn" + (viewMode === "arrange" ? " is-active" : "")}
-          onClick={() => setViewMode("arrange")}
-          title="Arrange view"
-        >
-          Arrange
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={viewMode === "mixer"}
-          className={"view-switch__btn" + (viewMode === "mixer" ? " is-active" : "")}
-          onClick={() => setViewMode("mixer")}
-          title="Mixer view (X)"
-        >
-          Mixer
-        </button>
-      </div>
+      <Tabs
+        className="view-switch"
+        variant="segmented"
+        size="sm"
+        items={VIEW_TABS}
+        value={viewMode}
+        onChange={setViewMode}
+        ariaLabel="View"
+        idPrefix="daw-view"
+      />
       <div className="topbar-divider" />
       <div className="transport">
         <button className="transport-btn" onClick={onRewind} disabled={tracks.length === 0} title="Return to start">

@@ -1,3 +1,4 @@
+import { canvasFont } from "../../../../theme/fonts";
 // Shared helpers for the "What Is Sound?" chapter's per-concept interactive
 // labs (FrequencyLab, AmplitudeLab, WavelengthLab, PhaseLab, HarmonicsLab,
 // TimbreLab — ported pixel-for-pixel from design/what-is-sound-chapter.html).
@@ -264,10 +265,169 @@ export function drawScope(canvas, opts = {}) {
   }
   c.stroke();
   if (label) {
-    c.font = "11px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    c.font = canvasFont(11);
     c.textAlign = "right";
     c.textBaseline = "bottom";
     c.fillStyle = pal.colors.label;
     c.fillText(label, w - 10, h - 8);
   }
+}
+
+/**
+ * Unrounded inverse of sliderToFreqPrecise — frequency -> fractional slider
+ * position (0..1000). The Frequency lab's slider uses `step="any"` with
+ * this, so the thumb sits exactly where the current frequency belongs on
+ * the log scale (a typed 440 Hz lands at 440 Hz, not the nearest of 1000
+ * integer steps, which near the top of the range are ~140 Hz apart).
+ */
+export function freqToSliderPrecise(f) {
+  const min = Math.log(20);
+  const max = Math.log(20000);
+  return ((Math.log(f) - min) / (max - min)) * 1000;
+}
+
+/**
+ * Oscilloscope-style "timebase" for a frequency — the width of the visible
+ * time window (seconds), snapped to a 1-2-5 value (…, 1 ms, 2 ms, 5 ms,
+ * 10 ms, …) so that roughly `targetCycles` real periods fit on screen.
+ * Because the window is labelled on the time axis, the number of cycles
+ * drawn is the literal f × window, not a visual approximation.
+ */
+export function timebaseFor(freq, targetCycles = 4) {
+  const ideal = targetCycles / Math.max(freq, 1);
+  const exp = Math.floor(Math.log10(ideal));
+  let best = ideal;
+  let bestErr = Infinity;
+  for (const e of [exp - 1, exp, exp + 1]) {
+    for (const s of [1, 2, 5]) {
+      const v = s * Math.pow(10, e);
+      const err = Math.abs(Math.log(v / ideal));
+      if (err < bestErr) {
+        bestErr = err;
+        best = v;
+      }
+    }
+  }
+  return best;
+}
+
+/** Human-readable duration: "2.27 ms", "50.0 µs", "1.20 s". */
+export function formatDuration(sec) {
+  if (sec >= 1) return `${sec.toFixed(2)} s`;
+  if (sec >= 1e-3) return `${(sec * 1e3).toFixed(2)} ms`;
+  return `${(sec * 1e6).toFixed(1)} µs`;
+}
+
+const trimNum = (v) => String(parseFloat(v.toPrecision(3)));
+
+/**
+ * Real-time oscilloscope trace: a sine at `freq` Hz drawn across a time
+ * window of `windowSec` seconds (see timebaseFor), with a labelled time
+ * axis along the bottom and a bracket marking one period T = 1/f at the
+ * top — the time-domain counterpart to WavelengthLab's "T = …" label.
+ * `scroll` (radians) animates the trace during playback; the T bracket
+ * stays locked to a rising zero crossing so it tracks the wave.
+ */
+export function drawTimeScope(canvas, opts = {}) {
+  const hd = hiDpiCanvas(canvas);
+  if (!hd) return;
+  const { ctx: c, w, h } = hd;
+  const { freq, windowSec, amp = 0.8, color, scroll = 0, theme = "dark", divisions = 5 } = opts;
+  if (!freq || !windowSec) return;
+  const pal = scopePalette(theme);
+  const top = 24;
+  const bottom = h - 20;
+  const mid = (top + bottom) / 2;
+  const halfH = (bottom - top) / 2;
+  const font = canvasFont(10.5);
+
+  c.clearRect(0, 0, w, h);
+
+  // time grid + axis labels
+  const useMs = windowSec >= 1e-3;
+  const unitScale = useMs ? 1e3 : 1e6;
+  const unit = useMs ? "ms" : "µs";
+  c.font = font;
+  c.textBaseline = "top";
+  c.lineWidth = 1;
+  for (let i = 0; i <= divisions; i++) {
+    const x = Math.min(w - 0.5, Math.max(0.5, Math.round((i / divisions) * w) + 0.5));
+    c.strokeStyle = pal.grid;
+    c.globalAlpha = i === 0 || i === divisions ? 0.9 : 0.5;
+    c.beginPath();
+    c.moveTo(x, top);
+    c.lineTo(x, bottom);
+    c.stroke();
+    c.globalAlpha = 1;
+    const v = trimNum((windowSec * i * unitScale) / divisions);
+    c.fillStyle = pal.colors.label;
+    c.textAlign = i === 0 ? "left" : i === divisions ? "right" : "center";
+    c.fillText(i === divisions ? `${v} ${unit}` : v, i === 0 ? 2 : i === divisions ? w - 2 : x, bottom + 5);
+  }
+
+  // center line
+  c.strokeStyle = pal.grid;
+  c.beginPath();
+  c.moveTo(0, mid);
+  c.lineTo(w, mid);
+  c.stroke();
+
+  // trace — exactly freq × windowSec cycles across the window
+  const cycles = freq * windowSec;
+  const traceColor = color ?? pal.colors.amber;
+  c.save();
+  c.beginPath();
+  c.rect(0, top, w, bottom - top);
+  c.clip();
+  c.beginPath();
+  c.strokeStyle = traceColor;
+  c.lineWidth = 2;
+  for (let x = 0; x <= w; x++) {
+    const t = (x / w) * cycles * Math.PI * 2 + scroll;
+    const y = mid - Math.sin(t) * halfH * amp;
+    if (x === 0) c.moveTo(x, y);
+    else c.lineTo(x, y);
+  }
+  c.stroke();
+  c.restore();
+
+  // one-period bracket, anchored to the first rising zero crossing
+  const TWO_PI = Math.PI * 2;
+  const periodPx = w / cycles;
+  const phase0 = ((scroll % TWO_PI) + TWO_PI) % TWO_PI;
+  let x0 = (((TWO_PI - phase0) % TWO_PI) / TWO_PI) * periodPx;
+  if (x0 + periodPx > w) x0 = Math.max(0, x0 - periodPx);
+  const x1 = Math.min(w, x0 + periodPx);
+  const by = top - 8;
+
+  c.strokeStyle = traceColor;
+  c.globalAlpha = 0.45;
+  c.setLineDash([3, 3]);
+  c.beginPath();
+  c.moveTo(x0, by);
+  c.lineTo(x0, bottom);
+  c.moveTo(x1, by);
+  c.lineTo(x1, bottom);
+  c.stroke();
+  c.setLineDash([]);
+  c.globalAlpha = 1;
+
+  c.lineWidth = 1.5;
+  c.beginPath();
+  c.moveTo(x0, by + 5);
+  c.lineTo(x0, by);
+  c.lineTo(x1, by);
+  c.lineTo(x1, by + 5);
+  c.stroke();
+
+  const text = `T = ${formatDuration(1 / freq)}`;
+  c.font = `600 ${font}`;
+  c.textAlign = "center";
+  c.textBaseline = "middle";
+  const tw = c.measureText(text).width + 10;
+  const cx = Math.min(w - tw / 2, Math.max(tw / 2, (x0 + x1) / 2));
+  c.fillStyle = pal.bg;
+  c.fillRect(cx - tw / 2, by - 8, tw, 16);
+  c.fillStyle = traceColor;
+  c.fillText(text, cx, by);
 }

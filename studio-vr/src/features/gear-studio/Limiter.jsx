@@ -7,6 +7,7 @@ import {
     METER_FLOOR_DB, LEVEL_ATTACK_S, LEVEL_RELEASE_S, levelBallistic,
     GR_READOUT_TAU_S, grReadoutSmooth, analyserPeakDb,
 } from '../../audio/effects/limiterEngine';
+import { canvasFont } from "../../theme/fonts";
 // ── Chapter 11 — Limiter Studio ──────────────────────────────────────────────
 // "Set a Brickwall Ceiling with a Limiter". Real DSP lives at
 // public/faust/limiter/ (dsp-module.wasm + dsp-meta.json) — a Faust
@@ -102,7 +103,7 @@ function drawTransfer(canvas, params) {
     }
     // dB axis tick labels (every 6 dB) — input along the bottom, output along the left edge
     ctx.fillStyle = '#6A6A7A';
-    ctx.font = '9px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(9, { mono: true });
     for (let db = DB_MIN; db <= DB_MAX; db += 6) {
         ctx.fillText(`${db}`, toX(db) + 2, H - 2);
         ctx.fillText(`${db}`, 2, toY(db) - 2);
@@ -138,7 +139,7 @@ function drawTransfer(canvas, params) {
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = '#8A8A9A';
-    ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(10, { mono: true });
     ctx.fillText('THRESH', tx + 3, H - 5);
     // Ceiling marker — the brickwall itself
     ctx.strokeStyle = 'rgba(245,166,35,0.55)';
@@ -175,7 +176,7 @@ function drawTransfer(canvas, params) {
     ctx.stroke();
     // Labels
     ctx.fillStyle = '#8A8A9A';
-    ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(10, { mono: true });
     ctx.fillText('INPUT (dB) →', W - 82, H - 5);
     ctx.save();
     ctx.translate(11, H * 0.38);
@@ -208,7 +209,7 @@ function drawLimiterScope(canvas, history, nowT, thresholdDb, ceilingDb, showThr
     ctx.strokeStyle = 'rgba(255,255,255,0.03)';
     ctx.lineWidth = 1;
     ctx.fillStyle = '#6A6A7A';
-    ctx.font = '9px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(9, { mono: true });
     for (let db = Math.ceil(SCOPE_MIN_DB / 12) * 12; db <= SCOPE_MAX_DB; db += 12) {
         const y = toY(db);
         ctx.beginPath();
@@ -1082,7 +1083,7 @@ export default function Limiter() {
             border: `1px solid ${activeSourceId === 'synth' ? 'rgba(245,166,35,0.5)' : 'var(--border)'}`,
             borderRadius: '3px',
             color: activeSourceId === 'synth' ? 'var(--amber)' : 'var(--text-dim)',
-            fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
             cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
         }}>
         <span style={{ fontSize: '0.85rem' }}>🔁</span>
@@ -1098,7 +1099,7 @@ export default function Limiter() {
                     border: `1px solid ${active ? 'rgba(77,158,255,0.5)' : 'var(--border)'}`,
                     borderRadius: '3px',
                     color: active ? 'var(--blue)' : 'var(--text-dim)',
-                    fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+                    fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
                     cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
                 }}>
             <span style={{ fontSize: '0.85rem' }}>📁</span>
@@ -1114,7 +1115,7 @@ export default function Limiter() {
             border: '1px dashed var(--border)',
             borderRadius: '3px',
             color: 'var(--text-dim)',
-            fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
             cursor: decoding ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
         }}>
         <span style={{ fontSize: '0.85rem' }}>{decoding ? '⏳' : '+'}</span>
@@ -1127,16 +1128,16 @@ export default function Limiter() {
                 border: '1px dashed var(--border)',
                 borderRadius: '3px',
                 color: 'var(--text-dim)',
-                fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+                fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
                 cursor: downloading ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
             }}>
           <span style={{ fontSize: '0.85rem' }}>{downloading ? '⏳' : '⬇'}</span>
           <span>{downloading ? 'RENDERING…' : 'DOWNLOAD AUDIO'}</span>
         </button>)}
-      {uploadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>
+      {uploadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--font-mono)', alignSelf: 'center' }}>
           {uploadError}
         </span>)}
-      {downloadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>
+      {downloadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--font-mono)', alignSelf: 'center' }}>
           {downloadError}
         </span>)}
     </div>);

@@ -58,6 +58,11 @@ export const TOPICS = [
     title: "The Studio: Recording Room and Control Room",
     intro:
       "Two rooms, one signal — the recording room captures the performance, the control room shapes it, and everything in this course happens somewhere between them.",
+    // "studio-rooms-lab" (interactives/foundations/StudioRoomsLab) —
+    // Recording Room / Control Room tabs. Like studio-types below, it only
+    // takes effect once this topic is `ready: true` or the kind is
+    // referenced from this chapter's interactive block in studio-cms.
+    interactive: { id: "the-studio-interactive", title: "Recording Room & Control Room", kind: "studio-rooms-lab" },
     ready: false,
   },
   {
@@ -137,14 +142,10 @@ export const TOPICS = [
       "A microphone is a translator, not a recorder — it converts air pressure into voltage its own way, and picking the right one is half the battle before you ever touch a fader.",
     // Interactive labs for this chapter's Type/Polar Pattern/Selection
     // subchapters already exist (see InteractiveSection.jsx's
-    // "mic-type-lab" / "mic-type-compare-lab" / "mic-polar-pattern-lab" /
-    // "mic-polar-compare-lab" / "mic-selection-lab", ported from
-    // design/mic-types-chapter.html — "mic-selection-lab" is the "Pick the
-    // mic for the job" lab from design/mic-selection-lab.html, and
-    // "mic-polar-compare-lab" is the polar-
-    // pattern equivalent of mic-type-compare-lab, minus a dropdown since
-    // there are only three fixed patterns to compare; see that file's
-    // comment), and its Placement subchapter now has one too
+    // "mic-type-lab" / "mic-polar-pattern-lab" / "mic-selection-lab",
+    // ported from design/mic-types-chapter.html — "mic-selection-lab" is
+    // the "Pick the mic for the job" lab from design/mic-selection-lab.html),
+    // and its Placement subchapter now has one too
     // — "mic-placement-lab", MikingRoom's 3D room (see src/features/course/
     // MikingRoom and MicPlacementLab.jsx) — this topic stays
     // `ready: false` until its lessons/blocks are authored in studio-cms,

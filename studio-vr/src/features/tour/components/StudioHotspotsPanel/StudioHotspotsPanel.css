@@ -6,7 +6,7 @@
 
    Colour and type match the app's other floating chrome in shape: same
    glass look (translucent background + blur, same border/text treatment,
-   same plain sans-serif type via var(--sans), no separate label font) as
+   same plain sans-serif type via var(--font-sans), no separate label font) as
    .svr-tour-gear-panel — the info card that opens when you click a hotspot
    marker directly, in PanoramaTour.css. --hsp-* custom property NAMES are
    kept below purely so the ~700 lines of rules further down that already
@@ -77,7 +77,7 @@
   border-right: 1px solid var(--hsp-hair-strong);
   box-shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
   color: var(--hsp-text);
-  font-family: var(--sans);
+  font-family: var(--font-sans);
   transform: translateX(0);
   transition: transform 0.25s ease;
 }
@@ -138,7 +138,7 @@
 }
 
 .svr-hotspot-panel__eyebrow {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.16em;
   color: var(--hsp-gold);
@@ -227,7 +227,7 @@
 
 .svr-hotspot-qbtn {
   flex: 1;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -303,7 +303,7 @@
   display: flex;
   gap: 16px;
   padding: 12px 22px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   color: var(--hsp-text-dim);
   border-bottom: 1px solid var(--hsp-hair);
@@ -409,7 +409,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 600;
   color: var(--hsp-text-faint);
@@ -511,13 +511,13 @@
 .svr-hotspot-req {
   font-size: 11px;
   color: var(--hsp-text-faint);
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   margin: 2px 0 0;
 }
 
 .svr-hotspot-status {
   font-size: 10.5px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-top: 5px;
@@ -534,7 +534,7 @@
   font-size: 10.5px;
   color: var(--hsp-text-faint);
   border-top: 1px solid var(--hsp-hair);
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   line-height: 1.6;
   flex-shrink: 0;
 }

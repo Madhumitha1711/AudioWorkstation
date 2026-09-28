@@ -64,7 +64,8 @@ src/
   main.jsx  App.jsx  index.css   # entry, all routes (App.jsx), global tokens
   api/            # HTTP client + auth / discussions / payments endpoints
   store/          # Redux: sessionSlice (student/paid), checkoutSlice, controlRoomSlice
-  theme/          # ThemeContext (light/dark), PaletteContext + palettes, toggles
+  theme/          # ThemeContext (light/dark), PaletteContext + palettes, toggles,
+                  # fonts.js (canvasFont() — global font tokens for canvas text)
   audio/          # app-wide audio infrastructure (no React UI)
     spatialAudioEngine.js  # singleton Web Audio wrapper: HRTF binaural panning
                             # tied to camera look direction, ambient room bed,
@@ -80,6 +81,8 @@ src/
   components/     # UI shared by 2+ features only
     Header/                 # app header
     controls/               # Knob, Fader
+    Tabs/                   # THE standard tabs: Tabs, TabPanel, useTabTransition
+                            # (see "Tabs standard" below)
   features/       # one folder per product area; a feature's page, CSS and
                   # private components live together
     landing/                # LandingPage
@@ -177,6 +180,86 @@ design/                  # static HTML/CSS mockups (source of truth for visual
 - **Test/dev-only routes**: `/panorama-test`, `/splat-test`, `/model-test`
   are utility pages for testing panorama images, Gaussian splats, and 3D
   models in isolation — not part of the student-facing flow.
+
+## Typography (global — never per file)
+
+- The app uses exactly **two font families**, defined once in `src/index.css`
+  `:root`:
+  - `--font-sans` — **Inter** — all text: body, headings, UI, labels, tabs.
+  - `--font-mono` — **JetBrains Mono** — only numeric readouts, timecodes,
+    meter/dB values, code.
+- Web fonts are loaded **only** in `index.html` (one Google Fonts `<link>`).
+  Never add `@import url(fonts.googleapis…)` or `<link>` font loads in
+  component CSS/JSX.
+- In CSS use `font-family: var(--font-sans)` / `var(--font-mono)`, or just
+  inherit (the root and all form controls already use `--font-sans`). Never
+  write a literal family name (`'Inter'`, `'Space Grotesk'`, `monospace`, …)
+  and never redefine `--font-*` (or the legacy aliases `--sans`, `--heading`,
+  `--display`, `--body`, `--mono`, which still point at the same two tokens)
+  inside a feature scope.
+- Inline JSX styles use `fontFamily: 'var(--font-mono)'` etc.
+- Canvas/WebGL text can't read CSS variables — use
+  `canvasFont(px, { weight, mono })` from `src/theme/fonts.js`
+  (`ctx.font = canvasFont(10, { mono: true })`), never a hand-written
+  `ctx.font` family string.
+
+## Tabs standard (use everywhere)
+
+Every tab set in the app renders through `src/components/Tabs` — never a
+hand-rolled `role="tablist"` / button row. It provides the standard motion:
+one indicator that **glides** (transform + width) to the active tab, and a
+panel that **fades + slides 10px in the direction of travel** while its
+**height eases** between panels of different sizes (so content below glides
+instead of jumping). Rapid switching continues from the current on-screen
+state rather than snapping. Timing is global (`src/index.css`):
+`--motion-tab-duration` (480ms), `--motion-panel-duration` (440ms),
+`--motion-panel-shift`, `--motion-ease-out`
+(`cubic-bezier(0.16, 1, 0.3, 1)`, ease-out-expo). Everything is disabled
+under `prefers-reduced-motion`.
+
+**Explored dots + count:** every tab the user has already opened (other
+than the active one) shows a small theme-primary dot that pops in when they
+leave it, and the bar ends with an **"N/M explored"** count (the "explored"
+word hides under 600px). Both are built into `Tabs` and on by default
+(`markVisited`, `showCount`; turn off per instance only with a reason).
+Tracking is internal; pass `visited` (Set/array of ids) only if the parent
+must control it. Don't hand-roll per-feature "viewed" dots or counts —
+extra bar content goes in `trailing`, rendered after the count.
+
+```jsx
+import { Tabs, TabPanel } from "../../components/Tabs";
+
+<Tabs items={[{ id, label, title?, disabled? }]} value={active}
+      onChange={(id, index) => setActive(id)} ariaLabel="…" idPrefix="xyz" />
+<TabPanel idPrefix="xyz" value={active} index={activeIndex}>…</TabPanel>
+```
+
+- **Variants:** `variant="underline"` (default — page/lesson/lab content
+  navigation) and `variant="segmented"` + `size="sm"` (compact tool bars:
+  DAW, tour gear panels, gear-studio mode switches). `fill` shares the width
+  equally. `renderTab(item, { selected, index })` for custom tab content,
+  `trailing` for extra content pinned right of the bar (after the count).
+- **Panels:** `<TabPanel>` animates without remounting (child state and
+  audio survive; add a `key` inside if you *want* a reset). When the panel
+  is an existing element (e.g. a scroll container with its own classes),
+  call `useTabTransition(ref, activeKey, activeIndex)` on it instead (and
+  `useTabHeightTransition(ref, activeKey)` if its height follows content).
+  Keep hooks above any early `return null`.
+- **Colour = theme primary.** The indicator (underline or segmented pill)
+  and the active segmented label use `--brand-accent` — the selected
+  palette's primary colour from `src/theme/palettes.js` (PaletteContext),
+  light/dark aware. Don't override `--tabs-accent` / `--tabs-thumb-*` with a
+  feature colour; tabs must look the same everywhere.
+- **Re-skin only via tokens** (typography/neutrals) set on a wrapper or the `className` you pass:
+  `--tabs-accent`, `--tabs-text`, `--tabs-text-active`, `--tabs-line`,
+  `--tabs-track-bg/-border`, `--tabs-thumb-bg/-border/-text`, `--tabs-font`,
+  `--tabs-font-size`, `--tabs-letter-spacing`, `--tabs-transform`. Don't
+  restyle `.ui-tabs__*` rules or add your own tab transitions.
+- Accessibility is built in (roving tabindex, ←/→/Home/End, aria wiring via
+  `idPrefix`). Current users: Foundations `BriefingTabs` (StudioRoomsLab,
+  StudioTypesLab), CriticalListeningLab, HearingAgeLab, all tour
+  hotspot-labs, DAW Arrange/Mixer + dock scope, Equalizer mode, Discussion
+  channels.
 
 ## Conventions
 

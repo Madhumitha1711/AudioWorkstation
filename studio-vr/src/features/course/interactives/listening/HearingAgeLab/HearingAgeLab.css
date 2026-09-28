@@ -69,14 +69,8 @@
 .hha-bg-red   { background: var(--hha-red); }
 
 /* ---------- tabs ---------- */
-.hha-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-soft); margin-bottom: 20px; overflow-x: auto; }
-.hha-tabs button {
-  background: none; border: none; padding: 12px 14px; cursor: pointer; color: var(--text-dim); white-space: nowrap;
-  font: inherit; font-size: 14px; font-weight: 500;
-  border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s, border-color 0.15s;
-}
-.hha-tabs button:hover { color: var(--text); }
-.hha-tabs button[aria-selected='true'] { color: var(--text); border-bottom-color: var(--hha-amber); }
+/* Tabs: app-wide standard (components/Tabs) — only re-skinned via tokens. */
+.hha-tabs { --tabs-line: var(--border-soft); margin-bottom: 20px; }
 
 /* ---------- generic ---------- */
 .hha-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 22px; }

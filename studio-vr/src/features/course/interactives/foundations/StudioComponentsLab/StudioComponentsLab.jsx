@@ -1,36 +1,38 @@
 import { useEffect, useRef, useState } from "react";
+import { Tabs, TabPanel, useTabTransition } from "../../../../../components/Tabs";
 import "../../shared/labs.css";
 import "./StudioComponentsLab.css";
 import { ALL_COMPONENTS, ICONS, SECTIONS, componentImagePath } from "./studioComponentsData";
 
-// Ported from design/studio-components-chapter.html — the "Studio
-// Components" briefing (Foundations, alongside chapter 2 "The Studio:
-// Recording Room and Control Room"). Master/detail layout:
-//   LEFT  — four collapsible sections (Control Room / Recording Room ×
-//           Electronic / Non-electronic), grouped under a room label, each
-//           listing its four components.
-//   RIGHT — detail pane for the selected component: photo (or labelled
-//           icon placeholder until the photo exists), title, lead, body,
-//           key points, and prev/next paging through all 16 in order.
+// "Key Elements of the Recording Space" (Foundations, alongside chapter 2
+// "The Studio: Recording Room and Control Room"). Horizontal layout, built
+// to design/studio-components-tabs.html:
 //
-// Differences from the mockup, all because this renders inside the course
-// content column rather than as a standalone page:
-//   - no page header / theme toggle — the lesson's own heading and the
-//     app's ThemeContext already cover those; colors come from the course
-//     theme tokens (--panel, --border-soft, --text-dim…) plus four scoped
-//     per-section accents (--scl-amber etc., see the CSS).
-//   - no 100vh layout — the lab has a fixed max height on desktop with the
-//     list and detail pane scrolling independently, and stacks on narrow
-//     widths.
-//   - sections are plain buttons with aria-expanded instead of <details>,
-//     so open/closed state is React state (selecting an item force-opens
-//     its section, others stay as the student left them — same behavior as
-//     the mockup's show()).
-//   - added: a "viewed" tick per component and a per-section N/4 count,
-//     so the student can see what they haven't opened yet.
+//   ROW 1  Area tabs — standard <Tabs> (underline): one tab per section,
+//          room name over "Electronic" / "Non-electronic".
+//   ROW 2  Component tabs — standard <Tabs variant="segmented" size="sm">
+//          with the 4 components of the active area (icon + name).
+//   ROW 3  <TabPanel> — photo on top, copy below it.
+//   ROW 4  Previous / Next across all 16 components (crosses areas).
+//
+// Navigation colour is only the theme primary / secondary (--brand-accent,
+// --brand-accent-2) plus the neutral text tokens — the per-section tone
+// (--c, see CSS) is used in the CONTENT only (placeholder icon),
+// never on a tab. Type is the global --font-sans throughout.
+//
+// Second-level motion: when the area changes, the component bar is
+// remounted (key = area id) inside a wrapper that plays the standard panel
+// transition (useTabTransition — fade + 10px slide in the direction of
+// travel, same tokens as every TabPanel), so the new set of components
+// glides in instead of the labels swapping in place. Within one area the
+// bar is not remounted, so its pill glides between components as usual.
+//
+// Explored state: the area bar tracks "areas opened"; the component bar is
+// controlled (`visited`) from the lab's own `viewed` set so its dots/count
+// mean "components opened in this area" and survive the remount.
 //
 // onInteract (from InteractiveSection) fires the first time the student
-// opens a component themselves — the initial auto-selection doesn't count.
+// picks a component themselves — the initial selection doesn't count.
 
 // Renders **bold** runs from the data file as <strong>.
 function renderRich(text) {
@@ -54,22 +56,14 @@ function Icon({ id, className }) {
   );
 }
 
-function Chevron() {
-  return (
-    <svg className="scl-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-      <path d="M6 9l6 6 6-6" />
-    </svg>
-  );
-}
+const SECTION_TABS = SECTIONS.map((s) => ({ id: s.n, label: s.type, room: s.room, ariaLabel: `${s.room} — ${s.type}` }));
 
 function StudioComponentsLab({ onInteract }) {
   const [selectedId, setSelectedId] = useState(ALL_COMPONENTS[0].id);
-  const [openSections, setOpenSections] = useState(() => new Set([SECTIONS[0].n]));
   const [viewed, setViewed] = useState(() => new Set([ALL_COMPONENTS[0].id]));
-  // ids whose photo finished loading — hides the placeholder underneath
   const [loadedImgs, setLoadedImgs] = useState(() => new Set());
   const [failedImgs, setFailedImgs] = useState(() => new Set());
-  const detailRef = useRef(null);
+  const railRef = useRef(null);
   const firedRef = useRef(false);
   const onInteractRef = useRef(onInteract);
   useEffect(() => {
@@ -79,40 +73,29 @@ function StudioComponentsLab({ onInteract }) {
   const index = ALL_COMPONENTS.findIndex((c) => c.id === selectedId);
   const item = ALL_COMPONENTS[index];
   const section = item.section;
+  const sectionIndex = SECTIONS.indexOf(section);
   const prev = ALL_COMPONENTS[index - 1];
   const next = ALL_COMPONENTS[index + 1];
 
+  // Component bar slides in from the side of travel when the area changes.
+  useTabTransition(railRef, section.n, sectionIndex);
+
   function select(id) {
-    const target = ALL_COMPONENTS.find((c) => c.id === id);
-    if (!target) return;
+    if (id === selectedId || !ALL_COMPONENTS.some((c) => c.id === id)) return;
     setSelectedId(id);
     setViewed((v) => (v.has(id) ? v : new Set(v).add(id)));
-    setOpenSections((s) => (s.has(target.section.n) ? s : new Set(s).add(target.section.n)));
-    if (detailRef.current) detailRef.current.scrollTop = 0;
     if (!firedRef.current) {
       firedRef.current = true;
       onInteractRef.current?.();
     }
   }
 
-  // On narrow widths the list stacks above the detail pane (see the CSS
-  // breakpoint), so picking from the list would otherwise update content
-  // the student can't see — bring the pane into view. Pager clicks already
-  // happen inside the pane, so they don't need this.
-  function selectFromList(id) {
-    select(id);
-    if (typeof window !== "undefined" && window.matchMedia?.("(max-width: 860px)").matches) {
-      detailRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
-    }
-  }
-
-  function toggleSection(n) {
-    setOpenSections((s) => {
-      const nextSet = new Set(s);
-      if (nextSet.has(n)) nextSet.delete(n);
-      else nextSet.add(n);
-      return nextSet;
-    });
+  // Opening an area lands on its first component not yet opened (or the
+  // first one if all have been seen).
+  function selectSection(n) {
+    const s = SECTIONS.find((x) => x.n === n);
+    if (!s) return;
+    select((s.items.find((it) => !viewed.has(it.id)) || s.items[0]).id);
   }
 
   const imgSrc = componentImagePath(item.id);
@@ -121,59 +104,54 @@ function StudioComponentsLab({ onInteract }) {
 
   return (
     <div className="lab scl">
-      <div className="scl-layout">
-        {/* ---------- left: section list, grouped by room ---------- */}
-        <nav className="scl-nav" aria-label="Studio components">
-          {SECTIONS.map((s, i) => {
-            const showRoom = i === 0 || SECTIONS[i - 1].room !== s.room;
-            const open = openSections.has(s.n);
-            const seen = s.items.filter((it) => viewed.has(it.id)).length;
-            const listId = `scl-items-${s.n}`;
-            return (
-              <div key={s.n} className="scl-sec-wrap">
-                {showRoom && <div className="scl-room-label">{s.room}</div>}
-                <div className={`scl-sec scl-tone-${s.tone}${open ? " is-open" : ""}`}>
-                  <button type="button" className="scl-sec-head" aria-expanded={open} aria-controls={listId} onClick={() => toggleSection(s.n)}>
-                    <span className="scl-sec-n">{s.n}</span>
-                    <span className="scl-sec-t">{s.type}</span>
-                    <span className="scl-sec-count">
-                      {seen}/{s.items.length}
-                    </span>
-                    <Chevron />
-                  </button>
-                  {open && (
-                    <div className="scl-items" id={listId}>
-                      {s.items.map((it) => (
-                        <button
-                          key={it.id}
-                          type="button"
-                          className="scl-item"
-                          aria-current={it.id === selectedId ? "true" : undefined}
-                          onClick={() => selectFromList(it.id)}
-                        >
-                          <span className="scl-ic">
-                            <Icon id={it.id} />
-                          </span>
-                          <span className="scl-item-name">{it.name}</span>
-                          {viewed.has(it.id) && <span className="scl-seen" aria-label="viewed" />}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </nav>
+      {/* ---------- row 1: areas ---------- */}
+      <Tabs
+        items={SECTION_TABS}
+        value={section.n}
+        onChange={selectSection}
+        ariaLabel="Studio areas"
+        idPrefix="scl-sec"
+        className="scl-areas"
+        renderTab={(t) => (
+          <span className="scl-area">
+            <span className="scl-area-room">{t.room}</span>
+            <span className="scl-area-type">{t.label}</span>
+          </span>
+        )}
+      />
 
-        {/* ---------- right: detail pane ---------- */}
-        <article ref={detailRef} className={`scl-detail scl-tone-${section.tone}`} aria-live="polite">
-          <div className="scl-media scl-fade" key={`m-${item.id}`}>
+      {/* ---------- row 2: components of the active area ---------- */}
+      <div ref={railRef} className="scl-rail">
+        <Tabs
+          key={section.n}
+          variant="segmented"
+          size="sm"
+          items={section.items.map((it) => ({ id: it.id, label: it.name }))}
+          value={item.id}
+          onChange={select}
+          visited={section.items.filter((it) => viewed.has(it.id)).map((it) => it.id)}
+          ariaLabel={`${section.room} — ${section.type} components`}
+          idPrefix="scl-item"
+          renderTab={(t) => (
+            <>
+              <Icon id={t.id} className="scl-rail-ic" />
+              <span>{t.label}</span>
+            </>
+          )}
+        />
+      </div>
+
+      {/* ---------- row 3: detail ---------- */}
+      <TabPanel idPrefix="scl-item" value={item.id} index={index} innerClassName={`scl-panel scl-tone-${section.tone}`}>
+        <div className="scl-grid">
+          <figure className="scl-media">
             <div className="scl-frame">
               {!imgFailed && (
                 <img
+                  key={item.id}
                   src={imgSrc}
                   alt={item.name}
+                  style={imgLoaded ? undefined : { visibility: "hidden" }}
                   onLoad={() => setLoadedImgs((s) => new Set(s).add(item.id))}
                   onError={() => setFailedImgs((s) => new Set(s).add(item.id))}
                 />
@@ -185,12 +163,12 @@ function StudioComponentsLab({ onInteract }) {
                 </div>
               )}
             </div>
-            <div className="scl-caption">
+            <figcaption className="scl-caption">
               {item.name} · {section.room}
-            </div>
-          </div>
+            </figcaption>
+          </figure>
 
-          <div className="scl-text scl-fade" key={`t-${item.id}`}>
+          <div className="scl-text">
             <h3 className="scl-title">{item.name}</h3>
             <p className="scl-lead">{item.lead}</p>
             {item.body.map((p, i) => (
@@ -198,24 +176,21 @@ function StudioComponentsLab({ onInteract }) {
                 {renderRich(p)}
               </p>
             ))}
-            <h4 className="scl-kp">Key points</h4>
-            <ul className="scl-points">
-              {item.points.map((p, i) => (
-                <li key={i}>{p}</li>
-              ))}
-            </ul>
           </div>
-          <div className="scl-pager">
-            <button type="button" disabled={!prev} onClick={() => prev && select(prev.id)}>
-              <small>← PREVIOUS</small>
-              {prev ? prev.name : "—"}
-            </button>
-            <button type="button" disabled={!next} onClick={() => next && select(next.id)}>
-              <small>NEXT →</small>
-              {next ? next.name : "—"}
-            </button>
-          </div>
-        </article>
+        </div>
+
+      </TabPanel>
+
+      {/* ---------- row 4: pager ---------- */}
+      <div className="scl-pager">
+        <button type="button" disabled={!prev} onClick={() => prev && select(prev.id)}>
+          <small>← Previous</small>
+          <span className="scl-pager-name">{prev ? prev.name : "—"}</span>
+        </button>
+        <button type="button" disabled={!next} onClick={() => next && select(next.id)}>
+          <small>Next →</small>
+          <span className="scl-pager-name">{next ? next.name : "—"}</span>
+        </button>
       </div>
     </div>
   );

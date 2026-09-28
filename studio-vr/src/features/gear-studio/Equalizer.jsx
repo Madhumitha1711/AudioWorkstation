@@ -4,6 +4,7 @@ import { compileFaustWasm } from '../../audio/faust/faustTypes';
 import { downloadBlob, audioBufferToWavBlob } from '../../audio/wavRender';
 import { useTheme } from '../../theme/ThemeContext';
 import './chapters.css';
+import { Tabs, TabPanel } from '../../components/Tabs';
 import {
     ADDR, LIVE_GAIN_ADDR_TO_BAND, ORDER_VALUES, orderToIndex,
     DEFAULT_DYNAMIC, DEFAULT_BANDS, setBool, applyBandsToNode, BAND_DEFS,
@@ -17,6 +18,7 @@ import {
     EQ_PRESETS, mergeBands, applyPreset, pickRandomPreset,
     dbToLinear, applyOutputGain,
 } from '../../audio/effects/equalizerEngine';
+import { canvasFont } from "../../theme/fonts";
 // ═══════════════════════════════════════════════════════════════════════════
 // Chapter 2b — ParamEQ (Logic-style parametric EQ, Faust WASM)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -246,7 +248,7 @@ function drawEQGraph(canvas, opts) {
     // Horizontal grid, dual-labeled: left = EQ gain (this row's y, straight off
     // the gain axis), right = the live-level dB that happens to fall at that
     // same pixel row on the spectrum's own (wider) scale.
-    ctx.font = '9px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(9, { mono: true });
     for (const g of GAIN_GRID_DB) {
         const y = gainToFrac(g) * H;
         ctx.strokeStyle = g === 0 ? pal.gridZero : pal.gridMinorH;
@@ -471,7 +473,7 @@ function drawEQGraph(canvas, opts) {
     }
     else if (targetBands && !showTarget) {
         ctx.fillStyle = pal.targetHiddenText;
-        ctx.font = '10px "JetBrains Mono", monospace';
+        ctx.font = canvasFont(10, { mono: true });
         ctx.fillText('TARGET HIDDEN — LISTEN & MATCH BY EAR', W / 2 - 150, 14);
     }
     strokeCurve(bands, pal.curveMine, 0.95, 0.22, outputGainDb, liveDynGainTarget === 'target' ? undefined : liveDynGain);
@@ -611,7 +613,7 @@ function EQNode({ def, bands, containerRef, onChange, editable, selected, onSele
                 transform: 'translateX(-50%)', pointerEvents: 'none', zIndex: 10,
                 background: 'rgba(10,10,14,0.95)', border: `1px solid ${def.color}`, borderRadius: 4,
                 padding: '0.3rem 0.55rem', whiteSpace: 'nowrap',
-                fontFamily: 'var(--mono)', fontSize: '0.62rem', color: '#fff', lineHeight: 1.55,
+                fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: '#fff', lineHeight: 1.55,
                 boxShadow: `0 0 10px ${def.color}66`,
             }}>
           <div style={{ color: def.color, fontWeight: 600, letterSpacing: '0.04em' }}>{def.label}</div>
@@ -656,7 +658,7 @@ function OutputGainSlider({ value, onChange, min = -15, max = 15, }) {
       <div style={{ display: 'flex', gap: '0.25rem', flex: 1, minHeight: 160, width: '100%', justifyContent: 'center' }}>
         <div style={{
             display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-            fontFamily: 'var(--mono)', fontSize: '0.45rem', color: 'var(--text-faint)', textAlign: 'right',
+            fontFamily: 'var(--font-mono)', fontSize: '0.45rem', color: 'var(--text-faint)', textAlign: 'right',
         }}>
           {ticks.map(t => <div key={t}>{Math.abs(t)}</div>)}
         </div>
@@ -687,8 +689,8 @@ function OutputGainSlider({ value, onChange, min = -15, max = 15, }) {
           </div>
         </div>
       </div>
-      <div style={{ fontFamily: 'var(--mono)', fontSize: '0.5rem', color: 'var(--text-faint)', letterSpacing: '0.06em' }}>GAIN</div>
-      <div style={{ fontFamily: 'var(--mono)', fontSize: '0.58rem', color: 'var(--text)' }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem', color: 'var(--text-faint)', letterSpacing: '0.06em' }}>GAIN</div>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: 'var(--text)' }}>
         {clamped > 0 ? '+' : ''}{clamped.toFixed(1)}dB
       </div>
     </div>);
@@ -844,7 +846,7 @@ function NumberField({ value, onChange, min, max, step, disabled, }) {
             border: `1px solid ${disabled ? 'transparent' : 'var(--border)'}`,
             borderRadius: '3px',
             color: disabled ? 'var(--text-faint)' : 'var(--text)',
-            fontFamily: 'var(--mono)',
+            fontFamily: 'var(--font-mono)',
             fontSize: '0.6rem',
             textAlign: 'center',
             padding: '0.1rem 0.15rem',
@@ -966,7 +968,7 @@ function Knob({ value, onChange, min, max, disabled, color = 'var(--blue)', log 
 // of controls rather than two differently-styled UIs.
 function KnobField({ label, value, onChange, min, max, step, disabled, color, log, decimals = 1, }) {
     return (<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem' }}>
-      <span style={{ fontSize: '0.55rem', color: 'var(--text-faint)', fontFamily: 'var(--mono)', letterSpacing: '0.05em' }}>{label}</span>
+      <span style={{ fontSize: '0.55rem', color: 'var(--text-faint)', fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}>{label}</span>
       <Knob value={value} onChange={onChange} min={min} max={max} disabled={disabled} color={color} log={log}/>
       <div style={{ width: 66 }}>
         <NumberField value={roundTo(value, decimals)} onChange={onChange} min={min} max={max} step={step} disabled={disabled}/>
@@ -976,14 +978,14 @@ function KnobField({ label, value, onChange, min, max, step, disabled, color, lo
 // ── Small labeled field wrapper used throughout BandEditPanel ────────────────
 function Field({ label, children }) {
     return (<div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', alignItems: 'center' }}>
-      <span style={{ fontSize: '0.55rem', color: 'var(--text-faint)', fontFamily: 'var(--mono)', letterSpacing: '0.05em' }}>{label}</span>
+      <span style={{ fontSize: '0.55rem', color: 'var(--text-faint)', fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}>{label}</span>
       {children}
     </div>);
 }
 const navBtnStyle = {
     width: 22, height: 22, borderRadius: '3px', cursor: 'pointer',
     border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-dim)',
-    fontFamily: 'var(--mono)', fontSize: '0.75rem', lineHeight: 1, flexShrink: 0,
+    fontFamily: 'var(--font-mono)', fontSize: '0.75rem', lineHeight: 1, flexShrink: 0,
 };
 // Shared header-row height across the FREQUENCY / STANDARD EQ / DYNAMIC EQ
 // knob groups in BandEditPanel — tall enough to fit DYNAMIC EQ's header +
@@ -1089,7 +1091,7 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
                     border: `1px solid ${active ? c : 'var(--border)'}`,
                     background: active ? `${c}22` : 'transparent',
                     color: active ? c : bandOn ? 'var(--text-dim)' : 'var(--text-faint)',
-                    fontFamily: 'var(--mono)', fontSize: '0.64rem', letterSpacing: '0.04em',
+                    fontFamily: 'var(--font-mono)', fontSize: '0.64rem', letterSpacing: '0.04em',
                     opacity: bandOn ? 1 : 0.5,
                 }}>
               <span style={{
@@ -1119,8 +1121,8 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <button onClick={() => goto(-1)} title="Previous band" style={navBtnStyle}>‹</button>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 92 }}>
-              <span style={{ fontSize: '0.68rem', color: uiColor(def, theme), fontFamily: 'var(--mono)', letterSpacing: '0.05em' }}>{def.label}</span>
-              <span style={{ fontSize: '0.5rem', color: 'var(--text-faint)', fontFamily: 'var(--mono)', letterSpacing: '0.05em' }}>{SHAPE_LABEL[def.kind]}</span>
+              <span style={{ fontSize: '0.68rem', color: uiColor(def, theme), fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}>{def.label}</span>
+              <span style={{ fontSize: '0.5rem', color: 'var(--text-faint)', fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}>{SHAPE_LABEL[def.kind]}</span>
             </div>
             <button onClick={() => goto(1)} title="Next band" style={navBtnStyle}>›</button>
           </div>
@@ -1149,7 +1151,7 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
                 background: bypassed ? 'transparent' : 'var(--surface)',
                 border: `1px solid ${bypassed ? 'transparent' : 'var(--border)'}`,
                 borderRadius: '3px', color: bypassed ? 'var(--text-faint)' : 'var(--text)',
-                fontFamily: 'var(--mono)', fontSize: '0.6rem', textAlign: 'center',
+                fontFamily: 'var(--font-mono)', fontSize: '0.6rem', textAlign: 'center',
                 padding: '0.1rem 0.15rem', outline: 'none',
             }}>
                   <option value={2}>12dB</option>
@@ -1169,7 +1171,7 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
                 paddingRight: dynCapable ? '1.8rem' : 0, borderRight: dynCapable ? '1px solid var(--border)' : 'none',
             }}>
             <div style={{ minHeight: KNOB_HEADER_H, display: 'flex', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.58rem', color: 'var(--blue)', fontFamily: 'var(--mono)', letterSpacing: '0.08em', fontWeight: 600 }}>
+              <span style={{ fontSize: '0.58rem', color: 'var(--blue)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', fontWeight: 600 }}>
                 STANDARD EQ
               </span>
             </div>
@@ -1181,7 +1183,7 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
         {/* DYNAMIC EQ group — same row shape as Standard EQ above, in teal */}
         {dynCapable && (<div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem', flexShrink: 0 }}>
             <div style={{ minHeight: KNOB_HEADER_H, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.58rem', color: 'var(--teal)', fontFamily: 'var(--mono)', letterSpacing: '0.08em', fontWeight: 600 }}>
+              <span style={{ fontSize: '0.58rem', color: 'var(--teal)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', fontWeight: 600 }}>
                 DYNAMIC EQ
               </span>
               {['static', 'dynamic', 'both'].map(m => (<button key={m} onClick={() => {
@@ -1189,7 +1191,7 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
                     onChange(withDynModeUI(bands, def, m));
                 }} disabled={bypassed} style={{
                     padding: '0.24rem 0.6rem', borderRadius: '4px', cursor: bypassed ? 'default' : 'pointer',
-                    fontFamily: 'var(--mono)', fontSize: '0.58rem', letterSpacing: '0.02em',
+                    fontFamily: 'var(--font-mono)', fontSize: '0.58rem', letterSpacing: '0.02em',
                     border: `1px solid ${dynMode === m ? 'var(--teal)' : 'var(--border)'}`,
                     background: dynMode === m ? 'rgba(45,212,191,0.15)' : 'transparent',
                     color: dynMode === m ? 'var(--teal)' : 'var(--text-faint)',
@@ -1204,13 +1206,13 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
                 <KnobField label="RANGE (dB)" value={range} min={-24} max={24} step={0.1} decimals={1} color="var(--teal)" disabled={bypassed} onChange={v => onChange(withRange(bands, def, clamp(v, -24, 24)))}/>
                 <KnobField label="ATTACK (s)" value={attack} min={0.001} max={0.5} step={0.001} decimals={3} color="var(--teal)" disabled={bypassed} onChange={v => onChange(withAttack(bands, def, clamp(v, 0.001, 0.5)))}/>
                 <KnobField label="RELEASE (s)" value={release} min={0.01} max={2} step={0.01} decimals={2} color="var(--teal)" disabled={bypassed} onChange={v => onChange(withRelease(bands, def, clamp(v, 0.01, 2)))}/>
-              </div>) : (<div style={{ fontSize: '0.56rem', color: 'var(--text-faint)', fontFamily: 'var(--mono)', maxWidth: 280, lineHeight: 1.5 }}>
+              </div>) : (<div style={{ fontSize: '0.56rem', color: 'var(--text-faint)', fontFamily: 'var(--font-mono)', maxWidth: 280, lineHeight: 1.5 }}>
                 Pick DYNAMIC or BOTH to arm level-dependent movement on this band.
               </div>)}
           </div>)}
       </div>
 
-      {dynCapable && dynMode !== 'static' && (<div style={{ fontSize: '0.56rem', color: 'var(--text-faint)', fontFamily: 'var(--mono)', marginTop: '0.85rem', paddingTop: '0.7rem', borderTop: '1px solid var(--border)', lineHeight: 1.6, maxWidth: 620 }}>
+      {dynCapable && dynMode !== 'static' && (<div style={{ fontSize: '0.56rem', color: 'var(--text-faint)', fontFamily: 'var(--font-mono)', marginTop: '0.85rem', paddingTop: '0.7rem', borderTop: '1px solid var(--border)', lineHeight: 1.6, maxWidth: 620 }}>
           {dynMode === 'dynamic' && 'Gain stays at 0 dB until the signal crosses Threshold, then moves toward Range — negative cuts, positive boosts. Freq/Q above still shape it — they set the center and width of both the static peak and the level detector this is watching. Only audible during playback.'}
           {dynMode === 'both' && 'Static Gain always applies; Range adds to it once the signal crosses Threshold, during playback. Freq/Q above apply to both.'}
         </div>)}
@@ -1264,6 +1266,11 @@ export function EqualizerEditorPanel({
     </>);
 }
 // ── Tabs ──────────────────────────────────────────────────────────────────────
+// Test Bench / Ear Training — app-wide standard Tabs (segmented).
+const EQ_TABS = [
+    { id: 'bench', label: '🧪 TEST BENCH' },
+    { id: 'ear', label: '🎧 EAR TRAINING' },
+];
 export default function Equalizer() {
     const { theme } = useTheme();
     // The "original pre-EQ" trace is drawn near-white (#E5E7EB) on the
@@ -1799,9 +1806,9 @@ export default function Equalizer() {
             }}>
                 {benchDecoding ? '⏳ Decoding…' : '⬆ Upload Audio'}
               </button>
-              {benchUploadError && <span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)' }}>{benchUploadError}</span>}
+              {benchUploadError && <span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--font-mono)' }}>{benchUploadError}</span>}
             </>)}
-          <span className="badge" style={{ background: eb.bg, borderColor: eb.border, color: eb.fg, fontFamily: 'var(--mono)', fontSize: '0.55rem', letterSpacing: '0.06em' }}>
+          <span className="badge" style={{ background: eb.bg, borderColor: eb.border, color: eb.fg, fontFamily: 'var(--font-mono)', fontSize: '0.55rem', letterSpacing: '0.06em' }}>
             {eb.text}
           </span>
           <div className="lab-status" style={{ color: 'var(--purple)' }}>
@@ -1819,35 +1826,19 @@ export default function Equalizer() {
         </div>)}
 
       {/* Tab row */}
-      <div className="eq-tabrow" style={{ display: 'flex', gap: '0.4rem', padding: '0.55rem 1rem', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-        {([
-            { id: 'bench', label: '🧪 TEST BENCH', color: 'var(--blue)' },
-            { id: 'ear', label: '🎧 EAR TRAINING', color: 'var(--amber)' },
-        ]).map(t => {
-            const active = tab === t.id;
-            return (<button key={t.id} onClick={() => handleTabChange(t.id)} style={{
-                    padding: '0.35rem 0.8rem',
-                    background: active ? 'rgba(167,139,250,0.13)' : 'var(--surface)',
-                    border: `1px solid ${active ? 'rgba(167,139,250,0.5)' : 'var(--border)'}`,
-                    borderRadius: '3px',
-                    color: active ? 'var(--purple)' : 'var(--text-dim)',
-                    fontFamily: 'var(--mono)',
-                    fontSize: '0.62rem',
-                    letterSpacing: '0.06em',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                }}>
-              {t.label}
-            </button>);
-        })}
+      <div className="eq-tabrow" style={{ padding: '0.55rem 1rem', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+        <Tabs className="eq-mode-tabs" variant="segmented" size="sm" items={EQ_TABS} value={tab} onChange={handleTabChange} ariaLabel="Equalizer mode" idPrefix="eq-mode"/>
       </div>
+
+      {/* Standard tab-panel motion (components/Tabs) for everything below the tab row. */}
+      <TabPanel idPrefix="eq-mode" value={tab} index={EQ_TABS.findIndex((t) => t.id === tab)}>
 
       {/* Source row — switch between the demo loop and any uploaded tracks */}
       {tab === 'bench' && benchTracks.length > 0 && (<div style={{
                 display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center',
                 padding: '0.5rem 1rem 0',
             }}>
-          <span style={{ fontSize: '0.55rem', color: 'var(--text-faint)', fontFamily: 'var(--mono)', letterSpacing: '0.06em' }}>
+          <span style={{ fontSize: '0.55rem', color: 'var(--text-faint)', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em' }}>
             SOURCE:
           </span>
           <button onClick={() => handleBenchSelectTrack(null)} title="Built-in demo loop" style={{
@@ -1855,7 +1846,7 @@ export default function Equalizer() {
                 background: benchActiveTrackId === null ? 'rgba(167,139,250,0.13)' : 'var(--surface)',
                 border: `1px solid ${benchActiveTrackId === null ? 'rgba(167,139,250,0.5)' : 'var(--border)'}`,
                 borderRadius: '3px', color: benchActiveTrackId === null ? 'var(--purple)' : 'var(--text-dim)',
-                fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+                fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
                 cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
             }}>
             🎵 Demo Loop
@@ -1867,7 +1858,7 @@ export default function Equalizer() {
                         background: active ? 'rgba(167,139,250,0.13)' : 'var(--surface)',
                         border: `1px solid ${active ? 'rgba(167,139,250,0.5)' : 'var(--border)'}`,
                         borderRadius: '3px', color: active ? 'var(--purple)' : 'var(--text-dim)',
-                        fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+                        fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
                         cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
                         maxWidth: '10rem', overflow: 'hidden', textOverflow: 'ellipsis',
                     }}>
@@ -1978,10 +1969,10 @@ export default function Equalizer() {
                     </div>
                   </div>
                   <div className="score-label">CURVE MATCH ACCURACY</div>
-                  <div style={{ fontSize: '0.55rem', color: 'var(--text-faint)', fontFamily: 'var(--mono)', marginTop: '0.2rem' }}>
+                  <div style={{ fontSize: '0.55rem', color: 'var(--text-faint)', fontFamily: 'var(--font-mono)', marginTop: '0.2rem' }}>
                     TARGET WAS: {targetPreset.name}
                   </div>
-                  {hintUsed && <div style={{ fontSize: '0.55rem', color: 'var(--red)', fontFamily: 'var(--mono)', marginTop: '0.2rem' }}>HINT USED</div>}
+                  {hintUsed && <div style={{ fontSize: '0.55rem', color: 'var(--red)', fontFamily: 'var(--font-mono)', marginTop: '0.2rem' }}>HINT USED</div>}
                 </div>)}
 
               {submitted && (<div className="band-analysis">
@@ -1997,7 +1988,7 @@ export default function Equalizer() {
               <button className="btn-secondary" onClick={handleEarUploadClick} disabled={earDecoding} style={{ fontSize: '0.68rem' }}>
                 {earDecoding ? '⏳ Decoding…' : (earBuffer ? `📁 ${earFileName}` : '+ Use My Own Audio')}
               </button>
-              {earUploadError && <span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)' }}>{earUploadError}</span>}
+              {earUploadError && <span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--font-mono)' }}>{earUploadError}</span>}
 
               {!submitted && !revealed && (<button className="btn-secondary" onClick={handleEarHint} style={{ fontSize: '0.7rem', borderColor: 'rgba(245,166,35,0.3)', color: 'var(--amber)' }}>
                   👁 Show Target Curve (reveals answer)
@@ -2039,5 +2030,6 @@ export default function Equalizer() {
             </div>
           </div>
         </>)}
+      </TabPanel>
     </div>);
 }

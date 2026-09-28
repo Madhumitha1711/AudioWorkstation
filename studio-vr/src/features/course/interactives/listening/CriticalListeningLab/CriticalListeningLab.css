@@ -1,53 +1,43 @@
-/* CriticalListeningLab — ported from design/critical-listening-lab-1.html.
+/* CriticalListeningLab — "Spot the problem" (originally ported from
+   design/critical-listening-lab-1.html).
    Chrome (panels, borders, text) uses the course theme tokens defined on
    .svr-course (CoursePage.css), so it follows light/dark automatically.
    The mockup's semantic colors are scoped here as --cll-*, with darker
    light-theme values (the mockup's own [data-theme="light"] set) so they
    keep contrast on a light page:
-     green = clip A / correct, amber = clip B / accent, red = wrong,
-     blue/teal/purple = library category dots.
-   --cll-green and --cll-amber MUST stay plain #rrggbb: Spectrum.jsx turns
-   them into rgba() for the canvas gradient and can only parse hex. */
+     green = clean take / found, amber = problem clip / accent, red = wrong.
+   Category dots use the theme primary (--brand-accent), like the tabs. */
 
 .cll {
   --cll-green: #5fd9a0;  --cll-green-dim: #2c5f49;
   --cll-amber: #e8934a;  --cll-amber-dim: #6b4a2c;
   --cll-red: #e8615f;    --cll-red-dim: #6b2c2c;
-  --cll-blue: #6fa8e0;
-  --cll-teal: #4fc9c0;
-  --cll-purple: #a78bfa;
   --cll-well: rgba(0, 0, 0, 0.28);
   --cll-panel-alt: rgba(255, 255, 255, 0.045);
-  --cll-grid: rgba(255, 255, 255, 0.06);
-  --cll-meter-bg: rgba(255, 255, 255, 0.1);
   --cll-btn-ink: #1a1208;
-  --cll-veil: #0d0d10;
 }
 :root[data-theme='light'] .cll {
   --cll-green: #1c9463;  --cll-green-dim: #cdeedd;
   --cll-amber: #c4691c;  --cll-amber-dim: #f4dcc5;
   --cll-red: #c63e3b;    --cll-red-dim: #f6d4d3;
-  --cll-blue: #2f6fae;
-  --cll-teal: #1d8f88;
-  --cll-purple: #7457d6;
   --cll-well: rgba(var(--ink-tint-rgb), 0.04);
   --cll-panel-alt: rgba(var(--ink-tint-rgb), 0.03);
-  --cll-grid: rgba(0, 0, 0, 0.07);
-  --cll-meter-bg: rgba(var(--ink-tint-rgb), 0.1);
   --cll-btn-ink: #ffffff;
-  --cll-veil: #eceeec;
 }
 
+/* Global type: Inter (--font-sans) for all text; --font-mono only for
+   the <kbd> hints and file names in <code> (see CLAUDE.md Typography). */
+.cll { font-family: var(--font-sans); }
 .cll,
 .cll *,
 .cll *::before,
 .cll *::after { box-sizing: border-box; }
-/* :where() keeps this reset at zero specificity so .cll-btn / .cll-link-btn
+/* :where() keeps this reset at zero specificity so .cll-btn / .cll-seg
    etc. can still set their own font-size. */
 :where(.cll) button { font: inherit; color: inherit; }
 .cll :focus-visible { outline: 2px solid var(--cll-amber); outline-offset: 2px; }
 .cll kbd {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 10px;
   border: 1px solid var(--border);
   border-bottom-width: 2px;
@@ -60,252 +50,139 @@
 }
 
 /* ---------- tabs ---------- */
-.cll-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-soft); margin-bottom: 20px; }
-.cll-tabs button {
-  background: none; border: none; padding: 12px 14px; cursor: pointer; color: var(--text-dim);
-  font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase;
-  border-bottom: 2px solid transparent; margin-bottom: -1px;
+/* Beginner / Intermediate / Pro. App-wide standard tabs (components/Tabs),
+   only re-skinned via tokens. */
+.cll-tabs {
+  --tabs-line: var(--border-soft);
+  margin-bottom: 20px;
 }
-.cll-tabs button:hover { color: var(--text); }
-.cll-tabs button[aria-selected='true'] { color: var(--text); border-bottom-color: var(--cll-amber); }
-
-/* ---------- session bar ---------- */
-.cll-session { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-.cll-seg { display: inline-flex; background: var(--cll-well); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 3px; }
-.cll-seg button {
-  background: transparent; border: none; color: var(--text-dim); padding: 8px 12px; border-radius: 6px; cursor: pointer;
-  font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.03em;
-}
-.cll-seg button.active { background: var(--cll-panel-alt); color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
-.cll-dots { display: flex; gap: 6px; align-items: center; }
-.cll-dots i { width: 22px; height: 5px; border-radius: 3px; background: var(--border); transition: background 0.2s; }
-.cll-dots i.cur { background: var(--text-dim); }
-.cll-dots i.ok { background: var(--cll-green); }
-.cll-dots i.half { background: linear-gradient(90deg, var(--cll-green) 50%, var(--cll-green-dim) 50%); }
-.cll-dots i.bad { background: var(--cll-red); }
-.cll-stats { font-family: var(--mono); font-size: 12px; color: var(--text-dim); }
-.cll-stats b { color: var(--text); font-weight: 500; }
 
 /* ---------- panel ---------- */
 .cll-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 22px; }
 @media (max-width: 520px) { .cll-panel { padding: 16px; } }
 
-.cll-q-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 10px; }
-.cll-q-num { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); }
-.cll-q-num b { color: var(--cll-amber); font-weight: 500; }
+/* ---------- player (top) ---------- */
+.cll-player { transition: border-color 0.2s; }
+.cll-player.solved { border-color: var(--cll-green-dim); }
+.cll-q-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 10px; flex-wrap: wrap; }
+.cll-q-num { font-family: var(--font-sans); font-size: 11.5px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); }
+.cll-q-num b { color: var(--brand-accent); font-weight: 600; }
 .cll-tag {
-  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; padding: 4px 8px; border-radius: 5px;
-  white-space: nowrap; color: var(--cll-green); border: 1px solid var(--cll-green-dim);
+  font-family: var(--font-sans); font-size: 11.5px; font-weight: 500; padding: 4px 8px; border-radius: 5px;
+  white-space: nowrap; color: var(--text-dim); border: 1px solid var(--border);
 }
 
-/* ---------- A/B switch ---------- */
-.cll-ab { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.cll-ab button {
-  position: relative; text-align: left; cursor: pointer; background: var(--cll-well); border: 1px solid var(--border);
-  border-radius: 10px; padding: 14px 16px; transition: border-color 0.15s, background 0.15s;
-}
-.cll-ab button:hover { border-color: var(--text-dim); }
-.cll-ab-k { font-family: var(--heading); font-size: 26px; font-weight: 600; line-height: 1; display: block; margin-bottom: 6px; color: var(--text-dim); }
-.cll-ab-l { font-size: 13px; font-weight: 500; display: block; }
-.cll-ab-d { font-size: 12px; color: var(--text-dim); display: block; margin-top: 2px; }
-.cll-ab button.active[data-side='A'] { border-color: var(--cll-green); background: color-mix(in srgb, var(--cll-green) 8%, var(--cll-well)); }
-.cll-ab button.active[data-side='A'] .cll-ab-k { color: var(--cll-green); }
-.cll-ab button.active[data-side='B'] { border-color: var(--cll-amber); background: color-mix(in srgb, var(--cll-amber) 8%, var(--cll-well)); }
-.cll-ab button.active[data-side='B'] .cll-ab-k { color: var(--cll-amber); }
-.cll-live { position: absolute; top: 14px; right: 14px; width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: 0; }
-.cll-ab button.active .cll-live { opacity: 1; }
-.cll-ab button.active[data-side='A'] .cll-live { color: var(--cll-green); }
-.cll-ab button.active[data-side='B'] .cll-live { color: var(--cll-amber); }
-.cll.is-playing .cll-ab button.active .cll-live { animation: cll-blink 1s ease-in-out infinite; }
-@keyframes cll-blink { 50% { opacity: 0.25; } }
-
-/* ---------- transport + analyser ---------- */
-.cll-transport { display: flex; gap: 12px; align-items: stretch; margin-top: 12px; }
+.cll-transport { display: flex; gap: 14px; align-items: stretch; }
+/* Play/stop. Hover: fills with the theme primary (--brand-accent, same as
+   the tabs) and lifts 1px with a faint glow. Press settles it back. Motion
+   is dropped under prefers-reduced-motion (rule at the top of this file). */
 .cll-play {
-  width: 56px; border-radius: 10px; border: 1px solid var(--border); background: var(--cll-panel-alt); cursor: pointer;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: border-color 0.15s;
+  width: 64px; min-height: 64px; border-radius: 10px; flex-shrink: 0; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: var(--cll-panel-alt); color: var(--text);
+  transition:
+    background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease,
+    transform 0.2s ease, box-shadow 0.2s ease;
 }
-.cll-play:hover { border-color: var(--cll-amber); }
-.cll-play svg { width: 18px; height: 18px; }
-.cll-scope { position: relative; flex: 1; min-width: 0; height: 120px; background: var(--cll-well); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-.cll-canvas { width: 100%; height: 100%; display: block; }
-/* Opaque on purpose — no blur/translucency. Spectrum.jsx also draws
-   nothing while concealed, so there's nothing underneath to peek at. */
-.cll-veil {
-  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-  background: var(--cll-veil);
-  text-align: center; padding: 10px;
+.cll-play svg { width: 20px; height: 20px; }
+.cll-play:hover {
+  background: var(--brand-accent); border-color: var(--brand-accent); color: var(--brand-accent-ink, #fff);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -6px rgba(var(--brand-accent-rgb), 0.5);
 }
-.cll-veil p { margin: 0; font-size: 12.5px; color: var(--text-dim); }
-.cll-link-btn {
-  background: none; border: 1px dashed var(--border); border-radius: 6px; padding: 6px 10px; cursor: pointer;
-  font-family: var(--mono); font-size: 11px; color: var(--text-dim);
+.cll-play:active { transform: translateY(0); box-shadow: none; }
+.cll-now {
+  flex: 1; min-width: 0; background: var(--cll-well); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px; display: flex; flex-direction: column; justify-content: center; gap: 10px;
 }
-.cll .cll-link-btn:hover { color: var(--cll-amber); border-color: var(--cll-amber); }
-.cll-scope-cap {
-  display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; color: var(--text-dimmer);
-  letter-spacing: 0.05em; margin-top: 6px; padding-left: 68px; padding-right: 42px;
+.cll-now-top { display: flex; align-items: center; gap: 8px; }
+.cll-now-title { font-size: 14.5px; font-weight: 600; color: var(--text); }
+.cll-slots { display: flex; flex-wrap: wrap; gap: 6px; }
+.cll-slot {
+  font-family: var(--font-sans); font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 6px; min-width: 34px; text-align: center;
+  border: 1px dashed var(--border); color: var(--text-dimmer);
+}
+.cll-slot.found {
+  border-style: solid; border-color: var(--cll-green); color: var(--cll-green);
+  background: color-mix(in srgb, var(--cll-green) 10%, transparent); animation: cll-rise 0.25s ease;
 }
 
-/* ---------- question + options ---------- */
-.cll-question { font-family: var(--heading); font-size: 19px; font-weight: 600; color: var(--text); margin: 24px 0 14px; }
-.cll-options { display: grid; grid-template-columns: 1fr; gap: 8px; }
-@media (min-width: 600px) { .cll-options { grid-template-columns: 1fr 1fr; } }
-.cll-opt {
-  display: flex; gap: 12px; align-items: center; text-align: left; cursor: pointer; background: var(--cll-panel-alt);
-  border: 1px solid var(--border); border-radius: 10px; padding: 14px; transition: border-color 0.15s, background 0.15s, opacity 0.2s;
+.cll-solved {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-top: 16px;
+  padding-top: 16px; border-top: 1px solid var(--border-soft); animation: cll-rise 0.25s ease;
 }
-.cll-opt:hover:not(:disabled) { border-color: var(--text-dim); }
-.cll-opt .n {
-  width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
-  font-family: var(--mono); font-size: 11px; color: var(--text-dim); flex-shrink: 0;
+.cll-solved p { flex: 1; min-width: 200px; margin: 0; font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+.cll-seg { display: inline-flex; background: var(--cll-well); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 3px; }
+.cll-seg button {
+  background: transparent; border: none; color: var(--text-dim); padding: 8px 12px; border-radius: 6px; cursor: pointer;
+  font-family: var(--font-sans); font-size: 12.5px; font-weight: 500;
 }
-.cll-opt .t { font-size: 14px; font-weight: 500; color: var(--text); }
-.cll-opt .c { display: block; font-size: 11.5px; color: var(--text-dim); font-weight: 400; margin-top: 2px; }
-.cll-opt:disabled { cursor: default; }
-.cll-opt.dim { opacity: 0.45; }
-.cll-opt.right { border-color: var(--cll-green); background: color-mix(in srgb, var(--cll-green) 10%, transparent); }
-.cll-opt.right .n { background: var(--cll-green); border-color: var(--cll-green); color: var(--cll-btn-ink); }
-.cll-opt.wrong { border-color: var(--cll-red); background: color-mix(in srgb, var(--cll-red) 10%, transparent); }
-.cll-opt.wrong .n { background: var(--cll-red); border-color: var(--cll-red); color: var(--cll-btn-ink); }
-
-/* ---------- feedback ---------- */
-.cll-feedback { margin-top: 20px; border-top: 1px solid var(--border-soft); padding-top: 20px; animation: cll-rise 0.25s ease; }
+.cll-seg button.active { background: var(--cll-panel-alt); color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
+.cll-seg button.active.side-A { color: var(--cll-green); box-shadow: inset 0 0 0 1px var(--cll-green); }
+.cll-seg button.active.side-B { color: var(--cll-amber); box-shadow: inset 0 0 0 1px var(--cll-amber); }
 @keyframes cll-rise { from { opacity: 0; transform: translateY(6px); } }
-.cll-verdict { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-.cll-verdict .ico { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.cll-verdict.ok .ico { background: var(--cll-green-dim); color: var(--cll-green); }
-.cll-verdict.bad .ico { background: var(--cll-red-dim); color: var(--cll-red); }
-.cll-verdict .ico svg { width: 16px; height: 16px; }
-.cll-verdict h3 { margin: 0; font-family: var(--heading); font-size: 17px; font-weight: 600; color: var(--text); }
-.cll-verdict p { margin: 2px 0 0; font-size: 13px; color: var(--text-dim); }
 
-.cll-learn { display: grid; grid-template-columns: 1fr; gap: 10px; }
-@media (min-width: 600px) { .cll-learn { grid-template-columns: 1fr 1fr; } }
-.cll-learn > div { background: var(--cll-well); border: 1px solid var(--border-soft); border-radius: 8px; padding: 12px 14px; }
-.cll-learn h4 {
-  margin: 0 0 5px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--text-dim); font-weight: 500;
+/* "Recording coming soon" — shown under the player when a clip's
+   recordings aren't in public/audio/critical-listening/ yet. */
+.cll-missing { margin: 10px 0 0; font-size: 12.5px; color: var(--text-dim); line-height: 1.45; }
+.cll-missing code { font-family: var(--font-mono); font-size: 11.5px; color: var(--text); }
+
+/* ---------- problem list (below) ---------- */
+.cll-question { margin: 26px 0 6px; }
+.cll-question h3 { margin: 0; font-family: var(--font-sans); font-size: 19px; font-weight: 600; color: var(--text); }
+.cll-question p { margin: 4px 0 0; font-size: 13.5px; color: var(--text-dim); }
+
+.cll-cat { margin-top: 18px; }
+.cll-cat-h {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 8px;
+  font-family: var(--font-sans); font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); font-weight: 600;
 }
-.cll-learn h4.hl { color: var(--cll-amber); }
-.cll-learn p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--text); }
+.cll-cdot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; background: var(--brand-accent); display: inline-block; }
+.cll-list { display: grid; grid-template-columns: 1fr; gap: 8px; align-items: start; }
+@media (min-width: 720px) { .cll-list { grid-template-columns: 1fr 1fr; } }
 
-.cll-fb-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
-.cll-fb-foot p { margin: 0; font-size: 12.5px; color: var(--text-dim); }
+.cll-prob {
+  background: var(--cll-panel-alt); border: 1px solid var(--border); border-radius: 10px;
+  transition: border-color 0.15s, background 0.15s, opacity 0.2s;
+}
+/* Hover on an option still in play: a light theme-primary (--brand-accent)
+   border + tint, and the tick box and name pick up the same colour. */
+.cll-prob:not(.found):not(.wrong):not(.dim):hover {
+  border-color: var(--brand-accent);
+  background: rgba(var(--brand-accent-rgb), 0.06);
+}
+.cll-prob:not(.found):not(.wrong):not(.dim):hover .cll-mark { border-color: var(--brand-accent); }
+.cll-prob:not(.found):not(.wrong):not(.dim):hover .nm { color: var(--brand-accent); }
+.cll-prob-btn {
+  width: 100%; display: flex; gap: 12px; align-items: flex-start; text-align: left; cursor: pointer;
+  background: none; border: 0; border-radius: 10px; padding: 13px 14px;
+}
+.cll-prob-btn[aria-disabled='true'] { cursor: default; }
+.cll-mark {
+  transition: border-color 0.2s ease;
+  width: 20px; height: 20px; border-radius: 6px; border: 1px solid var(--border); flex-shrink: 0; margin-top: 1px;
+  display: flex; align-items: center; justify-content: center;
+}
+.cll-mark svg { width: 12px; height: 12px; }
+.cll-prob .tx { flex: 1; min-width: 0; line-height: 1.4; }
+.cll-prob .nm { transition: color 0.2s ease; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: 14px; font-weight: 500; color: var(--text); }
+.cll-prob .sh { font-size: 11.5px; font-weight: 400; color: var(--text-dim); }
+.cll-prob .ds { display: block; font-size: 12.5px; color: var(--text-dim); margin-top: 4px; line-height: 1.5; }
+.cll-verdict-note { display: block; font-family: var(--font-sans); font-size: 12px; font-weight: 500; color: var(--cll-red); margin-top: 6px; }
+
+.cll-prob.found { border-color: var(--cll-green); background: color-mix(in srgb, var(--cll-green) 8%, transparent); }
+.cll-prob.found .cll-mark { background: var(--cll-green); border-color: var(--cll-green); color: var(--cll-btn-ink); }
+.cll-prob.wrong { border-color: var(--cll-red-dim); animation: cll-shake 0.3s ease; }
+.cll-prob.wrong .cll-mark { background: var(--cll-red); border-color: var(--cll-red); color: var(--cll-btn-ink); }
+.cll-prob.wrong .nm, .cll-prob.wrong .ds { opacity: 0.6; }
+.cll-prob.dim { opacity: 0.45; }
+@keyframes cll-shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+
 .cll-btn {
   border: 1px solid var(--cll-amber); background: var(--cll-amber); color: var(--cll-btn-ink); border-radius: 8px; padding: 11px 18px; cursor: pointer;
-  font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; font-weight: 500;
+  font-family: var(--font-sans); font-size: 13px; font-weight: 600;
 }
 .cll-btn:hover { filter: brightness(1.08); }
-.cll .cll-btn.ghost { background: transparent; color: var(--text); border-color: var(--border); }
-.cll-btn.ghost:hover { border-color: var(--text-dim); filter: none; }
 
-.cll-keys { margin: 12px 2px 0; font-size: 11.5px; color: var(--text-dimmer); line-height: 2; }
+.cll-keys { margin: 16px 2px 0; font-size: 11.5px; color: var(--text-dimmer); line-height: 2; }
 @media (hover: none) { .cll-keys { display: none; } }
-
-/* ---------- summary ---------- */
-.cll-summary { text-align: center; padding: 36px 22px; }
-.cll-big { font-family: var(--heading); font-size: 64px; font-weight: 600; line-height: 1; margin: 6px 0; color: var(--text); }
-.cll-big small { font-size: 26px; color: var(--text-dim); }
-.cll-sub { color: var(--text-dim); font-size: 14px; margin: 0 0 22px; }
-.cll-missed { text-align: left; max-width: 520px; margin: 0 auto 24px; }
-.cll-missed h4 { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); font-weight: 500; margin: 0 0 8px; }
-.cll-missed ul { padding: 0; margin: 0; }
-.cll-missed li {
-  list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px;
-  border: 1px solid var(--border-soft); border-radius: 8px; margin-bottom: 6px; background: var(--cll-well); font-size: 13.5px; color: var(--text);
-}
-.cll-row-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-
-/* ---------- library: left list + right detail ---------- */
-.cll-lib { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
-@media (min-width: 900px) { .cll-lib { grid-template-columns: 250px minmax(0, 1fr); } }
-.cll-lib-nav { padding: 14px 10px 10px; display: flex; flex-direction: column; max-height: 340px; }
-@media (min-width: 900px) { .cll-lib-nav { max-height: 640px; } }
-.cll-lib-search { position: relative; margin: 0 4px 10px; display: block; }
-.cll-lib-search svg { position: absolute; left: 10px; top: 50%; width: 14px; height: 14px; transform: translateY(-50%); color: var(--text-dim); }
-.cll-lib-search input {
-  width: 100%; background: var(--cll-well); border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px 9px 31px;
-  color: var(--text); font: inherit; font-size: 13px;
-}
-.cll-lib-search input::placeholder { color: var(--text-dimmer); }
-.cll-lib-search input:focus { outline: none; border-color: var(--cll-amber); }
-.cll-lib-list { overflow-y: auto; flex: 1; padding: 0 2px; scrollbar-width: thin; }
-/* Category accordion. The body animates open/closed with the
-   grid-template-rows 0fr -> 1fr trick (no measured heights); `inert` on a
-   closed body keeps its buttons out of the tab order. */
-.cll-lib-group { border-bottom: 1px solid var(--border-soft); }
-.cll-lib-group:last-child { border-bottom: 0; }
-.cll-lib-group h4 { margin: 0; }
-.cll-acc-head {
-  width: 100%; display: flex; align-items: center; gap: 8px; padding: 11px 10px; cursor: pointer;
-  background: none; border: 0; border-radius: 8px; text-align: left;
-  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--text-dim); font-weight: 500; transition: color 0.15s, background 0.15s;
-}
-.cll-acc-head:hover:not(:disabled) { color: var(--text); background: var(--cll-panel-alt); }
-.cll-acc-head:disabled { cursor: default; }
-.cll-acc-head:focus-visible { outline-offset: -2px; }
-.cll-lib-group.open .cll-acc-head,
-.cll-lib-group.has-active .cll-acc-head { color: var(--text); }
-.cll-acc-title { flex: 1; min-width: 0; }
-.cll-acc-head .ct {
-  font-size: 10px; letter-spacing: 0; line-height: 16px; min-width: 20px; text-align: center;
-  padding: 0 6px; border-radius: 10px;
-  background: var(--cll-well); border: 1px solid var(--border-soft); color: var(--text-dim);
-}
-.cll-acc-chev { width: 14px; height: 14px; flex-shrink: 0; transition: transform 0.2s ease; }
-.cll-lib-group.open .cll-acc-chev { transform: rotate(180deg); }
-.cll-acc-head:disabled .cll-acc-chev { opacity: 0.35; }
-.cll-acc-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.22s ease; }
-.cll-lib-group.open .cll-acc-body { grid-template-rows: 1fr; }
-.cll-acc-inner { overflow: hidden; min-height: 0; }
-.cll-lib-group.open .cll-acc-inner { padding-bottom: 8px; }
-.cll-cdot { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; background: var(--cc); display: inline-block; }
-.cll-item {
-  width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer; background: none; border: none;
-  border-radius: 8px; padding: 9px 10px; position: relative; transition: background 0.12s;
-}
-.cll-item:hover { background: var(--panel-hover, var(--cll-panel-alt)); }
-.cll-item .tx { flex: 1; min-width: 0; line-height: 1.35; }
-.cll-item .nm { display: block; font-size: 13.5px; font-weight: 500; color: var(--text); }
-.cll-item .sh { display: block; font-size: 11.5px; color: var(--text-dim); margin-top: 1px; }
-.cll-item.active { background: color-mix(in srgb, var(--cll-amber) 11%, transparent); }
-.cll-item.active::before { content: ''; position: absolute; left: 0; top: 9px; bottom: 9px; width: 2px; border-radius: 2px; background: var(--cll-amber); }
-.cll-item.active .nm { color: var(--cll-amber); }
-.cll-item:focus-visible { outline-offset: -2px; }
-.cll-eq { display: flex; gap: 2px; align-items: flex-end; height: 12px; opacity: 0; }
-.cll-eq i { width: 2px; background: var(--cll-amber); border-radius: 1px; height: 4px; }
-.cll.is-playing .cll-item.active.live .cll-eq { opacity: 1; }
-.cll.is-playing .cll-item.active.live .cll-eq i { animation: cll-eq 0.9s ease-in-out infinite; }
-.cll-eq i:nth-child(2) { animation-delay: -0.3s !important; }
-.cll-eq i:nth-child(3) { animation-delay: -0.6s !important; }
-@keyframes cll-eq { 0%, 100% { height: 3px; } 50% { height: 12px; } }
-.cll-lib-none { font-size: 12.5px; color: var(--text-dim); padding: 14px 10px; }
-
-.cll-crumb {
-  display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em;
-  text-transform: uppercase; color: var(--text-dim);
-}
-.cll-crumb .cll-cdot { width: 8px; height: 8px; }
-.cll-lib-head { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; margin: 8px 0 18px; }
-.cll-lib-head h3 { margin: 0; font-family: var(--heading); font-size: 22px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
-.cll-lib-head p { margin: 6px 0 0; font-size: 14px; color: var(--text-dim); line-height: 1.55; max-width: 56ch; }
-.cll-stepper { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
-.cll-stepper span { font-family: var(--mono); font-size: 11px; color: var(--text-dim); margin-right: 4px; white-space: nowrap; }
-.cll-icon-btn {
-  width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel);
-  display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
-}
-.cll-icon-btn:hover { border-color: var(--cll-amber); }
-.cll-icon-btn svg { width: 16px; height: 16px; }
-.cll-lib-learn { margin-top: 18px; }
-@media (min-width: 1100px) { .cll-lib-learn { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 520px) {
-  .cll-lib-head { flex-direction: column; }
-}
-
-/* "Recording coming soon" — replaces the scope caption when a problem's
-   A/B recordings aren't in public/audio/critical-listening/ yet. */
-.cll-missing { margin: 8px 0 0; font-size: 12.5px; color: var(--text-dim); line-height: 1.45; }
-.cll-missing code { font-family: var(--mono); font-size: 11.5px; color: var(--text); }

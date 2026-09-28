@@ -19,7 +19,7 @@
   overflow-y: auto;
   background: radial-gradient(ellipse at top, #12141a 0%, #06070a 60%);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
   padding-bottom: 60px;
 
   button {

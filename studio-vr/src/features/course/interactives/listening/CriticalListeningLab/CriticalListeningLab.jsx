@@ -1,79 +1,37 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "../../shared/labs.css";
 import "./CriticalListeningLab.css";
+import { Tabs, TabPanel } from "../../../../../components/Tabs";
 import { createListeningEngine } from "./criticalListeningAudio";
-import Spectrum from "./Spectrum";
-import {
-  CATS,
-  CAT_COLOR,
-  LEVELS,
-  PROBLEMS,
-  PROBLEM_BY_ID as P,
-  buildQuestions,
-} from "./criticalListeningData";
+import { CATS, LEVELS, PROBLEMS, PROBLEM_BY_ID as P, shuffledClips } from "./criticalListeningData";
 
-// Ported from design/critical-listening-lab-1.html — "Spot the problem", the
-// Critical Listening lab for Foundations chapter 4 (courseData.js
-// TOPICS[id="listening-skills"]). Two tabs:
-//   - Train: an 8-question quiz. Each question plays a pair of real
-//     recordings with an instant, sample-aligned A/B flip between the clean
-//     take and the same material with one problem in it (EQ, compression,
-//     clipping, hum, comb filtering, reverb…); the student names the
-//     problem, then gets What it is / Listen for / Common cause / How to
-//     fix. Beginner / Intermediate / Pro change which problems are in the
-//     pool. The spectrum is hidden until answered, or revealed early as a
-//     half-point hint.
-//   - Problem library: every problem, grouped by category and searchable,
-//     each auditionable with the same A/B player.
-// All audio is recorded and played as-is — no processing, no uploads (see
-// criticalListeningAudio.js; file paths in criticalListeningData.js). A
-// problem whose recordings aren't in public/audio/critical-listening/ yet
+// "Spot the problem" — the Critical Listening lab for Foundations chapter 4
+// (courseData.js TOPICS[id="listening-skills"]), originally ported from
+// design/critical-listening-lab-1.html.
+//
+// Three tabs — Beginner / Intermediate / Pro — each the same layout:
+//   - a player at the top with a recorded clip that has something wrong
+//     with it (one problem on Beginner, two on Intermediate, three on Pro);
+//   - below it, every problem in the catalogue with its description.
+// The student picks problems from the list. A wrong pick is marked and
+// stays out; a right pick is marked found. Once every problem in the clip
+// is found, the player crossfades to the clean take (sample-aligned, see
+// criticalListeningAudio.js) and the student can flip between the two
+// before moving to the next clip.
+//
+// All audio is recorded and played as-is — no processing (file paths in
+// criticalListeningData.js). A clip whose recordings aren't there yet
 // shows a "recording coming soon" note instead of playing.
 //
-// Differences from the mockup, because it renders inside a course lesson
-// rather than as a standalone page:
-//   - no page <h1>/hero or theme button — InteractiveSection's heading and
-//     the app's ThemeContext cover those. Chrome colors come from the
-//     .svr-course tokens (--panel, --border, --text-dim…); the mockup's
-//     semantic colors are lab-scoped as --cll-* with light-theme values.
-//   - keyboard shortcuts (Space play/stop, A/B flip, 1–4 answer, Enter
-//     next, ↑/↓ step the library) are bound to the lab's own root, not the
-//     document, so they only fire while focus is inside the lab and can't
-//     hijack Space for the rest of the course page.
-//   - audio stops on tab switch and is torn down on unmount.
-//   - While the spectrum is hidden it isn't drawn at all (not blurred), so
-//     there's nothing to squint at through the veil — the L/R meters are
-//     hidden too, since they'd give away an imbalance.
+// Keyboard shortcuts (Space play/stop, Enter next clip) are bound to the
+// lab's own root, not the document, so they can't hijack Space for the rest
+// of the course page. Audio stops on tab switch and is torn down on unmount.
 //
 // onInteract (from InteractiveSection) fires the first time the student
-// answers a question or auditions a problem in the library.
-const fmt = (x) => (Number.isInteger(x) ? x : x.toFixed(1));
+// picks a problem.
 
-function ABSwitch({ side, onSide, bLabel, bDesc, aLabel = "Clean", aDesc = "Recorded clean" }) {
-  return (
-    <div className="cll-ab" role="radiogroup" aria-label="Which clip to hear">
-      {[
-        ["A", aLabel, aDesc],
-        ["B", bLabel, bDesc],
-      ].map(([k, l, d]) => (
-        <button
-          key={k}
-          type="button"
-          role="radio"
-          aria-checked={side === k}
-          data-side={k}
-          className={side === k ? "active" : undefined}
-          onClick={() => onSide(k)}
-        >
-          <span className="cll-live" />
-          <span className="cll-ab-k">{k}</span>
-          <span className="cll-ab-l">{l}</span>
-          <span className="cll-ab-d">{d}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
+const TABS = Object.entries(LEVELS).map(([id, L]) => ({ id, label: L.label }));
+const WORDS = ["zero", "one", "two", "three", "four"];
 
 function PlayButton({ on, onClick }) {
   return (
@@ -87,70 +45,274 @@ function PlayButton({ on, onClick }) {
   );
 }
 
-function ScopeCaption() {
-  return (
-    <div className="cll-scope-cap" aria-hidden="true">
-      <span>20 Hz</span><span>200</span><span>2k</span><span>20 kHz</span>
-    </div>
-  );
-}
+const fileName = (url) => url.replace(/^\/audio\//, "");
 
-function LearnGrid({ p, withWhat = true, className = "" }) {
-  return (
-    <div className={`cll-learn ${className}`}>
-      {withWhat && (
-        <div><h4>What it is</h4><p>{p.what}</p></div>
-      )}
-      <div><h4 className="hl">Listen for</h4><p>{p.listen}</p></div>
-      <div><h4>Common cause</h4><p>{p.cause}</p></div>
-      <div><h4>How to fix</h4><p>{p.fix}</p></div>
-    </div>
-  );
-}
-
-// Shown in place of the spectrum's caption row when a problem's
-// recordings haven't been added to public/audio/critical-listening/ yet.
-function MissingNote({ id }) {
+function MissingNote({ clip }) {
   return (
     <p className="cll-missing" role="status">
-      Recording coming soon. Add <code>{id}-clean.wav</code> and <code>{id}-problem.wav</code> to{" "}
-      <code>public/audio/critical-listening/</code>.
+      Recording coming soon. Add <code>{fileName(clip.clips.clean)}</code> and{" "}
+      <code>{fileName(clip.clips.problem)}</code> to <code>public/audio/</code>.
     </p>
+  );
+}
+
+// One level's round of clips. Mounted with key={level}, so switching tabs
+// starts that level fresh.
+function Round({ level, engine, onInteract }) {
+  const L = LEVELS[level];
+  const [queue, setQueue] = useState(() => shuffledClips(level));
+  const [idx, setIdx] = useState(0);
+  const [found, setFound] = useState(() => new Set());
+  const [wrong, setWrong] = useState(() => new Set());
+  const [side, setSideState] = useState("B");
+  const [playing, setPlaying] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [missing, setMissing] = useState(() => new Set()); // clip ids with no recordings yet
+
+  const rootRef = useRef(null);
+  const nextBtnRef = useRef(null);
+  const playTokenRef = useRef(0);
+
+  const clip = queue[idx];
+  const need = clip.problems.length;
+  const solved = found.size === need;
+
+  // Stop (and invalidate any pending load) when this round unmounts.
+  useEffect(() => () => {
+    playTokenRef.current++;
+    engine.stop();
+  }, [engine]);
+
+  useEffect(() => {
+    if (solved) nextBtnRef.current?.focus({ preventScroll: true });
+  }, [solved]);
+
+  // ---------- audio ----------
+  // playTokenRef guards against a slow first load (each pair is fetched and
+  // decoded the first time it's played) resolving after the student has
+  // already stopped or moved on — only the latest request starts.
+  async function play(c = clip) {
+    const token = ++playTokenRef.current;
+    setLoading(true);
+    const ok = await engine.ensure();
+    if (!ok || token !== playTokenRef.current) return;
+    const pair = await engine.loadPair(c.clips);
+    if (token !== playTokenRef.current) return;
+    setLoading(false);
+    setMissing((m) => {
+      if (!pair === m.has(c.id)) return m;
+      const n = new Set(m);
+      if (pair) n.delete(c.id);
+      else n.add(c.id);
+      return n;
+    });
+    if (!pair) {
+      engine.stop();
+      setPlaying(false);
+      return;
+    }
+    engine.start(pair);
+    setPlaying(true);
+  }
+  function stop() {
+    playTokenRef.current++;
+    engine.stop();
+    setPlaying(false);
+    setLoading(false);
+  }
+  function toggle() {
+    if (playing || loading) stop();
+    else play();
+  }
+  function setSide(s) {
+    engine.setSide(s);
+    setSideState(s);
+  }
+
+  // ---------- picking ----------
+  function pick(id) {
+    if (solved || found.has(id) || wrong.has(id)) return;
+    onInteract();
+    if (!clip.problems.includes(id)) {
+      setWrong((w) => new Set(w).add(id));
+      return;
+    }
+    const f = new Set(found).add(id);
+    setFound(f);
+    if (f.size === need) {
+      // Every problem found: switch to the clean take.
+      setSide("A");
+      if (!playing && !loading) play();
+    }
+  }
+
+  function next() {
+    let q = queue;
+    let i = idx + 1;
+    if (i >= q.length) {
+      q = shuffledClips(level);
+      // Never the same clip twice in a row across a reshuffle.
+      if (q.length > 1 && q[0].id === clip.id) [q[0], q[q.length - 1]] = [q[q.length - 1], q[0]];
+      setQueue(q);
+      i = 0;
+    }
+    setIdx(i);
+    setFound(new Set());
+    setWrong(new Set());
+    setSide("B");
+    if (playing || loading) play(q[i]);
+    rootRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+
+  function onKeyDown(e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === " ") {
+      e.preventDefault();
+      toggle();
+    } else if (e.key === "Enter" && solved && e.target.tagName !== "BUTTON") {
+      e.preventDefault();
+      next();
+    }
+  }
+
+  const status = solved
+    ? side === "A"
+      ? "Clean take"
+      : `With the ${need === 1 ? "problem" : "problems"}`
+    : "Mystery clip";
+
+  return (
+    <div ref={rootRef} className="cll-round" onKeyDown={onKeyDown}>
+      {/* =========== player =========== */}
+      <div className={`cll-panel cll-player${solved ? " solved" : ""}`}>
+        <div className="cll-q-top">
+          <span className="cll-q-num">
+            Clip <b>{idx + 1}</b> of {queue.length}
+          </span>
+          <span className="cll-tag" title="Real recordings, played exactly as recorded — no processing.">
+            {L.blurb}
+          </span>
+        </div>
+
+        <div className="cll-transport">
+          <PlayButton on={playing || loading} onClick={toggle} />
+          <div className="cll-now">
+            <div className="cll-now-top">
+              <span className="cll-now-title">{status}</span>
+            </div>
+            <div className="cll-slots" aria-label={`${found.size} of ${need} found`}>
+              {clip.problems.map((id, i) => {
+                // Slots fill in the order the problems were found.
+                const fid = [...found][i];
+                return (
+                  <span key={i} className={`cll-slot${fid ? " found" : ""}`}>
+                    {fid ? P[fid].name : "?"}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        {missing.has(clip.id) && <MissingNote clip={clip} />}
+
+        {solved && (
+          <div className="cll-solved">
+            <div className="cll-seg" role="radiogroup" aria-label="Which take to hear">
+              {[
+                ["B", need === 1 ? "With problem" : "With problems"],
+                ["A", "Clean"],
+              ].map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  role="radio"
+                  aria-checked={side === k}
+                  className={side === k ? `active side-${k}` : undefined}
+                  onClick={() => setSide(k)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p>
+              {wrong.size === 0 ? "Nailed it, no wrong picks." : `Solved with ${wrong.size} wrong ${wrong.size === 1 ? "pick" : "picks"}.`}{" "}
+              Flip between the takes to hear what changed.
+            </p>
+            <button type="button" ref={nextBtnRef} className="cll-btn" onClick={next}>
+              Next clip →
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* =========== problem list =========== */}
+      <div className="cll-question">
+        <h3>What&apos;s wrong with this clip?</h3>
+        <p>
+          {solved
+            ? "All found. The clean take is playing."
+            : need === 1
+              ? "Pick the one problem you hear."
+              : `Find all ${WORDS[need] ?? need} problems. ${found.size} of ${need} found.`}
+        </p>
+      </div>
+
+      {CATS.map((c) => {
+        const items = PROBLEMS.filter((p) => p.cat === c);
+        return (
+          <section key={c} className="cll-cat">
+            <h4 className="cll-cat-h">
+              <span className="cll-cdot" />
+              {c}
+            </h4>
+            <div className="cll-list">
+              {items.map((p) => {
+                const isFound = found.has(p.id);
+                const isWrong = wrong.has(p.id);
+                const state = isFound ? "found" : isWrong ? "wrong" : solved ? "dim" : "";
+                return (
+                  <div key={p.id} className={`cll-prob ${state}`}>
+                    <button
+                      type="button"
+                      className="cll-prob-btn"
+                      aria-disabled={solved || isFound || isWrong}
+                      aria-pressed={isFound}
+                      onClick={() => pick(p.id)}
+                    >
+                      <span className="cll-mark" aria-hidden="true">
+                        {isFound ? (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                        ) : isWrong ? (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+                        ) : null}
+                      </span>
+                      <span className="tx">
+                        <span className="nm">
+                          {p.name}
+                          <span className="sh">{p.short}</span>
+                        </span>
+                        <span className="ds">{p.what}</span>
+                        {isWrong && <span className="cll-verdict-note">Not in this clip.</span>}
+                      </span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
+
+      <p className="cll-keys" aria-hidden="true">
+        <kbd>Space</kbd> play / stop · <kbd>Enter</kbd> next clip
+      </p>
+    </div>
   );
 }
 
 function CriticalListeningLab({ onInteract }) {
   const [engine] = useState(createListeningEngine);
-  const [tab, setTab] = useState("train");
-  const [side, setSideState] = useState("A");
-  const [owner, setOwner] = useState(null); // "train" | "lib" | null — who is playing
-
-  // ---- quiz state ----
   const [level, setLevel] = useState("beginner");
-  const [qs, setQs] = useState(() => buildQuestions("beginner"));
-  const [idx, setIdx] = useState(0);
-  const [results, setResults] = useState([]); // [{ id, ok, pts }]
-  const [chosen, setChosen] = useState(null);
-  const [hint, setHint] = useState(false);
-  const [done, setDone] = useState(false);
-
-  // ---- library state ----
-  const [libId, setLibId] = useState(null);
-  const [libQuery, setLibQuery] = useState("");
-
-  // ---- recordings ----
-  // Problem ids whose A/B recordings failed to load (not added yet).
-  const [missing, setMissing] = useState(() => new Set());
-  const [loadingWho, setLoadingWho] = useState(null); // "train" | "lib" | null
-  // Category accordion in the library side panel: one group open at a time
-  // (the one holding the selected problem, unless the student collapses or
-  // opens another). While a search is active every matching group is shown
-  // expanded instead, so results are never hidden behind a closed header.
-  const [openCat, setOpenCat] = useState(null);
-
-  const rootRef = useRef(null);
-  const nextBtnRef = useRef(null);
-  const playTokenRef = useRef(0);
   const firedRef = useRef(false);
   const onInteractRef = useRef(onInteract);
   useEffect(() => {
@@ -159,492 +321,25 @@ function CriticalListeningLab({ onInteract }) {
 
   useEffect(() => () => engine.close(), [engine]);
 
-  const q = qs[idx];
-  const answered = chosen !== null;
-  const score = results.reduce((a, r) => a + r.pts, 0);
-
   function interacted() {
     if (firedRef.current) return;
     firedRef.current = true;
     onInteractRef.current?.();
   }
 
-  // ---------- audio ----------
-  // playTokenRef guards against a slow first load (each pair is fetched and
-  // decoded the first time it's played) resolving after the student has
-  // already stopped, switched tabs or moved on — only the latest request
-  // starts. A pair that fails to load is marked missing.
-  async function play(who, problem) {
-    const token = ++playTokenRef.current;
-    setLoadingWho(who);
-    const ok = await engine.ensure();
-    if (!ok || token !== playTokenRef.current) return;
-    const pair = await engine.loadPair(problem.clips);
-    if (token !== playTokenRef.current) return;
-    setLoadingWho(null);
-    setMissing((m) => {
-      if (!pair === m.has(problem.id)) return m;
-      const n = new Set(m);
-      if (pair) n.delete(problem.id);
-      else n.add(problem.id);
-      return n;
-    });
-    if (!pair) {
-      engine.stop();
-      setOwner(null);
-      return;
-    }
-    engine.start(pair);
-    setOwner(who);
-  }
-
-  function stop() {
-    playTokenRef.current++;
-    engine.stop();
-    setOwner(null);
-    setLoadingWho(null);
-  }
-  function setSide(s) {
-    engine.setSide(s);
-    setSideState(s);
-  }
-  function toggle(who) {
-    if (owner === who || loadingWho === who) return stop();
-    if (who === "train") play("train", P[q.id]);
-    else {
-      const id = libId ?? PROBLEMS[0].id;
-      if (!libId) selectLib(id);
-      play("lib", P[id]);
-    }
-  }
-
-  // ---------- quiz ----------
-  function loadQuestion(list, i) {
-    setIdx(i);
-    setChosen(null);
-    setHint(false);
-    setSide("A");
-    if (owner === "train") play("train", P[list[i].id]);
-  }
-  function newSession(ids, lvl = level) {
-    const list = buildQuestions(lvl, ids);
-    setQs(list);
-    setResults([]);
-    setDone(false);
-    loadQuestion(list, 0);
-  }
-  function changeLevel(lvl) {
-    setLevel(lvl);
-    newSession(undefined, lvl);
-  }
-  function answer(id) {
-    if (answered || done) return;
-    const ok = id === q.id;
-    setChosen(id);
-    setResults((r) => [...r, { id: q.id, ok, pts: ok ? (hint ? 0.5 : 1) : 0 }]);
-    interacted();
-  }
-  function next() {
-    if (!answered) return;
-    if (idx < qs.length - 1) loadQuestion(qs, idx + 1);
-    else {
-      stop();
-      setDone(true);
-    }
-  }
-
-  useEffect(() => {
-    if (chosen !== null) nextBtnRef.current?.focus({ preventScroll: true });
-  }, [chosen]);
-
-  // ---------- library ----------
-  const libVisible = useMemo(() => {
-    const qy = libQuery.trim().toLowerCase();
-    return PROBLEMS.filter((p) => !qy || `${p.name} ${p.short} ${p.cat}`.toLowerCase().includes(qy));
-  }, [libQuery]);
-
-  function selectLib(id, { autoplay = false } = {}) {
-    setLibId(id);
-    setOpenCat(P[id].cat);
-    setSide("B");
-    if (owner === "lib" || autoplay) {
-      play("lib", P[id]);
-      interacted();
-    }
-    // Keep the active row visible in the scrolling list.
-    requestAnimationFrame(() => {
-      rootRef.current?.querySelector(`.cll-item[data-id="${id}"]`)?.scrollIntoView({ block: "nearest" });
-    });
-  }
-  function stepLib(d) {
-    const list = libVisible.length ? CATS.flatMap((c) => libVisible.filter((p) => p.cat === c)) : PROBLEMS;
-    const i = list.findIndex((p) => p.id === libId);
-    selectLib(list[(i + d + list.length) % list.length].id);
-  }
-
-  function showTab(t) {
-    if (owner) stop();
-    setTab(t);
-    if (t === "library" && !libId) selectLib(PROBLEMS[0].id);
-  }
-
-  // ---------- keyboard (scoped to the lab root) ----------
-  function onKeyDown(e) {
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.target.tagName === "INPUT") return;
-    const k = e.key.toLowerCase();
-    const inTrain = tab === "train";
-    if (k === " ") {
-      e.preventDefault();
-      if (inTrain && done) return;
-      toggle(inTrain ? "train" : "lib");
-    } else if (k === "a" || k === "b") {
-      setSide(k.toUpperCase());
-    } else if (!inTrain && (k === "arrowdown" || k === "arrowup")) {
-      e.preventDefault();
-      stepLib(k === "arrowdown" ? 1 : -1);
-    } else if (inTrain && !done && /^[1-4]$/.test(k)) {
-      const id = q.options[+k - 1];
-      if (id) answer(id);
-    } else if (inTrain && k === "enter" && answered && e.target.tagName !== "BUTTON") {
-      e.preventDefault();
-      next();
-    }
-  }
-
-  // ---------- summary ----------
-  const summary = useMemo(() => {
-    if (!done) return null;
-    const stats = Object.fromEntries(CATS.map((c) => [c, { r: 0, t: 0 }]));
-    results.forEach((r) => {
-      const s = stats[P[r.id].cat];
-      s.t++;
-      if (r.ok) s.r++;
-    });
-    const weak = CATS.filter((c) => stats[c].t).sort((a, b) => stats[a].r / stats[a].t - stats[b].r / stats[b].t)[0];
-    const pct = Math.round((score / qs.length) * 100);
-    return {
-      pct,
-      weak: weak && stats[weak].r < stats[weak].t ? weak : null,
-      missed: results.filter((r) => !r.ok),
-    };
-  }, [done, results, score, qs.length]);
-
-  const libP = libId ? P[libId] : null;
-  const playing = owner !== null;
-
   return (
-    <div
-      ref={rootRef}
-      className={`lab cll${playing ? " is-playing" : ""}`}
-      onKeyDown={onKeyDown}
-    >
-      <div className="cll-tabs" role="tablist" aria-label="Critical listening">
-        {[
-          ["train", "Train"],
-          ["library", "Problem library"],
-        ].map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={tab === id}
-            onClick={() => tab !== id && showTab(id)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* =================== TRAIN =================== */}
-      {tab === "train" && (
-        <section>
-          <div className="cll-session">
-            <div className="cll-seg" role="radiogroup" aria-label="Difficulty">
-              {Object.entries(LEVELS).map(([id, L]) => (
-                <button
-                  key={id}
-                  type="button"
-                  role="radio"
-                  aria-checked={level === id}
-                  className={level === id ? "active" : undefined}
-                  onClick={() => level !== id && changeLevel(id)}
-                >
-                  {L.label}
-                </button>
-              ))}
-            </div>
-            <div className="cll-dots" aria-hidden="true">
-              {qs.map((_, i) => {
-                const r = results[i];
-                const cls = r ? (r.pts === 1 ? "ok" : r.pts ? "half" : "bad") : i === idx && !done ? "cur" : "";
-                return <i key={i} className={cls} />;
-              })}
-            </div>
-            <div className="cll-stats">
-              Score <b>{fmt(score)}</b>
-            </div>
-          </div>
-
-          {!done ? (
-            <div className="cll-panel">
-              <div className="cll-q-top">
-                <span className="cll-q-num">
-                  Question <b>{idx + 1}</b> of {qs.length}
-                </span>
-                <span
-                  className="cll-tag"
-                  title="Both clips are real recordings, played exactly as recorded — no processing."
-                >
-                  Recorded
-                </span>
-              </div>
-
-              <ABSwitch
-                side={side}
-                onSide={setSide}
-                aDesc="Clean recording"
-                bLabel="Mystery clip"
-                bDesc="Something's off"
-              />
-
-              <div className="cll-transport">
-                <PlayButton on={owner === "train" || loadingWho === "train"} onClick={() => toggle("train")} />
-                <div className="cll-scope">
-                  <Spectrum
-                    engine={engine}
-                    side={side}
-                    band={answered ? P[q.id].band : null}
-                    active={owner === "train"}
-                    concealed={!answered && !hint}
-                  />
-                  {!answered && !hint && (
-                    <div className="cll-veil">
-                      <p>Spectrum hidden. Trust your ears first.</p>
-                      <button type="button" className="cll-link-btn" onClick={() => setHint(true)}>
-                        Show spectrum · hint, costs ½ point
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-              {missing.has(q.id) ? <MissingNote id={q.id} /> : <ScopeCaption />}
-
-              <div className="cll-question">What&apos;s wrong with clip B?</div>
-              <div className="cll-options">
-                {q.options.map((id, i) => {
-                  const state = !answered ? "" : id === q.id ? "right" : id === chosen ? "wrong" : "dim";
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      className={`cll-opt ${state}`}
-                      disabled={answered}
-                      onClick={() => answer(id)}
-                    >
-                      <span className="n">{i + 1}</span>
-                      <span className="t">
-                        {P[id].name}
-                        {answered && <span className="c">{P[id].short}</span>}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {answered && (
-                <div className="cll-feedback">
-                  <div className={`cll-verdict ${chosen === q.id ? "ok" : "bad"}`}>
-                    <div className="ico">
-                      {chosen === q.id ? (
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
-                      ) : (
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
-                      )}
-                    </div>
-                    <div>
-                      <h3>
-                        {chosen === q.id
-                          ? hint
-                            ? "Correct, with the hint · +½"
-                            : "Correct · +1"
-                          : `Not quite. It was ${P[q.id].name.toLowerCase()}.`}
-                      </h3>
-                      <p>{P[q.id].cat} problem</p>
-                    </div>
-                  </div>
-                  <LearnGrid p={P[q.id]} />
-                  <div className="cll-fb-foot">
-                    <p>Flip A ↔ B again now that you know what to listen for.</p>
-                    <button type="button" ref={nextBtnRef} className="cll-btn" onClick={next}>
-                      {idx === qs.length - 1 ? "See results →" : "Next clip →"}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="cll-panel cll-summary">
-              <div className="cll-q-num">Session complete</div>
-              <div className="cll-big">
-                {fmt(score)}
-                <small>/{qs.length}</small>
-              </div>
-              <p className="cll-sub">
-                {summary.pct}% accuracy{summary.weak ? ` · work on ${summary.weak.toLowerCase()}` : ""}
-              </p>
-              {summary.missed.length > 0 && (
-                <div className="cll-missed">
-                  <h4>Missed ({summary.missed.length})</h4>
-                  <ul>
-                    {summary.missed.map((r, i) => (
-                      <li key={`${r.id}-${i}`}>
-                        <span>{P[r.id].name}</span>
-                        <button
-                          type="button"
-                          className="cll-link-btn"
-                          onClick={() => {
-                            setTab("library");
-                            selectLib(r.id);
-                          }}
-                        >
-                          Study in library
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              <div className="cll-row-btns">
-                {summary.missed.length > 0 && (
-                  <button type="button" className="cll-btn ghost" onClick={() => newSession(summary.missed.map((r) => r.id))}>
-                    Retry missed
-                  </button>
-                )}
-                <button type="button" className="cll-btn" onClick={() => newSession()}>
-                  New session
-                </button>
-              </div>
-            </div>
-          )}
-          <p className="cll-keys" aria-hidden="true">
-            <kbd>Space</kbd> play / stop · <kbd>A</kbd> <kbd>B</kbd> flip · <kbd>1</kbd>–<kbd>4</kbd> answer · <kbd>Enter</kbd> next
-          </p>
-        </section>
-      )}
-
-      {/* =================== LIBRARY =================== */}
-      {tab === "library" && libP && (
-        <section className="cll-lib">
-          <nav className="cll-panel cll-lib-nav" aria-label="Problems">
-            <label className="cll-lib-search">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
-              <input
-                type="search"
-                placeholder="Search problems"
-                autoComplete="off"
-                aria-label="Search problems"
-                value={libQuery}
-                onChange={(e) => setLibQuery(e.target.value)}
-              />
-            </label>
-            <div className="cll-lib-list">
-              {libVisible.length === 0 && <div className="cll-lib-none">No problems match that search.</div>}
-              {CATS.map((c) => {
-                const items = libVisible.filter((p) => p.cat === c);
-                if (!items.length) return null;
-                const searching = libQuery.trim() !== "";
-                const open = searching || openCat === c;
-                const slug = c.replace(/\W+/g, "-").toLowerCase();
-                const hasActive = items.some((p) => p.id === libId);
-                return (
-                  <div
-                    key={c}
-                    className={`cll-lib-group${open ? " open" : ""}${hasActive ? " has-active" : ""}`}
-                    style={{ "--cc": `var(${CAT_COLOR[c]})` }}
-                  >
-                    <h4>
-                      <button
-                        type="button"
-                        className="cll-acc-head"
-                        aria-expanded={open}
-                        aria-controls={`cll-acc-${slug}`}
-                        disabled={searching}
-                        onClick={() => setOpenCat(open ? null : c)}
-                      >
-                        <span className="cll-cdot" />
-                        <span className="cll-acc-title">{c}</span>
-                        <span className="ct">{items.length}</span>
-                        <svg className="cll-acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-                      </button>
-                    </h4>
-                    <div className="cll-acc-body" id={`cll-acc-${slug}`} inert={!open}>
-                      <div className="cll-acc-inner">
-                        {items.map((p) => (
-                          <button
-                            key={p.id}
-                            type="button"
-                            data-id={p.id}
-                            className={`cll-item${p.id === libId ? " active" : ""}${owner === "lib" ? " live" : ""}`}
-                            aria-current={p.id === libId ? "true" : undefined}
-                            onClick={() => selectLib(p.id, { autoplay: owner !== "lib" })}
-                          >
-                            <span className="tx">
-                              <span className="nm">{p.name}</span>
-                              <span className="sh">{p.short}</span>
-                            </span>
-                            <span className="cll-eq" aria-hidden="true"><i /><i /><i /></span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </nav>
-
-          <div className="cll-panel cll-lib-detail">
-            <div className="cll-crumb">
-              <span className="cll-cdot" style={{ "--cc": `var(${CAT_COLOR[libP.cat]})` }} />
-              <span>{libP.cat}</span>
-            </div>
-            <div className="cll-lib-head">
-              <div>
-                <h3>{libP.name}</h3>
-                <p>{libP.what}</p>
-              </div>
-              <div className="cll-stepper">
-                <span>
-                  {PROBLEMS.indexOf(libP) + 1} / {PROBLEMS.length}
-                </span>
-                <button type="button" className="cll-icon-btn" aria-label="Previous problem" onClick={() => stepLib(-1)}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
-                </button>
-                <button type="button" className="cll-icon-btn" aria-label="Next problem" onClick={() => stepLib(1)}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
-                </button>
-              </div>
-            </div>
-            <ABSwitch
-              side={side}
-              onSide={setSide}
-              aLabel="Clean"
-              aDesc="Recorded clean"
-              bLabel="With problem"
-              bDesc={libP.short}
-            />
-            <div className="cll-transport">
-              <PlayButton on={owner === "lib" || loadingWho === "lib"} onClick={() => toggle("lib")} />
-              <div className="cll-scope">
-                <Spectrum engine={engine} side={side} band={libP.band} active={owner === "lib"} />
-              </div>
-            </div>
-            {missing.has(libP.id) ? <MissingNote id={libP.id} /> : <ScopeCaption />}
-            <LearnGrid p={libP} withWhat={false} className="cll-lib-learn" />
-          </div>
-        </section>
-      )}
+    <div className="lab cll">
+      <Tabs
+        className="cll-tabs"
+        items={TABS}
+        value={level}
+        onChange={setLevel}
+        ariaLabel="Difficulty"
+        idPrefix="cll"
+      />
+      <TabPanel idPrefix="cll" value={level} index={TABS.findIndex((t) => t.id === level)}>
+        <Round key={level} level={level} engine={engine} onInteract={interacted} />
+      </TabPanel>
     </div>
   );
 }

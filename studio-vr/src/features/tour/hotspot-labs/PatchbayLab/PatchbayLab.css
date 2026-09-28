@@ -107,7 +107,7 @@
   min-width: 0;
 }
 .pblab-jack-name {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--shell-text);
   white-space: nowrap;

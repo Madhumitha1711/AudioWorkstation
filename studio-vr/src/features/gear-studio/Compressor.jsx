@@ -9,6 +9,7 @@ import {
     METER_FLOOR_DB, LEVEL_ATTACK_S, LEVEL_RELEASE_S, levelBallistic,
     GR_READOUT_TAU_S, grReadoutSmooth, GR_METER_MAX_DB, analyserPeakDb,
 } from '../../audio/effects/compressorEngine';
+import { canvasFont } from "../../theme/fonts";
 // ── Types ─────────────────────────────────────────────────────────────────────
 // v2: the Faust patch is now a 4-band multiband compressor with internal/
 // external sidechain detection (public/faust/compressor/compressor.dsp).
@@ -107,7 +108,7 @@ function drawTransfer(canvas, params) {
     }
     // dB axis tick labels — input along the bottom, output along the left edge
     ctx.fillStyle = '#6A6A7A';
-    ctx.font = '9px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(9, { mono: true });
     for (let db = IN_MIN; db <= IN_MAX; db += 10) {
         ctx.fillText(`${db}`, toX(db) + 2, H - 2);
     }
@@ -133,7 +134,7 @@ function drawTransfer(canvas, params) {
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = '#8A8A9A';
-    ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(10, { mono: true });
     ctx.fillText('THRESH', tx + 3, H - 5);
     // Stroke (+ optional fill under the curve itself). The drawn curve is
     // compression (threshold/ratio/knee) PLUS Makeup Gain added on top —
@@ -188,7 +189,7 @@ function drawTransfer(canvas, params) {
     ctx.fill();
     // Labels
     ctx.fillStyle = '#8A8A9A';
-    ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(10, { mono: true });
     ctx.fillText('INPUT (dB) →', W - 82, H - 5);
     ctx.save();
     ctx.translate(11, H * 0.38);
@@ -223,7 +224,7 @@ function drawCompressorScope(canvas, history, nowT, thresholdDb, showThreshold) 
     ctx.strokeStyle = 'rgba(255,255,255,0.03)';
     ctx.lineWidth = 1;
     ctx.fillStyle = '#6A6A7A';
-    ctx.font = '9px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(9, { mono: true });
     for (let db = -48; db <= SCOPE_MAX_DB; db += 12) {
         const y = toY(db);
         ctx.beginPath();
@@ -348,13 +349,13 @@ function KnobNumberInput({ value, min, max, step, onChange, }) {
 function MiniSlider({ label, value, min, max, step, fmt, onChange, accent = 'var(--purple)', }) {
     return (<div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
       <span style={{
-            width: 96, fontFamily: 'var(--mono)', fontSize: '0.55rem', color: 'var(--text-dim)',
+            width: 96, fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'var(--text-dim)',
             letterSpacing: '0.04em', textTransform: 'uppercase', lineHeight: 1.25,
         }}>
         {label}
       </span>
       <input type="range" className="mini-range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))} style={{ ['--mini-range-accent']: accent }}/>
-      <span style={{ width: 58, textAlign: 'right', fontFamily: 'var(--mono)', fontSize: '0.55rem', color: accent }}>
+      <span style={{ width: 58, textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: accent }}>
         {fmt(value)}
       </span>
     </div>);
@@ -702,7 +703,7 @@ export function CompressorEditorPanel({
             border: `1px solid ${!multibandEnabled ? 'rgba(0,255,135,0.5)' : 'var(--border)'}`,
             borderRadius: '3px',
             color: !multibandEnabled ? 'var(--green)' : 'var(--text-dim)',
-            fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.04em',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.04em',
             cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
         }}>
         SINGLE BAND
@@ -714,7 +715,7 @@ export function CompressorEditorPanel({
             border: `1px solid ${multibandEnabled ? 'rgba(0,255,135,0.5)' : 'var(--border)'}`,
             borderRadius: '3px',
             color: multibandEnabled ? 'var(--green)' : 'var(--text-dim)',
-            fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.04em',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.04em',
             cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
         }}>
         MULTIBAND
@@ -737,7 +738,7 @@ export function CompressorEditorPanel({
                     padding: '0.3rem 0.6rem', border: 'none',
                     background: active ? 'rgba(167,139,250,0.13)' : 'var(--surface)',
                     color: active ? 'var(--purple)' : 'var(--text-dim)',
-                    fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+                    fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
                     cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
                     textDecoration: byp ? 'line-through' : 'none',
                 }}>
@@ -747,7 +748,7 @@ export function CompressorEditorPanel({
                     padding: '0.3rem 0.45rem', border: 'none', borderLeft: `1px solid ${borderColor}`,
                     background: byp ? 'rgba(255,77,106,0.16)' : 'var(--surface)',
                     color: byp ? '#FF4D6A' : 'var(--text-faint)',
-                    fontFamily: 'var(--mono)', fontSize: '0.65rem',
+                    fontFamily: 'var(--font-mono)', fontSize: '0.65rem',
                     cursor: 'pointer', transition: 'all 0.15s',
                 }}>
               ⦸
@@ -807,7 +808,7 @@ export function CompressorEditorPanel({
             <MiniSlider label="Low – Low-Mid" value={crossover.loLowMid} min={20} max={1000} step={1} fmt={v => `${v.toFixed(0)} Hz`} onChange={v => setCrossover(c => ({ ...c, loLowMid: v }))}/>
             <MiniSlider label="Low-Mid – High-Mid" value={crossover.lowMidHiMid} min={200} max={5000} step={1} fmt={v => `${v.toFixed(0)} Hz`} onChange={v => setCrossover(c => ({ ...c, lowMidHiMid: v }))}/>
             <MiniSlider label="High-Mid – High" value={crossover.hiMidHigh} min={500} max={20000} step={1} fmt={v => `${v.toFixed(0)} Hz`} onChange={v => setCrossover(c => ({ ...c, hiMidHigh: v }))}/>
-          </>) : (<div style={{ fontFamily: 'var(--mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginBottom: '0.5rem', lineHeight: 1.5 }}>
+          </>) : (<div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginBottom: '0.5rem', lineHeight: 1.5 }}>
             One compressor, whole signal. Turn on <strong style={{ color: 'var(--green)' }}>MULTIBAND</strong> above to split into 4 bands with independent crossover points.
           </div>)}
 
@@ -880,7 +881,7 @@ export function CompressorEditorPanel({
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.25rem' }}>
           {(multibandEnabled ? BAND_IDS : ['low']).map(b => (<div key={b} onClick={() => setSelectedBand(b)} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', cursor: 'pointer' }}>
               <div style={{
-                fontFamily: 'var(--mono)', fontSize: '0.5rem', textAlign: 'center', letterSpacing: '0.04em',
+                fontFamily: 'var(--font-mono)', fontSize: '0.5rem', textAlign: 'center', letterSpacing: '0.04em',
                 color: b === selectedBand ? 'var(--purple)' : 'var(--text-faint)',
             }}>
                 {bandLabel(b)}
@@ -905,7 +906,7 @@ export function CompressorEditorPanel({
           <div className="legend-item"><span className="legend-line" style={{ background: '#A78BFA' }}/>OUTPUT</div>
           <div className="legend-item"><span className="legend-line" style={{ background: '#FF4D6A' }}/>{bandLabel(selectedBand)} GAIN REDUCTION</div>
         </div>
-        <div style={{ fontFamily: 'var(--mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginTop: '0.35rem', lineHeight: 1.5 }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginTop: '0.35rem', lineHeight: 1.5 }}>
           Red is the real Gain_Reduction the Faust patch reports for this band — it shrinks toward nothing as Threshold rises or Bypass is on.
         </div>
       </div>
@@ -1430,7 +1431,7 @@ export default function Compressor() {
             border: `1px solid ${activeSourceId === 'synth' ? 'rgba(167,139,250,0.5)' : 'var(--border)'}`,
             borderRadius: '3px',
             color: activeSourceId === 'synth' ? 'var(--purple)' : 'var(--text-dim)',
-            fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
             cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
         }}>
         <span style={{ fontSize: '0.85rem' }}>🥁</span>
@@ -1446,7 +1447,7 @@ export default function Compressor() {
                     border: `1px solid ${active ? 'rgba(0,255,135,0.5)' : 'var(--border)'}`,
                     borderRadius: '3px',
                     color: active ? 'var(--green)' : 'var(--text-dim)',
-                    fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+                    fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
                     cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
                 }}>
             <span style={{ fontSize: '0.85rem' }}>📁</span>
@@ -1462,7 +1463,7 @@ export default function Compressor() {
             border: '1px dashed var(--border)',
             borderRadius: '3px',
             color: 'var(--text-dim)',
-            fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
             cursor: decoding ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
         }}>
         <span style={{ fontSize: '0.85rem' }}>{decoding ? '⏳' : '+'}</span>
@@ -1475,16 +1476,16 @@ export default function Compressor() {
                 border: '1px dashed var(--border)',
                 borderRadius: '3px',
                 color: 'var(--text-dim)',
-                fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+                fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
                 cursor: downloading ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
             }}>
           <span style={{ fontSize: '0.85rem' }}>{downloading ? '⏳' : '⬇'}</span>
           <span>{downloading ? 'RENDERING…' : 'DOWNLOAD AUDIO'}</span>
         </button>)}
-      {uploadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>
+      {uploadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--font-mono)', alignSelf: 'center' }}>
           {uploadError}
         </span>)}
-      {downloadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>
+      {downloadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--font-mono)', alignSelf: 'center' }}>
           {downloadError}
         </span>)}
     </div>);
@@ -1550,7 +1551,7 @@ export default function Compressor() {
                 border: `1px solid ${active ? 'rgba(245,166,35,0.5)' : 'var(--border)'}`,
                 borderRadius: '3px',
                 color: active ? 'var(--amber)' : 'var(--text-dim)',
-                fontFamily: 'var(--mono)', fontSize: '0.55rem', letterSpacing: '0.04em',
+                fontFamily: 'var(--font-mono)', fontSize: '0.55rem', letterSpacing: '0.04em',
                 cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
               }}>
                 {label}
@@ -1564,14 +1565,14 @@ export default function Compressor() {
             border: '1px dashed var(--border)',
             borderRadius: '3px',
             color: 'var(--text-dim)',
-            fontFamily: 'var(--mono)', fontSize: '0.55rem', letterSpacing: '0.04em',
+            fontFamily: 'var(--font-mono)', fontSize: '0.55rem', letterSpacing: '0.04em',
             cursor: decoding ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
           }}>
             <span>{decoding ? '⏳' : '+'}</span>
             <span>{decoding ? 'DECODING…' : 'UPLOAD'}</span>
           </button>
         </div>
-        {sidechainSourceId !== 'none' && !sidechain.external && (<div style={{ fontFamily: 'var(--mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginBottom: '0.5rem', lineHeight: 1.5 }}>
+        {sidechainSourceId !== 'none' && !sidechain.external && (<div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginBottom: '0.5rem', lineHeight: 1.5 }}>
           A Sidechain Source is selected but EXTERNAL SC is off, so it isn't driving detection yet — turn EXTERNAL SC on to use it.
         </div>)}
       </div>

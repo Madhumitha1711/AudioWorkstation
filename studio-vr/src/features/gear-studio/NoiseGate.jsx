@@ -3,6 +3,7 @@ import { FaustMonoDspGenerator } from '@grame/faustwasm';
 import { compileFaustWasm } from '../../audio/faust/faustTypes';
 import { downloadAudioBufferAsWav } from '../../audio/wavRender';
 import { DEFAULTS, DEFAULT_SIDECHAIN, pushFaustParams, METER_FLOOR_DB, analyserPeakDb } from '../../audio/effects/gateEngine';
+import { canvasFont } from "../../theme/fonts";
 // ── Chapter 10 — Gate Studio ─────────────────────────────────────────────────
 // "Dynamics Processing — Noise Gate". Real DSP lives at public/faust/Gate/
 // (dsp-module.wasm + dsp-meta.json) — a Faust hysteresis noise gate (separate
@@ -165,7 +166,7 @@ function drawTransfer(canvas, params) {
     }
     // dB axis tick labels (every 10 dB) — input along the bottom, output along the left edge
     ctx.fillStyle = '#6A6A7A';
-    ctx.font = '9px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(9, { mono: true });
     for (let db = DB_MIN; db <= DB_MAX; db += 10) {
         ctx.fillText(`${db}`, toX(db) + 2, H - 2);
         ctx.fillText(`${db}`, 2, toY(db) - 2);
@@ -195,7 +196,7 @@ function drawTransfer(canvas, params) {
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = '#8A8A9A';
-    ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(10, { mono: true });
     ctx.fillText('OPEN', openX + 3, H - 5);
     ctx.fillText('CLOSE', closeX + 3, 12);
     // Hysteresis band shading
@@ -232,7 +233,7 @@ function drawTransfer(canvas, params) {
     ctx.setLineDash([]);
     // Labels
     ctx.fillStyle = '#8A8A9A';
-    ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(10, { mono: true });
     ctx.fillText('INPUT (dB) →', W - 82, H - 5);
     ctx.save();
     ctx.translate(11, H * 0.38);
@@ -265,7 +266,7 @@ function drawGateScope(canvas, history, nowT, gateOpenDb, gateCloseDb, showThres
     ctx.strokeStyle = 'rgba(255,255,255,0.03)';
     ctx.lineWidth = 1;
     ctx.fillStyle = '#6A6A7A';
-    ctx.font = '9px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(9, { mono: true });
     for (let db = Math.ceil(SCOPE_MIN_DB / 12) * 12; db <= SCOPE_MAX_DB; db += 12) {
         const y = toY(db);
         ctx.beginPath();
@@ -383,13 +384,13 @@ function KnobNumberInput({ value, min, max, step, onChange, }) {
 function MiniSlider({ label, value, min, max, step, fmt, onChange, accent = 'var(--green)', }) {
     return (<div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
       <span style={{
-            width: 96, fontFamily: 'var(--mono)', fontSize: '0.55rem', color: 'var(--text-dim)',
+            width: 96, fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'var(--text-dim)',
             letterSpacing: '0.04em', textTransform: 'uppercase', lineHeight: 1.25,
         }}>
         {label}
       </span>
       <input type="range" className="mini-range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))} style={{ ['--mini-range-accent']: accent }}/>
-      <span style={{ width: 58, textAlign: 'right', fontFamily: 'var(--mono)', fontSize: '0.55rem', color: accent }}>
+      <span style={{ width: 58, textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: accent }}>
         {fmt(value)}
       </span>
     </div>);
@@ -1304,7 +1305,7 @@ export default function NoiseGate() {
             border: `1px solid ${activeSourceId === 'synth' ? 'rgba(0,255,135,0.5)' : 'var(--border)'}`,
             borderRadius: '3px',
             color: activeSourceId === 'synth' ? 'var(--green)' : 'var(--text-dim)',
-            fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
             cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
         }}>
         <span style={{ fontSize: '0.85rem' }}>🥁</span>
@@ -1320,7 +1321,7 @@ export default function NoiseGate() {
                     border: `1px solid ${active ? 'rgba(77,158,255,0.5)' : 'var(--border)'}`,
                     borderRadius: '3px',
                     color: active ? 'var(--blue)' : 'var(--text-dim)',
-                    fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+                    fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
                     cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
                 }}>
             <span style={{ fontSize: '0.85rem' }}>📁</span>
@@ -1336,7 +1337,7 @@ export default function NoiseGate() {
             border: '1px dashed var(--border)',
             borderRadius: '3px',
             color: 'var(--text-dim)',
-            fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
             cursor: decoding ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
         }}>
         <span style={{ fontSize: '0.85rem' }}>{decoding ? '⏳' : '+'}</span>
@@ -1349,16 +1350,16 @@ export default function NoiseGate() {
                 border: '1px dashed var(--border)',
                 borderRadius: '3px',
                 color: 'var(--text-dim)',
-                fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+                fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
                 cursor: downloading ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
             }}>
           <span style={{ fontSize: '0.85rem' }}>{downloading ? '⏳' : '⬇'}</span>
           <span>{downloading ? 'RENDERING…' : 'DOWNLOAD AUDIO'}</span>
         </button>)}
-      {uploadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>
+      {uploadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--font-mono)', alignSelf: 'center' }}>
           {uploadError}
         </span>)}
-      {downloadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>
+      {downloadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--font-mono)', alignSelf: 'center' }}>
           {downloadError}
         </span>)}
     </div>);
@@ -1429,7 +1430,7 @@ export default function NoiseGate() {
                 border: `1px solid ${active ? 'rgba(245,166,35,0.5)' : 'var(--border)'}`,
                 borderRadius: '3px',
                 color: active ? 'var(--amber)' : 'var(--text-dim)',
-                fontFamily: 'var(--mono)', fontSize: '0.55rem', letterSpacing: '0.04em',
+                fontFamily: 'var(--font-mono)', fontSize: '0.55rem', letterSpacing: '0.04em',
                 cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
               }}>
                 {label}
@@ -1443,14 +1444,14 @@ export default function NoiseGate() {
             border: '1px dashed var(--border)',
             borderRadius: '3px',
             color: 'var(--text-dim)',
-            fontFamily: 'var(--mono)', fontSize: '0.55rem', letterSpacing: '0.04em',
+            fontFamily: 'var(--font-mono)', fontSize: '0.55rem', letterSpacing: '0.04em',
             cursor: decoding ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
           }}>
             <span>{decoding ? '⏳' : '+'}</span>
             <span>{decoding ? 'DECODING…' : 'UPLOAD'}</span>
           </button>
         </div>
-        {sidechainSourceId !== 'none' && !sidechain.external && (<div style={{ fontFamily: 'var(--mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginBottom: '0.5rem', lineHeight: 1.5 }}>
+        {sidechainSourceId !== 'none' && !sidechain.external && (<div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginBottom: '0.5rem', lineHeight: 1.5 }}>
           A Sidechain Source is selected but EXTERNAL SC is off, so it isn't driving detection yet — turn EXTERNAL SC on to use it.
         </div>)}
       </div>

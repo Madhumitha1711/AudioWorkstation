@@ -3,13 +3,14 @@ import "../../shared/labs.css";
 import { useLabAudio } from "../../shared/useLabAudio";
 import { useTheme } from "../../../../../theme/ThemeContext";
 import {
-  drawScope,
+  drawTimeScope,
   exactNoteForFreq,
-  freqToSlider,
+  formatDuration,
+  freqToSliderPrecise,
   noteNameToFreq,
   scopePalette,
   sliderToFreqPrecise,
-  visualCyclesFor,
+  timebaseFor,
 } from "../../shared/soundLabShared";
 
 // Ported from design/what-is-sound-chapter.html's "02 FREQUENCY" panel — a
@@ -26,11 +27,21 @@ import {
 // in place — no separate "manual entry" section), and committing either
 // one also just sets `freq`, so a typed value lands on the same log-scale
 // slider position and wave a drag to that value would have produced.
+//
+// The scope is a real time-domain plot: its x-axis is labelled in ms/µs
+// (an auto-ranging 1-2-5 "timebase", like a hardware oscilloscope), the
+// trace draws exactly f × window cycles, and a bracket marks one period
+// T = 1/f — so what's on screen always matches the actual frequency, idle
+// or playing. The slider is continuous (step="any") with log-scale tick
+// labels underneath, so the thumb sits exactly at the current frequency.
 
 const SWEEP_DURATION_SEC = 6;
 const IDLE_LABEL = "▶ Play Tone";
 const MIN_FREQ = 20;
 const MAX_FREQ = 20000;
+
+const SLIDER_TICKS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+const tickLabel = (f) => (f >= 1000 ? `${f / 1000}k` : `${f}`);
 
 const clampFreq = (f) => Math.min(MAX_FREQ, Math.max(MIN_FREQ, f));
 const round2 = (f) => Math.round(f * 100) / 100;
@@ -76,13 +87,35 @@ function FrequencyLab({ onInteract }) {
     cancelAnimationFrame(rafRef.current);
     oscRef.current = null;
     setMode("idle");
-    drawScope(canvasRef.current, { cycles: 5, amp: 0.7, color: colors.amber, theme });
+    scrollRef.current = 0;
+    drawFrame(freqRef.current, themeRef.current);
   };
+
+  function drawFrame(f, t) {
+    drawTimeScope(canvasRef.current, {
+      freq: f,
+      windowSec: timebaseFor(f),
+      color: scopePalette(t).colors.amber,
+      scroll: scrollRef.current,
+      theme: t,
+    });
+  }
 
   // static trace whenever the frequency (or the theme) changes while idle
   useEffect(() => {
-    if (mode === "idle") drawScope(canvasRef.current, { cycles: 5, amp: 0.7, color: colors.amber, theme });
-  }, [freq, mode, theme, colors]);
+    if (mode === "idle") drawFrame(freq, theme);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freq, mode, theme]);
+
+  // the canvas is sized from its CSS box, so redraw on resize too
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return undefined;
+    const ro = new ResizeObserver(() => drawFrame(freqRef.current, themeRef.current));
+    ro.observe(el);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // retune the live oscillator whenever freq changes during a held tone
   useEffect(() => {
@@ -97,14 +130,7 @@ function FrequencyLab({ onInteract }) {
   function toneLoop() {
     const f = freqRef.current;
     scrollRef.current += 0.15 + Math.min(f, 2000) / 4000;
-    const liveColors = scopePalette(themeRef.current).colors;
-    drawScope(canvasRef.current, {
-      cycles: visualCyclesFor(f),
-      amp: 0.7,
-      color: liveColors.amber,
-      scroll: scrollRef.current,
-      theme: themeRef.current,
-    });
+    drawFrame(f, themeRef.current);
     rafRef.current = requestAnimationFrame(toneLoop);
   }
 
@@ -155,14 +181,7 @@ function FrequencyLab({ onInteract }) {
       const f = MIN_FREQ * Math.pow(1000, elapsed / SWEEP_DURATION_SEC);
       setFreq(round2(f));
       scrollRef.current += 0.15 + Math.min(f, 2000) / 4000;
-      const liveColors = scopePalette(themeRef.current).colors;
-      drawScope(canvasRef.current, {
-        cycles: visualCyclesFor(f),
-        amp: 0.7,
-        color: liveColors.amber,
-        scroll: scrollRef.current,
-        theme: themeRef.current,
-      });
+      drawFrame(f, themeRef.current);
       rafRef.current = requestAnimationFrame(tick);
     }
     tick();
@@ -212,7 +231,7 @@ function FrequencyLab({ onInteract }) {
       </div>
 
       <div className="sound-lab-frame">
-        <canvas ref={canvasRef} className="sound-lab-canvas" width={560} height={160} style={{ aspectRatio: "560 / 160" }} />
+        <canvas ref={canvasRef} className="sound-lab-canvas" width={560} height={190} style={{ aspectRatio: "560 / 190" }} />
       </div>
 
       <div className="sound-lab-readout-row">
@@ -280,25 +299,39 @@ function FrequencyLab({ onInteract }) {
             </div>
           )}
         </div>
+        <div className="sound-lab-readout">
+          <div className="rl">Period (T = 1/f)</div>
+          <div className="rv" style={{ color: colors.green }}>{formatDuration(1 / freq)}</div>
+        </div>
       </div>
 
       <div className="sound-lab-slider-row">
-        <div className="sound-lab-slider-labels">
-          <span>20 Hz</span>
-          <span>20,000 Hz</span>
-        </div>
         <input
           type="range"
           className="lab-slider"
           min="0"
           max="1000"
-          value={freqToSlider(freq)}
+          step="any"
+          value={freqToSliderPrecise(freq)}
           disabled={mode === "sweep"}
+          aria-label="Frequency"
+          aria-valuetext={`${freq.toFixed(2)} Hz`}
           onChange={(e) => {
-            setFreq(sliderToFreqPrecise(+e.target.value));
+            setFreq(round2(clampFreq(sliderToFreqPrecise(+e.target.value))));
             markInteracted();
           }}
         />
+        <div className="sound-lab-slider-ticks" aria-hidden="true">
+          {SLIDER_TICKS.map((f) => (
+            <span
+              key={f}
+              className="sound-lab-slider-tick"
+              style={{ left: `calc(8px + (100% - 16px) * ${freqToSliderPrecise(f) / 1000})` }}
+            >
+              {tickLabel(f)}
+            </span>
+          ))}
+        </div>
       </div>
 
       <div className="lab-actions">

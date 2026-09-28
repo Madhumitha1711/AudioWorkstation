@@ -77,7 +77,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font: 700 13px/1 sans-serif;
+  font: 700 13px/1 var(--font-sans);
   color: var(--brand-accent-ink);
   background: radial-gradient(circle at 32% 28%, var(--brand-accent), var(--brand-accent-2) 70%);
   border: 2px solid rgba(255, 255, 255, 0.9);
@@ -258,7 +258,7 @@
   backdrop-filter: blur(14px);
   box-shadow: var(--shadow);
   max-width: calc(100vw - 32px);
-  font-family: sans-serif;
+  font-family: var(--font-sans);
   /* Photo Sphere Viewer's own hotspot markers (.psv-marker--normal) render
      at z-index: 30 with no stacking context isolating them from the rest of
      the page (.psv-container never sets its own z-index), so anything here
@@ -314,7 +314,7 @@
   border: none;
   background: transparent;
   color: var(--shell-text-dimmer);
-  font-family: sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
@@ -412,7 +412,7 @@
   padding: 6px;
   max-width: 320px;
   cursor: pointer;
-  font-family: sans-serif;
+  font-family: var(--font-sans);
   z-index: 60;
 }
 
@@ -484,7 +484,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  font-family: sans-serif;
+  font-family: var(--font-sans);
   color: var(--shell-text);
   animation: svr-tour-slide-in 0.2s ease-out;
   z-index: 60;
@@ -980,7 +980,7 @@
   border-radius: 14px;
   backdrop-filter: blur(14px);
   box-shadow: var(--shadow);
-  font-family: sans-serif;
+  font-family: var(--font-sans);
   color: var(--shell-text);
   animation: svr-tour-slide-in 0.2s ease-out;
   z-index: 60;
@@ -1080,7 +1080,7 @@
   align-items: center;
   justify-content: center;
   gap: 14px;
-  font-family: sans-serif;
+  font-family: var(--font-sans);
   background: var(--shell-page-bg);
 }
 
@@ -1167,7 +1167,7 @@
   padding: 8px 16px;
   backdrop-filter: blur(14px);
   box-shadow: var(--shadow);
-  font-family: sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   color: var(--marker-dark-2);
   max-width: calc(100vw - 32px);

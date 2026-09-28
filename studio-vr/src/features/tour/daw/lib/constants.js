@@ -110,3 +110,10 @@ export const DEMO_CLIPS = [
   { id: "acousticGtrDI", name: "Hungarian Dance No. 5 — Acoustic Gtr DI", url: "/audio/BolzAndKnecht_HungarianDanceNo5_Full/02_AcousticGtrDI.wav", color: "amber" },
   { id: "saxophone", name: "Hungarian Dance No. 5 — Saxophone", url: "/audio/BolzAndKnecht_HungarianDanceNo5_Full/03_Saxophone.wav", color: "blue" },
 ];
+
+// Arrange / Mixer view tabs (TopBar, app-wide standard Tabs — segmented);
+// DawWorkstationScreen reads the index for the tab-panel slide direction.
+export const VIEW_TABS = [
+  { id: "arrange", label: "Arrange", title: "Arrange view" },
+  { id: "mixer", label: "Mixer", title: "Mixer view (X)" },
+];

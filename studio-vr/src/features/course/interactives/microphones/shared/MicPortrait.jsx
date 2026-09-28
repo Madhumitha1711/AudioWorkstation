@@ -1,7 +1,6 @@
 // Pulled out of MicTypeLab.jsx so the same five-transducer silhouette can
-// be reused by any mic lab that needs it — MicTypeLab's own listen panel
-// and MicTypeCompareLab's three comparison columns both render one of
-// these.
+// be reused by any mic lab that needs it — MicTypeLab's image placeholder
+// and MicSelectionLab's pick both render one of these.
 //
 // Body/detail/stand tones come from CSS classes (mic-art-*, micLabs.css)
 // rather than hardcoded fills, so the silhouette follows the light/dark

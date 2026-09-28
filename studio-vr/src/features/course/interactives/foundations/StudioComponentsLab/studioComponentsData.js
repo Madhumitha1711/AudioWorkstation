@@ -4,7 +4,7 @@
 // many students' first look inside a studio) — short sentences, jargon
 // avoided or explained on first use. Keep new copy at that level.
 //
-// Four sections — Control Room / Recording (Live) Room × Electronic /
+// Four sections — Control Room / Recording Room × Electronic /
 // Non-electronic — of four components each. Each item:
 //   id     — also the icon key (ICONS below) and the image file name
 //            (see componentImagePath)
@@ -150,7 +150,7 @@ export const SECTIONS = [
   },
   {
     n: "03",
-    room: "Recording / Live Room",
+    room: "Recording Room",
     type: "Electronic",
     tone: "blue",
     items: [
@@ -214,7 +214,7 @@ export const SECTIONS = [
   },
   {
     n: "04",
-    room: "Recording / Live Room",
+    room: "Recording Room",
     type: "Non-electronic",
     tone: "purple",
     items: [

@@ -5,15 +5,13 @@
    an unscoped global stylesheet would. */
 
 
-/* ── Google Fonts ─────────────────────────────────────────────────────────── */
-
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap');
+/* Fonts: loaded once globally (index.html) — see --font-sans/--font-mono in src/index.css. */
 
 /* ── Design tokens ────────────────────────────────────────────────────────── */
 
 .chapter-lab {
   color: var(--text);
-  font-family: var(--body);
+  font-family: var(--font-sans);
   line-height: 1.6;
 
   & , & *, & *::before, & *::after { box-sizing: border-box; }
@@ -68,9 +66,8 @@
   --strip-navy:    #2E2E40;
   --strip-wood:    #5C2E1A;
 
-  --mono:    'JetBrains Mono', monospace;
-  --display: 'Space Grotesk', sans-serif;
-  --body:    'Inter', sans-serif;
+  /* Fonts: --mono / --display / --body are NOT redefined here any more —
+     they are global aliases of --font-mono / --font-sans (src/index.css). */
 }
 
 /* ── Light theme ──────────────────────────────────────────────────────────
@@ -203,15 +200,15 @@
   font-size: 0.75rem;
 }
 
-.chapter-lab .lab-name { font-family: var(--display); font-size: 0.875rem; font-weight: 600; }
+.chapter-lab .lab-name { font-family: var(--font-sans); font-size: 0.875rem; font-weight: 600; }
 
-.chapter-lab .lab-subtitle { font-family: var(--mono); font-size: 0.6rem; color: var(--text-dim); letter-spacing: 0.08em; }
+.chapter-lab .lab-subtitle { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-dim); letter-spacing: 0.08em; }
 
 .chapter-lab .lab-status {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.65rem;
   color: var(--green);
 }
@@ -235,7 +232,7 @@
 .chapter-lab .waveform-canvas-area { padding: 1.5rem; border-right: 1px solid var(--border); }
 
 .chapter-lab .canvas-label {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--text-faint);
   letter-spacing: 0.1em;
@@ -258,7 +255,7 @@
 .chapter-lab .axis-label-y {
   position: absolute;
   left: 6px;
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.5rem;
   color: var(--text-faint);
   z-index: 1;
@@ -283,7 +280,7 @@
   border-radius: 4px;
   cursor: pointer;
   text-align: center;
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--text-dim);
   letter-spacing: 0.06em;
@@ -309,7 +306,7 @@
 .chapter-lab .param-label {
   display: flex;
   justify-content: space-between;
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--text-dim);
   letter-spacing: 0.06em;
@@ -347,7 +344,7 @@
 .chapter-lab .meter-block { display: flex; flex-direction: column; gap: 0.6rem; }
 
 .chapter-lab .meter-label {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--text-dim);
   letter-spacing: 0.1em;
@@ -368,7 +365,7 @@
 
 .chapter-lab .vu-legend { display: flex; gap: 0.5rem; margin-top: 0.25rem; }
 
-.chapter-lab .vu-legend-item { font-family: var(--mono); font-size: 0.5rem; letter-spacing: 0.04em; }
+.chapter-lab .vu-legend-item { font-family: var(--font-mono); font-size: 0.5rem; letter-spacing: 0.04em; }
 
 .chapter-lab .vu-legend-item.green { color: var(--green); }
 
@@ -383,7 +380,7 @@
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 0.75rem;
-  font-family: var(--mono);
+  font-family: var(--font-mono);
 }
 
 .chapter-lab .freq-big { font-size: 1.5rem; color: var(--green); font-weight: 500; letter-spacing: 0.02em; }
@@ -464,7 +461,7 @@
   border: 1px solid var(--border);
   border-radius: 3px;
   padding: 0.1rem 0.4rem;
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--text-dim);
 }
@@ -490,6 +487,18 @@
 .chapter-lab .eq-main {
   padding: 1.25rem;
   border-right: 1px solid var(--border);
+}
+
+/* Test Bench / Ear Training mode tabs — app-wide standard Tabs
+   (components/Tabs, segmented); re-skinned via tokens only. */
+.chapter-lab .eq-mode-tabs {
+  --tabs-track-bg: var(--black);
+  --tabs-track-border: var(--border);
+  --tabs-text: var(--text-dim);
+  --tabs-text-active: var(--text);
+  --tabs-font: var(--font-mono);
+  --tabs-font-size: 0.62rem;
+  --tabs-letter-spacing: 0.06em;
 }
 
 /* Instrument / upload tab row — slim themed scrollbar instead of the
@@ -541,7 +550,7 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--text-dim);
 }
@@ -569,7 +578,7 @@
 }
 
 .chapter-lab .eq-band-label {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.5rem;
   color: var(--text-faint);
   text-align: center;
@@ -603,7 +612,7 @@
 .chapter-lab .eq-fader-thumb:hover { background: var(--blue-bright); }
 
 .chapter-lab .eq-gain-val {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.55rem;
   color: var(--blue);
   min-height: 14px;
@@ -650,13 +659,13 @@
 }
 
 .chapter-lab .score-num {
-  font-family: var(--display);
+  font-family: var(--font-sans);
   font-size: 1.1rem;
   font-weight: 700;
 }
 
 .chapter-lab .score-lbl {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.45rem;
   color: var(--text-faint);
   letter-spacing: 0.08em;
@@ -664,7 +673,7 @@
 }
 
 .chapter-lab .score-label {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--text-dim);
   letter-spacing: 0.08em;
@@ -682,7 +691,7 @@
 }
 
 .chapter-lab .band-name {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.55rem;
   color: var(--text-dim);
   width: 48px;
@@ -704,7 +713,7 @@
 }
 
 .chapter-lab .band-diff {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.55rem;
   width: 34px;
   text-align: right;
@@ -731,7 +740,7 @@
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-dim);
-  font-family: var(--display);
+  font-family: var(--font-sans);
   font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
@@ -746,7 +755,7 @@
   border: none;
   border-radius: 4px;
   color: var(--black);
-  font-family: var(--display);
+  font-family: var(--font-sans);
   font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
@@ -766,7 +775,7 @@
   border: 1px solid var(--amber-glow);
   border-radius: 3px;
   padding: 0.25rem 0.6rem;
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--amber);
   letter-spacing: 0.08em;
@@ -828,7 +837,7 @@
 .chapter-lab .big-knob:active { border-color: var(--purple); box-shadow: 0 0 12px rgba(var(--purple-rgb),0.3); }
 
 .chapter-lab .knob-name {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--text-dim);
   letter-spacing: 0.08em;
@@ -837,7 +846,7 @@
 }
 
 .chapter-lab .knob-val {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.7rem;
   color: var(--purple);
 }
@@ -850,7 +859,7 @@
   border: 1px solid var(--border);
   border-radius: 3px;
   color: var(--text);
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.55rem;
   text-align: center;
   padding: 0.1rem 0.15rem;
@@ -872,7 +881,7 @@
   border: 1px solid var(--border);
   border-radius: 3px;
   background: var(--surface);
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--text-dim);
   cursor: pointer;
@@ -911,7 +920,7 @@
 }
 
 .chapter-lab .compare-lbl {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.55rem;
   color: var(--text-faint);
   width: 28px;
@@ -964,7 +973,7 @@
 }
 
 .chapter-lab .gr-meter-lbl, .chapter-lab .gr-meter-val, .chapter-lab .gr-meter-unit {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.55rem;
   color: var(--text-dim);
   white-space: nowrap;
@@ -1104,11 +1113,11 @@
 
 .chapter-lab .sat-type-btn:hover:not(.active) { border-color: var(--border-bright); }
 
-.chapter-lab .sat-type-name { font-family: var(--mono); font-size: 0.6rem; color: var(--text-dim); letter-spacing: 0.04em; }
+.chapter-lab .sat-type-name { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-dim); letter-spacing: 0.04em; }
 
 .chapter-lab .sat-type-btn.active .sat-type-name { color: var(--sat); }
 
-.chapter-lab .sat-type-desc { font-family: var(--mono); font-size: 0.45rem; color: var(--text-faint); margin-top: 0.15rem; }
+.chapter-lab .sat-type-desc { font-family: var(--font-mono); font-size: 0.45rem; color: var(--text-faint); margin-top: 0.15rem; }
 
 /* Transfer curve canvas container */
 
@@ -1138,7 +1147,7 @@
 }
 
 .chapter-lab .io-meter-label {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.55rem;
   color: var(--text-faint);
   letter-spacing: 0.06em;
@@ -1192,7 +1201,7 @@
 }
 
 .chapter-lab .harmonic-label {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.5rem;
   color: var(--text-faint);
 }
@@ -1271,7 +1280,7 @@
 .chapter-lab .t-btn.active { background: var(--red-dim); border-color: var(--red); color: var(--red); }
 
 .chapter-lab .time-display {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 1rem;
   color: var(--green);
   letter-spacing: 0.1em;
@@ -1282,7 +1291,7 @@
 }
 
 .chapter-lab .bpm-display {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.75rem;
   color: var(--text-dim);
   background: var(--black);
@@ -1326,7 +1335,7 @@
 .chapter-lab .channel-strip.selected { border-color: var(--blue); box-shadow: 0 0 12px rgba(var(--blue-rgb),0.15); }
 
 .chapter-lab .channel-name {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--text-dim);
   letter-spacing: 0.06em;
@@ -1343,7 +1352,7 @@
   border-radius: 2px;
   border: 1px solid var(--border);
   background: var(--console);
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.45rem;
   color: var(--text-faint);
   cursor: pointer;
@@ -1399,7 +1408,7 @@
 }
 
 .chapter-lab .pan-label {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.5rem;
   color: var(--text-faint);
 }
@@ -1432,7 +1441,7 @@
 .chapter-lab .channel-fader-thumb:hover { border-color: var(--amber); }
 
 .chapter-lab .db-val {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.55rem;
   color: var(--text-faint);
 }
@@ -1479,7 +1488,7 @@
 }
 
 .chapter-lab .master-label {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--amber);
   letter-spacing: 0.1em;
@@ -1506,7 +1515,7 @@
 .chapter-lab .master-col-fill { border-radius: 0; }
 
 .chapter-lab .loudness-label {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--text-faint);
   text-align: center;
@@ -1584,7 +1593,7 @@
 }
 
 .chapter-lab .room-preset-name {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.55rem;
   color: var(--text-dim);
   letter-spacing: 0.04em;
@@ -1623,7 +1632,7 @@
 .chapter-lab .decay-readout {
   display: flex;
   justify-content: space-between;
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--text-dim);
 }
@@ -1671,7 +1680,7 @@
 .chapter-lab .hdelay-right { padding: 1.25rem; }
 
 .chapter-lab .subsection-label {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--text-dim);
   letter-spacing: 0.1em;
@@ -1713,7 +1722,7 @@
 .chapter-lab .tap-bar-label {
   position: absolute;
   bottom: 6px;
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.5rem;
   color: var(--text-faint);
   transform: translateX(-50%);
@@ -1744,7 +1753,7 @@
   border: 1px solid var(--border);
   border-radius: 3px;
   text-align: center;
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--text-dim);
   cursor: pointer;
@@ -1776,7 +1785,7 @@
 }
 
 .chapter-lab .faust-group-title {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1799,7 +1808,7 @@
   border-radius: 4px;
   background: var(--console);
   color: var(--text-dim);
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   letter-spacing: 0.04em;
   cursor: pointer;
@@ -1919,7 +1928,7 @@
 
 .chapter-lab .compass-label {
   position: absolute;
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.5rem;
   color: var(--text-faint);
   pointer-events: none;
@@ -1960,9 +1969,9 @@
 
 .chapter-lab .source-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
 
-.chapter-lab .source-item-name { font-family: var(--mono); font-size: 0.65rem; color: var(--text-dim); flex: 1; }
+.chapter-lab .source-item-name { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-dim); flex: 1; }
 
-.chapter-lab .source-item-pos { font-family: var(--mono); font-size: 0.6rem;  color: var(--text-faint); }
+.chapter-lab .source-item-pos { font-family: var(--font-mono); font-size: 0.6rem;  color: var(--text-faint); }
 
 /* Right panel */
 
@@ -1976,7 +1985,7 @@
 .chapter-lab .param-block { display: flex; flex-direction: column; gap: 0.75rem; }
 
 .chapter-lab .param-block-title {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--text-dim);
   letter-spacing: 0.1em;
@@ -2000,7 +2009,7 @@
 .chapter-lab .ear-channel { display: flex; flex-direction: column; gap: 0.35rem; }
 
 .chapter-lab .ear-label {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.55rem;
   color: var(--text-faint);
   letter-spacing: 0.06em;
@@ -2031,7 +2040,7 @@
 .chapter-lab .reverb-param { display: flex; flex-direction: column; gap: 0.25rem; }
 
 .chapter-lab .reverb-param-label {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.55rem;
   color: var(--text-faint);
   letter-spacing: 0.06em;
@@ -2059,7 +2068,7 @@
 }
 
 .chapter-lab .reverb-param-val {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.55rem;
   color: var(--purple);
   text-align: right;

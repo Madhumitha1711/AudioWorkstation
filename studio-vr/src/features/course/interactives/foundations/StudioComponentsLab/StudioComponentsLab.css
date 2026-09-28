@@ -1,10 +1,15 @@
-/* StudioComponentsLab — ported from design/studio-components-chapter.html.
-   Chrome (panels, borders, text) uses the course theme tokens defined on
-   .svr-course (CoursePage.css) so it follows light/dark automatically. The
-   only lab-specific colors are the four per-section accents below; each
-   section/detail pane sets --c from one of them via .scl-tone-*. Light
-   values are darker so they keep contrast on white, same pairs as the
-   mockup's [data-theme="light"] block. */
+/* StudioComponentsLab — "Key Elements of the Recording Space", horizontal
+   layout (design/studio-components-tabs.html).
+
+   Type: global --font-sans only (inherited; nothing here sets a family).
+   Chrome: course theme tokens on .svr-course (--panel, --border-soft,
+   --text-dim…) so light/dark follows ThemeContext.
+   Navigation colour: ONLY the theme primary / secondary (--brand-accent,
+   --brand-accent-2) and neutral text tokens. Both tab bars are the
+   standard components/Tabs, untouched — this file styles only what's
+   rendered INSIDE a tab (renderTab) and the pager.
+   Content accent: each section's --c (via .scl-tone-*) tints the photo
+   placeholder — never navigation. */
 
 .scl {
   --scl-amber: #e8934a;
@@ -12,7 +17,6 @@
   --scl-blue: #6fa8e0;
   --scl-purple: #a78bfa;
   --scl-well: rgba(0, 0, 0, 0.25);
-  --scl-row: rgba(255, 255, 255, 0.03);
 }
 :root[data-theme='light'] .scl {
   --scl-amber: #c96f24;
@@ -20,17 +24,12 @@
   --scl-blue: #2f72b8;
   --scl-purple: #6d4fd6;
   --scl-well: rgba(var(--ink-tint-rgb), 0.05);
-  --scl-row: rgba(var(--ink-tint-rgb), 0.03);
 }
 .scl-tone-amber { --c: var(--scl-amber); }
 .scl-tone-green { --c: var(--scl-green); }
 .scl-tone-blue { --c: var(--scl-blue); }
 .scl-tone-purple { --c: var(--scl-purple); }
 
-/* The mockup had a global `* { box-sizing: border-box }`; the app doesn't,
-   so without this the detail pane's `max-height: 100%` capped only its
-   content box and its padding + borders (~44px) spilled out below the lab,
-   under the course page's Previous/Next row. */
 .scl,
 .scl *,
 .scl *::before,
@@ -38,137 +37,48 @@
 
 :where(.scl) button { font: inherit; color: inherit; }
 
-/* Desktop: list and detail scroll independently inside a bounded height,
-   the in-column equivalent of the mockup's full-viewport layout. */
-.scl-layout {
-  display: grid;
-  /* Slim list column so the detail pane gets most of the width. */
-  grid-template-columns: 236px minmax(0, 1fr);
-  gap: 14px;
-  height: min(820px, 84vh);
-  min-height: 480px;
-}
-
-/* ---------- left: section list ---------- */
-.scl-nav {
-  overflow: auto;
-  min-height: 0;
+/* ---------- row 1: area tab content ---------- */
+.scl-area {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding-right: 2px;
+  align-items: flex-start;
+  gap: 3px;
+  text-align: left;
 }
-.scl-sec-wrap { display: flex; flex-direction: column; gap: 8px; }
-.scl-room-label {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  letter-spacing: 0.16em;
+.scl-area-room {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-dimmer);
-  margin: 6px 4px 0;
+  transition: color var(--motion-medium, 260ms) var(--motion-ease-out, ease);
 }
-.scl-sec {
-  background: var(--panel);
-  border: 1px solid var(--border-soft);
-  border-left: 3px solid var(--c);
-  border-radius: 10px;
-}
-.scl-sec-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 9px 10px;
-  background: none;
-  border: 0;
-  cursor: pointer;
-  text-align: left;
-  border-radius: 10px;
-}
-.scl-sec-head:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
-.scl-sec-n { font-family: var(--mono); font-size: 11px; color: var(--c); }
-.scl-sec-t { flex: 1; font-weight: 600; font-size: 13.5px; color: var(--text); }
-.scl-sec-count { font-size: 11.5px; color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
-.scl-chev { width: 16px; height: 16px; color: var(--text-dimmer); transition: transform 0.2s; flex: none; }
-.scl-sec.is-open .scl-chev { transform: rotate(180deg); color: var(--c); }
+.ui-tabs__tab.is-active .scl-area-room { color: var(--brand-accent); }
 
-.scl-items { display: flex; flex-direction: column; gap: 2px; padding: 0 6px 6px; }
-.scl-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  text-align: left;
-  padding: 6px 6px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  background: none;
-  cursor: pointer;
-  font-size: 13px;
-  line-height: 1.3;
-  color: var(--text-dim);
-}
-.scl-item:hover { background: var(--panel-hover); color: var(--text); }
-.scl-item:focus-visible { outline: 2px solid var(--c); outline-offset: 1px; }
-.scl-item[aria-current='true'] {
-  background: var(--scl-row);
-  border-color: var(--c);
-  color: var(--text);
-  font-weight: 500;
-}
-.scl-item-name { flex: 1; min-width: 0; }
-.scl-ic {
-  width: 24px;
-  height: 24px;
-  flex: none;
-  border-radius: 7px;
-  background: var(--scl-well);
-  border: 1px solid var(--border-soft);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--c);
-}
-.scl-ic svg { width: 15px; height: 15px; }
-.scl-seen {
-  flex: none;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--c);
-  opacity: 0.7;
-}
+/* ---------- row 2: component bar ---------- */
+.scl-rail { margin-top: 18px; }
+.scl-rail-ic { width: 14px; height: 14px; flex: none; }
 
-/* ---------- right: detail pane ---------- */
-.scl-detail {
-  background: var(--panel);
-  border: 1px solid var(--border-soft);
-  border-top: 3px solid var(--c);
-  border-radius: 14px;
-  min-height: 0;
-  max-height: 100%;
-  align-self: start;
-  overflow: auto;
+/* ---------- row 3: panel ---------- */
+.scl-panel { padding-top: 24px; }
+.scl-grid {
   display: grid;
-  /* Always one column: photo banner on top, copy underneath at full
-     pane width. */
+  /* One column: photo on top, copy underneath (same stacking as the
+     Foundations BriefingTabs). */
   grid-template-columns: minmax(0, 1fr);
-  gap: 20px;
-  padding: 20px 24px;
-  align-content: start;
+  gap: 24px;
 }
-.scl-media { display: flex; flex-direction: column; gap: 10px; }
+.scl-media { margin: 0; }
 .scl-frame {
   position: relative;
-  /* Banner crop rather than 16:10 so the photo doesn't push the copy
-     below the fold on wide panes. */
-  height: clamp(180px, 26vw, 340px);
-  border-radius: 10px;
+  aspect-ratio: 16 / 9;
+  max-height: 440px;
+  width: 100%;
+  border-radius: 12px;
   overflow: hidden;
   background: var(--scl-well);
-  border: 1px solid var(--border-soft);
 }
-.scl-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.scl-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 .scl-ph {
   position: absolute;
   inset: 0;
@@ -176,95 +86,81 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
+  padding: 16px;
+  text-align: center;
   color: var(--c);
-  background: repeating-linear-gradient(45deg, transparent 0 12px, color-mix(in srgb, var(--c) 6%, transparent) 12px 24px);
+  border: 1.5px dashed var(--border);
+  border-radius: 12px;
+  background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--c) 9%, transparent), transparent 70%);
 }
-.scl-ph svg { width: 56px; height: 56px; opacity: 0.85; }
-.scl-ph span { font-family: var(--mono); font-size: 11px; color: var(--text-dimmer); }
-.scl-caption { font-size: 12px; color: var(--text-dimmer); }
-
-.scl-pager { display: flex; gap: 8px; padding-top: 16px; border-top: 1px solid var(--border-soft); }
-.scl-pager button {
-  flex: 1;
-  min-width: 0;
-  padding: 9px 12px;
-  border-radius: 9px;
-  border: 1px solid var(--border-soft);
-  background: var(--scl-row);
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--text-dim);
-  text-align: left;
-}
-.scl-pager button:last-child { text-align: right; }
-.scl-pager button:hover:not(:disabled) { color: var(--text); border-color: var(--c); }
-.scl-pager button:focus-visible { outline: 2px solid var(--c); outline-offset: 1px; }
-.scl-pager button:disabled { opacity: 0.4; cursor: default; }
-.scl-pager small {
-  display: block;
-  font-size: 10.5px;
-  color: var(--text-dimmer);
-  font-family: var(--mono);
-  letter-spacing: 0.08em;
-}
+.scl-ph svg { width: 56px; height: 56px; opacity: 0.9; }
+.scl-ph span { font-size: 12px; color: var(--text-dimmer); }
+.scl-caption { margin-top: 10px; font-size: 13px; color: var(--text-dimmer); }
 
 .scl-text { min-width: 0; }
 .scl-title {
-  font-family: var(--heading);
   font-size: 24px;
   font-weight: 600;
-  margin: 0 0 8px;
   line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
   color: var(--text);
 }
-.scl-lead { font-size: 15px; color: var(--text); line-height: 1.55; margin: 0 0 14px; }
-.scl-body { font-size: 14px; line-height: 1.7; color: var(--text-dim); margin: 0 0 12px; }
+.scl-lead { font-size: 16px; line-height: 1.6; color: var(--text); margin: 0 0 14px; }
+.scl-body { font-size: 15px; line-height: 1.7; color: var(--text-dim); margin: 0 0 12px; }
 .scl-body strong { color: var(--text); font-weight: 600; }
-.scl-kp {
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  font-weight: 500;
-  margin: 18px 0 8px;
-}
-.scl-points { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.scl-points li {
-  font-size: 13.5px;
-  line-height: 1.5;
-  padding: 9px 12px;
-  border-radius: 8px;
-  background: var(--scl-row);
-  border: 1px solid var(--border-soft);
+
+
+/* ---------- row 4: pager (navigation → primary / secondary only) ---------- */
+.scl-pager {
   display: flex;
-  gap: 10px;
+  gap: 12px;
+  margin-top: 28px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.scl-pager button {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 14px;
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-dim);
+  transition:
+    color var(--motion-fast, 180ms) ease,
+    border-color var(--motion-fast, 180ms) ease,
+    background var(--motion-fast, 180ms) ease;
+}
+.scl-pager button:last-child { align-items: flex-end; text-align: right; }
+.scl-pager small {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dimmer);
+  transition: color var(--motion-fast, 180ms) ease;
+}
+.scl-pager button:hover:not(:disabled) {
   color: var(--text);
+  background: var(--panel-hover);
+  border-color: color-mix(in srgb, var(--brand-accent-2) 60%, transparent);
 }
-.scl-points li::before {
-  content: '';
-  flex: none;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--c);
-  margin-top: 7px;
-}
+.scl-pager button:hover:not(:disabled) small { color: var(--brand-accent); }
+.scl-pager button:focus-visible { outline: 2px solid var(--brand-accent); outline-offset: 2px; }
+.scl-pager button:disabled { opacity: 0.4; cursor: default; }
+.scl-pager-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.scl-fade { animation: scl-fade 0.2s ease; }
-@keyframes scl-fade {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: none; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .scl-fade { animation: none; }
-}
-
-/* The course content column is narrower than the mockup's viewport, so the
-   breakpoints sit a bit higher. */
 @media (max-width: 860px) {
-  .scl-layout { display: flex; flex-direction: column; height: auto; min-height: 0; }
-  .scl-nav, .scl-detail { overflow: visible; max-height: none; }
-  .scl-detail { padding: 16px; }
+  .scl-grid { gap: 20px; }
+  .scl-title { font-size: 21px; }
 }

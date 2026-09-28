@@ -2,11 +2,8 @@
    The mockup's own 3D overlay has been dropped entirely (see the "remove
    3D" request this replaced) — everything below is the "stage + sidebar"
    view from that file, scoped under .sslab so it can sit alongside the
-   rest of the course's styling without colliding with it. Same font stack
-   the other chapters already load via chapters.css (Space Grotesk /
-   Inter / JetBrains Mono) — imported again here so this component doesn't
-   depend on load order. */
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+   rest of the course's styling without colliding with it. Fonts come from
+   the global --font-sans / --font-mono tokens (src/index.css). */
 
 .sslab {
   --sslab-bg: #0b0a08;
@@ -49,11 +46,11 @@
   border-radius: 16px;
   border: 1px solid var(--sslab-border-soft);
   overflow: hidden;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .sslab .mono {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 /* ---------- header ---------- */
@@ -82,14 +79,14 @@
   padding-top: 2px;
 }
 .sslab-eyebrow {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.18em;
   color: var(--sslab-green);
   margin-bottom: 8px;
 }
 .sslab-title {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 24px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -112,7 +109,7 @@
   padding: 16px 28px 4px;
 }
 .sslab-chip {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   padding: 7px 12px;
   border-radius: 999px;
@@ -200,7 +197,7 @@
   padding: 13px 15px;
 }
 .sslab-readout-label {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.12em;
   color: var(--sslab-text-dim);
@@ -230,7 +227,7 @@
   left: 50%;
 }
 .sslab-readout-value {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 14px;
   margin-top: 10px;
   color: var(--sslab-text);
@@ -251,7 +248,7 @@
   gap: 24px;
 }
 .sslab-section-title {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.14em;
   color: var(--sslab-text-dim);
@@ -282,7 +279,7 @@
   margin-bottom: 9px;
 }
 .sslab-control-label .val {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   color: var(--sslab-amber);
 }
@@ -365,7 +362,7 @@
 }
 
 .sslab-mini-btn {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.06em;
   padding: 7px 12px;
@@ -415,7 +412,7 @@
   border: 1px solid var(--sslab-border);
   background: var(--sslab-panel);
   color: var(--sslab-text-dim);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.08em;
   cursor: pointer;
@@ -459,7 +456,7 @@
   flex-shrink: 0;
 }
 .sslab-try-it-title {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 14.5px;
   font-weight: 600;
   color: var(--sslab-text);
@@ -472,7 +469,7 @@
   line-height: 1.5;
 }
 .sslab-audio-btn {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.08em;
   padding: 12px 20px;
@@ -493,7 +490,7 @@
   color: var(--sslab-ink);
 }
 .sslab-link-btn {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.04em;
   background: none;

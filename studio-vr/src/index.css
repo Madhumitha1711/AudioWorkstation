@@ -41,11 +41,34 @@
   --ink-tint-rgb: 4, 20, 12;
   --page-tint-rgb: 246, 248, 246;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  /* ---- Typography: the ONE place font families are defined ----
+     Inter for all text (body, headings, UI), JetBrains Mono only for
+     numeric readouts / timecodes / code. Both are loaded once in
+     index.html. Component CSS must use var(--font-sans) / var(--font-mono)
+     (or just inherit) — never a literal family name. See CLAUDE.md,
+     "Typography". The short names below are aliases kept so existing
+     var(--sans)/var(--heading)/var(--mono)/var(--display)/var(--body)
+     usages resolve to the same two families. */
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: var(--font-sans);
+  --heading: var(--font-sans);
+  --display: var(--font-sans);
+  --body: var(--font-sans);
+  --mono: var(--font-mono);
 
-  font: 18px/145% var(--sans);
+  /* ---- Motion: shared timing for the standard Tabs component
+     (src/components/Tabs) and any other UI transition that should feel
+     the same. See CLAUDE.md, "Tabs standard". ---- */
+  /* ease-out-expo: fast start, long soft settle — reads as "smooth". */
+  --motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-fast: 180ms;
+  --motion-medium: 260ms;
+  --motion-tab-duration: 480ms;
+  --motion-panel-duration: 440ms;
+  --motion-panel-shift: 10px;
+
+  font: 18px/145% var(--font-sans);
   letter-spacing: 0.18px;
   color-scheme: dark;
   color: var(--text);
@@ -119,9 +142,25 @@ body {
   height: 100%;
 }
 
+/* Form controls don't inherit font by default — make every button/input
+   use the global family so no component has to re-declare it. */
+button,
+input,
+select,
+textarea,
+optgroup {
+  font-family: inherit;
+}
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-mono);
+}
+
 h1,
 h2 {
-  font-family: var(--heading);
+  font-family: var(--font-sans);
   font-weight: 500;
 }
 
@@ -149,7 +188,7 @@ p {
 
 code,
 .counter {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   display: inline-flex;
   border-radius: 4px;
   color: var(--text-h);

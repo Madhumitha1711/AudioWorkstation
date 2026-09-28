@@ -10,7 +10,7 @@
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--shell-border-soft);
-  font-family: var(--sans, sans-serif);
+  font-family: var(--font-sans);
   color: var(--shell-text);
   position: relative;
   z-index: 10;

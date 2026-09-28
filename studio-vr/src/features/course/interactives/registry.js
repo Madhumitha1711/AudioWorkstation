@@ -17,14 +17,13 @@ import PhaseLab from "./sound/PhaseLab";
 import HarmonicsLab from "./sound/HarmonicsLab";
 import TimbreLab from "./sound/TimbreLab";
 import MicTypeLab from "./microphones/MicTypeLab";
-import MicTypeCompareLab from "./microphones/MicTypeCompareLab";
 import MicPolarPatternLab from "./microphones/MicPolarPatternLab";
-import MicPolarCompareLab from "./microphones/MicPolarCompareLab";
 import MicSelectionLab from "./microphones/MicSelectionLab";
 import MicPlacementLab from "./microphones/MicPlacementLab";
 import MicTechniqueLab from "./mic-techniques/MicTechniqueLab";
 import StudioComponentsLab from "./foundations/StudioComponentsLab";
 import StudioTypesLab from "./foundations/StudioTypesLab";
+import StudioRoomsLab from "./foundations/StudioRoomsLab";
 import CriticalListeningLab from "./listening/CriticalListeningLab";
 import HearingAgeLab from "./listening/HearingAgeLab";
 import StudioAcousticsLab from "./acoustics/StudioAcousticsLab";
@@ -52,31 +51,22 @@ export const LABS = {
   // once that chapter is built out there; these are ready to be wired in
   // by `kind` at that point.
   //
-  // mic-type-lab is image + interaction only (type picker, portrait,
-  // listen panel, no prose); mic-type-compare-lab is the three-column
-  // spec-comparison view, image plus a short clean summary sentence per
-  // type (MIC_TYPES[].summary in micLabShared.js) instead of the full
-  // paragraphs.
+  // mic-type-lab uses the shared ListenTabs layout (as the chapter 5
+  // acoustics labs do): one tab per mic type, photo | Listen card with a
+  // source picker, description below.
   //
   // mic-selection-lab ("Pick the mic for the job", ported from
   // design/mic-selection-lab.html) is its own component again: the student
   // answers source / loudness / room / desired sound, all five mic families
   // are re-scored live, and the lab explains the pick ("Why this mic",
-  // ranked fit for all five, "Why not the others") plus the six factors
-  // behind any mic choice. It used to just alias MicTypeLab.
+  // ranked fit for all five, "Why not the others"). It used to just alias
+  // MicTypeLab.
   //
-  // mic-polar-pattern-lab/mic-polar-compare-lab are the same browse/
-  // compare pairing applied to polar patterns instead of mic types, and
-  // share mic-type-lab's/mic-type-compare-lab's visual design (room-toggle
-  // picker, comparison grid). The one deliberate difference: mic-polar-
-  // compare-lab has no dropdown in its columns — POLAR_PATTERNS in
-  // micLabShared.js only ever has three entries, so "compare" always means
-  // all three at once, fixed, rather than picking which ones out of a
-  // larger set the way mic-type-compare-lab's five types do.
+  // mic-polar-pattern-lab uses the same ListenTabs layout: one tab per
+  // polar pattern, the interactive polar diagram | Listen card (position
+  // readout, source picker), description below.
   "mic-type-lab": MicTypeLab,
-  "mic-type-compare-lab": MicTypeCompareLab,
   "mic-polar-pattern-lab": MicPolarPatternLab,
-  "mic-polar-compare-lab": MicPolarCompareLab,
   "mic-selection-lab": MicSelectionLab,
   // "Placement" subchapter — a 3D room (src/features/course/interactives/microphones/MicPlacementLab/MikingRoom) instead of
   // the 2D layouts the other mic-stand labs use above; MicPlacementLab is
@@ -92,12 +82,20 @@ export const LABS = {
   "mic-technique-lab": MicTechniqueLab,
   // "Studio Components" briefing (Foundations, alongside chapter 2
   // courseData.js TOPICS[id="the-studio"]) — ported from
-  // design/studio-components-chapter.html: a master/detail browser of the
-  // 16 components across Control Room / Recording Room × Electronic /
-  // Non-electronic. Content only, no audio. Same "ready ahead of
+  // design/studio-components-tabs.html ("Key Elements of the Recording
+  // Space"): area tabs → component tabs → detail panel, all on the standard
+  // Tabs, for the 16 components across Control Room / Recording Room ×
+  // Electronic / Non-electronic. Content only, no audio. Same "ready ahead of
   // studio-cms content" status as the mic labs above — reference this
   // kind from the-studio's interactive block in studio-cms.
   "studio-components-lab": StudioComponentsLab,
+  // Same chapter 2 — "Recording Room / Control Room": two tabs, each an
+  // image (placeholder until public/studio-rooms/<id>.jpg exists) over the
+  // room's description. Shares its layout with studio-types-lab via
+  // foundations/shared/BriefingTabs. Mapped from courseData.js's
+  // the-studio topic; reference this kind from that chapter's interactive
+  // block in studio-cms too.
+  "studio-rooms-lab": StudioRoomsLab,
   // "Types of Studios and Audio Workspaces" (Foundations, chapter 3,
   // courseData.js TOPICS[id="studio-types"]) — ported from
   // design/studio-types-tabs.html: six switchable tabs (Commercial, Home &
@@ -111,11 +109,11 @@ export const LABS = {
   // "Listening Skills, Hearing Health, and Critical Listening" (Foundations,
   // chapter 4, courseData.js TOPICS[id="listening-skills"]) — ported from
   // design/critical-listening-lab-1.html: "Spot the problem" ear training.
-  // A Train tab (8-question A/B quiz, Beginner/Intermediate/Pro) and a
-  // Problem library tab (15 problems across Frequency / Dynamics /
-  // Distortion / Noise / Stereo & phase / Space & time). All audio is real
-  // recordings played as-is — a clean/problem pair per problem from
-  // public/audio/critical-listening/, no processing — with its own
+  // Beginner / Intermediate / Pro tabs: a recorded clip with one (Beginner)
+  // or several (Intermediate, Pro) problems on top, the full list of 15
+  // problems with descriptions below; find them all and the clean take
+  // plays. All audio is real recordings played as-is — clean/problem pairs
+  // from public/audio/critical-listening/, no processing — with its own
   // AudioContext, not spatialAudioEngine. Reference this kind
   // from the listening-skills chapter's interactive block in studio-cms.
   "critical-listening-lab": CriticalListeningLab,
@@ -133,13 +131,13 @@ export const LABS = {
   // "Studio Acoustics and Room Treatment" (Room & Acoustics, chapter 5,
   // courseData.js TOPICS[id="diffuser-panel"]) — two companion labs ported
   // from design/studio-acoustics-rooms.html ("Same source, different
-  // rooms": booth / treated room / bedroom / bathroom / hall, plus a blind
-  // "Guess the room" test) and design/room-treatment.html ("Same room, step
+  // rooms": booth / treated room / bedroom / bathroom / hall) and
+  // design/room-treatment.html ("Same room, step
   // by step": bare → absorption → bass traps → diffusers → fully treated,
-  // with a top-down plan per step and an over-foamed experiment). Plain
-  // playback of recorded files — public/audio/studio-acoustics/<room>.wav
-  // and public/audio/room-treatment/<step>.wav — with an "Audio coming
-  // soon" placeholder per card until each file exists.
+  // plus an over-foamed experiment). Both are horizontal standard tabs (one
+  // per room / step) with an image and a player side by side and the
+  // description below. Plain playback of public/audio/<lab>/<id>.wav, images
+  // from public/<lab>/<id>.jpg — placeholders until each file exists.
   "studio-acoustics-lab": StudioAcousticsLab,
   "room-treatment-lab": RoomTreatmentLab,
 };

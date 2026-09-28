@@ -3,6 +3,7 @@ import "../../shared/labs.css";
 import { useLabAudio } from "../../shared/useLabAudio";
 import { useTheme } from "../../../../../theme/ThemeContext";
 import { hiDpiCanvas, scopePalette } from "../../shared/soundLabShared";
+import { canvasFont } from "../../../../../theme/fonts";
 
 // Ported from design/what-is-sound-chapter.html's "06 HARMONICS" panel: a
 // draggable knob (pointer events, matching the mockup's harmKnob handler)
@@ -44,7 +45,7 @@ function drawSpectrum(canvas, levels, harmCount, theme = "dark") {
     c.fillStyle = i === 0 ? pal.colors.amber : i <= harmCount ? pal.colors.green : pal.grid;
     c.fillRect(x, h - 24 - bh, bw, bh);
     c.fillStyle = pal.colors.label;
-    c.font = "bold 11px monospace";
+    c.font = canvasFont(11, { weight: 700, mono: true });
     c.textAlign = "center";
     c.fillText(i === 0 ? "f" : `${i + 1}f`, x + bw / 2, h - 8);
   }

@@ -5,28 +5,25 @@
 // the panorama's spatial mix.
 //
 // NO PROCESSING. Every problem has two real recordings (see
-// clipPaths() in criticalListeningData.js):
-//   A = the clean take, B = the same material with the problem in it.
+// LEVELS in criticalListeningData.js):
+//   A = the clean take, B = the same material with the problem(s) in it.
 // Both are played exactly as recorded. The engine only decodes them, starts
 // them together and crossfades between them:
 //
 //   srcA ─► gA ─┐
-//               ├─► analyser ─► destination
-//   srcB ─► gB ─┘      └─► splitter ─► anL / anR (meters)
-//
-// The analysers only *measure* the output for the spectrum / L/R meters;
-// nothing in the graph changes the sound.
+//               ├─► destination
+//   srcB ─► gB ─┘
 //
 // A/B switching only crossfades gA/gB, so both recordings stay
-// sample-aligned and the student hears the difference instantly with no
-// restart — that instant flip is the whole point of the exercise, so don't
-// change A/B to swap buffers or restart the sources. For this to work the
+// sample-aligned and the flip from problem to clean (when the student has
+// found every problem) is instant with no restart — don't change A/B to
+// swap buffers or restart the sources. For this to work the
 // clean and problem files of a pair should be the same length and start on
 // the same sample; if their lengths differ, both loop at the shorter one.
 
 export function createListeningEngine() {
   const E = {
-    ctx: null, an: null, anL: null, anR: null,
+    ctx: null,
     srcA: null, srcB: null, gA: null, gB: null,
     side: "A", gen: 0, readyPromise: null,
     // Decoded recordings, keyed by URL. Promise<AudioBuffer|null> so two
@@ -34,7 +31,7 @@ export function createListeningEngine() {
     clips: new Map(),
   };
 
-  // Lazily builds the context and analysers. Resolves false if close() ran
+  // Lazily builds the context. Resolves false if close() ran
   // while it was waiting (unmount) so the caller knows not to start().
   // close() resets everything, so the same engine can be reopened
   // afterwards — needed for React StrictMode's dev-only remount.
@@ -43,18 +40,7 @@ export function createListeningEngine() {
     if (!E.readyPromise) {
       E.readyPromise = (async () => {
         const Ctx = window.AudioContext || window.webkitAudioContext;
-        const c = (E.ctx = new Ctx());
-        E.an = c.createAnalyser();
-        E.an.fftSize = 4096;
-        E.an.smoothingTimeConstant = 0.82;
-        const sp = c.createChannelSplitter(2);
-        E.anL = c.createAnalyser();
-        E.anR = c.createAnalyser();
-        E.anL.fftSize = E.anR.fftSize = 1024;
-        E.an.connect(c.destination);
-        E.an.connect(sp);
-        sp.connect(E.anL, 0);
-        sp.connect(E.anR, 1);
+        E.ctx = new Ctx();
       })();
     }
     await E.readyPromise;
@@ -85,7 +71,7 @@ export function createListeningEngine() {
     return E.clips.get(url);
   }
 
-  // Decode a problem's A/B pair. Must be called after ensure() resolved.
+  // Decode a clip's A/B pair. Must be called after ensure() resolved.
   // Returns { a, b } AudioBuffers, or null if either recording is missing
   // (a failed load is forgotten so a later retry fetches it again).
   async function loadPair(clips) {
@@ -126,7 +112,7 @@ export function createListeningEngine() {
       s.loopEnd = loopEnd;
       const g = c.createGain();
       g.gain.value = gainVal;
-      s.connect(g).connect(E.an);
+      s.connect(g).connect(c.destination);
       return [s, g];
     };
     const [srcA, gA] = mk(pair.a, E.side === "A" ? 1 : 0);
@@ -155,7 +141,7 @@ export function createListeningEngine() {
     // Decoded buffers belong to the closed context's decode but are plain
     // data; drop them anyway so a remount starts clean.
     Object.assign(E, {
-      ctx: null, an: null, anL: null, anR: null, readyPromise: null,
+      ctx: null, readyPromise: null,
       srcA: null, srcB: null, clips: new Map(),
     });
   }
@@ -167,8 +153,5 @@ export function createListeningEngine() {
     stop,
     setSide,
     close,
-    isPlaying: () => !!E.srcA,
-    // For the spectrum/meter canvas: null until audio has been started once.
-    analysers: () => (E.ctx ? { an: E.an, anL: E.anL, anR: E.anR, sampleRate: E.ctx.sampleRate } : null),
   };
 }

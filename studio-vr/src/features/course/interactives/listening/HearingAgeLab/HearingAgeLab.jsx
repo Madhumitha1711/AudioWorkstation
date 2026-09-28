@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "../../shared/labs.css";
 import "./HearingAgeLab.css";
+import { Tabs, TabPanel } from "../../../../../components/Tabs";
 import { useLabAudio } from "../../shared/useLabAudio";
 import { Audiogram, AgeFamily } from "./HearingCharts";
 import {
@@ -69,6 +70,7 @@ const TABS = [
   ["results", "02 · Results"],
   ["scale", "03 · The scale"],
 ];
+const TAB_ITEMS = TABS.map(([id, label]) => ({ id, label }));
 const STEPS = ["Set up", "Top frequency", "Quietest sounds", "Done"];
 const PRECHECKS = [
   ["Wired headphones on", "Over-ear or in-ear. Laptop speakers can't play the highest tones cleanly."],
@@ -553,16 +555,21 @@ export default function HearingAgeLab({ onInteract }) {
       className={`lab hha${toneOn ? " hha-tone-playing" : ""}`}
       onKeyDown={onKeyDown}
     >
-      <div className="hha-tabs" role="tablist" aria-label="Hearing age check">
-        {TABS.map(([id, label]) => (
-          <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>
-            {label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        className="hha-tabs"
+        items={TAB_ITEMS}
+        value={tab}
+        onChange={setTab}
+        ariaLabel="Hearing age check"
+        idPrefix="hha"
+      />
+
+      {/* One animated container; the three sections stay mounted (hidden)
+          so test progress survives switching tabs. */}
+      <TabPanel value={tab} index={TAB_ITEMS.findIndex((t) => t.id === tab)} role="presentation" tabIndex={-1}>
 
       {/* ============================ TEST ============================ */}
-      <section role="tabpanel" hidden={tab !== "test"}>
+      <section role="tabpanel" id="hha-panel-test" aria-labelledby="hha-tab-test" hidden={tab !== "test"}>
         <div className="hha-stepper">
           {STEPS.map((s, i) => (
             <div key={s} className={i < step ? "done" : i === step ? "cur" : undefined}>
@@ -771,7 +778,7 @@ export default function HearingAgeLab({ onInteract }) {
       </section>
 
       {/* ============================ RESULTS ============================ */}
-      <section role="tabpanel" hidden={tab !== "results"}>
+      <section role="tabpanel" id="hha-panel-results" aria-labelledby="hha-tab-results" hidden={tab !== "results"}>
         {results ? (
           <ResultsView r={results} res={res} history={history} onRetake={retake} onAge={(v) => updateProfile(v, results.sex)} />
         ) : (
@@ -789,7 +796,7 @@ export default function HearingAgeLab({ onInteract }) {
       </section>
 
       {/* ============================ SCALE ============================ */}
-      <section role="tabpanel" hidden={tab !== "scale"}>
+      <section role="tabpanel" id="hha-panel-scale" aria-labelledby="hha-tab-scale" hidden={tab !== "scale"}>
         <div className="hha-panel">
           <p className="hha-label">The idea</p>
           <h3 className="hha-h2">Two ages, one pair of ears</h3>
@@ -877,6 +884,7 @@ export default function HearingAgeLab({ onInteract }) {
           </ol>
         </div>
       </section>
+      </TabPanel>
     </div>
   );
 }

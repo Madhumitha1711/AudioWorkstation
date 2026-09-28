@@ -185,37 +185,6 @@ export const FACTOR_TAG = {
   warmth: "Character", smooth: "Character", iso: "Isolation", punch: "Character",
 };
 
-/** "Why choose one mic over another?" — the six factors behind every pick. */
-export const FACTORS = [
-  {
-    tag: "Loudness", title: "Can it take the level?",
-    body: [["A kick drum or cranked amp can hit 130 dB+ at the grille. "], ["Dynamics", true], [" barely notice; sensitive "], ["condensers", true], [" may need a pad, and a "], ["ribbon", true], [" can be damaged by a blast of air."]],
-  },
-  {
-    tag: "Detail", title: "How much detail do you need?",
-    body: [["A lighter diaphragm follows air pressure faster. That’s why "], ["condensers", true], [" win on breath, finger noise, cymbal shimmer and acoustic transients, and dynamics sound a little rounder."]],
-  },
-  {
-    tag: "Room", title: "Do you want the room in it?",
-    body: [["A sensitive mic hears the room as clearly as the source. In an "], ["untreated room or on stage", true], [", a less sensitive, tight-pattern mic gives a cleaner take. In a "], ["treated studio", true], [", that sensitivity becomes an asset."]],
-  },
-  {
-    tag: "Pattern", title: "Where should it not listen?",
-    body: [["Cardioid", true], [" rejects the back (monitors, other players). "], ["Figure-8", true], [" rejects the sides and hears front and back. "], ["Omni", true], [" hears everything, sounds most natural and has no proximity effect."]],
-  },
-  {
-    tag: "Character", title: "What colour do you want?",
-    body: [["Neutral and detailed ("], ["FET condenser", true], ["), warm and flattering ("], ["tube", true], ["), smooth and dark ("], ["ribbon", true], ["), punchy midrange ("], ["dynamic", true], ["). Pick the mic whose colour moves the source toward the sound you want."]],
-  },
-  {
-    tag: "Practical", title: "Will it work on the day?",
-    body: [["Power (48 V phantom, tube PSU), fragility, size, handling noise and cost. A "], ["budget dynamic", true], [" that survives a stage beats an "], ["expensive tube mic", true], [" that can’t go on one."]],
-  },
-];
-
-export const TAKEAWAY =
-  "start from the source and the room, not the price tag. Choose the mic that solves your biggest problem first (level, spill or harshness), then choose for character.";
-
 /** public/audio/mic-selection/<mic>-<source>.mp3 — placeholder until recorded. */
 export const selectionAudioPath = (micId, sourceId) => `/audio/mic-selection/${micId}-${sourceId}.mp3`;
 

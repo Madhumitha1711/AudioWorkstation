@@ -3,6 +3,7 @@ import { FaustMonoDspGenerator } from '@grame/faustwasm';
 import { compileFaustWasm } from '../../audio/faust/faustTypes';
 import { downloadAudioBufferAsWav } from '../../audio/wavRender';
 import { DEFAULTS, ADDR, pushFaustParams, METER_FLOOR_DB, analyserPeakDb } from '../../audio/effects/deEsserEngine';
+import { canvasFont } from "../../theme/fonts";
 // ── Chapter 12 — De-Esser Studio ────────────────────────────────────────────
 // "Tame Sibilance with a Split-Band De-Esser". Real DSP lives at
 // public/faust/deesser/ (source: deesser.dsp, compiled to dsp-module.wasm +
@@ -153,7 +154,7 @@ function drawDeesserCurve(canvas, params, liveAttenDb, active) {
         ctx.stroke();
     }
     ctx.fillStyle = '#6A6A7A';
-    ctx.font = '9px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(9, { mono: true });
     for (const [f, l] of freqLines)
         ctx.fillText(l, toX(f) - 8, H - 3);
     for (const db of [0, -12, -24, -36])
@@ -223,7 +224,7 @@ function drawDeesserCurve(canvas, params, liveAttenDb, active) {
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = '#8A8A9A';
-    ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(10, { mono: true });
     ctx.fillText('FREQ', fx + 3, H - 15);
     // Live "Attenuation" readout — the real, current gain reduction on the
     // sibilant band, derived from the actual audio graph (see animate() below)
@@ -238,7 +239,7 @@ function drawDeesserCurve(canvas, params, liveAttenDb, active) {
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = active ? '#F5A623' : 'rgba(245,166,35,0.4)';
-    ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(10, { mono: true });
     ctx.fillText(`Attenuation: ${liveAttenDb.toFixed(1)} dB`, 6, Math.max(11, ay - 4));
 }
 // ── Canvas: live de-esser scope ──────────────────────────────────────────────
@@ -269,7 +270,7 @@ function drawDeesserScope(canvas, history, nowT, thresholdDb, showThreshold) {
     ctx.strokeStyle = 'rgba(255,255,255,0.03)';
     ctx.lineWidth = 1;
     ctx.fillStyle = '#6A6A7A';
-    ctx.font = '9px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(9, { mono: true });
     for (let db = Math.ceil(SCOPE_MIN_DB / 12) * 12; db <= SCOPE_MAX_DB; db += 12) {
         const y = toY(db);
         ctx.beginPath();
@@ -645,7 +646,7 @@ export function DeEsserEditorPanel({ params, setParams, bypass, isPlaying, getIn
             controls, so there's nothing else to show. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginTop: '0.5rem' }}>
           <label htmlFor="deesser-type" style={{
-            fontFamily: 'var(--mono)', fontSize: '0.6rem', color: 'var(--text-dim)',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'var(--text-dim)',
             letterSpacing: '0.08em', textTransform: 'uppercase',
         }}>
             Type
@@ -655,7 +656,7 @@ export function DeEsserEditorPanel({ params, setParams, bypass, isPlaying, getIn
             border: '1px solid var(--border)',
             borderRadius: '3px',
             color: 'var(--text)',
-            fontFamily: 'var(--mono)',
+            fontFamily: 'var(--font-mono)',
             fontSize: '0.65rem',
             padding: '0.3rem 0.5rem',
             outline: 'none',
@@ -1032,7 +1033,7 @@ export default function DeEsser() {
             border: `1px solid ${activeSourceId === 'synth' ? 'rgba(77,158,255,0.5)' : 'var(--border)'}`,
             borderRadius: '3px',
             color: activeSourceId === 'synth' ? 'var(--blue)' : 'var(--text-dim)',
-            fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
             cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
         }}>
         <span style={{ fontSize: '0.85rem' }}>🎙</span>
@@ -1048,7 +1049,7 @@ export default function DeEsser() {
                     border: `1px solid ${active ? 'rgba(0,255,135,0.5)' : 'var(--border)'}`,
                     borderRadius: '3px',
                     color: active ? 'var(--green)' : 'var(--text-dim)',
-                    fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+                    fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
                     cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
                 }}>
             <span style={{ fontSize: '0.85rem' }}>📁</span>
@@ -1064,7 +1065,7 @@ export default function DeEsser() {
             border: '1px dashed var(--border)',
             borderRadius: '3px',
             color: 'var(--text-dim)',
-            fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
             cursor: decoding ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
         }}>
         <span style={{ fontSize: '0.85rem' }}>{decoding ? '⏳' : '+'}</span>
@@ -1078,16 +1079,16 @@ export default function DeEsser() {
                 border: '1px dashed var(--border)',
                 borderRadius: '3px',
                 color: 'var(--text-dim)',
-                fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+                fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
                 cursor: downloading ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
             }}>
           <span style={{ fontSize: '0.85rem' }}>{downloading ? '⏳' : '⬇'}</span>
           <span>{downloading ? 'RENDERING…' : 'DOWNLOAD AUDIO'}</span>
         </button>)}
-      {uploadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>
+      {uploadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--font-mono)', alignSelf: 'center' }}>
           {uploadError}
         </span>)}
-      {downloadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>
+      {downloadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--font-mono)', alignSelf: 'center' }}>
           {downloadError}
         </span>)}
     </div>);

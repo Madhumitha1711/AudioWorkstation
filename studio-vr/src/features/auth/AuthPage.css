@@ -39,7 +39,7 @@
   align-items: center;
   justify-content: center;
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
 
   a {
     color: inherit;

@@ -10,7 +10,6 @@
    that panel's ~320px width. Scoped under .llab so it can't collide with
    anything else. Same amber/green accent pair as SweetSpotLab.css
    (--sslab-amber/--sslab-green) so the labs read as one family. */
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
 .llab-panel-shell {
   --llab-panel: #1c1c21;
@@ -21,6 +20,8 @@
   --llab-amber-dim: #6b4a2c;
   --llab-green: #5fd9a0;
   --llab-green-dim: #2c5f49;
+  /* clips the horizontal slide of the tab-panel transition to the panel */
+  overflow-x: clip;
 }
 
 /* 10% wider than the shared .svr-tour-gear-panel default (320px) — the
@@ -32,7 +33,7 @@
 }
 
 .llab-panel-shell .mono {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .llab-badge {
@@ -41,55 +42,47 @@
 }
 
 /* ---------- tab bar ----------
-   CSS grid with an explicit 3-column track (rather than flex) guarantees
-   exactly equal thirds regardless of label length — flex:1 with
-   auto-sizing content was what let the tabs drift out of alignment in the
-   earlier full-width version of this panel. */
+   The app-wide standard Tabs (components/Tabs), segmented variant with
+   `fill` so every experiment gets an exactly equal share of the width.
+   Only re-skinned here via --tabs-* tokens plus the two-line (number over
+   label) button content. */
 .llab-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--shell-border-soft);
+  --tabs-track-bg: transparent;
+  --tabs-track-border: transparent;
+  --tabs-text: var(--llab-text-muted);
+  --tabs-text-active: var(--shell-text);
+  margin: 6px 8px;
   flex-shrink: 0;
 }
+.llab-tabs::after {
+  content: "";
+  position: absolute;
+  left: -8px;
+  right: -8px;
+  bottom: -6px;
+  border-bottom: 1px solid var(--shell-border-soft);
+}
 
-.llab-tab {
-  display: flex;
+.llab-tabs .ui-tabs__tab.llab-tab {
   flex-direction: column;
-  align-items: center;
   gap: 2px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 8px;
   padding: 7px 2px;
-  cursor: pointer;
-  color: var(--llab-text-muted);
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-  min-width: 0;
+  border-radius: 8px;
 }
-
-.llab-tab:hover {
-  background: var(--llab-panel);
-}
-
-.llab-tab.active {
-  background: var(--llab-panel-alt);
-  border-color: var(--llab-border);
-  color: var(--shell-text);
-}
+.llab-tabs .ui-tabs__indicator { border-radius: 8px; }
 
 .llab-tab__n {
   font-size: 9.5px;
-  color: var(--llab-amber-dim);
+  color: var(--llab-text-muted);
+  transition: color var(--motion-fast) var(--motion-ease-out);
 }
 
-.llab-tab.active .llab-tab__n {
-  color: var(--llab-amber);
+.llab-tab.is-active .llab-tab__n {
+  color: var(--brand-accent);
 }
 
 .llab-tab__label {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
@@ -98,22 +91,10 @@
   max-width: 100%;
 }
 
-/* ---------- module body ---------- */
-.llab-module {
-  animation: llab-fade-in 0.2s ease;
-}
-
-@keyframes llab-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+/* ---------- module body ----------
+   Tab-switch motion comes from useTabTransition on the panel body (the
+   app-wide standard, components/Tabs), so .llab-module carries no
+   animation of its own. */
 
 .llab-hook {
   color: var(--llab-text);
@@ -150,7 +131,7 @@
   color: var(--llab-text-muted);
   padding: 9px 4px;
   border-radius: 6px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.01em;
   cursor: pointer;
@@ -190,7 +171,7 @@
 
 .llab-curve__label {
   text-align: center;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 9px;
   color: var(--llab-text-muted);
   letter-spacing: 0.05em;
@@ -304,7 +285,7 @@
   background: rgba(var(--led-green-rgb), 0.1);
   border: 1px solid var(--llab-green-dim);
   color: var(--llab-green);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.02em;
   padding: 6px 10px;
@@ -355,7 +336,7 @@
 }
 
 .llab-aha-pop__label {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 9.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -434,7 +415,7 @@
   color: var(--shell-text);
   padding: 7px 12px;
   border-radius: 6px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   cursor: pointer;
   transition: border-color 0.15s;
@@ -448,7 +429,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   color: var(--llab-text-muted);
   cursor: pointer;

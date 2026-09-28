@@ -4,6 +4,7 @@ import { Knob } from '../../components/controls/Knob';
 import { compileFaustWasm } from '../../audio/faust/faustTypes';
 import { downloadAudioBufferAsWav } from '../../audio/wavRender';
 import { BPM, DEFAULT_SYNC, syncDivisionMs, DEFAULTS, ADDR, pushFaustParams, METER_FLOOR_DB, analyserPeakLinear } from '../../audio/effects/delayEngine';
+import { canvasFont } from "../../theme/fonts";
 // ── Chapter 9 — Delay Design Studio ─────────────────────────────────────────
 // "Shape Character with Modulated, Filtered Delay". Real DSP lives at
 // public/faust/delay/ (dsp-module.wasm + dsp-meta.json) — a Faust patch built
@@ -53,7 +54,7 @@ function drawDelayScope(canvas, history, nowT, active) {
     ctx.strokeStyle = 'rgba(255,255,255,0.03)';
     ctx.lineWidth = 1;
     ctx.fillStyle = '#6A6A7A';
-    ctx.font = '9px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(9, { mono: true });
     for (let db = Math.ceil(SCOPE_MIN_DB / 12) * 12; db <= SCOPE_MAX_DB; db += 12) {
         const y = toY(db);
         ctx.beginPath();
@@ -74,7 +75,7 @@ function drawDelayScope(canvas, history, nowT, active) {
     ctx.setLineDash([]);
     if (!active) {
         ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.font = '10px "JetBrains Mono", monospace';
+        ctx.font = canvasFont(10, { mono: true });
         ctx.fillText('HIT PLAY TO SEE THE ECHOES RING OUT', W / 2 - 110, H / 2);
         return;
     }
@@ -121,7 +122,7 @@ function drawDelayScope(canvas, history, nowT, active) {
     ctx.stroke();
     // Time axis
     ctx.fillStyle = '#8A8A9A';
-    ctx.font = '9px "JetBrains Mono", monospace';
+    ctx.font = canvasFont(9, { mono: true });
     ctx.textBaseline = 'alphabetic';
     ctx.fillText(`-${SCOPE_WINDOW_S}s`, 4, H - 4);
     ctx.fillText('NOW', W - 26, H - 4);
@@ -881,7 +882,7 @@ export default function Delay() {
             background: activeSourceId === 'synth' ? 'rgba(45,212,191,0.13)' : 'var(--surface)',
             border: `1px solid ${activeSourceId === 'synth' ? 'rgba(45,212,191,0.5)' : 'var(--border)'}`,
             borderRadius: '3px', color: activeSourceId === 'synth' ? 'var(--teal)' : 'var(--text-dim)',
-            fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+            fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
             cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
         }}>
         <span style={{ fontSize: '0.85rem' }}>🎸</span>
@@ -895,7 +896,7 @@ export default function Delay() {
                     background: active ? 'rgba(0,255,135,0.13)' : 'var(--surface)',
                     border: `1px solid ${active ? 'rgba(0,255,135,0.5)' : 'var(--border)'}`,
                     borderRadius: '3px', color: active ? 'var(--green)' : 'var(--text-dim)',
-                    fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+                    fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
                     cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
                 }}>
             <span style={{ fontSize: '0.85rem' }}>📁</span>
@@ -907,7 +908,7 @@ export default function Delay() {
       <button onClick={handleUploadClick} disabled={decoding} title="Upload your own audio to run through the delay" style={{
             display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.3rem 0.65rem',
             background: 'var(--surface)', border: '1px dashed var(--border)', borderRadius: '3px',
-            color: 'var(--text-dim)', fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+            color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
             cursor: decoding ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
         }}>
         <span style={{ fontSize: '0.85rem' }}>{decoding ? '⏳' : '+'}</span>
@@ -916,14 +917,14 @@ export default function Delay() {
       {activeTrack && (<button onClick={() => { void handleDownload(); }} disabled={downloading} title="Render the active track through the delay and download it as a WAV" style={{
                 display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.3rem 0.65rem',
                 background: 'var(--surface)', border: '1px dashed var(--border)', borderRadius: '3px',
-                color: 'var(--text-dim)', fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
+                color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.06em',
                 cursor: downloading ? 'wait' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
             }}>
           <span style={{ fontSize: '0.85rem' }}>{downloading ? '⏳' : '⬇'}</span>
           <span>{downloading ? 'RENDERING…' : 'DOWNLOAD AUDIO'}</span>
         </button>)}
-      {uploadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>{uploadError}</span>)}
-      {downloadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--mono)', alignSelf: 'center' }}>{downloadError}</span>)}
+      {uploadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--font-mono)', alignSelf: 'center' }}>{uploadError}</span>)}
+      {downloadError && (<span style={{ fontSize: '0.6rem', color: 'var(--red)', fontFamily: 'var(--font-mono)', alignSelf: 'center' }}>{downloadError}</span>)}
     </div>);
     return (<div className="hdelay-lab">
       {/* ── Top bar ── */}
@@ -993,7 +994,7 @@ export default function Delay() {
         getNow={() => ctxRef.current?.currentTime}
         onTestEcho={activeSourceId === 'synth' ? triggerTestEcho : null}
         engineBadge={(<div style={{
-            display: 'flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'var(--mono)', fontSize: '0.55rem',
+            display: 'flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'var(--font-mono)', fontSize: '0.55rem',
             marginTop: '1rem', background: faustActive ? 'rgba(45,212,191,0.08)' : 'var(--surface)',
             border: `1px solid ${faustActive ? 'rgba(45,212,191,0.3)' : 'var(--border)'}`, borderRadius: 4, padding: '0.3rem 0.6rem',
         }}>

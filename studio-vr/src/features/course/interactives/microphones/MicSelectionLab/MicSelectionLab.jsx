@@ -7,14 +7,12 @@ import MicPortrait from "../shared/MicPortrait";
 import { useTheme } from "../../../../../theme/ThemeContext";
 import {
   COPY,
-  FACTORS,
   FACTOR_TAG,
   GOALS,
   LEVELS,
   MIC_INFO,
   ROOMS,
   SEL_SOURCES,
-  TAKEAWAY,
   fitPercent,
   scoreMic,
   selectionAudioPath,
@@ -35,7 +33,7 @@ import {
 //
 // Differences from the mockup (it renders inside the course content column):
 //   - no page <h1>/theme button — the lesson heading and ThemeContext cover
-//     those; type is the app's (inherited body font, var(--heading) for
+//     those; type is the app's (inherited body font, var(--font-sans) for
 //     titles) instead of the mockup's Space Grotesk / JetBrains Mono.
 //   - pickers reuse labs.css .lab-toggle; the pick uses the shared
 //     MicPortrait silhouette on the mic "screen" like the other mic labs.
@@ -329,31 +327,6 @@ function MicSelectionLab({ onInteract }) {
           />
         </section>
       </div>
-
-      {/* ---------- why a specific mic ---------- */}
-      <section className="msl-why">
-        <h3>Why choose one mic over another?</h3>
-        <p className="msl-why-lead">
-          Every recommendation above comes from the same six questions. Learn these and you can reason your way to a
-          good choice with any mic locker, even one you’ve never seen before.
-        </p>
-        <div className="msl-factors">
-          {FACTORS.map((f, i) => (
-            <div className="msl-factor" key={f.tag}>
-              <div className="msl-factor-tag">
-                {String(i + 1).padStart(2, "0")} · {f.tag}
-              </div>
-              <h4>{f.title}</h4>
-              <p>
-                {f.body.map(([t, bold], j) => (bold ? <b key={j}>{t}</b> : <span key={j}>{t}</span>))}
-              </p>
-            </div>
-          ))}
-        </div>
-        <div className="msl-takeaway">
-          <b>Takeaway:</b> {TAKEAWAY}
-        </div>
-      </section>
     </div>
   );
 }

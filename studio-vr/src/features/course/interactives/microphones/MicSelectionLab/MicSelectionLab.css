@@ -2,14 +2,14 @@
    Chrome uses the course theme tokens on .svr-course (--panel, --border*,
    --text*, --accent), so light/dark follows ThemeContext. Type follows the
    app, not the mockup's Space Grotesk / JetBrains Mono: body text inherits
-   the .svr-course font, titles use var(--heading), small uppercase labels
+   the .svr-course font, titles use var(--font-sans), small uppercase labels
    match .lab-control-label / .lab-section-label (labs.css). Brand --accent
    stands in for the mockup's green (best pick); amber marks alternatives /
    trade-offs and --danger marks "not practical", each with a deeper
    light-theme value for contrast on white (same approach as
    acousticsLabs.css). The two panels stack vertically (questions above,
-   recommendation below); the factor grid uses container queries so it
-   adapts to the course column's width, not the viewport's. */
+   recommendation below); narrow layouts use container queries so they
+   adapt to the course column's width, not the viewport's. */
 
 .msl {
   --msl-amber: #e8934a;
@@ -90,7 +90,7 @@
 .mic-portrait.msl-portrait svg { height: 58px; }
 .msl-pick-text { min-width: 0; }
 .msl-pick-name {
-  font-family: var(--heading);
+  font-family: var(--font-sans);
   font-size: 22px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -112,7 +112,7 @@
 /* ---------- reasons ---------- */
 .msl-h {
   margin: 22px 0 10px;
-  font-family: var(--heading);
+  font-family: var(--font-sans);
   font-size: 16px;
   font-weight: 600;
   color: var(--text);
@@ -191,37 +191,12 @@
   background: var(--msl-well);
 }
 
-/* ---------- why a specific mic ---------- */
-.msl-why { margin-top: 44px; }
-.msl-why h3 { margin: 0 0 6px; font-family: var(--heading); font-weight: 600; font-size: 22px; color: var(--text); }
-.msl-why-lead { margin: 0 0 18px; max-width: 720px; font-size: 15px; line-height: 1.6; color: var(--text-dim); }
-.msl-factors { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-@container (max-width: 760px) {
-  .msl-factors { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
+/* ---------- narrow course column ---------- */
 @container (max-width: 480px) {
-  .msl-factors { grid-template-columns: 1fr; }
   .msl-rank-row { grid-template-columns: 108px 1fr 32px; }
   .msl-wn { grid-template-columns: 1fr; gap: 2px; }
   .msl-card { padding: 16px; }
 }
-.msl-factor { padding: 16px; border-radius: 12px; background: var(--panel); border: 1px solid var(--border-soft); }
-.msl-factor-tag { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--msl-amber); }
-.msl-factor h4 { margin: 6px 0; font-family: var(--heading); font-size: 16px; font-weight: 600; color: var(--text); }
-.msl-factor p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--text-dim); }
-.msl-factor p b { color: var(--text); font-weight: 600; }
-.msl-takeaway {
-  margin-top: 20px;
-  max-width: 720px;
-  padding: 14px 16px;
-  border-radius: 10px;
-  border: 1px solid rgba(var(--brand-accent-rgb), 0.4);
-  background: rgba(var(--brand-accent-rgb), 0.05);
-  font-size: 15px;
-  line-height: 1.6;
-  color: var(--text);
-}
-.msl-takeaway b { color: var(--accent); font-weight: 600; }
 
 @media (prefers-reduced-motion: reduce) {
   .msl *, .msl *::before, .msl *::after { transition: none !important; }

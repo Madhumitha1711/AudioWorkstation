@@ -29,13 +29,14 @@ import "./DawWorkstationScreen.css";
 // EditorDock, MixerView, AddTrackDialog, PluginEditorPopup). This file keeps
 // the state/audio-engine "controller" — the tracks/transport/chain
 // management hooks below — and composes those pieces in its render.
-import { PLUGIN_DEFS, TRACK_COLORS, MIN_REGION_LEN, TRACK_CHAIN_SCOPE, DEMO_CLIPS } from "./lib/constants";
+import { PLUGIN_DEFS, TRACK_COLORS, MIN_REGION_LEN, TRACK_CHAIN_SCOPE, DEMO_CLIPS, VIEW_TABS } from "./lib/constants";
 import { clamp, pickRulerStep } from "./lib/format";
 import { trackIsAudible, computeDryScale, outerScopeId, isOuterScope, baseRegionId } from "./lib/trackHelpers";
 import { createDemoLoopBuffer, computePeaks } from "./engine/audioBuffers";
 import { computeSegments, getChainArray, withChainArray, disconnectChainSlots, wireLiveChain, collectMeters, defaultSlotExtras } from "./engine/chainGraph";
 import { renderTrackOffline, renderMixOffline } from "./engine/offlineRender";
 import { TopBar } from "./components/TopBar";
+import { useTabTransition } from "../../../components/Tabs";
 import { TrackList } from "./components/TrackList";
 import { Arrangement } from "./components/Arrangement";
 import { EditorDock } from "./components/EditorDock";
@@ -156,6 +157,8 @@ function DawWorkstationScreen({ open, onClose }) {
   // Mixer (Logic-style vertical channel strips) — toggled from the topbar
   // or the X key (same shortcut Logic itself uses for its Mixer). ────────
   const [viewMode, setViewMode] = useState("arrange"); // "arrange" | "mixer"
+  const viewRef = useRef(null);
+  useTabTransition(viewRef, viewMode, VIEW_TABS.findIndex((t) => t.id === viewMode));
 
   // ── "New Track" dialog — Logic Pro's own New Track sheet lets you pick a
   // type/input/color/name before the track is created; this app is
@@ -2417,6 +2420,8 @@ function DawWorkstationScreen({ open, onClose }) {
               meterLevel={meterLevel}
             />
 
+            {/* Standard tab-panel motion for the Arrange/Mixer switch (TopBar). */}
+            <div ref={viewRef} className="daw-view">
             {viewMode === "arrange" ? (
               <>
                 {/* Body: tracklist (left) + arrangement/waveforms (right) —
@@ -2506,6 +2511,7 @@ function DawWorkstationScreen({ open, onClose }) {
                 toggleTrackMute={toggleTrackMute}
               />
             )}
+            </div>
           </div>
         </div>
 

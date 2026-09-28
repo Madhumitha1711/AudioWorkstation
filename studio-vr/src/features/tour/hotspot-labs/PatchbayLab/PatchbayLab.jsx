@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Tabs, useTabTransition } from "../../../../components/Tabs";
 import "../shared/speakerListeningLab.css";
 import "./PatchbayLab.css";
 import { PlayIcon, PauseIcon, LevelMeter, AhaBox, AudioNote } from "../shared/listeningLabShared";
@@ -46,6 +47,10 @@ function PatchbayLab({
   onQuickHelp,
 }) {
   const [activeTab, setActiveTab] = useState(0);
+  // Standard tab-panel motion (components/Tabs) on the body, which is
+  // also the scroll container — see useTabTransition.
+  const bodyRef = useRef(null);
+  useTabTransition(bodyRef, activeTab, activeTab);
 
   // Every visit starts back on experiment one — a fresh "before the lesson"
   // primer each time it's opened, not a resumable session.
@@ -80,26 +85,27 @@ function PatchbayLab({
         </button>
       </div>
 
-      <div className="llab-tabs" role="tablist" aria-label="Patchbay Lab experiments">
-        {TABS.map((t, i) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            id={`pblab-tab-${t.id}`}
-            aria-selected={activeTab === i}
-            aria-controls={`pblab-panel-${t.id}`}
-            className={"llab-tab" + (activeTab === i ? " active" : "")}
-            onClick={() => setActiveTab(i)}
-            title={t.label}
-          >
+      <Tabs
+        className="llab-tabs"
+        tabClassName="llab-tab"
+        variant="segmented"
+        size="sm"
+        fill
+        items={TABS.map((t) => ({ id: t.id, title: t.label, n: t.n, short: t.short }))}
+        value={tab.id}
+        onChange={(_, i) => setActiveTab(i)}
+        ariaLabel="Patchbay Lab experiments"
+        idPrefix="llab"
+        renderTab={(t) => (
+          <>
             <span className="llab-tab__n mono">{t.n}</span>
             <span className="llab-tab__label">{t.short}</span>
-          </button>
-        ))}
-      </div>
+          </>
+        )}
+      />
 
       <div
+        ref={bodyRef}
         className="svr-tour-gear-panel__body"
         role="tabpanel"
         id={`pblab-panel-${tab.id}`}
