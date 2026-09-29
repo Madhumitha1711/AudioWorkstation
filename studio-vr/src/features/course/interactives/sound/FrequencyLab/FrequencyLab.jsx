@@ -66,11 +66,7 @@ function FrequencyLab({ onInteract }) {
   const freqRef = useRef(freq);
   freqRef.current = freq;
 
-  // Inline edit state for the Frequency/Note readout boxes — the pencil
-  // icon in each swaps its value for a text input in place, rather than a
-  // separate manual-entry section below the slider. Draft text only
-  // exists while actually editing, seeded from the live value the moment
-  // edit mode is entered.
+
   const [editingFreq, setEditingFreq] = useState(false);
   const [freqDraft, setFreqDraft] = useState("");
   const [editingNote, setEditingNote] = useState(false);
@@ -114,7 +110,6 @@ function FrequencyLab({ onInteract }) {
     const ro = new ResizeObserver(() => drawFrame(freqRef.current, themeRef.current));
     ro.observe(el);
     return () => ro.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // retune the live oscillator whenever freq changes during a held tone

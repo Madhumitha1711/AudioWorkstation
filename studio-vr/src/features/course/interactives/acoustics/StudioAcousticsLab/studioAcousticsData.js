@@ -1,14 +1,3 @@
-// Content for StudioAcousticsLab — copy is verbatim from
-// design/studio-acoustics-rooms.html.
-//
-// One tab per room (`tab` = tab label). Each tab shows an image and the
-// room's recording side by side, with the description underneath.
-//
-// AUDIO: public/audio/studio-acoustics/<room-id>.wav
-// IMAGE: public/studio-acoustics/<room-id>.jpg
-// (booth, liveroom, bedroom, bathroom, hall) — or point `src` / `image`
-// anywhere else. Level-match the audio so no room wins just by being
-// louder. Until a file exists its tab shows a placeholder.
 import { audioPath, imagePath } from "../shared/paths";
 
 const DIR = "studio-acoustics";

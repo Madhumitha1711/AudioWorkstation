@@ -52,6 +52,9 @@ function allOnRoundState(devices) {
   return { status };
 }
 
+// Keep in sync with the drawer media query in StudioHotspotsPanel.css.
+const MOBILE_QUERY = "(max-width: 960px)";
+
 function StudioHotspotsPanel({
   room,
   activeGear,
@@ -77,8 +80,40 @@ function StudioHotspotsPanel({
   // `null` on leave/blur; safe to spread onto any element via
   // quickHelpHoverProps even while help mode is off.
   onQuickHelp,
+  // Bumped by PanoramaTour (e.g. tapping the "Power up…" banner) to ask the
+  // panel to slide open — mainly for the mobile drawer, which starts closed.
+  openRequest = 0,
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  // Mobile drawer. At <=960px (same breakpoint as the course outline
+  // drawer, CoursePage) this panel starts closed and slides in over the
+  // panorama with a dimmed backdrop instead of permanently covering most
+  // of a phone-sized view. Closed by the tab, the backdrop, Escape, or
+  // picking a device (so the camera move to it is actually visible).
+  // Desktop keeps the original docked-open behaviour.
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== "undefined" && !!window.matchMedia?.(MOBILE_QUERY).matches
+  );
+  const [collapsed, setCollapsed] = useState(isMobile);
+  useEffect(() => {
+    const mq = window.matchMedia?.(MOBILE_QUERY);
+    if (!mq) return undefined;
+    const onChange = (e) => {
+      setIsMobile(e.matches);
+      setCollapsed(e.matches);
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  useEffect(() => {
+    if (openRequest) setCollapsed(false);
+  }, [openRequest]);
+  const drawerOpen = isMobile && !collapsed;
+  useEffect(() => {
+    if (!drawerOpen) return undefined;
+    const onKey = (e) => e.key === "Escape" && setCollapsed(true);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawerOpen]);
   // Tracks whether the panel was auto-collapsed by the effect below (as
   // opposed to the visitor manually clicking the toggle), so closing the DAW
   // module knows whether it's responsible for bringing the panel back.
@@ -297,10 +332,22 @@ function StudioHotspotsPanel({
   }
 
   const eyebrowText = "Studio VR · Live signal path";
-  const handleRowActivate = (device) => onSelectDevice(device.kind, device.id);
+  const handleRowActivate = (device) => {
+    if (isMobile) setCollapsed(true);
+    onSelectDevice(device.kind, device.id);
+  };
 
   return (
+    <>
+    {/* Mobile drawer backdrop (CSS hides it above 960px). */}
+    {drawerOpen && (
+      <div className="svr-hotspot-backdrop" onClick={() => setCollapsed(true)} aria-hidden="true" />
+    )}
     <div className={"svr-hotspot-panel" + (collapsed ? " is-collapsed" : "")}>
+      {/* Content wrapper: made inert while the drawer is shut on mobile so
+          its off-screen buttons drop out of the tab order — the toggle
+          tab below stays outside it so it can still open the drawer. */}
+      <div className="svr-hotspot-panel__content" inert={isMobile && collapsed}>
       <div className="svr-hotspot-panel__header">
         <div className="svr-hotspot-panel__eyebrow">{eyebrowText}</div>
         <button
@@ -452,6 +499,7 @@ function StudioHotspotsPanel({
         })}
       </div>
 
+      </div>
       <button
         className="svr-hotspot-panel__toggle"
         onClick={() => setCollapsed((v) => !v)}
@@ -460,9 +508,15 @@ function StudioHotspotsPanel({
         title={collapsed ? "Show hotspots panel" : "Hide hotspots panel"}
         {...quickHelpHoverProps(onQuickHelp, collapsed ? "Show the hotspots panel." : "Hide the hotspots panel.")}
       >
-        {collapsed ? "›" : "‹"}
+        {isMobile && collapsed ? (
+          <>
+            <span className="svr-hotspot-panel__toggle-icon" aria-hidden="true">☰</span>
+            <span className="svr-hotspot-panel__toggle-label">Rig</span>
+          </>
+        ) : collapsed ? "›" : "‹"}
       </button>
     </div>
+    </>
   );
 }
 

@@ -24,8 +24,8 @@
 .mclab-kitchen-label {
   display: flex;
   justify-content: space-between;
-  font-family: var(--font-mono);
-  font-size: 9px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-3xs);
   color: var(--llab-text-muted);
   letter-spacing: 0.05em;
   margin-bottom: 10px;
@@ -65,20 +65,20 @@
 }
 .mclab-ing-name {
   margin-top: 6px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 8.5px;
   color: var(--llab-text-muted);
   letter-spacing: 0.02em;
 }
 .mclab-ing-val {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--fs-3xs);
   color: var(--shell-text);
   margin-top: 1px;
 }
 .mclab-kitchen-caption {
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xs);
   color: var(--llab-text-muted);
   text-align: center;
   margin-top: 12px;
@@ -135,7 +135,7 @@
   top: 13px;
   left: 50%;
   transform: translateX(-50%);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 7px;
   color: var(--llab-text-muted);
   white-space: nowrap;
@@ -164,8 +164,8 @@
 .mclab-clash-label {
   display: flex;
   justify-content: space-between;
-  font-family: var(--font-mono);
-  font-size: 9px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-3xs);
   color: var(--llab-text-muted);
   letter-spacing: 0.05em;
   margin-bottom: 6px;

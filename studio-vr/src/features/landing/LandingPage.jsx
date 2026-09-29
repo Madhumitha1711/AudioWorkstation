@@ -81,10 +81,10 @@ function LandingPage() {
     <div className="svr-landing" ref={rootRef}>
       <header className="land-header">
         <div className="brand">
-          <span className="mark">◎</span> Studio VR
+          <span className="mark">◎</span> <span className="brand-name">Studio VR</span>
         </div>
         <div className="land-nav">
-          <button className="btn-ghost" onClick={scrollToCurriculum}>
+          <button className="btn-ghost land-nav-curriculum" onClick={scrollToCurriculum}>
             Curriculum
           </button>
           {isSignedIn ? (

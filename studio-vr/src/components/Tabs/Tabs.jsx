@@ -2,39 +2,6 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import { prefersReducedMotion, tabDomIds, useTabHeightTransition, useTabTransition } from "./tabMotion";
 import "./Tabs.css";
 
-// App-wide standard tabs — every tab set in the app renders through this
-// (see CLAUDE.md, "Tabs standard"). Two pieces:
-//
-//   <Tabs>      the tab bar. A single indicator element (underline, or pill
-//               for variant="segmented") is measured against the active
-//               button and glides to it with a transform transition, so
-//               switching reads as one continuous motion instead of one
-//               underline disappearing and another appearing.
-//               Tabs not yet opened render their label in bold; once
-//               visited they drop to the normal weight (markVisited). The
-//               bar ends with an "N/M explored" count (showCount) — both
-//               on by default.
-//   <TabPanel>  the panel. On every tab change it plays a short fade +
-//               slide in the direction of travel (right tab → content comes
-//               from the right) via the Web Animations API, so the panel is
-//               NOT remounted by the animation — child state, audio refs,
-//               canvases etc. survive — and eases its height between
-//               panels of different sizes. Callers that want a remount (to reset
-//               a module / stop its audio) still just put a `key` on the
-//               content inside.
-//   useTabTransition(ref, activeKey, index)
-//               the same panel animation as a hook, for panels that are an
-//               existing element with its own classes (e.g. the tour gear-
-//               panel body, which is also the scroll container).
-//
-// Timing/easing/colors are CSS custom properties (index.css :root
-// --motion-*, and --tabs-* on the component) so a feature re-skins tabs by
-// setting tokens on a wrapper, never by re-implementing them.
-//
-// Accessibility: WAI-ARIA tabs pattern — role=tablist/tab/tabpanel, roving
-// tabindex, Left/Right/Home/End move focus AND selection (automatic
-// activation), disabled tabs are skipped. Motion is dropped entirely under
-// prefers-reduced-motion.
 
 /**
  * @param {object}   props
@@ -79,10 +46,7 @@ export function Tabs({
   const [ready, setReady] = useState(false);
   const idsKey = items.map((t) => t.id).join("|");
 
-  // Visited tracking: tabs not yet opened are bold, opened ones (and the
-  // current one) are normal weight. Tracked here by default; pass
-  // `visited` (Set or array of ids) to control it from outside, e.g. when
-  // the parent also shows an "N/M explored" count.
+
   const [seen, setSeen] = useState(() => new Set([value]));
   if (!visited && !seen.has(value)) setSeen(new Set(seen).add(value));
   const visitedSet = visited ? new Set(visited) : seen;
@@ -95,12 +59,8 @@ export function Tabs({
     setInd((p) => (p && p.x === next.x && p.y === next.y && p.w === next.w && p.h === next.h ? p : next));
   }, [value]);
 
-  // Measure before paint so the indicator never flashes in the wrong place.
   useLayoutEffect(measure, [measure, idsKey]);
 
-  // Re-measure when anything that affects geometry changes: container or
-  // tab resize (responsive layout, a panel that was display:none opening),
-  // and web fonts finishing loading (label widths change).
   useEffect(() => {
     const list = listRef.current;
     if (!list) return undefined;
@@ -118,15 +78,13 @@ export function Tabs({
     };
   }, [measure, idsKey]);
 
-  // Transitions are switched on only after the first placement, so the
-  // indicator doesn't slide in from x=0 on mount.
+
   useEffect(() => {
     const r = requestAnimationFrame(() => setReady(true));
     return () => cancelAnimationFrame(r);
   }, []);
 
-  // Keep the active tab visible when the bar scrolls horizontally (narrow
-  // screens) — scroll the bar itself, never the page.
+
   useEffect(() => {
     const list = listRef.current;
     const btn = tabRefs.current.get(value);
@@ -223,10 +181,7 @@ export function Tabs({
   );
 }
 
-/**
- * Standard tab panel. `value` = active tab id, `index` = its position.
- * Pass the same `idPrefix` as the <Tabs> it belongs to for aria wiring.
- */
+
 export function TabPanel({ idPrefix, value, index, className = "", innerClassName = "", children, ...rest }) {
   const ref = useRef(null);
   const outerRef = useRef(null);
@@ -234,10 +189,6 @@ export function TabPanel({ idPrefix, value, index, className = "", innerClassNam
   useTabHeightTransition(outerRef, value);
   const ids = idPrefix ? tabDomIds(idPrefix, value) : null;
   return (
-    // Outer element clips the horizontal slide so it can never flash a
-    // horizontal scrollbar on a scrolling ancestor; `clip` (unlike
-    // `hidden`) leaves vertical overflow visible.
-    // It also carries the height transition, so content below glides.
     <div ref={outerRef} className={`ui-tabpanel-clip ${className}`.trim()}>
       <div
         ref={ref}

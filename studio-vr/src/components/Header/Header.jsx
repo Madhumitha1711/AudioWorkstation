@@ -5,8 +5,6 @@ import { ThemeToggle } from "../../theme/ThemeToggle";
 import { PaletteSwitcher } from "../../theme/PaletteSwitcher";
 import "./Header.css";
 
-// Pages that share the "studio" nav chrome (section tabs + student greeting
-// + log-off) rather than the plain tagline shown on login/tester pages.
 const STUDIO_NAV_PATHS = ["/course", "/studio", "/discussion"];
 
 const NAV_ITEMS = [
@@ -116,7 +114,6 @@ function Header({ pathname, studentName }) {
         ) : (
           <span className="shell-tagline">Learn audio engineering in 360°</span>
         )}
-        {/* TEMPORARY: palette switcher - see PaletteContext.jsx */}
         <PaletteSwitcher />
         <ThemeToggle className="shell-icon-btn" />
       </div>

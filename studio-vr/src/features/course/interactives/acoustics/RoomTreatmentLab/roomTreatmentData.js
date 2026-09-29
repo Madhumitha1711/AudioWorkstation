@@ -1,16 +1,3 @@
-// Content for RoomTreatmentLab — step copy is verbatim from
-// design/room-treatment.html. One room, one source, one mic position;
-// treatment is added cumulatively.
-//
-// One tab per step (`tab` = tab label), plus the over-foamed experiment as
-// the last tab. Each tab shows an image and the step's recording side by
-// side, with the description underneath.
-//
-// AUDIO: public/audio/room-treatment/<step-id>.wav
-// IMAGE: public/room-treatment/<step-id>.jpg
-// (bare, absorption, basstraps, diffusion, full, overfoam) — or point
-// `src` / `image` anywhere else. Level-match the audio. Until a file
-// exists its tab shows a placeholder.
 import { audioPath, imagePath } from "../shared/paths";
 
 const DIR = "room-treatment";
@@ -60,9 +47,7 @@ export const STEPS = [
   },
 ];
 
-// "More foam isn't always better", made hearable: thin foam on every wall,
-// nothing else. Shown as the last tab,
-// A/B'd against the fully treated room.
+
 export const OVERFOAM = {
   id: "overfoam",
   src: audioPath(DIR, "overfoam"),

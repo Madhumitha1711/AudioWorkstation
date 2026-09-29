@@ -32,12 +32,21 @@
   width: 352px;
 }
 
+/* `.mono` used to switch lab labels (column headings, status lines,
+   captions, tags) to JetBrains Mono. Per the global typography rule,
+   mono is for numbers only, so the class now renders in the app's sans
+   (Inter) like the rest of the studio screen; the genuinely numeric bits
+   below keep mono. */
 .llab-panel-shell .mono {
+  font-family: var(--font-sans);
+}
+.llab-panel-shell .llab-tab__n,
+.llab-panel-shell .lfelab-wavelength-val {
   font-family: var(--font-mono);
 }
 
 .llab-badge {
-  font-size: 13px;
+  font-size: var(--fs-md);
   background: rgba(var(--led-green-rgb), 0.16);
 }
 
@@ -72,7 +81,7 @@
 .llab-tabs .ui-tabs__indicator { border-radius: 8px; }
 
 .llab-tab__n {
-  font-size: 9.5px;
+  font-size: var(--fs-3xs);
   color: var(--llab-text-muted);
   transition: color var(--motion-fast) var(--motion-ease-out);
 }
@@ -83,7 +92,7 @@
 
 .llab-tab__label {
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -98,7 +107,7 @@
 
 .llab-hook {
   color: var(--llab-text);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 1.55;
   margin: 0 0 14px;
 }
@@ -131,8 +140,8 @@
   color: var(--llab-text-muted);
   padding: 9px 4px;
   border-radius: 6px;
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xs);
   letter-spacing: 0.01em;
   cursor: pointer;
   display: flex;
@@ -171,8 +180,8 @@
 
 .llab-curve__label {
   text-align: center;
-  font-family: var(--font-mono);
-  font-size: 9px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-3xs);
   color: var(--llab-text-muted);
   letter-spacing: 0.05em;
   margin-bottom: 2px;
@@ -185,7 +194,7 @@
 }
 
 .llab-curve__caption {
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   color: var(--llab-text-muted);
   text-align: center;
   margin-top: 6px;
@@ -263,7 +272,7 @@
 }
 
 .llab-audio-note {
-  font-size: 9.5px;
+  font-size: var(--fs-3xs);
   color: var(--llab-text-muted);
   margin-top: 10px;
   opacity: 0.7;
@@ -285,8 +294,8 @@
   background: rgba(var(--led-green-rgb), 0.1);
   border: 1px solid var(--llab-green-dim);
   color: var(--llab-green);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xs);
   letter-spacing: 0.02em;
   padding: 6px 10px;
   border-radius: 999px;
@@ -336,8 +345,8 @@
 }
 
 .llab-aha-pop__label {
-  font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-3xs);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--llab-green);
@@ -347,7 +356,7 @@
 
 .llab-aha-pop p {
   margin: 0;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   line-height: 1.55;
   color: var(--shell-text);
   overflow-y: auto;
@@ -363,7 +372,7 @@
   border: none;
   background: rgba(255, 255, 255, 0.08);
   color: var(--shell-text);
-  font-size: 15px;
+  font-size: var(--fs-body);
   line-height: 1;
   cursor: pointer;
   display: flex;
@@ -393,7 +402,7 @@
 }
 
 .llab-decay-caption {
-  font-size: 9px;
+  font-size: var(--fs-3xs);
   color: var(--llab-text-muted);
   text-align: center;
   margin-top: 5px;
@@ -415,8 +424,8 @@
   color: var(--shell-text);
   padding: 7px 12px;
   border-radius: 6px;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xs);
   cursor: pointer;
   transition: border-color 0.15s;
 }
@@ -429,8 +438,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xs);
   color: var(--llab-text-muted);
   cursor: pointer;
   user-select: none;
@@ -447,7 +456,7 @@
 .llab-task-steps {
   margin: 0 0 12px;
   padding: 0 0 0 18px;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   line-height: 1.55;
   color: var(--shell-text);
 }

@@ -1,11 +1,3 @@
-// Content for StudioRoomsLab — "The Studio: Recording Room and Control
-// Room" (Foundations, courseData.js TOPICS[id="the-studio"], chapter 2).
-// Same shape as StudioTypesLab's data, fed to the shared BriefingTabs:
-//   id     — stable slug; also the image filename (see studioRoomImagePath)
-//   tab    — short label for the tab bar
-//   title  — heading under the image
-//   lead   — one-line definition
-//   facts  — labelled paragraphs shown under the lead
 export const STUDIO_ROOMS = [
   {
     id: "recording-room",

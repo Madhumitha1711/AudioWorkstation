@@ -1,28 +1,4 @@
-// Hearing-age model + fixed data for HearingAgeLab (ported from
-// design/hearing-health-age.html). Plain module, no React.
-//
-// THE HEARING AGE SCALE (analogous to "metabolic age" vs calendar age)
-// Hearing age = the age whose population-median hearing best matches yours.
-// Two signals are blended per ear:
-//   a) Audiogram fit (70%): ISO 7029 gives the median threshold shift from
-//      an otologically normal 18-year-old as a function of age, frequency
-//      and sex. We use the parabolic ISO 7029:2000 form
-//        ΔH = α_f · (age − 18)²
-//      and brute-force the age that minimises squared error against the
-//      measured thresholds (1–8 kHz). ISO 7029:2017 refines these values
-//      with polynomial surfaces — swap ALPHA for the licensed 2017 tables
-//      if this ever needs to be more than a teaching screen.
-//   b) High-frequency ceiling (30%): the highest tone the student can hear,
-//      mapped to age with a piecewise table (extended-high-frequency
-//      audiometry shows the ceiling falls steadily from ~30 years on).
-// Overall hearing age = the better ear (how the WHO grades hearing), with
-// a separate flag when the ears differ a lot.
-//
-// Everything is uncalibrated: levels are relative "dB", not dB HL. Real
-// dB HL would need per-headphone RETSPL calibration offsets.
 
-/* ISO 7029:2000 median coefficients (dB per year² past 18).
-   'x' (everyone) is the mean of men and women. */
 export const ALPHA = {
   m: { 250: 0.003, 500: 0.0035, 1000: 0.004, 2000: 0.007, 3000: 0.0115, 4000: 0.016, 6000: 0.018, 8000: 0.022 },
   f: { 250: 0.003, 500: 0.0035, 1000: 0.004, 2000: 0.006, 3000: 0.0075, 4000: 0.009, 6000: 0.012, 8000: 0.015 },
@@ -32,8 +8,7 @@ ALPHA.x = Object.fromEntries(Object.keys(ALPHA.m).map((k) => [k, (ALPHA.m[k] + A
 export const FREQS = [250, 500, 1000, 2000, 3000, 4000, 6000, 8000];
 export const median = (f, age, sex) => (age <= 18 ? 0 : ALPHA[sex][f] * (age - 18) ** 2);
 
-/* Top audible frequency vs age — rough, consumer-grade guide consistent
-   with EHF audiometry (everyone <30 hears 16 kHz; 18 kHz gone by the 60s). */
+
 const CEIL = [[12, 20000], [18, 18500], [25, 17000], [30, 16000], [40, 14500], [50, 12500], [60, 10500], [70, 9000], [85, 7500]];
 export function ceilForAge(a) {
   for (let i = 1; i < CEIL.length; i++) {

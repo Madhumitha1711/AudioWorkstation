@@ -1,30 +1,10 @@
-// Problem catalogue + clip lists for CriticalListeningLab ("Spot the
-// problem"). Problem text ported from design/critical-listening-lab-1.html.
-//
-// Audio is RECORDED, not processed: every clip is a pair of real
-// recordings, played back as-is (see criticalListeningAudio.js):
-//   <clip>-clean.wav    the clean take
-//   <clip>-problem.wav  the same material with the problem(s) in it
-// The two files of a pair should be the same length and start on the same
-// sample so the flip from problem to clean is instant and aligned. Until a
-// pair exists, that clip shows a "recording coming soon" note.
-//
-// Three levels, one tab each:
-//   - Beginner      one problem per clip. The clips are the single-problem
-//                   pairs in public/audio/critical-listening/<id>-*.wav for
-//                   every problem with lvl 0.
-//   - Intermediate  two problems per clip  } recorded mixes from
-//   - Pro           three problems per clip } public/audio/critical-listening/mix/
-// The student picks problems from the full list; once every problem in the
-// clip has been found, the clean take plays.
+
 
 const DIR = "/audio/critical-listening";
 const pair = (base) => ({ clean: `${base}-clean.wav`, problem: `${base}-problem.wav` });
 
 export const CATS = ["Frequency", "Dynamics", "Distortion", "Noise", "Stereo & phase", "Space & time"];
 
-// lvl 0 = used as a Beginner (single-problem) clip. Every problem is listed
-// as an answer on every level.
 export const PROBLEMS = [
   {
     id: "muffled", name: "Muffled / dull", cat: "Frequency", lvl: 0, short: "Top end is missing",
@@ -135,9 +115,7 @@ export const PROBLEMS = [
 
 export const PROBLEM_BY_ID = Object.fromEntries(PROBLEMS.map((p) => [p.id, p]));
 
-// Multi-problem clips. `problems` must match what is actually in the
-// recording. Files: public/audio/critical-listening/mix/<id>-{clean,problem}.wav
-// (override with `clips` if a clip shares a clean take with another).
+
 const MIXES = {
   intermediate: [
     { id: "muddy-hiss", problems: ["muddy", "hiss"] },
@@ -175,7 +153,6 @@ export const LEVELS = {
   },
 };
 
-// A level's clips in random order (a fresh shuffle each time through).
 export function shuffledClips(level) {
   const a = LEVELS[level].clips.slice();
   for (let i = a.length - 1; i > 0; i--) {

@@ -4,45 +4,10 @@ import "../../shared/labs.css";
 import "./StudioComponentsLab.css";
 import { ALL_COMPONENTS, ICONS, SECTIONS, componentImagePath } from "./studioComponentsData";
 
-// "Key Elements of the Recording Space" (Foundations, alongside chapter 2
-// "The Studio: Recording Room and Control Room"). Horizontal layout, built
-// to design/studio-components-tabs.html:
-//
-//   ROW 1  Area tabs — standard <Tabs> (underline, fill): one tab per
-//          section labelled "Electronic" / "Non-electronic". The room names
-//          are group headers above the bar — "Control Room" over its two
-//          tabs, a vertical divider, then "Recording Room" over its two —
-//          so each room is named once instead of on every tab.
-//   ROW 2  Component tabs — standard <Tabs variant="segmented" size="sm">
-//          with the 4 components of the active area (icon + name).
-//   ROW 3  <TabPanel> — photo on top, copy below it.
-//   ROW 4  Previous / Next across all 16 components (crosses areas).
-//
-// Navigation colour is only the theme primary / secondary (--brand-accent,
-// --brand-accent-2) plus the neutral text tokens — the per-section tone
-// (--c, see CSS) is used in the CONTENT only (placeholder icon),
-// never on a tab. Type is the global --font-sans throughout.
-//
-// Second-level motion: when the area changes, the component bar is
-// remounted (key = area id) inside a wrapper that plays the standard panel
-// transition (useTabTransition — fade + 10px slide in the direction of
-// travel, same tokens as every TabPanel), so the new set of components
-// glides in instead of the labels swapping in place. Within one area the
-// bar is not remounted, so its pill glides between components as usual.
-//
-// Explored state: the area bar tracks "areas opened"; the component bar is
-// controlled (`visited`) from the lab's own `viewed` set so its dots/count
-// mean "components opened in this area" and survive the remount.
-//
-// onInteract (from InteractiveSection) fires the first time the student
-// picks a component themselves — the initial selection doesn't count.
-
-// Renders **bold** runs from the data file as <strong>.
 function renderRich(text) {
   return text.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 ? <strong key={i}>{part}</strong> : part));
 }
 
-// Icon markup is static, trusted data from studioComponentsData.js.
 function Icon({ id, className }) {
   return (
     <svg
@@ -61,8 +26,6 @@ function Icon({ id, className }) {
 
 const SECTION_TABS = SECTIONS.map((s) => ({ id: s.n, label: s.type, room: s.room, ariaLabel: `${s.room} — ${s.type}` }));
 
-// Rooms in order, each with its sections (Control Room → 01, 02; Recording
-// Room → 03, 04). Drives the group headers above the area bar.
 const ROOMS = SECTIONS.reduce((acc, s) => {
   const last = acc[acc.length - 1];
   if (last && last.name === s.room) last.ids.push(s.n);
@@ -89,7 +52,6 @@ function StudioComponentsLab({ onInteract }) {
   const prev = ALL_COMPONENTS[index - 1];
   const next = ALL_COMPONENTS[index + 1];
 
-  // Component bar slides in from the side of travel when the area changes.
   useTabTransition(railRef, section.n, sectionIndex);
 
   function select(id) {
@@ -102,8 +64,7 @@ function StudioComponentsLab({ onInteract }) {
     }
   }
 
-  // Opening an area lands on its first component not yet opened (or the
-  // first one if all have been seen).
+
   function selectSection(n) {
     const s = SECTIONS.find((x) => x.n === n);
     if (!s) return;

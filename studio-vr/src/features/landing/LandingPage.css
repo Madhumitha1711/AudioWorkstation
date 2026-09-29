@@ -34,7 +34,7 @@
   .eyebrow {
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     font-weight: 700;
     color: var(--accent);
     margin-bottom: 14px;
@@ -53,7 +53,7 @@
     background: var(--gradient-accent);
     color: var(--accent-ink);
     font-weight: 700;
-    font-size: 14.5px;
+    font-size: var(--fs-base);
     box-shadow: 0 8px 30px rgba(var(--brand-glow-rgb), 0.18);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 
@@ -88,7 +88,7 @@
     background: rgba(255, 255, 255, 0.06);
     color: var(--text);
     font-weight: 600;
-    font-size: 14px;
+    font-size: var(--fs-base);
     border: 1px solid var(--border);
     transition: background 0.2s ease;
 
@@ -102,7 +102,7 @@
     border: none;
     color: var(--text-dim);
     cursor: pointer;
-    font-size: 13px;
+    font-size: var(--fs-md);
     padding: 8px 4px;
 
     &:hover {
@@ -128,7 +128,7 @@
     align-items: center;
     gap: 10px;
     font-weight: 700;
-    font-size: 15px;
+    font-size: var(--fs-body);
 
     .mark {
       width: 30px;
@@ -139,7 +139,7 @@
       justify-content: center;
       background: var(--gradient-accent);
       color: var(--accent-ink);
-      font-size: 15px;
+      font-size: var(--fs-body);
       font-weight: 800;
       animation: logoGlow 3.2s ease-in-out infinite;
     }
@@ -152,12 +152,12 @@
 
     .btn-primary {
       padding: 10px 20px;
-      font-size: 13px;
+      font-size: var(--fs-md);
     }
   }
 
   .land-greeting {
-    font-size: 13px;
+    font-size: var(--fs-md);
     color: var(--text-dim);
     white-space: nowrap;
   }
@@ -251,7 +251,7 @@
     }
 
     p.lede {
-      font-size: 16.5px;
+      font-size: var(--fs-lg);
       line-height: 1.65;
       color: var(--text-dim);
       margin: 0 0 30px;
@@ -271,7 +271,7 @@
     display: flex;
     gap: 22px;
     flex-wrap: wrap;
-    font-size: 12.5px;
+    font-size: var(--fs-sm);
     color: var(--text-dimmer);
 
     span {
@@ -327,7 +327,7 @@
       position: absolute;
       left: 16px;
       bottom: 14px;
-      font-size: 12.5px;
+      font-size: var(--fs-sm);
       font-weight: 700;
       color: #fff;
       display: flex;
@@ -367,7 +367,7 @@
 
   .preview-caption {
     margin-top: 12px;
-    font-size: 12.5px;
+    font-size: var(--fs-sm);
     color: var(--text-dimmer);
     text-align: center;
   }
@@ -392,7 +392,7 @@
     }
     p {
       color: var(--text-dim);
-      font-size: 15px;
+      font-size: var(--fs-body);
       line-height: 1.6;
       margin: 0;
     }
@@ -418,19 +418,19 @@
     }
 
     .num {
-      font-size: 11px;
+      font-size: var(--fs-xs);
       color: var(--accent);
       font-weight: 800;
       letter-spacing: 0.06em;
       margin-bottom: 10px;
     }
     h3 {
-      font-size: 14.5px;
+      font-size: var(--fs-base);
       margin: 0 0 6px;
       font-weight: 700;
     }
     p {
-      font-size: 12.5px;
+      font-size: var(--fs-sm);
       color: var(--text-dimmer);
       line-height: 1.5;
       margin: 0;
@@ -446,7 +446,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 10px;
+      font-size: var(--fs-2xs);
       color: var(--text-dimmer);
     }
   }
@@ -473,14 +473,14 @@
       border: 1px solid rgba(var(--brand-accent-rgb), 0.35);
       color: var(--accent);
       font-weight: 800;
-      font-size: 17px;
+      font-size: var(--fs-xl);
     }
     h3 {
       font-size: 15.5px;
       margin: 0 0 8px;
     }
     p {
-      font-size: 13px;
+      font-size: var(--fs-md);
       color: var(--text-dimmer);
       line-height: 1.6;
       margin: 0;
@@ -504,7 +504,7 @@
     p {
       color: var(--text-dim);
       margin: 0 0 26px;
-      font-size: 14.5px;
+      font-size: var(--fs-base);
     }
   }
 
@@ -513,7 +513,7 @@
     border-top: 1px solid var(--border-soft);
     text-align: center;
     color: var(--text-dimmer);
-    font-size: 12px;
+    font-size: var(--fs-sm);
   }
 
   .modal-backdrop {
@@ -549,7 +549,7 @@
     border: none;
     color: #fff;
     cursor: pointer;
-    font-size: 15px;
+    font-size: var(--fs-body);
     z-index: 1;
   }
 
@@ -577,7 +577,7 @@
       padding: 20px;
 
       p {
-        font-size: 13px;
+        font-size: var(--fs-md);
         color: var(--text-dim);
         max-width: 340px;
       }
@@ -598,6 +598,100 @@
     }
     .how-grid {
       grid-template-columns: 1fr;
+    }
+  }
+
+  /* ---------- Phones (≤600px) ----------
+     The header used to wrap every label onto two lines ("Studio / VR",
+     "Sign / in") and push the palette/theme buttons off-screen; the hero
+     CTAs, stats and cards were sized for desktop gutters. */
+  @media (max-width: 600px) {
+    .btn-primary,
+    .btn-secondary,
+    .btn-ghost {
+      white-space: nowrap;
+    }
+
+    .land-header {
+      padding: 12px 16px;
+      gap: 12px;
+    }
+    .brand {
+      white-space: nowrap;
+      gap: 8px;
+      .mark {
+        width: 28px;
+        height: 28px;
+      }
+    }
+    .land-nav {
+      gap: 10px;
+      .btn-primary {
+        padding: 8px 14px;
+      }
+    }
+    /* "Curriculum" is the first section below the hero anyway, and the
+       greeting duplicates what the Enter/Log off buttons already imply. */
+    .land-nav-curriculum,
+    .land-greeting {
+      display: none;
+    }
+
+    .hero {
+      padding: 36px 16px 64px;
+      gap: 36px;
+      min-height: 0;
+    }
+    .hero-inner p.lede {
+      margin-bottom: 24px;
+    }
+    .hero-ctas {
+      gap: 10px;
+      margin-bottom: 22px;
+      .btn-primary,
+      .btn-secondary {
+        flex: 1 1 auto;
+        justify-content: center;
+        padding: 12px 18px;
+      }
+    }
+    .hero-meta {
+      display: grid;
+      grid-template-columns: repeat(2, auto);
+      justify-content: start;
+      gap: 8px 20px;
+    }
+
+    .section {
+      padding: 56px 16px;
+    }
+    .section-head {
+      margin-bottom: 28px;
+    }
+    .how-grid {
+      gap: 28px;
+    }
+
+    .cta-band {
+      margin: 0 16px 56px;
+      padding: 36px 20px;
+    }
+    .land-footer {
+      padding: 20px 16px;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .curriculum-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Very narrow phones: logo mark only, so Sign in / Sign up / palette /
+     theme still fit on one line. */
+  @media (max-width: 370px) {
+    .brand-name {
+      display: none;
     }
   }
 

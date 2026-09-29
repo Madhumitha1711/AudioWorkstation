@@ -1,16 +1,3 @@
-/* StudioComponentsLab — "Key Elements of the Recording Space", horizontal
-   layout (design/studio-components-tabs.html).
-
-   Type: global --font-sans only (inherited; nothing here sets a family).
-   Chrome: course theme tokens on .svr-course (--panel, --border-soft,
-   --text-dim…) so light/dark follows ThemeContext.
-   Navigation colour: ONLY the theme primary / secondary (--brand-accent,
-   --brand-accent-2) and neutral text tokens. Both tab bars are the
-   standard components/Tabs, untouched — this file styles only what's
-   rendered INSIDE a tab (renderTab) and the pager.
-   Content accent: each section's --c (via .scl-tone-*) tints the photo
-   placeholder — never navigation. */
-
 .scl {
   --scl-amber: #e8934a;
   --scl-green: #5fd9a0;
@@ -18,6 +5,7 @@
   --scl-purple: #a78bfa;
   --scl-well: rgba(0, 0, 0, 0.25);
 }
+
 :root[data-theme='light'] .scl {
   --scl-amber: #c96f24;
   --scl-green: #1f9a67;
@@ -25,32 +13,46 @@
   --scl-purple: #6d4fd6;
   --scl-well: rgba(var(--ink-tint-rgb), 0.05);
 }
-.scl-tone-amber { --c: var(--scl-amber); }
-.scl-tone-green { --c: var(--scl-green); }
-.scl-tone-blue { --c: var(--scl-blue); }
-.scl-tone-purple { --c: var(--scl-purple); }
+
+.scl-tone-amber {
+  --c: var(--scl-amber);
+}
+
+.scl-tone-green {
+  --c: var(--scl-green);
+}
+
+.scl-tone-blue {
+  --c: var(--scl-blue);
+}
+
+.scl-tone-purple {
+  --c: var(--scl-purple);
+}
 
 .scl,
 .scl *,
 .scl *::before,
-.scl *::after { box-sizing: border-box; }
+.scl *::after {
+  box-sizing: border-box;
+}
 
-:where(.scl) button { font: inherit; color: inherit; }
+:where(.scl) button {
+  font: inherit;
+  color: inherit;
+}
 
-/* ---------- row 1: rooms + area tabs ----------
-   Room names sit once above their two tabs, split by a vertical divider.
-   The area <Tabs> uses `fill` (equal-width tabs, 4px gap) and no count, so
-   a 2-column grid with the same gap lines each room header up exactly over
-   its pair of tabs, and 50% is the gap between the two groups. */
-.scl-areas-wrap { position: relative; }
+.scl-areas-wrap {
+  position: relative;
+}
+
 .scl-rooms {
   display: grid;
   grid-template-columns: repeat(var(--scl-rooms, 2), minmax(0, 1fr));
   gap: 4px;
   padding-bottom: 2px;
 }
-/* Room header: larger bold label centred over its pair of tabs; the
-   active room takes the theme primary (navigation colour only). */
+
 .scl-room {
   padding: 6px 14px 4px;
   text-align: center;
@@ -61,10 +63,18 @@
   color: var(--text-dim);
   transition: color var(--motion-medium, 260ms) var(--motion-ease-out, ease);
 }
-.scl-room.is-active { color: var(--brand-accent); }
-@media (max-width: 600px) {
-  .scl-room { letter-spacing: 0.06em; padding-inline: 6px; }
+
+.scl-room.is-active {
+  color: var(--brand-accent);
 }
+
+@media (max-width: 600px) {
+  .scl-room {
+    letter-spacing: 0.06em;
+    padding-inline: 6px;
+  }
+}
+
 .scl-rooms-divider {
   position: absolute;
   top: 2px;
@@ -74,14 +84,28 @@
   background: var(--border-soft);
   pointer-events: none;
 }
-.scl-area-type { white-space: normal; text-align: center; }
+
+.scl-area-type {
+  white-space: normal;
+  text-align: center;
+}
 
 /* ---------- row 2: component bar ---------- */
-.scl-rail { margin-top: 18px; }
-.scl-rail-ic { width: 14px; height: 14px; flex: none; }
+.scl-rail {
+  margin-top: 18px;
+}
+
+.scl-rail-ic {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
 
 /* ---------- row 3: panel ---------- */
-.scl-panel { padding-top: 24px; }
+.scl-panel {
+  padding-top: 24px;
+}
+
 .scl-grid {
   display: grid;
   /* One column: photo on top, copy underneath (same stacking as the
@@ -89,7 +113,11 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 24px;
 }
-.scl-media { margin: 0; }
+
+.scl-media {
+  margin: 0;
+}
+
 .scl-frame {
   position: relative;
   aspect-ratio: 16 / 9;
@@ -99,7 +127,16 @@
   overflow: hidden;
   background: var(--scl-well);
 }
-.scl-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.scl-frame img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .scl-ph {
   position: absolute;
   inset: 0;
@@ -115,11 +152,28 @@
   border-radius: 12px;
   background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--c) 9%, transparent), transparent 70%);
 }
-.scl-ph svg { width: 56px; height: 56px; opacity: 0.9; }
-.scl-ph span { font-size: var(--fs-sm); color: var(--text-dimmer); }
-.scl-caption { margin-top: 10px; font-size: var(--fs-md); color: var(--text-dimmer); }
 
-.scl-text { min-width: 0; }
+.scl-ph svg {
+  width: 56px;
+  height: 56px;
+  opacity: 0.9;
+}
+
+.scl-ph span {
+  font-size: var(--fs-sm);
+  color: var(--text-dimmer);
+}
+
+.scl-caption {
+  margin-top: 10px;
+  font-size: var(--fs-md);
+  color: var(--text-dimmer);
+}
+
+.scl-text {
+  min-width: 0;
+}
+
 .scl-title {
   font-size: var(--fs-3xl);
   font-weight: 600;
@@ -128,9 +182,25 @@
   margin: 0 0 8px;
   color: var(--text);
 }
-.scl-lead { font-size: var(--fs-lg); line-height: 1.6; color: var(--text); margin: 0 0 14px; }
-.scl-body { font-size: var(--fs-body); line-height: 1.7; color: var(--text-dim); margin: 0 0 12px; }
-.scl-body strong { color: var(--text); font-weight: 600; }
+
+.scl-lead {
+  font-size: var(--fs-lg);
+  line-height: 1.6;
+  color: var(--text);
+  margin: 0 0 14px;
+}
+
+.scl-body {
+  font-size: var(--fs-body);
+  line-height: 1.7;
+  color: var(--text-dim);
+  margin: 0 0 12px;
+}
+
+.scl-body strong {
+  color: var(--text);
+  font-weight: 600;
+}
 
 
 /* ---------- row 4: pager (navigation → primary / secondary only) ---------- */
@@ -141,6 +211,7 @@
   padding-bottom: 18px;
   border-bottom: 1px solid var(--border-soft);
 }
+
 .scl-pager button {
   flex: 1;
   min-width: 0;
@@ -162,7 +233,12 @@
     border-color var(--motion-fast, 180ms) ease,
     background var(--motion-fast, 180ms) ease;
 }
-.scl-pager button:last-child { align-items: flex-end; text-align: right; }
+
+.scl-pager button:last-child {
+  align-items: flex-end;
+  text-align: right;
+}
+
 .scl-pager small {
   font-size: var(--fs-xs);
   font-weight: 600;
@@ -171,17 +247,40 @@
   color: var(--text-dimmer);
   transition: color var(--motion-fast, 180ms) ease;
 }
+
 .scl-pager button:hover:not(:disabled) {
   color: var(--text);
   background: var(--panel-hover);
   border-color: color-mix(in srgb, var(--brand-accent-2) 60%, transparent);
 }
-.scl-pager button:hover:not(:disabled) small { color: var(--brand-accent); }
-.scl-pager button:focus-visible { outline: 2px solid var(--brand-accent); outline-offset: 2px; }
-.scl-pager button:disabled { opacity: 0.4; cursor: default; }
-.scl-pager-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.scl-pager button:hover:not(:disabled) small {
+  color: var(--brand-accent);
+}
+
+.scl-pager button:focus-visible {
+  outline: 2px solid var(--brand-accent);
+  outline-offset: 2px;
+}
+
+.scl-pager button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.scl-pager-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 @media (max-width: 860px) {
-  .scl-grid { gap: 20px; }
-  .scl-title { font-size: var(--fs-2xl); }
+  .scl-grid {
+    gap: 20px;
+  }
+
+  .scl-title {
+    font-size: var(--fs-2xl);
+  }
 }

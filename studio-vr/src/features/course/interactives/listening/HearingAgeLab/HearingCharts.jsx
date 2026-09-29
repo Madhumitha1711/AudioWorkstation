@@ -1,9 +1,5 @@
 import { FREQS, SCALE_AGES, median } from "./hearingAgeModel";
 
-// SVG charts for HearingAgeLab. Every color is applied through a CSS class
-// or a var() in an inline style (never a resolved hex from JS), so the
-// charts follow a light/dark switch instantly without re-rendering — the
-// mockup instead read getComputedStyle() and had to redraw on theme flip.
 
 const W = 680;
 const H = 340;
@@ -69,8 +65,7 @@ function Axes({ x, y, yMin, yMax, bandLabels }) {
   );
 }
 
-/* Audiogram: measured thresholds per ear vs. the median curve at the
-   calendar age and at the hearing age. Log-frequency x, dB loss y (down). */
+
 export function Audiogram({ r, hear }) {
   const yMin = -10;
   const yMax = 80;
@@ -95,13 +90,10 @@ export function Audiogram({ r, hear }) {
   );
 }
 
-/* "How ears age": the median curve for each decade, teal (20) → red (80). */
 export function AgeFamily({ sex }) {
   const yMin = -10;
   const yMax = 80;
   const { x, y } = makeScales(yMin, yMax);
-  // One curve per decade, teal → red. Right-hand labels are pushed at
-  // least 13px below the previous one so they never overlap.
   const curves = [];
   SCALE_AGES.forEach((a, i) => {
     const col = `color-mix(in srgb, var(--hha-red) ${(i / (SCALE_AGES.length - 1)) * 100}%, var(--hha-teal))`;

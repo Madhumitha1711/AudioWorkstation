@@ -12,7 +12,7 @@
   border: 1px solid var(--shell-border-soft, rgba(255, 255, 255, 0.12));
   background: var(--shell-panel, rgba(255, 255, 255, 0.06));
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 1;
 }
 
@@ -46,4 +46,28 @@
 
 .svr-palette-switcher:focus-within {
   box-shadow: 0 0 0 2px var(--brand-accent, currentColor);
+}
+
+/* Tablets and phones: collapse the pill to just its colour swatch. The <select> stays
+   in place as an invisible layer over the whole pill, so tapping the
+   swatch still opens the native picker. */
+@media (max-width: 900px) {
+  .svr-palette-switcher {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    justify-content: center;
+    flex: none;
+  }
+  .svr-palette-swatch {
+    width: 14px;
+    height: 14px;
+  }
+  .svr-palette-switcher select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    opacity: 0;
+  }
 }

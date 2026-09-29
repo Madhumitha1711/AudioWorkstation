@@ -1,14 +1,3 @@
-// Content for StudioTypesLab — the "Types of Recording Studios" briefing
-// (Foundations, courseData.js TOPICS[id="studio-types"], chapter 3).
-// Text is verbatim from the brief behind design/studio-types-tabs.html —
-// keep it word-for-word in sync with that mockup rather than rewording here.
-//
-// Each entry:
-//   id      — stable slug; also the image filename (see studioTypeImagePath)
-//   tab     — short label for the tab bar
-//   title   — full heading in the detail pane
-//   lead    — one-line definition under the heading
-//   layout / build / use — the three labelled facts
 export const STUDIO_TYPES = [
   {
     id: "commercial",

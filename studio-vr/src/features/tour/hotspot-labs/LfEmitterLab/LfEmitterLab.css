@@ -21,7 +21,7 @@
 .lfelab-spectrum-label {
   display: flex;
   justify-content: space-between;
-  font-size: 9px;
+  font-size: var(--fs-3xs);
   color: var(--llab-text-muted);
   letter-spacing: 0.05em;
   margin-bottom: 10px;
@@ -115,7 +115,7 @@
   }
 }
 .lfelab-rumble-text {
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--llab-text-muted);
@@ -124,7 +124,7 @@
   color: var(--led-purple);
 }
 .lfelab-rumble-status {
-  font-size: 9.5px;
+  font-size: var(--fs-3xs);
   padding: 2px 8px;
   border-radius: 20px;
   border: 1px solid var(--llab-border);
@@ -137,8 +137,8 @@
 }
 
 .lfelab-spectrum-caption {
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xs);
   color: var(--llab-text-muted);
   text-align: center;
   margin-top: 12px;
@@ -195,8 +195,8 @@
   height: 24px;
 }
 .lfelab-wave-caption {
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xs);
   color: var(--llab-text-muted);
   text-align: center;
   margin-top: 6px;
@@ -213,12 +213,12 @@
 }
 .lfelab-wavelength-val {
   font-family: var(--font-sans);
-  font-size: 22px;
+  font-size: var(--fs-2xl);
   font-weight: 600;
   color: var(--shell-text);
 }
 .lfelab-wavelength-tag {
-  font-size: 9.5px;
+  font-size: var(--fs-3xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   padding: 3px 9px;

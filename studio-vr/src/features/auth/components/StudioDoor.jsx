@@ -1,17 +1,32 @@
-// The glass-door entry animation shared by LoginPage and SignupPage. It is
-// purely visual/decorative (aria-hidden) — the real form lives in the panel
-// next to it. `phase` drives every stage of the sequence:
-//   idle       → door closed, panel waiting
-//   verifying  → a scan beam sweeps the glass while credentials "check"
-//   granted    → interior comes into focus, LED strip fills with light
-//   opening    → the door swings open on its hinge
+import { useEffect, useRef } from "react";
+
+// On narrow screens (<=820px, same breakpoint as AuthPage.css) the door
+// stacks ABOVE the form, so by the time someone taps "Unlock door" /
+// "Request access" they've usually scrolled down to the button and the
+// door is off-screen — they'd miss the scan → unlock → swing-open
+// sequence entirely. When verification starts, scroll the page's own
+// scroll container (.svr-auth) back to the top so the door (and the
+// "Door's unlocked" welcome overlay, which covers that same top area)
+// is in view for the whole animation.
+const STACKED_QUERY = "(max-width: 820px)";
+
 function StudioDoor({ phase, sublabel }) {
+  const unitRef = useRef(null);
+  useEffect(() => {
+    if (phase !== "verifying") return;
+    if (!window.matchMedia?.(STACKED_QUERY).matches) return;
+    const scroller = unitRef.current?.closest(".svr-auth");
+    if (!scroller || scroller.scrollTop === 0) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    scroller.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+  }, [phase]);
+
   const inFocus = phase === "granted" || phase === "opening";
   const opening = phase === "opening";
   const scanning = phase === "verifying";
 
   return (
-    <div className="door-unit" aria-hidden="true">
+    <div className="door-unit" aria-hidden="true" ref={unitRef}>
       <div className="jamb" />
       <div className={`door-opening${inFocus ? " clear" : ""}`}>
         <div className="interior" />

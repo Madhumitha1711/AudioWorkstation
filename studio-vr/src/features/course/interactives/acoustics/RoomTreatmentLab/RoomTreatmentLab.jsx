@@ -4,20 +4,6 @@ import { useClipAudio } from "../../shared/useClipAudio";
 import { RoomTabs, SetupBar } from "../shared/AcousticsUI";
 import { ALL_STEPS, KEPT_SAME, OVERFOAM, STEPS } from "./roomTreatmentData";
 
-// "Same room, step by step" (chapter 5, courseData.js
-// TOPICS[id="diffuser-panel"]), the companion to StudioAcousticsLab. One
-// source, one room, one mic position; treatment is added one type at a
-// time. One standard tab per step plus the "cover every wall in foam"
-// experiment as the last tab (shared RoomTabs): image and player side by
-// side, description underneath.
-//
-// A/B: every step flips to the bare room at the same position; the foam
-// experiment flips to the fully treated room.
-//
-// Audio: plain playback of each step's recording (roomTreatmentData.js
-// `src`); a step without its file yet shows "Audio coming soon", and
-// without its image (`image`) a placeholder.
-// onInteract fires on the first play.
 function RoomTreatmentLab({ onInteract }) {
   const audio = useClipAudio({ items: ALL_STEPS, onFirstPlay: onInteract });
   const bare = STEPS[0];

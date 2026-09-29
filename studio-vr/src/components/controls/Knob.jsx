@@ -1,12 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { useTheme } from '../../theme/ThemeContext';
-// ── Shared rotary knob ───────────────────────────────────────────────────────
-// Originally built for Chapter 6 (Reverb Designer); pulled out here so every
-// lab uses the same drag-to-adjust dial instead of one-off sliders/faders.
-// The knob body reads as a physical metal/plastic disc, so it gets its own
-// light-mode gradient (brushed aluminum) rather than page chrome — same
-// treatment as .big-knob/.sat-knob/.pan-knob in chapters.css and the
-// Equalizer chapter's own local Knob (KNOB_BODY there).
+
 const KNOB_BODY = {
     dark: {
         enabled: 'radial-gradient(circle at 35% 35%, #1F4F49, #1A1A22)',
@@ -78,32 +72,32 @@ export function Knob({ spec, value, onChange, disabled = false, target, size = 6
         ? { a: polarXY(radius - 5 * scale, targetRot), b: polarXY(radius + 5 * scale, targetRot) }
         : null;
     return (<div className="knob-wrap" style={disabled ? { opacity: 0.35, pointerEvents: 'none' } : {}}>
-      <div style={{ position: 'relative', width: size, height: size }}>
-        <svg style={{ position: 'absolute', top: 0, left: 0 }} width={size} height={size} viewBox={`${-size / 2} ${-size / 2} ${size} ${size}`}>
-          <path d={arc(radius, -140, 140)} fill="none" stroke="var(--border)" strokeWidth={3} strokeLinecap="round"/>
-          <path d={arc(radius, -140, rot)} fill="none" stroke={accent} strokeWidth={3} strokeLinecap="round" opacity={0.85}/>
-          {targetPt && (<line x1={targetPt.a.x} y1={targetPt.a.y} x2={targetPt.b.x} y2={targetPt.b.y} stroke="var(--amber)" strokeWidth={2} strokeLinecap="round"/>)}
-        </svg>
-        <div className="big-knob" style={{
-            position: 'absolute', top: offset, left: offset, width: bigSize, height: bigSize,
-            background: disabled ? body.disabled : body.enabled,
-            cursor: disabled ? 'not-allowed' : 'ns-resize',
-            userSelect: 'none',
-        }} onMouseDown={onDown}>
-          <div style={{
-            position: 'absolute', top: '50%', left: '50%',
-            width: tickW, height: tickH,
-            background: disabled ? body.tickDisabled : body.tick,
-            borderRadius: 2,
-            transformOrigin: 'bottom center',
-            transform: `translate(-50%, -100%) rotate(${rot}deg)`,
-            marginTop: -2,
-        }}/>
+        <div style={{ position: 'relative', width: size, height: size }}>
+            <svg style={{ position: 'absolute', top: 0, left: 0 }} width={size} height={size} viewBox={`${-size / 2} ${-size / 2} ${size} ${size}`}>
+                <path d={arc(radius, -140, 140)} fill="none" stroke="var(--border)" strokeWidth={3} strokeLinecap="round" />
+                <path d={arc(radius, -140, rot)} fill="none" stroke={accent} strokeWidth={3} strokeLinecap="round" opacity={0.85} />
+                {targetPt && (<line x1={targetPt.a.x} y1={targetPt.a.y} x2={targetPt.b.x} y2={targetPt.b.y} stroke="var(--amber)" strokeWidth={2} strokeLinecap="round" />)}
+            </svg>
+            <div className="big-knob" style={{
+                position: 'absolute', top: offset, left: offset, width: bigSize, height: bigSize,
+                background: disabled ? body.disabled : body.enabled,
+                cursor: disabled ? 'not-allowed' : 'ns-resize',
+                userSelect: 'none',
+            }} onMouseDown={onDown}>
+                <div style={{
+                    position: 'absolute', top: '50%', left: '50%',
+                    width: tickW, height: tickH,
+                    background: disabled ? body.tickDisabled : body.tick,
+                    borderRadius: 2,
+                    transformOrigin: 'bottom center',
+                    transform: `translate(-50%, -100%) rotate(${rot}deg)`,
+                    marginTop: -2,
+                }} />
+            </div>
         </div>
-      </div>
-      <div className="knob-name" style={disabled ? { color: 'var(--text-faint)' } : {}}>{spec.label}</div>
-      <div className="knob-val" style={{ color: disabled ? 'var(--text-faint)' : accent }}>
-        {spec.fmt(value)}
-      </div>
+        <div className="knob-name" style={disabled ? { color: 'var(--text-faint)' } : {}}>{spec.label}</div>
+        <div className="knob-val" style={{ color: disabled ? 'var(--text-faint)' : accent }}>
+            {spec.fmt(value)}
+        </div>
     </div>);
 }

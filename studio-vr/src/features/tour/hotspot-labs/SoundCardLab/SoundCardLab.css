@@ -32,8 +32,8 @@
 .sclab-echo-tag {
   width: 72px;
   flex-shrink: 0;
-  font-family: var(--font-mono);
-  font-size: 9px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-3xs);
   color: var(--llab-text-muted);
   letter-spacing: 0.03em;
 }
@@ -78,13 +78,13 @@
 }
 .sclab-delay-ms {
   font-family: var(--font-sans);
-  font-size: 24px;
+  font-size: var(--fs-3xl);
   font-weight: 600;
   color: var(--shell-text);
 }
 .sclab-delay-status {
-  font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-3xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   padding: 3px 9px;

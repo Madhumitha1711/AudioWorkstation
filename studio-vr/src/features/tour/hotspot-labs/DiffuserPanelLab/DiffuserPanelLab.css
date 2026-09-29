@@ -113,8 +113,8 @@
   }
 }
 .dflab-scatter-caption {
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xs);
   color: var(--llab-text-muted);
   text-align: center;
   margin-top: 8px;
@@ -125,7 +125,7 @@
 .dflab-spread-label {
   display: flex;
   justify-content: space-between;
-  font-size: 9px;
+  font-size: var(--fs-3xs);
   color: var(--llab-text-muted);
   letter-spacing: 0.05em;
   margin-top: 14px;
@@ -137,7 +137,7 @@
 .dflab-decay-label {
   display: flex;
   justify-content: space-between;
-  font-size: 9px;
+  font-size: var(--fs-3xs);
   color: var(--llab-text-muted);
   letter-spacing: 0.05em;
   margin-top: 12px;

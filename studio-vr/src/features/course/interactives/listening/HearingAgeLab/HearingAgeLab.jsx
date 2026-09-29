@@ -30,40 +30,7 @@ import {
   zoneFor,
 } from "./hearingAgeModel";
 
-// Ported from design/hearing-health-age.html — "How old are your ears?", the
-// Hearing Health lab for Foundations chapter 4 (courseData.js
-// TOPICS[id="listening-skills"]), alongside critical-listening-lab. Three tabs:
-//   - Take the test: setup checklist → Part 1, a rising 8→20 kHz sweep per
-//     ear (press when it disappears) → Part 2, a simplified up-down
-//     staircase (10 dB down / 5 dB up) at 1/2/4/6/8 kHz per ear → done.
-//   - Results: hearing age vs calendar age (better ear), per-ear cards,
-//     audiogram against ISO 7029 medians, insights (noise notch, biggest
-//     gap, ear asymmetry), studio ear-care tips and the student's trend.
-//   - The scale: the research/maths behind the number, a per-decade chart,
-//     and a grid of high tones to try.
-// The hearing-age maths lives in hearingAgeModel.js; charts in
-// HearingCharts.jsx. All tones are live oscillators through this lab's own
-// AudioContext (useLabAudio), not spatialAudioEngine.
-//
-// Differences from the mockup, because it renders inside a course lesson:
-//   - no hero/<h1> or theme button — InteractiveSection's heading and the
-//     app's ThemeContext cover those. Chrome uses the .svr-course tokens;
-//     semantic colors are lab-scoped as --hha-* with light-theme values
-//     (see HearingAgeLab.css). Charts color via CSS classes / var(), so a
-//     theme flip restyles them with no redraw.
-//   - Space / Y / N shortcuts are bound to the lab root, not the document,
-//     so they only fire while focus is inside the lab.
-//   - tab panels stay mounted (progress survives a tab switch) but audio
-//     stops on switch; an interrupted sweep restarts that ear, and an
-//     interrupted threshold trial is replayed on return.
-//   - no demo/sample results: the Results tab stays empty until the
-//     student finishes the test, and everything on it is computed from
-//     that test's measurements (computeResults) when it completes.
-//   - "Hearing age over time" shows the student's real saved results
-//     (localStorage, per browser) instead of illustrative bars, and the
-//     mockup's non-functional "Remind me" button is dropped.
-//
-// onInteract fires the first time the student plays any tone.
+
 
 const TABS = [
   ["test", "01 · Take the test"],
@@ -111,9 +78,7 @@ const ICONS = {
     </>
   ),
 };
-// Research sources — every link opens free, full text (no paywall / cart).
-// ISO 7029 itself is a paid standard, so it points to the official free
-// preview, which already contains the median formula and α coefficients.
+
 const SOURCES = [
   ["ISO 7029:2017 (free preview: median formula & coefficient tables) — ", "Statistical distribution of hearing thresholds related to age and gender", "https://cdn.standards.iteh.ai/samples/42916/a2207a1a6c474475a6db216c9a44983c/ISO-7029-2017.pdf"],
   ["Jin et al. (2024), Journal of Audiology & Otology — ", "Trends in hearing thresholds by age: ISO 7029 vs newer country-specific data", "https://www.ejao.org/journal/view.php?doi=10.7874/jao.2023.00626"],
@@ -209,9 +174,7 @@ export default function HearingAgeLab({ onInteract }) {
     timersRef.current = [];
   };
 
-  /* One enveloped sine tone, panned hard L/R (or centre). Short linear
-     ramps avoid clicks, which would otherwise be audible even when the
-     tone itself isn't — and give away a "silent" trial. */
+
   function tone({ freq, gain = 0.08, pan = 0, dur = 1, ramp = 0.03 }) {
     markInteract();
     const c = getCtx();
@@ -316,44 +279,15 @@ export default function HearingAgeLab({ onInteract }) {
     }
   }
 
-  /* ================= Part 2: threshold staircase ==================
-     Simplified up-down staircase (10 dB down after "heard", 5 dB up after
-     "nothing"). Threshold = the first level heard twice on an ascending
-     run, a "heard" at the -10 floor (can't go quieter), or the lowest
-     level heard after MAX_TRIALS. Levels are relative.
+  // ================= Part 2: threshold staircase ==================
 
-     UX notes (the first port felt stuck — "Heard it" just replayed the
-     same pitch quieter with nothing on screen changing, and both buttons
-     were locked while the beeps played):
-       - "Heard it" is live WHILE the beeps play, like a real audiometer's
-         response button; pressing it cuts the remaining beeps. "Nothing"
-         only unlocks once all three beeps have played.
-       - every answer shows feedback ("Heard at 30 dB — trying quieter")
-         and moves a level bar, so each press visibly does something.
-       - "Play again" repeats the current beeps without counting a trial.
-       - after every answer there's a short silent pause (≈1–1.8 s, a
-         little random so the student can't anticipate the beeps) before
-         the next trial plays; the answer buttons are locked during it.
-         Without it the next, quieter beeps started the instant "Heard it"
-         was pressed and sounded like the same tone carrying on. */
-  // 14 answers per tone is enough for three ascending runs; a normal
-  // listener confirms in ~9–10 (40✓ 30✓ 20✓ 10✓ 0✗ 5✓ -5✗ 0✗ 5✓ → 5 dB).
-  // The old cap of 8 cut most tones off before the second ascending "heard",
-  // so the result fell back to a (less reliable) descending answer.
   const MAX_TRIALS = 14;
   const thrRef = useRef(null);
   const [thrView, setThrView] = useState({ i: 0, busy: true, live: false, waiting: false, L: 40, msg: null, path: [] });
   const needsReplayRef = useRef(false);
   const thrEar = (i) => (i < THR_FREQS.length ? "R" : "L");
   const thrFreq = (i) => THR_FREQS[i % THR_FREQS.length];
-  // asc[L]  = "heard" answers at level L that came right after a "nothing"
-  //           (i.e. on the way up) — only these count towards the threshold.
-  // ascYes  = every such level, for the fallback when the cap is hit.
-  // path    = every level tried + answer, shown on screen as a trace.
   const freshTrialState = () => ({ L: 40, asc: {}, ascYes: [], lastNo: false, n: 0, lowestYes: null, live: false, path: [] });
-  /* Cap reached without two matching ascending answers: use the lowest
-     level heard on the way up; failing that the lowest heard at all; never
-     heard → the level we stopped at (no response). */
   const fallbackThr = (t) => (t.ascYes.length ? Math.min(...t.ascYes) : t.lowestYes ?? t.L);
 
   function initThr() {
@@ -376,7 +310,6 @@ export default function HearingAgeLab({ onInteract }) {
       setThrView((v) => ({ ...v, busy: false }));
     }, 1300);
   }
-  /* Cut any beeps still scheduled or sounding for the current trial. */
   function silenceTrial() {
     clearTimers();
     stopAll();
@@ -418,7 +351,6 @@ export default function HearingAgeLab({ onInteract }) {
       });
     }
   }
-  /* Lock the answers, wait a short silent pause, then play the next trial. */
   function queueTrial(msg, base = 1000) {
     const t = thrRef.current;
     t.live = false;
@@ -446,8 +378,6 @@ export default function HearingAgeLab({ onInteract }) {
     queueTrial(msg, 1200);
   }
   function finishTest() {
-    // Fill the untested audiogram points so the chart reads cleanly:
-    // 250/500 Hz copy 1 kHz (low pitches barely age), 3 kHz interpolates.
     const test = testRef.current;
     ["R", "L"].forEach((e) => {
       const t = test.thr[e];
@@ -568,322 +498,322 @@ export default function HearingAgeLab({ onInteract }) {
           so test progress survives switching tabs. */}
       <TabPanel value={tab} index={TAB_ITEMS.findIndex((t) => t.id === tab)} role="presentation" tabIndex={-1}>
 
-      {/* ============================ TEST ============================ */}
-      <section role="tabpanel" id="hha-panel-test" aria-labelledby="hha-tab-test" hidden={tab !== "test"}>
-        <div className="hha-stepper">
-          {STEPS.map((s, i) => (
-            <div key={s} className={i < step ? "done" : i === step ? "cur" : undefined}>
-              <i />
-              <span>{s}</span>
-            </div>
-          ))}
-        </div>
+        {/* ============================ TEST ============================ */}
+        <section role="tabpanel" id="hha-panel-test" aria-labelledby="hha-tab-test" hidden={tab !== "test"}>
+          <div className="hha-stepper">
+            {STEPS.map((s, i) => (
+              <div key={s} className={i < step ? "done" : i === step ? "cur" : undefined}>
+                <i />
+                <span>{s}</span>
+              </div>
+            ))}
+          </div>
 
-        {step === 0 && (
-          <div className="hha-panel">
-            <div className="hha-grid hha-g2">
-              <div>
-                <p className="hha-label">Before you start</p>
-                <ul className="hha-checklist">
-                  {PRECHECKS.map(([b, s], i) => (
-                    <li key={b}>
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={checks[i]}
-                          onChange={(e) => setChecks((c) => c.map((v, k) => (k === i ? e.target.checked : v)))}
-                        />
-                        <div>
-                          <b>{b}</b>
-                          <small>{s}</small>
-                        </div>
-                      </label>
+          {step === 0 && (
+            <div className="hha-panel">
+              <div className="hha-grid hha-g2">
+                <div>
+                  <p className="hha-label">Before you start</p>
+                  <ul className="hha-checklist">
+                    {PRECHECKS.map(([b, s], i) => (
+                      <li key={b}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={checks[i]}
+                            onChange={(e) => setChecks((c) => c.map((v, k) => (k === i ? e.target.checked : v)))}
+                          />
+                          <div>
+                            <b>{b}</b>
+                            <small>{s}</small>
+                          </div>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <p className="hha-label">About you</p>
+                  <p className="hha-muted" style={{ margin: "0 0 14px" }}>
+                    Ears age a little differently in men and women, so we compare you with the right group.
+                  </p>
+                  <div className="hha-row" style={{ gap: 18, alignItems: "flex-end", marginBottom: 18 }}>
+                    <div className="hha-field">
+                      <label htmlFor="hha-age">Age</label>
+                      <input
+                        id="hha-age"
+                        type="number"
+                        inputMode="numeric"
+                        min="18"
+                        max="90"
+                        step="1"
+                        value={ageInput}
+                        aria-invalid={!ageOk}
+                        aria-describedby="hha-age-err"
+                        onChange={(e) => updateProfile(e.target.value, sex)}
+                      />
+                    </div>
+                    <div className="hha-field">
+                      <span className="hha-field-label">Compare with</span>
+                      <Seg label="Compare with" value={sex} onChange={(v) => updateProfile(ageInput, v)} options={[["m", "Men"], ["f", "Women"], ["x", "Everyone"]]} />
+                    </div>
+                  </div>
+                  <p id="hha-age-err" className="hha-field-error" role="alert" style={{ margin: "-8px 0 14px" }}>
+                    {ageOk ? "" : "Enter your age in whole years, 18 to 90 (the hearing tables start at 18)."}
+                  </p>
+                  <p className="hha-label">Set your volume</p>
+                  <div className="hha-cal">
+                    <button type="button" className="hha-play" aria-label="Play reference tone" onClick={() => tone({ freq: 1000, gain: 0.12, dur: 1.5 })}>
+                      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M7 5v14l12-7z" />
+                      </svg>
+                    </button>
+                    <div>
+                      Play the tone and set your device volume so it's <b>clearly audible but comfortable</b>. Don't change volume during the test.
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="hha-row" style={{ marginTop: 22 }}>
+                <span className="hha-spacer" />
+                <button type="button" className="hha-btn primary" disabled={!allChecked || !ageOk} onClick={startTest}>
+                  Start test →
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 1 && (
+            <div className="hha-panel">
+              <div className="hha-row">
+                <p className="hha-label" style={{ margin: 0 }}>Part 1 of 2 · Highest tone you can hear</p>
+                <span className="hha-spacer" />
+                <EarPill ear={sweepEar} />
+              </div>
+              <div className="hha-stage">
+                <SpeakerRing />
+                <div className="hha-freq" aria-live="off">
+                  {(sweepFreq / 1000).toFixed(1)}
+                  <small>kHz</small>
+                </div>
+                <div className="hha-track">
+                  <div className="hha-track-fill" style={{ width: `${(Math.log(sweepFreq / SWEEP.lo) / Math.log(SWEEP.hi / SWEEP.lo)) * 100}%` }} />
+                </div>
+                <div className="hha-ticks">
+                  {SWEEP_TICKS.map((t) => (
+                    <span key={t}>{t}</span>
+                  ))}
+                </div>
+                <p className="hha-muted hha-hint">
+                  {sweepRightDone != null && sweepEar === "L" ? (
+                    <>
+                      Right ear: <b>{(sweepRightDone / 1000).toFixed(1)} kHz</b>. Now the same for your left ear.
+                    </>
+                  ) : (
+                    <>
+                      A steady tone will rise in pitch. Press the button the moment it <b>disappears</b>.
+                    </>
+                  )}
+                </p>
+                <button type="button" className="hha-big-stop" onClick={onSweepButton}>
+                  {sweepRunning ? "I can't hear it" : sweepEar === "L" ? "Next: left ear" : "Start tone"}
+                </button>
+                <span className="hha-muted hha-small">
+                  or press <kbd>Space</kbd>
+                </span>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="hha-panel">
+              <div className="hha-row">
+                <p className="hha-label" style={{ margin: 0 }}>Part 2 of 2 · Quietest sound you can hear</p>
+                <span className="hha-spacer" />
+                <EarPill ear={thrEar(thrView.i)} />
+              </div>
+              <div className="hha-stage">
+                <div className="hha-mini-dots" aria-label={`Tone ${thrView.i + 1} of ${THR_FREQS.length * 2}`}>
+                  {Array.from({ length: THR_FREQS.length * 2 }, (_, k) => (
+                    <i key={k} className={k < thrView.i ? "ok" : k === thrView.i ? "cur" : undefined} />
+                  ))}
+                </div>
+                <SpeakerRing waves={1} />
+                <div className="hha-freq">
+                  {thrFreq(thrView.i) / 1000}
+                  <small>kHz</small>
+                </div>
+                <p className="hha-muted hha-hint">
+                  {thrView.waiting
+                    ? "Get ready — next beeps in a moment…"
+                    : thrView.busy
+                      ? "Listen… press Heard it as soon as you hear the beeps."
+                      : "Did you hear three short beeps? Quieter after each ✓, a little louder after each ✗ — that zig-zag homes in on your limit."}
+                </p>
+                <div className="hha-level" role="img" aria-label={`Level ${thrView.L} dB`}>
+                  <span>Level</span>
+                  <div className="hha-level-bar">
+                    <i style={{ width: `${((thrView.L + 10) / 100) * 100}%` }} />
+                  </div>
+                  <b>{thrView.L} dB</b>
+                </div>
+                <ol className="hha-trace" aria-label="Levels tried for this tone">
+                  {thrView.path.map((p, k) => (
+                    <li key={k} className={p.heard ? "yes" : "no"}>
+                      {p.L}
+                      <span aria-label={p.heard ? "heard" : "not heard"}>{p.heard ? "✓" : "✗"}</span>
                     </li>
                   ))}
-                </ul>
+                </ol>
+                <p className={`hha-feedback${thrView.msg ? ` hha-tone-${thrView.msg.tone}` : ""}`} aria-live="polite">
+                  {thrView.msg?.text ?? " "}
+                </p>
+                <div className="hha-yn">
+                  <button type="button" className="yes" disabled={!thrView.live} onClick={() => answer(true)}>
+                    ✓ Heard it
+                  </button>
+                  <button type="button" className="no" disabled={thrView.busy} onClick={() => answer(false)}>
+                    ✗ Nothing
+                  </button>
+                </div>
+                <button type="button" className="hha-link hha-replay" disabled={thrView.busy} onClick={replayTrial}>
+                  ↻ Play again
+                </button>
+                <span className="hha-muted hha-small">
+                  <kbd>Y</kbd> heard · <kbd>N</kbd> nothing · <kbd>R</kbd> replay
+                </span>
+              </div>
+              <p className="hha-note">
+                Levels are relative, not calibrated dB HL. A medical hearing test calibrates each headphone model first — treat these numbers as a screen, not a diagnosis.
+              </p>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="hha-panel hha-done">
+              <div className="hha-ring hha-ring-ok" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M5 12.5 10 17 19 7" />
+                </svg>
+              </div>
+              <h3 className="hha-h2">All done.</h3>
+              <p className="hha-muted" style={{ maxWidth: "44ch", margin: "0 auto 20px" }}>
+                We compared your ears with population hearing tables, age by age.
+              </p>
+              <button type="button" className="hha-btn primary" onClick={() => setTab("results")}>
+                See my hearing age →
+              </button>
+            </div>
+          )}
+        </section>
+
+        {/* ============================ RESULTS ============================ */}
+        <section role="tabpanel" id="hha-panel-results" aria-labelledby="hha-tab-results" hidden={tab !== "results"}>
+          {results ? (
+            <ResultsView r={results} res={res} history={history} onRetake={retake} onAge={(v) => updateProfile(v, results.sex)} />
+          ) : (
+            <div className="hha-panel hha-empty">
+              <SpeakerRing />
+              <h3 className="hha-h2">No results yet</h3>
+              <p className="hha-muted">
+                Your hearing age is worked out from your own measurements. Finish both parts of the test and your results will appear here.
+              </p>
+              <button type="button" className="hha-btn primary" onClick={() => setTab("test")}>
+                {step > 0 && step < 3 ? "Continue the test →" : "Take the test →"}
+              </button>
+            </div>
+          )}
+        </section>
+
+        {/* ============================ SCALE ============================ */}
+        <section role="tabpanel" id="hha-panel-scale" aria-labelledby="hha-tab-scale" hidden={tab !== "scale"}>
+          <div className="hha-panel">
+            <p className="hha-label">The idea</p>
+            <h3 className="hha-h2">Two ages, one pair of ears</h3>
+            <div className="hha-compare" style={{ marginTop: 14 }}>
+              <div>
+                <b>Calendar age</b>
+                <p>How many years you've lived. Fixed — you can't change it.</p>
               </div>
               <div>
-                <p className="hha-label">About you</p>
-                <p className="hha-muted" style={{ margin: "0 0 14px" }}>
-                  Ears age a little differently in men and women, so we compare you with the right group.
-                </p>
-                <div className="hha-row" style={{ gap: 18, alignItems: "flex-end", marginBottom: 18 }}>
-                  <div className="hha-field">
-                    <label htmlFor="hha-age">Age</label>
-                    <input
-                      id="hha-age"
-                      type="number"
-                      inputMode="numeric"
-                      min="18"
-                      max="90"
-                      step="1"
-                      value={ageInput}
-                      aria-invalid={!ageOk}
-                      aria-describedby="hha-age-err"
-                      onChange={(e) => updateProfile(e.target.value, sex)}
-                    />
-                  </div>
-                  <div className="hha-field">
-                    <span className="hha-field-label">Compare with</span>
-                    <Seg label="Compare with" value={sex} onChange={(v) => updateProfile(ageInput, v)} options={[["m", "Men"], ["f", "Women"], ["x", "Everyone"]]} />
-                  </div>
-                </div>
-                <p id="hha-age-err" className="hha-field-error" role="alert" style={{ margin: "-8px 0 14px" }}>
-                  {ageOk ? "" : "Enter your age in whole years, 18 to 90 (the hearing tables start at 18)."}
-                </p>
-                <p className="hha-label">Set your volume</p>
-                <div className="hha-cal">
-                  <button type="button" className="hha-play" aria-label="Play reference tone" onClick={() => tone({ freq: 1000, gain: 0.12, dur: 1.5 })}>
-                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                      <path d="M7 5v14l12-7z" />
-                    </svg>
-                  </button>
-                  <div>
-                    Play the tone and set your device volume so it's <b>clearly audible but comfortable</b>. Don't change volume during the test.
-                  </div>
-                </div>
+                <b>Hearing age</b>
+                <p>The age at which an average person hears like you do. Noise, genes and health can push it up or keep it down.</p>
               </div>
             </div>
-            <div className="hha-row" style={{ marginTop: 22 }}>
-              <span className="hha-spacer" />
-              <button type="button" className="hha-btn primary" disabled={!allChecked || !ageOk} onClick={startTest}>
-                Start test →
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === 1 && (
-          <div className="hha-panel">
-            <div className="hha-row">
-              <p className="hha-label" style={{ margin: 0 }}>Part 1 of 2 · Highest tone you can hear</p>
-              <span className="hha-spacer" />
-              <EarPill ear={sweepEar} />
-            </div>
-            <div className="hha-stage">
-              <SpeakerRing />
-              <div className="hha-freq" aria-live="off">
-                {(sweepFreq / 1000).toFixed(1)}
-                <small>kHz</small>
-              </div>
-              <div className="hha-track">
-                <div className="hha-track-fill" style={{ width: `${(Math.log(sweepFreq / SWEEP.lo) / Math.log(SWEEP.hi / SWEEP.lo)) * 100}%` }} />
-              </div>
-              <div className="hha-ticks">
-                {SWEEP_TICKS.map((t) => (
-                  <span key={t}>{t}</span>
-                ))}
-              </div>
-              <p className="hha-muted hha-hint">
-                {sweepRightDone != null && sweepEar === "L" ? (
-                  <>
-                    Right ear: <b>{(sweepRightDone / 1000).toFixed(1)} kHz</b>. Now the same for your left ear.
-                  </>
-                ) : (
-                  <>
-                    A steady tone will rise in pitch. Press the button the moment it <b>disappears</b>.
-                  </>
-                )}
-              </p>
-              <button type="button" className="hha-big-stop" onClick={onSweepButton}>
-                {sweepRunning ? "I can't hear it" : sweepEar === "L" ? "Next: left ear" : "Start tone"}
-              </button>
-              <span className="hha-muted hha-small">
-                or press <kbd>Space</kbd>
-              </span>
-            </div>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="hha-panel">
-            <div className="hha-row">
-              <p className="hha-label" style={{ margin: 0 }}>Part 2 of 2 · Quietest sound you can hear</p>
-              <span className="hha-spacer" />
-              <EarPill ear={thrEar(thrView.i)} />
-            </div>
-            <div className="hha-stage">
-              <div className="hha-mini-dots" aria-label={`Tone ${thrView.i + 1} of ${THR_FREQS.length * 2}`}>
-                {Array.from({ length: THR_FREQS.length * 2 }, (_, k) => (
-                  <i key={k} className={k < thrView.i ? "ok" : k === thrView.i ? "cur" : undefined} />
-                ))}
-              </div>
-              <SpeakerRing waves={1} />
-              <div className="hha-freq">
-                {thrFreq(thrView.i) / 1000}
-                <small>kHz</small>
-              </div>
-              <p className="hha-muted hha-hint">
-                {thrView.waiting
-                  ? "Get ready — next beeps in a moment…"
-                  : thrView.busy
-                  ? "Listen… press Heard it as soon as you hear the beeps."
-                  : "Did you hear three short beeps? Quieter after each ✓, a little louder after each ✗ — that zig-zag homes in on your limit."}
-              </p>
-              <div className="hha-level" role="img" aria-label={`Level ${thrView.L} dB`}>
-                <span>Level</span>
-                <div className="hha-level-bar">
-                  <i style={{ width: `${((thrView.L + 10) / 100) * 100}%` }} />
-                </div>
-                <b>{thrView.L} dB</b>
-              </div>
-              <ol className="hha-trace" aria-label="Levels tried for this tone">
-                {thrView.path.map((p, k) => (
-                  <li key={k} className={p.heard ? "yes" : "no"}>
-                    {p.L}
-                    <span aria-label={p.heard ? "heard" : "not heard"}>{p.heard ? "✓" : "✗"}</span>
-                  </li>
-                ))}
-              </ol>
-              <p className={`hha-feedback${thrView.msg ? ` hha-tone-${thrView.msg.tone}` : ""}`} aria-live="polite">
-                {thrView.msg?.text ?? " "}
-              </p>
-              <div className="hha-yn">
-                <button type="button" className="yes" disabled={!thrView.live} onClick={() => answer(true)}>
-                  ✓ Heard it
-                </button>
-                <button type="button" className="no" disabled={thrView.busy} onClick={() => answer(false)}>
-                  ✗ Nothing
-                </button>
-              </div>
-              <button type="button" className="hha-link hha-replay" disabled={thrView.busy} onClick={replayTrial}>
-                ↻ Play again
-              </button>
-              <span className="hha-muted hha-small">
-                <kbd>Y</kbd> heard · <kbd>N</kbd> nothing · <kbd>R</kbd> replay
-              </span>
-            </div>
-            <p className="hha-note">
-              Levels are relative, not calibrated dB HL. A medical hearing test calibrates each headphone model first — treat these numbers as a screen, not a diagnosis.
+            <p className="hha-muted" style={{ margin: "14px 0 0" }}>
+              It works like "metabolic age" on a smart scale: we compare your result with large population tables of how hearing normally changes with age, and find the age you match best.
             </p>
           </div>
-        )}
 
-        {step === 3 && (
-          <div className="hha-panel hha-done">
-            <div className="hha-ring hha-ring-ok" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M5 12.5 10 17 19 7" />
-              </svg>
+          <div className="hha-panel hha-mt">
+            <div className="hha-row" style={{ marginBottom: 6 }}>
+              <p className="hha-label" style={{ margin: 0 }}>How ears age — typical hearing by decade</p>
+              <span className="hha-spacer" />
+              <Seg label="Show tables for" value={scaleSex} onChange={setScaleSex} options={[["m", "Men"], ["f", "Women"]]} />
             </div>
-            <h3 className="hha-h2">All done.</h3>
-            <p className="hha-muted" style={{ maxWidth: "44ch", margin: "0 auto 20px" }}>
-              We compared your ears with population hearing tables, age by age.
-            </p>
-            <button type="button" className="hha-btn primary" onClick={() => setTab("results")}>
-              See my hearing age →
-            </button>
+            <AgeFamily sex={scaleSex} />
+            <p className="hha-muted hha-caption">Low pitches barely change. High pitches (4–8 kHz) fade first and fastest — which is why the test focuses there.</p>
           </div>
-        )}
-      </section>
 
-      {/* ============================ RESULTS ============================ */}
-      <section role="tabpanel" id="hha-panel-results" aria-labelledby="hha-tab-results" hidden={tab !== "results"}>
-        {results ? (
-          <ResultsView r={results} res={res} history={history} onRetake={retake} onAge={(v) => updateProfile(v, results.sex)} />
-        ) : (
-          <div className="hha-panel hha-empty">
-            <SpeakerRing />
-            <h3 className="hha-h2">No results yet</h3>
-            <p className="hha-muted">
-              Your hearing age is worked out from your own measurements. Finish both parts of the test and your results will appear here.
-            </p>
-            <button type="button" className="hha-btn primary" onClick={() => setTab("test")}>
-              {step > 0 && step < 3 ? "Continue the test →" : "Take the test →"}
-            </button>
-          </div>
-        )}
-      </section>
-
-      {/* ============================ SCALE ============================ */}
-      <section role="tabpanel" id="hha-panel-scale" aria-labelledby="hha-tab-scale" hidden={tab !== "scale"}>
-        <div className="hha-panel">
-          <p className="hha-label">The idea</p>
-          <h3 className="hha-h2">Two ages, one pair of ears</h3>
-          <div className="hha-compare" style={{ marginTop: 14 }}>
-            <div>
-              <b>Calendar age</b>
-              <p>How many years you've lived. Fixed — you can't change it.</p>
-            </div>
-            <div>
-              <b>Hearing age</b>
-              <p>The age at which an average person hears like you do. Noise, genes and health can push it up or keep it down.</p>
-            </div>
-          </div>
-          <p className="hha-muted" style={{ margin: "14px 0 0" }}>
-            It works like "metabolic age" on a smart scale: we compare your result with large population tables of how hearing normally changes with age, and find the age you match best.
-          </p>
-        </div>
-
-        <div className="hha-panel hha-mt">
-          <div className="hha-row" style={{ marginBottom: 6 }}>
-            <p className="hha-label" style={{ margin: 0 }}>How ears age — typical hearing by decade</p>
-            <span className="hha-spacer" />
-            <Seg label="Show tables for" value={scaleSex} onChange={setScaleSex} options={[["m", "Men"], ["f", "Women"]]} />
-          </div>
-          <AgeFamily sex={scaleSex} />
-          <p className="hha-muted hha-caption">Low pitches barely change. High pitches (4–8 kHz) fade first and fastest — which is why the test focuses there.</p>
-        </div>
-
-        <div className="hha-grid hha-g2 hha-mt">
-          <div className="hha-panel">
-            <p className="hha-label">The scale</p>
-            <div className="hha-table-scroll">
-              <table className="hha-table">
-                <thead>
-                  <tr>
-                    <th>Age</th>
-                    <th>Loss @ 4 kHz</th>
-                    <th>Loss @ 8 kHz</th>
-                    <th>Top tone</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {SCALE_AGES.map((a) => (
-                    <tr key={a}>
-                      <td className="num">{a}</td>
-                      <td className="num">{median(4000, a, scaleSex).toFixed(0)} dB</td>
-                      <td className="num">{median(8000, a, scaleSex).toFixed(0)} dB</td>
-                      <td className="num">~{(ceilForAge(a) / 1000).toFixed(1)} kHz</td>
+          <div className="hha-grid hha-g2 hha-mt">
+            <div className="hha-panel">
+              <p className="hha-label">The scale</p>
+              <div className="hha-table-scroll">
+                <table className="hha-table">
+                  <thead>
+                    <tr>
+                      <th>Age</th>
+                      <th>Loss @ 4 kHz</th>
+                      <th>Loss @ 8 kHz</th>
+                      <th>Top tone</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {SCALE_AGES.map((a) => (
+                      <tr key={a}>
+                        <td className="num">{a}</td>
+                        <td className="num">{median(4000, a, scaleSex).toFixed(0)} dB</td>
+                        <td className="num">{median(8000, a, scaleSex).toFixed(0)} dB</td>
+                        <td className="num">~{(ceilForAge(a) / 1000).toFixed(1)} kHz</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="hha-muted hha-caption">Hearing loss in dB compared with a healthy 18-year-old (median person). Top frequency is a rough guide; it varies a lot between people.</p>
             </div>
-            <p className="hha-muted hha-caption">Hearing loss in dB compared with a healthy 18-year-old (median person). Top frequency is a rough guide; it varies a lot between people.</p>
+            <div className="hha-panel">
+              <p className="hha-label">Try it — which tones can you hear?</p>
+              <div className="hha-tone-grid">
+                {TRY_TONES.map((f) => (
+                  <button key={f} type="button" className={playingTone === f ? "playing" : undefined} onClick={() => tryTone(f)}>
+                    <b>{f / 1000} kHz</b>
+                    <small>{f <= 9000 ? "Most people" : `Typical under ~${Math.round(ageForCeil(f))}`}</small>
+                  </button>
+                ))}
+              </div>
+              <p className="hha-muted hha-caption">Use headphones at a moderate volume. Your device may cut off above ~18 kHz.</p>
+            </div>
           </div>
-          <div className="hha-panel">
-            <p className="hha-label">Try it — which tones can you hear?</p>
-            <div className="hha-tone-grid">
-              {TRY_TONES.map((f) => (
-                <button key={f} type="button" className={playingTone === f ? "playing" : undefined} onClick={() => tryTone(f)}>
-                  <b>{f / 1000} kHz</b>
-                  <small>{f <= 9000 ? "Most people" : `Typical under ~${Math.round(ageForCeil(f))}`}</small>
-                </button>
+
+          <div className="hha-panel hha-mt">
+            <HowWeCalculate />
+          </div>
+
+          <div className="hha-panel hha-mt">
+            <p className="hha-label">Research sources</p>
+            <ol className="hha-sources">
+              {SOURCES.map(([pre, text, href]) => (
+                <li key={href}>
+                  {pre}
+                  <a href={href} target="_blank" rel="noopener noreferrer">
+                    {text}
+                  </a>
+                </li>
               ))}
-            </div>
-            <p className="hha-muted hha-caption">Use headphones at a moderate volume. Your device may cut off above ~18 kHz.</p>
+            </ol>
           </div>
-        </div>
-
-        <div className="hha-panel hha-mt">
-          <HowWeCalculate />
-        </div>
-
-        <div className="hha-panel hha-mt">
-          <p className="hha-label">Research sources</p>
-          <ol className="hha-sources">
-            {SOURCES.map(([pre, text, href]) => (
-              <li key={href}>
-                {pre}
-                <a href={href} target="_blank" rel="noopener noreferrer">
-                  {text}
-                </a>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
+        </section>
       </TabPanel>
     </div>
   );
@@ -941,30 +871,30 @@ function HowWeCalculate() {
                 <span className="hha-example-toggle" />
               </summary>
               <div className="hha-example-body">
-              
-              He heard the beeps at 15 dB twice but missed them at 10 dB, so at that pitch <b>T = 15</b>. Across all pitches his right ear gave:
-              <div className="hha-table-scroll">
-                <table className="hha-table hha-table-compact">
-                  <thead>
-                    <tr>
-                      <th>Pitch</th>
-                      {FIT_FREQS.map((f) => (
-                        <th key={f}>{kHz(f)}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>His T (dB)</td>
-                      {FIT_FREQS.map((f) => (
-                        <td key={f} className="num">{EX.thr[f]}</td>
-                      ))}
-                    </tr>
-                  </tbody>
-                </table>
+
+                He heard the beeps at 15 dB twice but missed them at 10 dB, so at that pitch <b>T = 15</b>. Across all pitches his right ear gave:
+                <div className="hha-table-scroll">
+                  <table className="hha-table hha-table-compact">
+                    <thead>
+                      <tr>
+                        <th>Pitch</th>
+                        {FIT_FREQS.map((f) => (
+                          <th key={f}>{kHz(f)}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>His T (dB)</td>
+                        {FIT_FREQS.map((f) => (
+                          <td key={f} className="num">{EX.thr[f]}</td>
+                        ))}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <span className="hha-example-foot">3 kHz isn't tested — it's the average of 2k and 4k: (5 + 20) ÷ 2 = 12.5 → 13.</span>
               </div>
-              <span className="hha-example-foot">3 kHz isn't tested — it's the average of 2k and 4k: (5 + 20) ÷ 2 = 12.5 → 13.</span>
-            </div>
             </details>
           </div>
         </li>
@@ -988,32 +918,32 @@ function HowWeCalculate() {
                 <span className="hha-example-toggle" />
               </summary>
               <div className="hha-example-body">
-              
-              Typical threshold at <b>4 kHz</b> for men (α = {ALPHA.m[4000]}):
-              <div className="hha-table-scroll">
-                <table className="hha-table hha-table-compact">
-                  <thead>
-                    <tr>
-                      <th>Age</th>
-                      <th>Sum</th>
-                      <th>Typical T</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[18, 30, 46, 60].map((a) => (
-                      <tr key={a}>
-                        <td className="num">{a}</td>
-                        <td className="num">{a <= 18 ? "same as an 18-year-old" : `${ALPHA.m[4000]} × ${a - 18}² = ${ALPHA.m[4000]} × ${(a - 18) ** 2}`}</td>
-                        <td className="num">
-                          <b>{r1(median(4000, a, "m"))} dB</b>
-                        </td>
+
+                Typical threshold at <b>4 kHz</b> for men (α = {ALPHA.m[4000]}):
+                <div className="hha-table-scroll">
+                  <table className="hha-table hha-table-compact">
+                    <thead>
+                      <tr>
+                        <th>Age</th>
+                        <th>Sum</th>
+                        <th>Typical T</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {[18, 30, 46, 60].map((a) => (
+                        <tr key={a}>
+                          <td className="num">{a}</td>
+                          <td className="num">{a <= 18 ? "same as an 18-year-old" : `${ALPHA.m[4000]} × ${a - 18}² = ${ALPHA.m[4000]} × ${(a - 18) ** 2}`}</td>
+                          <td className="num">
+                            <b>{r1(median(4000, a, "m"))} dB</b>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <span className="hha-example-foot">So a typical 60-year-old man needs a 4 kHz sound about 28 dB louder than an 18-year-old before he hears it.</span>
               </div>
-              <span className="hha-example-foot">So a typical 60-year-old man needs a 4 kHz sound about 28 dB louder than an 18-year-old before he hears it.</span>
-            </div>
             </details>
           </div>
         </li>
@@ -1033,65 +963,65 @@ function HowWeCalculate() {
                 <span className="hha-example-toggle" />
               </summary>
               <div className="hha-example-body">
-              
-              His thresholds against a typical {r2(fit)}-year-old:
-              <div className="hha-table-scroll">
-                <table className="hha-table hha-table-compact">
-                  <thead>
-                    <tr>
-                      <th>Pitch</th>
-                      <th>His T</th>
-                      <th>Typical T</th>
-                      <th>Gap</th>
-                      <th>Gap²</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {FIT_FREQS.map((f) => {
-                      const typ = median(f, fit, EX.sex);
-                      const gap = EX.thr[f] - typ;
-                      return (
-                        <tr key={f}>
-                          <td>{kHz(f)}</td>
-                          <td className="num">{EX.thr[f]}</td>
-                          <td className="num">{r2(typ)}</td>
-                          <td className="num">{r2(gap)}</td>
-                          <td className="num">{r2(gap * gap)}</td>
-                        </tr>
-                      );
-                    })}
-                    <tr className="hha-total">
-                      <td colSpan={4}>Score</td>
-                      <td className="num">{r1(exScore(fit))}</td>
-                    </tr>
-                  </tbody>
-                </table>
+
+                His thresholds against a typical {r2(fit)}-year-old:
+                <div className="hha-table-scroll">
+                  <table className="hha-table hha-table-compact">
+                    <thead>
+                      <tr>
+                        <th>Pitch</th>
+                        <th>His T</th>
+                        <th>Typical T</th>
+                        <th>Gap</th>
+                        <th>Gap²</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {FIT_FREQS.map((f) => {
+                        const typ = median(f, fit, EX.sex);
+                        const gap = EX.thr[f] - typ;
+                        return (
+                          <tr key={f}>
+                            <td>{kHz(f)}</td>
+                            <td className="num">{EX.thr[f]}</td>
+                            <td className="num">{r2(typ)}</td>
+                            <td className="num">{r2(gap)}</td>
+                            <td className="num">{r2(gap * gap)}</td>
+                          </tr>
+                        );
+                      })}
+                      <tr className="hha-total">
+                        <td colSpan={4}>Score</td>
+                        <td className="num">{r1(exScore(fit))}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                Doing the same for other ages:
+                <div className="hha-table-scroll">
+                  <table className="hha-table hha-table-compact">
+                    <thead>
+                      <tr>
+                        <th>Age</th>
+                        {scoreAges.map((a) => (
+                          <th key={a} className={a === fit ? "hha-best" : undefined}>{a}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Score</td>
+                        {scoreAges.map((a) => (
+                          <td key={a} className={`num${a === fit ? " hha-best" : ""}`}>{r1(exScore(a))}</td>
+                        ))}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <span className="hha-example-foot">
+                  Lowest score is at <b>{r2(fit)}</b> → his chart-fit age is <b>{r2(fit)}</b>.
+                </span>
               </div>
-              Doing the same for other ages:
-              <div className="hha-table-scroll">
-                <table className="hha-table hha-table-compact">
-                  <thead>
-                    <tr>
-                      <th>Age</th>
-                      {scoreAges.map((a) => (
-                        <th key={a} className={a === fit ? "hha-best" : undefined}>{a}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>Score</td>
-                      {scoreAges.map((a) => (
-                        <td key={a} className={`num${a === fit ? " hha-best" : ""}`}>{r1(exScore(a))}</td>
-                      ))}
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <span className="hha-example-foot">
-                Lowest score is at <b>{r2(fit)}</b> → his chart-fit age is <b>{r2(fit)}</b>.
-              </span>
-            </div>
             </details>
           </div>
         </li>
@@ -1110,13 +1040,13 @@ function HowWeCalculate() {
                 <span className="hha-example-toggle" />
               </summary>
               <div className="hha-example-body">
-              
-              He heard up to <b>15 kHz</b> — between 30 years (16 kHz) and 40 years (14.5 kHz):
-              <div className="hha-formula">30 + 10 × (16,000 − 15,000) ÷ (16,000 − 14,500) = {r2(ex.ceilAge)}</div>
-              <span className="hha-example-foot">
-                His top-pitch age is <b>{r1(ex.ceilAge)}</b>.
-              </span>
-            </div>
+
+                He heard up to <b>15 kHz</b> — between 30 years (16 kHz) and 40 years (14.5 kHz):
+                <div className="hha-formula">30 + 10 × (16,000 − 15,000) ÷ (16,000 − 14,500) = {r2(ex.ceilAge)}</div>
+                <span className="hha-example-foot">
+                  His top-pitch age is <b>{r1(ex.ceilAge)}</b>.
+                </span>
+              </div>
             </details>
           </div>
         </li>
@@ -1136,28 +1066,28 @@ function HowWeCalculate() {
                 <span className="hha-example-toggle" />
               </summary>
               <div className="hha-example-body">
-              
-              <div className="hha-calc">
-                <span>Right ear</span>
-                <b>
-                  0.7 × {r2(fit)} + 0.3 × {r2(ex.ceilAge)} = {r2(0.7 * fit + 0.3 * ex.ceilAge)} → {ex.age}
-                </b>
-                <span>Left ear (same steps)</span>
-                <b>{EX.leftEarAge}</b>
-                <span>Hearing age (better ear)</span>
-                <b>
-                  lower of {ex.age} and {EX.leftEarAge} = {overall}
-                </b>
-                <span>Compared with his real age</span>
-                <b>
-                  {overall} − {EX.age} = {delta > 0 ? "+" : ""}
-                  {delta} years
-                </b>
+
+                <div className="hha-calc">
+                  <span>Right ear</span>
+                  <b>
+                    0.7 × {r2(fit)} + 0.3 × {r2(ex.ceilAge)} = {r2(0.7 * fit + 0.3 * ex.ceilAge)} → {ex.age}
+                  </b>
+                  <span>Left ear (same steps)</span>
+                  <b>{EX.leftEarAge}</b>
+                  <span>Hearing age (better ear)</span>
+                  <b>
+                    lower of {ex.age} and {EX.leftEarAge} = {overall}
+                  </b>
+                  <span>Compared with his real age</span>
+                  <b>
+                    {overall} − {EX.age} = {delta > 0 ? "+" : ""}
+                    {delta} years
+                  </b>
+                </div>
+                <span className="hha-example-foot">
+                  Result: <b className={`hha-tone-${zone.tone}`}>{zone.label}</b> — {zone.title.toLowerCase()}.
+                </span>
               </div>
-              <span className="hha-example-foot">
-                Result: <b className={`hha-tone-${zone.tone}`}>{zone.label}</b> — {zone.title.toLowerCase()}.
-              </span>
-            </div>
             </details>
           </div>
         </li>
@@ -1196,29 +1126,29 @@ function ResultsView({ r, res, history, onRetake, onAge }) {
   return (
     <>
       <div className="hha-banner">
-          <>
-            <span className="hha-tag hha-tag-ok">Your test</span>
-            <span>
-              Results from {new Date(r.date).toLocaleDateString()} · compared with <b>{SEX_LABEL[r.sex]}</b> aged{" "}
-              <input
-                className="hha-inline-age"
-                type="number"
-                inputMode="numeric"
-                min="18"
-                max="90"
-                step="1"
-                aria-label="Calendar age"
-                value={ageDraft ?? String(r.age)}
-                aria-invalid={ageDraft != null && parseAge(ageDraft) == null}
-                onChange={(e) => {
-                  setAgeDraft(e.target.value);
-                  if (parseAge(e.target.value) != null) onAge(e.target.value);
-                }}
-                onBlur={() => setAgeDraft(null)}
-              />
-              .
-            </span>
-          </>
+        <>
+          <span className="hha-tag hha-tag-ok">Your test</span>
+          <span>
+            Results from {new Date(r.date).toLocaleDateString()} · compared with <b>{SEX_LABEL[r.sex]}</b> aged{" "}
+            <input
+              className="hha-inline-age"
+              type="number"
+              inputMode="numeric"
+              min="18"
+              max="90"
+              step="1"
+              aria-label="Calendar age"
+              value={ageDraft ?? String(r.age)}
+              aria-invalid={ageDraft != null && parseAge(ageDraft) == null}
+              onChange={(e) => {
+                setAgeDraft(e.target.value);
+                if (parseAge(e.target.value) != null) onAge(e.target.value);
+              }}
+              onBlur={() => setAgeDraft(null)}
+            />
+            .
+          </span>
+        </>
       </div>
 
       <div className="hha-panel">

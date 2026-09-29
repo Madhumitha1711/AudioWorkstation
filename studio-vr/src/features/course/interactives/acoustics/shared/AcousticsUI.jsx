@@ -1,11 +1,6 @@
 import { useState } from "react";
 import ListenTabs, { ClipPlayer } from "../../shared/ListenTabs";
 
-// Shared pieces for the chapter 5 acoustics labs (StudioAcousticsLab,
-// RoomTreatmentLab). Layout, player and playback come from the
-// cross-chapter ListenTabs / ClipPlayer / useClipAudio in ../../shared.
-
-/** "Kept the same every time" strip. */
 export function SetupBar({ keptSame }) {
   return (
     <div className="acl-setup">
@@ -14,17 +9,7 @@ export function SetupBar({ keptSame }) {
   );
 }
 
-/**
- * One standard tab per room / step: image | Listen card (hint + player
- * with A/B), then title + description.
- *
- *   items      [{ id, tab, title, body, image }]
- *   compareFor (item) => { id, label, short } | null — the A/B reference
- *              for that tab (null = this tab IS the reference)
- *
- * Switching tabs stops whatever was playing, so audio never keeps running
- * for a panel the student can no longer see.
- */
+
 export function RoomTabs({ items, audio, compareFor, ariaLabel, idPrefix }) {
   const [active, setActive] = useState(items[0].id);
 

@@ -1,9 +1,3 @@
-// Thin fetch wrapper shared by every auth API call (src/api/auth.js): JSON
-// in/out, attaches a bearer token when one is passed, and throws an Error
-// whose `.message` is the backend's own error message — Nest's default
-// exception filter puts that in `message` (a string, or an array of
-// class-validator messages for a failed DTO) — so callers can show it
-// directly instead of a generic "something went wrong".
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
 export async function request(path, { method = "GET", body, token } = {}) {

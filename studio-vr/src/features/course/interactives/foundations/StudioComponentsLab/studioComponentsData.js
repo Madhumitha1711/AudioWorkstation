@@ -1,23 +1,3 @@
-// Content for the "Studio Components" briefing lab (StudioComponentsLab.jsx).
-// Structure and ids from design/studio-components-chapter.html's SECTIONS;
-// the copy has been rewritten in plain, beginner-level language (this is
-// many students' first look inside a studio) — short sentences, jargon
-// avoided or explained on first use. Keep new copy at that level.
-//
-// Four sections — Control Room / Recording Room × Electronic /
-// Non-electronic — of four components each. Each item:
-//   id     — also the icon key (ICONS below) and the image file name
-//            (see componentImagePath)
-//   name   — display name
-//   lead   — one-line definition
-//   body   — paragraphs; **double asterisks** mark bold runs (rendered as
-//            <strong> by StudioComponentsLab's renderRich, so this file
-//            stays plain data with no JSX/HTML strings)
-//   points — key points
-//
-// `tone` picks the section's accent color from the --scl-* tokens in
-// StudioComponentsLab.css (amber/green/blue/purple, with separate
-// light-theme values), matching the mockup's per-section colors.
 
 export const SECTIONS = [
   {

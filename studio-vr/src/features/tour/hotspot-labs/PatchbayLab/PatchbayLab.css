@@ -36,7 +36,7 @@
   gap: 14px;
 }
 .pblab-col-label {
-  font-size: 9px;
+  font-size: var(--fs-3xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--llab-text-muted);
@@ -107,8 +107,8 @@
   min-width: 0;
 }
 .pblab-jack-name {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xs);
   color: var(--shell-text);
   white-space: nowrap;
   overflow: hidden;
@@ -126,7 +126,7 @@
   background: rgba(0, 0, 0, 0.22);
   border: 1px solid var(--llab-border);
   border-radius: 6px;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   color: var(--llab-text-muted);
   text-align: center;
 }
@@ -246,7 +246,7 @@
   color: var(--llab-amber);
 }
 .pblab-track-caption {
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   color: var(--llab-text-muted);
   text-align: center;
   margin-top: 6px;

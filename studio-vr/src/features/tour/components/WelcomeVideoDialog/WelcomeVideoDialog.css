@@ -32,7 +32,10 @@
    first thing a visitor should see and has to block interaction with all
    of it until dismissed — but still under the ~90+ layer Photo Sphere
    Viewer reserves for its own navbar/notifications, which this never
-   needs to sit above. */
+   needs to sit above.
+   Exception: on ≤960px the side panel becomes a drawer at z-index 100
+   (StudioHotspotsPanel.css) and its "☰ Rig" handle would poke through
+   this overlay, so the overlay steps up above it there. */
 .svr-welcome-overlay {
   position: absolute;
   inset: 0;
@@ -72,7 +75,7 @@
 }
 
 .svr-welcome-dialog__kicker {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--shell-text-dim);
@@ -81,7 +84,7 @@
 
 .svr-welcome-dialog__title {
   margin: 0;
-  font-size: 19px;
+  font-size: var(--fs-xl);
   font-weight: 700;
   color: var(--shell-text);
 }
@@ -93,7 +96,7 @@
   border: none;
   background: transparent;
   color: var(--shell-text-dim);
-  font-size: 16px;
+  font-size: var(--fs-lg);
   cursor: pointer;
   flex-shrink: 0;
   line-height: 1;
@@ -141,7 +144,7 @@
   border: 1px solid var(--shell-border);
   border-radius: 4px;
   padding: 1px 5px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .svr-welcome-dialog__footer {
@@ -156,7 +159,7 @@
 .svr-welcome-dialog__hint {
   margin: 0;
   flex: 1;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   line-height: 1.5;
   color: var(--shell-text-dim);
 }
@@ -175,5 +178,11 @@
   .svr-welcome-dialog__footer {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+
+@media (max-width: 960px) {
+  .svr-welcome-overlay {
+    z-index: 110;
   }
 }

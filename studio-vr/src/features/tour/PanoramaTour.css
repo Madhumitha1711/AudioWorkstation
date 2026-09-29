@@ -177,7 +177,7 @@
 }
 
 .hotspot-marker__dot--door {
-  font-size: 15px;
+  font-size: var(--fs-body);
   background: radial-gradient(circle at 32% 28%, var(--marker-blue), var(--marker-blue-2) 70%);
   box-shadow:
     0 0 10px rgba(var(--marker-blue-glow-rgb), 0.75),
@@ -192,7 +192,7 @@
 }
 
 .hotspot-marker__dot--volume {
-  font-size: 14px;
+  font-size: var(--fs-base);
   background: radial-gradient(circle at 32% 28%, var(--marker-amber), var(--marker-amber-2) 70%);
   box-shadow:
     0 0 10px rgba(var(--marker-amber-rgb), 0.75),
@@ -228,7 +228,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--fs-base);
   flex-shrink: 0;
   transition: background 0.15s ease;
 }
@@ -282,7 +282,7 @@
 
 .svr-tour-room-name {
   color: var(--shell-text);
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 600;
   letter-spacing: 0.01em;
   white-space: nowrap;
@@ -315,7 +315,7 @@
   background: transparent;
   color: var(--shell-text-dimmer);
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   white-space: nowrap;
   padding: 7px 14px;
@@ -354,7 +354,7 @@
   height: 32px;
   padding: 0 12px 0 10px;
   border-radius: 999px;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
@@ -363,7 +363,7 @@
 }
 
 .svr-tour-binaural-icon {
-  font-size: 14px;
+  font-size: var(--fs-base);
   line-height: 1;
   transition: filter 0.15s ease, opacity 0.15s ease;
 }
@@ -423,7 +423,7 @@
 
 .svr-tour-hint-text {
   display: none;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   line-height: 1.5;
   color: var(--shell-text-dim);
   padding-top: 5px;
@@ -519,7 +519,7 @@
   border-radius: 50%;
   background: radial-gradient(circle at 32% 28%, var(--brand-accent), var(--brand-accent-2) 70%);
   color: var(--brand-accent-ink);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   flex-shrink: 0;
 }
@@ -530,13 +530,13 @@
 }
 
 .svr-tour-gear-panel__title {
-  font-size: 14.5px;
+  font-size: var(--fs-base);
   font-weight: 700;
   line-height: 1.2;
 }
 
 .svr-tour-gear-panel__kicker {
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--shell-text-dimmer);
@@ -550,7 +550,7 @@
   border: none;
   background: transparent;
   color: var(--shell-text-dim);
-  font-size: 16px;
+  font-size: var(--fs-lg);
   cursor: pointer;
   flex-shrink: 0;
   line-height: 1;
@@ -567,7 +567,7 @@
 }
 
 .svr-tour-section-label {
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--shell-text-dimmer);
@@ -590,7 +590,7 @@
 }
 
 .svr-tour-choice-intro {
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   line-height: 1.5;
   color: var(--shell-text-dim);
   margin: 2px 0 2px;
@@ -601,7 +601,7 @@
 }
 
 .svr-tour-choice-empty {
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   line-height: 1.5;
   color: var(--shell-text-dimmer);
   margin: 4px 0;
@@ -632,7 +632,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 
 .svr-tour-choice-card-text {
@@ -643,13 +643,13 @@
 }
 
 .svr-tour-choice-card-title {
-  font-size: 13.5px;
+  font-size: var(--fs-md);
   font-weight: 700;
   color: var(--shell-text);
 }
 
 .svr-tour-choice-card-sub {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   line-height: 1.4;
   color: var(--shell-text-dimmer);
 }
@@ -718,7 +718,7 @@
   flex: 1;
   padding: 9px 0;
   border-radius: 8px;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   cursor: pointer;
   text-align: center;
@@ -796,7 +796,7 @@
   background: none;
   border: none;
   padding: 2px 4px;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--shell-text-dimmer);
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -822,7 +822,7 @@
 
 .svr-tour-precheck-score-note {
   margin-top: 4px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--shell-text-dimmer);
 }
 
@@ -838,7 +838,7 @@
 .svr-tour-precheck-recap li {
   display: flex;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 1.45;
   color: var(--shell-text-dim);
 }
@@ -848,7 +848,7 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -868,13 +868,13 @@
 
 .svr-tour-precheck-lede {
   margin: 0 0 12px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 1.5;
   color: var(--shell-text-dimmer);
 }
 
 .svr-tour-precheck-question {
-  font-size: 13.5px;
+  font-size: var(--fs-md);
   font-weight: 600;
   line-height: 1.45;
   margin-bottom: 12px;
@@ -896,7 +896,7 @@
   border: 1px solid var(--shell-border);
   background: var(--shell-panel);
   color: var(--shell-text);
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   line-height: 1.4;
   text-align: left;
   cursor: pointer;
@@ -952,7 +952,7 @@
   margin-top: 12px;
   padding: 10px 12px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 1.5;
 }
 
@@ -995,14 +995,14 @@
 }
 
 .svr-tour-volume-panel__icon {
-  font-size: 15px;
+  font-size: var(--fs-body);
   flex-shrink: 0;
 }
 
 .svr-tour-volume-panel__title {
   flex: 1;
   min-width: 0;
-  font-size: 14.5px;
+  font-size: var(--fs-base);
   font-weight: 700;
   line-height: 1.2;
 }
@@ -1012,7 +1012,7 @@
 }
 
 .svr-tour-volume-panel__desc {
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   line-height: 1.55;
   color: var(--shell-text-dim);
   margin-bottom: 14px;
@@ -1065,7 +1065,7 @@
 .svr-tour-volume-val {
   min-width: 44px;
   text-align: right;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   color: var(--shell-text-dim);
   flex-shrink: 0;
@@ -1100,7 +1100,7 @@
 }
 
 .svr-tour-loading-text {
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--shell-text-dim);
 }
 
@@ -1168,13 +1168,137 @@
   backdrop-filter: blur(14px);
   box-shadow: var(--shadow);
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--marker-dark-2);
   max-width: calc(100vw - 32px);
   text-align: center;
-  pointer-events: none;
+  /* A button now — tapping it opens the power-up panel (the mobile drawer
+     starts closed; see StudioHotspotsPanel's openRequest). */
+  cursor: pointer;
+  font-weight: 600;
   /* Same reasoning as the floating panels above (see the z-index: 60 note
      near .svr-tour-toolbar) — comfortably above Photo Sphere Viewer's own
      marker layer. */
   z-index: 60;
+}
+.svr-tour-locked-banner__mobile {
+  display: none;
+}
+
+/* ======================================================================
+   Mobile / small screens
+   ======================================================================
+   ≤960px: the hotspots panel becomes a drawer (StudioHotspotsPanel.css),
+   so the banner's copy switches to "tap to open" and the scene gets the
+   full width.
+   ≤600px (phones): every floating piece is re-laid out for a narrow,
+   touch-only screen —
+     • toolbar: pinned across the top with 12px gutters, audio label
+       dropped to its 🎧 icon, tighter room buttons; scrolls sideways
+       rather than overflowing if it still doesn't fit.
+     • gear/lab panels (.svr-tour-gear-panel — the choice panel, the quiz
+       and every hotspot lab share it) and the volume panel: bottom sheets
+       spanning the width instead of a 320–352px card pinned top-right,
+       kept clear of Photo Sphere Viewer's 40px navbar.
+     • the "P for placement mode" hint chip: hidden — it's a keyboard-only
+       dev aid with nothing to do on a phone.
+     • locked banner: lifted above the PSV navbar. */
+@media (max-width: 960px) {
+  /* The banner sits outside .svr-tour-lockable, so it would float over the
+     open drawer; the drawer's backdrop is a preceding sibling only while
+     it's open, so hide the banner then. */
+  .svr-hotspot-backdrop ~ .svr-tour-locked-banner {
+    display: none;
+  }
+  .svr-tour-locked-banner__desktop {
+    display: none;
+  }
+  .svr-tour-locked-banner__mobile {
+    display: inline;
+  }
+}
+
+@media (max-width: 600px) {
+  .svr-tour-toolbar {
+    top: 10px;
+    left: 12px;
+    right: 12px;
+    transform: none;
+    max-width: none;
+    justify-content: space-between;
+    gap: 4px;
+    padding: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .svr-tour-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+  .svr-tour-room-block {
+    padding: 0;
+    flex-shrink: 0;
+  }
+  .svr-tour-room-toggle__opt {
+    padding: 6px 8px;
+  }
+  .svr-tour-divider {
+    display: none;
+  }
+  .svr-tour-binaural-btn {
+    width: 32px;
+    padding: 0;
+    justify-content: center;
+  }
+  .svr-tour-binaural-label {
+    display: none;
+  }
+  .svr-tour-binaural-btn,
+  .svr-tour-icon-btn {
+    width: 28px;
+    height: 28px;
+  }
+  .svr-tour-toolbar .svr-tour-icon-btn {
+    font-size: var(--fs-md);
+  }
+
+  .svr-tour-gear-panel,
+  .svr-tour-gear-panel.llab-panel-shell,
+  .svr-tour-volume-panel {
+    top: auto;
+    left: 8px;
+    right: 8px;
+    bottom: 48px;
+    width: auto;
+    max-width: none;
+    /* Top edge stays below the drawer's "☰ Rig" handle (top 72px + 56px
+       tall — StudioHotspotsPanel.css) so the two never overlap. */
+    max-height: calc(100% - 190px);
+    border-radius: 16px;
+  }
+  .svr-tour-gear-panel__head {
+    padding: 12px 14px 10px;
+  }
+  .svr-tour-gear-panel__body {
+    padding: 12px 14px;
+  }
+  .svr-tour-gear-panel__footer {
+    padding: 10px 14px 12px;
+  }
+  .svr-tour-gear-panel__close {
+    width: 32px;
+    height: 32px;
+  }
+  .svr-tour-btn {
+    padding: 11px 0;
+  }
+
+  .svr-tour-hint-chip {
+    display: none;
+  }
+
+  .svr-tour-locked-banner {
+    bottom: 52px;
+    padding: 10px 16px;
+    white-space: nowrap;
+  }
 }

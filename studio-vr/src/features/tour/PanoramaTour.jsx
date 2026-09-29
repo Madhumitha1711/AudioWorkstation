@@ -374,6 +374,10 @@ function PanoramaTour() {
   // hovered/focused, in which case the popup shows its own standing prompt
   // instead.
   const [helpModeOn, setHelpModeOn] = useState(false);
+  // Bumped to ask StudioHotspotsPanel to slide open — the locked banner
+  // uses it, mainly so phone users (where the panel is a drawer that
+  // starts closed) have an obvious way to reach the power-up controls.
+  const [panelOpenRequest, setPanelOpenRequest] = useState(0);
   const [helpMessage, setHelpMessage] = useState(null);
 
   // Forces the master output off for as long as the scene is locked, on top
@@ -1340,13 +1344,23 @@ function PanoramaTour() {
           onPoweredChange={setPoweredOn}
           autoPowerUp={autoPowerUp}
           onQuickHelp={setHelpMessage}
+          openRequest={panelOpenRequest}
         />
       )}
 
       {status === "ready" && !poweredOn && (
-        <div className="svr-tour-locked-banner">
-          Power up the Control Room rig in the panel to explore →
-        </div>
+        <button
+          type="button"
+          className="svr-tour-locked-banner"
+          onClick={() => setPanelOpenRequest((n) => n + 1)}
+        >
+          <span className="svr-tour-locked-banner__desktop">
+            Power up the Control Room rig in the panel to explore →
+          </span>
+          <span className="svr-tour-locked-banner__mobile">
+            ☰ Tap to power up the Control Room rig
+          </span>
+        </button>
       )}
 
 

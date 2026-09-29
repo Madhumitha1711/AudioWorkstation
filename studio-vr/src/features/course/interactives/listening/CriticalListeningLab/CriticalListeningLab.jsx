@@ -5,30 +5,6 @@ import { Tabs, TabPanel } from "../../../../../components/Tabs";
 import { createListeningEngine } from "./criticalListeningAudio";
 import { CATS, LEVELS, PROBLEMS, PROBLEM_BY_ID as P, shuffledClips } from "./criticalListeningData";
 
-// "Spot the problem" — the Critical Listening lab for Foundations chapter 4
-// (courseData.js TOPICS[id="listening-skills"]), originally ported from
-// design/critical-listening-lab-1.html.
-//
-// Three tabs — Beginner / Intermediate / Pro — each the same layout:
-//   - a player at the top with a recorded clip that has something wrong
-//     with it (one problem on Beginner, two on Intermediate, three on Pro);
-//   - below it, every problem in the catalogue with its description.
-// The student picks problems from the list. A wrong pick is marked and
-// stays out; a right pick is marked found. Once every problem in the clip
-// is found, the player crossfades to the clean take (sample-aligned, see
-// criticalListeningAudio.js) and the student can flip between the two
-// before moving to the next clip.
-//
-// All audio is recorded and played as-is — no processing (file paths in
-// criticalListeningData.js). A clip whose recordings aren't there yet
-// shows a "recording coming soon" note instead of playing.
-//
-// Keyboard shortcuts (Space play/stop, Enter next clip) are bound to the
-// lab's own root, not the document, so they can't hijack Space for the rest
-// of the course page. Audio stops on tab switch and is torn down on unmount.
-//
-// onInteract (from InteractiveSection) fires the first time the student
-// picks a problem.
 
 const TABS = Object.entries(LEVELS).map(([id, L]) => ({ id, label: L.label }));
 const WORDS = ["zero", "one", "two", "three", "four"];
@@ -87,10 +63,7 @@ function Round({ level, engine, onInteract }) {
     if (solved) nextBtnRef.current?.focus({ preventScroll: true });
   }, [solved]);
 
-  // ---------- audio ----------
-  // playTokenRef guards against a slow first load (each pair is fetched and
-  // decoded the first time it's played) resolving after the student has
-  // already stopped or moved on — only the latest request starts.
+
   async function play(c = clip) {
     const token = ++playTokenRef.current;
     setLoading(true);
@@ -151,7 +124,6 @@ function Round({ level, engine, onInteract }) {
     let i = idx + 1;
     if (i >= q.length) {
       q = shuffledClips(level);
-      // Never the same clip twice in a row across a reshuffle.
       if (q.length > 1 && q[0].id === clip.id) [q[0], q[q.length - 1]] = [q[q.length - 1], q[0]];
       setQueue(q);
       i = 0;

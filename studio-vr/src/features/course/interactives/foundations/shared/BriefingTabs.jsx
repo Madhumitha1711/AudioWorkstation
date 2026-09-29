@@ -3,20 +3,6 @@ import { Tabs, TabPanel } from "../../../../../components/Tabs";
 import "../../shared/labs.css";
 import "./briefingTabs.css";
 
-// Shared "tabbed briefing" layout for the Foundations chapters — one tab
-// per item, each panel = image on top, then title, lead and labelled facts
-// underneath. Used by StudioTypesLab (ch.3, six studio types) and
-// StudioRoomsLab (ch.2, Recording Room / Control Room). Tabs + panel
-// motion come from the app-wide standard (src/components/Tabs).
-//
-// items: [{ id, tab, title, lead, facts: [{ label, text }], image? }]
-//   image — public URL; loaded if present, otherwise (or if it 404s) the
-//   frame shows a dashed placeholder with the expected path so content
-//   authors know where to drop the photo.
-//
-// onInteract (from InteractiveSection) fires the first time the student
-// switches tabs themselves — the initial selection doesn't count.
-// Bold-until-visited tab labels and the "N/M explored" count come from the standard Tabs.
 function BriefingTabs({ items, ariaLabel, idPrefix, onInteract, className = "" }) {
   const [active, setActive] = useState(items[0].id);
   const [loaded, setLoaded] = useState(() => new Set());

@@ -1,7 +1,5 @@
 import { useRef, useEffect, useCallback } from 'react';
-// ── Shared vertical fader/slider ─────────────────────────────────────────────
-// Drag-to-adjust vertical slider. Thumb tracks the cursor 1:1 within the
-// track, the way a physical channel fader behaves (top = max, bottom = min).
+
 export function Fader({ spec, value, onChange, disabled = false, target, height = 90 }) {
     const accent = spec.accent ?? 'var(--amber)';
     const trackRef = useRef(null);

@@ -1,7 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
 
-// Non-component helpers for the standard Tabs (kept out of Tabs.jsx so that
-// file only exports components — fast refresh). See Tabs.jsx for the overview.
 
 export function prefersReducedMotion() {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -20,13 +18,6 @@ function motionTokens(el) {
   };
 }
 
-/**
- * Plays the standard panel-enter animation on `ref.current` whenever
- * `activeKey` changes: a fade + short slide in the direction of travel
- * (`index` = the active tab's position; omit it for a plain fade-up).
- * Rapid switching is handled by starting from the panel's current
- * on-screen opacity instead of snapping back to 0.
- */
 export function useTabTransition(ref, activeKey, index) {
   const prev = useRef({ key: activeKey, index });
   useLayoutEffect(() => {
@@ -52,13 +43,7 @@ export function useTabTransition(ref, activeKey, index) {
   }, [ref, activeKey, index]);
 }
 
-/**
- * Smoothly animates `ref.current`'s height between tab panels of different
- * heights, so content below the tabs glides instead of jumping. The
- * last settled height is tracked with a ResizeObserver; if a switch lands
- * while a height animation is still running, it continues from the
- * current animated height.
- */
+
 export function useTabHeightTransition(ref, activeKey) {
   const last = useRef(null);
   const animating = useRef(false);
