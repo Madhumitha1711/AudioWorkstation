@@ -10,7 +10,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -31,7 +31,7 @@
 }
 
 .lab-intro {
-  font-size: 14px;
+  font-size: var(--fs-base);
   line-height: 1.6;
   color: var(--text-dim);
   margin: 0 0 22px;
@@ -46,7 +46,7 @@
 }
 
 .lab-control-label {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -66,7 +66,7 @@
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.03);
   color: var(--text-dim);
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
@@ -87,7 +87,7 @@
   border: 1px solid var(--border-soft);
   background: var(--panel);
   padding: 18px 20px;
-  font-size: 13.5px;
+  font-size: var(--fs-md);
   line-height: 1.65;
   color: var(--text-dim);
   min-height: 24px;
@@ -109,7 +109,7 @@
 
 .lab-hint {
   margin-top: 14px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--text-dimmer);
 }
 
@@ -142,14 +142,14 @@
 .comp-row-label {
   display: flex;
   align-items: center;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   color: var(--text-dimmer);
 }
 
 .comp-col-label {
   text-align: center;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -163,7 +163,7 @@
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.03);
   color: var(--accent);
-  font-size: 14px;
+  font-size: var(--fs-base);
   font-weight: 800;
   cursor: pointer;
   font-family: inherit;
@@ -182,7 +182,7 @@
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--text-dim);
 }
 
@@ -190,7 +190,7 @@
   font-weight: 700;
   color: var(--text-dimmer);
   text-transform: uppercase;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   letter-spacing: 0.05em;
 }
 
@@ -232,7 +232,7 @@
   justify-content: center;
   height: 100%;
   color: var(--text-dimmer);
-  font-size: 13px;
+  font-size: var(--fs-md);
   text-align: center;
   padding: 0 20px;
 }
@@ -242,7 +242,7 @@
   bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.02em;
   color: var(--text-dimmer);
   background: rgba(5, 5, 7, 0.75);
@@ -266,7 +266,7 @@
   padding: 11px 14px;
 }
 .sweet-spot-readout .lbl {
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -274,12 +274,12 @@
   margin-bottom: 6px;
 }
 .sweet-spot-readout .v {
-  font-size: 14px;
+  font-size: var(--fs-base);
   font-weight: 700;
   color: var(--text);
 }
 .sweet-spot-readout .v.small {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 500;
   line-height: 1.4;
 }
@@ -295,7 +295,7 @@
 
 .sweet-spot-readout-toe {
   margin: 12px 0 20px;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--text-dim);
   line-height: 1.5;
 }
@@ -344,7 +344,7 @@
   background: rgba(var(--brand-accent-rgb), 0.08);
   color: var(--accent);
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--fs-md);
   border: 1px solid rgba(var(--brand-accent-rgb), 0.3);
   transition: background 0.2s ease;
   font-family: inherit;
@@ -364,7 +364,7 @@
   border: none;
   background: none;
   color: var(--text-dimmer);
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
@@ -376,7 +376,7 @@
 
 .lab-upload-error {
   margin-top: 8px;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--danger-soft);
 }
 
@@ -434,7 +434,7 @@
   padding: 10px 12px;
 }
 .sound-lab-readout .rl {
-  font-size: 9.5px;
+  font-size: var(--fs-3xs);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -442,7 +442,7 @@
   margin-bottom: 4px;
 }
 .sound-lab-readout .rv {
-  font-size: 15px;
+  font-size: var(--fs-body);
   font-weight: 700;
   color: var(--text);
 }
@@ -477,7 +477,7 @@
 .sound-lab-slider-labels {
   display: flex;
   justify-content: space-between;
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   color: var(--text-dimmer);
   margin-bottom: 8px;
   letter-spacing: 0.03em;
@@ -500,7 +500,7 @@
   color: var(--text-dim);
 }
 .sound-lab-slider-label .detail {
-  font-size: 9.5px;
+  font-size: var(--fs-3xs);
   color: var(--text-dimmer);
 }
 
@@ -517,7 +517,7 @@
   top: 0;
   transform: translateX(-50%);
   padding-top: 5px;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-variant-numeric: tabular-nums;
   color: var(--text-dimmer);
   white-space: nowrap;
@@ -554,7 +554,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   line-height: 1;
   padding: 0;
   flex-shrink: 0;
@@ -578,7 +578,7 @@
   border-radius: 6px;
   padding: 3px 8px;
   font-family: inherit;
-  font-size: 15px;
+  font-size: var(--fs-body);
   font-weight: 700;
   color: var(--text);
   outline: none;
@@ -622,7 +622,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -640,7 +640,7 @@
   background: rgba(var(--brand-accent-rgb), 0.08);
   color: var(--accent);
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--fs-md);
   cursor: pointer;
   font-family: inherit;
   transition: background 0.2s ease;
@@ -718,7 +718,7 @@
   transition: background-color 0.2s ease;
 }
 .sound-lab-knob-meta .l {
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -726,12 +726,12 @@
   margin-bottom: 6px;
 }
 .sound-lab-knob-meta .v {
-  font-size: 20px;
+  font-size: var(--fs-2xl);
   font-weight: 700;
   color: var(--accent);
 }
 .sound-lab-knob-meta .sub {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--text-dim);
   margin-top: 4px;
 }
@@ -762,7 +762,7 @@
   background: rgba(var(--brand-accent-rgb), 0.08);
 }
 .sound-lab-inst-card .iname {
-  font-size: 14px;
+  font-size: var(--fs-base);
   font-weight: 700;
   margin-bottom: 4px;
 }
@@ -770,7 +770,7 @@
   color: var(--accent);
 }
 .sound-lab-inst-card .idesc {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--text-dimmer);
   line-height: 1.45;
 }

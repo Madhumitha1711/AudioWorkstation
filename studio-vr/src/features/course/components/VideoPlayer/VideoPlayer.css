@@ -32,7 +32,7 @@
   align-items: center;
   gap: 10px;
   margin-top: 8px;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
 }
 .vp-duration {
   font-weight: 600;
@@ -80,7 +80,7 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   letter-spacing: 0.02em;
   color: rgba(255, 255, 255, 0.85);

@@ -11,6 +11,9 @@ import "./CoursePage.css";
 
 const STEP_TAG = { assessment: "Quiz", interactive: "Lab" };
 
+// Keep in sync with the drawer media query at the bottom of CoursePage.css.
+const MOBILE_QUERY = "(max-width: 960px)";
+
 // Every real VR-tour hotspot (Control Room + Recording Room gear markers),
 // flattened so a chapter's `hotspotId` can be resolved back to the actual
 // in-scene marker name instead of borrowing a course chapter's own (often
@@ -96,6 +99,35 @@ function CoursePage() {
   // openTopics/openModules/activeStepId at all).
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  // Mobile drawer. At <=960px (same breakpoint as CoursePage.css) the
+  // outline stops being a column and becomes an off-canvas drawer that
+  // slides in over the lesson from the left, opened by the "Course
+  // contents" bar at the top of .course-main. The desktop collapse-to-rail
+  // state is ignored there (a drawer is either open or closed), so
+  // `collapsed` below is what the sidebar markup actually reads.
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== "undefined" && !!window.matchMedia?.(MOBILE_QUERY).matches
+  );
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia?.(MOBILE_QUERY);
+    if (!mq) return undefined;
+    const onChange = (e) => {
+      setIsMobile(e.matches);
+      if (!e.matches) setDrawerOpen(false);
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  // Escape closes the open drawer.
+  useEffect(() => {
+    if (!drawerOpen) return undefined;
+    const onKey = (e) => e.key === "Escape" && setDrawerOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawerOpen]);
+  const collapsed = sidebarCollapsed && !isMobile;
+
   useEffect(() => {
     if (hasInitialized || STEPS.length === 0) return;
     const requestedId = pendingTopicId && firstStepIdForTopic(STEPS, pendingTopicId);
@@ -177,6 +209,7 @@ function CoursePage() {
 
   const selectStep = (stepId, topicId) => {
     setActiveStepId(stepId);
+    setDrawerOpen(false);
     setOpenTopics((prev) => new Set(prev).add(topicId));
     const moduleId = (topics ?? []).find((t) => t.id === topicId)?.module;
     if (moduleId) setOpenModules((prev) => new Set(prev).add(moduleId));
@@ -260,24 +293,47 @@ function CoursePage() {
           the sidebar (.sidebar-progress), "Back to the studio" joins
           Previous/Next at the bottom of each step (lessonNav below), and
           the module name moved into .topic-eyebrow. */}
-      <div className={`course-layout${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
-        <aside className={`course-sidebar${sidebarCollapsed ? " collapsed" : ""}`}>
+      <div
+        className={`course-layout${collapsed ? " sidebar-collapsed" : ""}${drawerOpen ? " drawer-open" : ""}`}
+      >
+        {/* Mobile only (hidden by CSS above 960px): dims the lesson behind
+            the open drawer; tapping it closes the drawer. */}
+        <div className="sidebar-backdrop" onClick={() => setDrawerOpen(false)} aria-hidden="true" />
+        <aside
+          id="course-outline"
+          className={`course-sidebar${collapsed ? " collapsed" : ""}`}
+          aria-label="Course contents"
+          // Closed drawer is off-screen — keep its buttons out of the tab order.
+          inert={isMobile && !drawerOpen}
+        >
           <div className="sidebar-toggle-row">
-            {!sidebarCollapsed && <span className="sidebar-title">Course Contents</span>}
-            <button
-              type="button"
-              className="sidebar-collapse-btn"
-              onClick={() => setSidebarCollapsed((v) => !v)}
-              aria-expanded={!sidebarCollapsed}
-              aria-label={sidebarCollapsed ? "Expand course outline" : "Collapse course outline"}
-              title={sidebarCollapsed ? "Expand course outline" : "Collapse course outline"}
-            >
-              {sidebarCollapsed ? "»" : "«"}
-            </button>
+            {!collapsed && <span className="sidebar-title">Course Contents</span>}
+            {isMobile ? (
+              <button
+                type="button"
+                className="sidebar-collapse-btn"
+                onClick={() => setDrawerOpen(false)}
+                aria-label="Close course outline"
+                title="Close course outline"
+              >
+                ✕
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="sidebar-collapse-btn"
+                onClick={() => setSidebarCollapsed((v) => !v)}
+                aria-expanded={!sidebarCollapsed}
+                aria-label={sidebarCollapsed ? "Expand course outline" : "Collapse course outline"}
+                title={sidebarCollapsed ? "Expand course outline" : "Collapse course outline"}
+              >
+                {sidebarCollapsed ? "»" : "«"}
+              </button>
+            )}
           </div>
           {/* Overall course progress (moved here from the old topbar). The
               collapsed rail only has room for the percentage. */}
-          {sidebarCollapsed ? (
+          {collapsed ? (
             <div
               className="sidebar-progress-mini"
               title={`${completed.size} / ${STEPS.length} sections complete`}
@@ -298,7 +354,7 @@ function CoursePage() {
               </span>
             </div>
           )}
-          {!sidebarCollapsed && moduleList.map((mod) => {
+          {!collapsed && moduleList.map((mod) => {
             const moduleTopics = (topics ?? []).filter((t) => t.module === mod.id);
             const isModuleOpen = openModules.has(mod.id);
             const moduleSteps = STEPS.filter((s) =>
@@ -409,6 +465,19 @@ function CoursePage() {
         </aside>
 
         <main className="course-main">
+          {/* Mobile only (hidden by CSS above 960px): sticky bar that opens
+              the outline drawer. */}
+          <button
+            type="button"
+            className="drawer-trigger"
+            onClick={() => setDrawerOpen(true)}
+            aria-controls="course-outline"
+            aria-expanded={drawerOpen}
+          >
+            <span className="drawer-trigger-icon" aria-hidden="true">☰</span>
+            <span className="drawer-trigger-label">Course contents</span>
+            <span className="drawer-trigger-pct">{overallPct}%</span>
+          </button>
           {activeTopic && activeStep && (
             <div className="course-content">
               {/* (History: the old topbar's .course-crumb used to show

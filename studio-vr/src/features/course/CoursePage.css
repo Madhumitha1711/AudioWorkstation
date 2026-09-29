@@ -37,11 +37,10 @@
      makes that overlay resolve against .svr-course instead of reaching
      further up the DOM for a positioned ancestor. */
   position: relative;
-  /* Above 960px wide, .course-layout owns the scrolling (course-layout's two columns scroll independently
-     via flex + min-height: 0), so this container itself doesn't need to
-     scroll — see the media query at the bottom of this file for the <960px
-     case, which stacks the columns and switches this back to being the one
-     thing that scrolls. Either way, this avoids the old bug where the
+  /* .course-layout owns the scrolling (above 960px its two columns scroll
+     independently via flex + min-height: 0; below it .course-main scrolls
+     and the sidebar is an off-canvas drawer — see the media query at the
+     bottom of this file), so this container itself never scrolls. Either way, this avoids the old bug where the
      sidebar's own scroll height was calculated from 100vh without knowing
      about the shell header rendered above this page (see App.jsx), which
      silently pushed its last few chapters past the bottom of the browser
@@ -93,7 +92,7 @@
     background: rgba(255, 255, 255, 0.06);
     color: var(--text);
     font-weight: 600;
-    font-size: 13px;
+    font-size: var(--fs-md);
     border: 1px solid var(--border);
     transition: background 0.2s ease;
 
@@ -118,7 +117,7 @@
   }
 
   .progress-label {
-    font-size: 11.5px;
+    font-size: var(--fs-xs);
     color: var(--text-dimmer);
   }
 
@@ -205,7 +204,7 @@
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -213,7 +212,7 @@
   }
   .sidebar-progress-pct {
     color: var(--accent);
-    font-size: 13px;
+    font-size: var(--fs-md);
     letter-spacing: 0;
   }
   .sidebar-progress .progress-track {
@@ -221,7 +220,7 @@
   }
   .sidebar-progress-mini {
     text-align: center;
-    font-size: 10.5px;
+    font-size: var(--fs-2xs);
     font-weight: 800;
     color: var(--accent);
     margin: 0 0 14px;
@@ -231,7 +230,7 @@
     padding: 0 0 14px;
   }
   .sidebar-title {
-    font-size: 10.5px;
+    font-size: var(--fs-2xs);
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -248,7 +247,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     font-family: inherit;
     flex-shrink: 0;
     transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
@@ -260,7 +259,7 @@
 
   .sidebar-section-label {
     padding: 8px 22px;
-    font-size: 10.5px;
+    font-size: var(--fs-2xs);
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -285,7 +284,7 @@
     gap: 10px;
     padding: 12px 22px;
     cursor: pointer;
-    font-size: 11.5px;
+    font-size: var(--fs-xs);
     font-weight: 800;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -301,7 +300,7 @@
   }
   .module-head .chev {
     transition: transform 0.2s ease;
-    font-size: 9px;
+    font-size: var(--fs-3xs);
     flex-shrink: 0;
   }
   .module-head.open .chev {
@@ -311,7 +310,7 @@
     flex: 1;
   }
   .module-head .tcount {
-    font-size: 10px;
+    font-size: var(--fs-2xs);
     font-weight: 700;
     color: var(--text-dimmer);
     text-transform: none;
@@ -342,7 +341,7 @@
     gap: 10px;
     padding: 11px 22px;
     cursor: pointer;
-    font-size: 13.5px;
+    font-size: var(--fs-md);
     font-weight: 700;
     color: var(--text-dim);
     border-left: 2px solid transparent;
@@ -370,7 +369,7 @@
 
   .topic-head .chev {
     transition: transform 0.2s ease;
-    font-size: 9px;
+    font-size: var(--fs-3xs);
     color: var(--text-dimmer);
     flex-shrink: 0;
   }
@@ -388,7 +387,7 @@
     line-height: 1.3;
   }
   .topic-head .tloc {
-    font-size: 10px;
+    font-size: var(--fs-2xs);
     font-weight: 500;
     color: var(--text-dimmer);
   }
@@ -396,12 +395,12 @@
     color: rgba(var(--brand-accent-rgb), 0.7);
   }
   .topic-head .tcount {
-    font-size: 10.5px;
+    font-size: var(--fs-2xs);
     color: var(--text-dimmer);
     font-weight: 600;
   }
   .topic-head .tsoon {
-    font-size: 9.5px;
+    font-size: var(--fs-3xs);
     font-weight: 800;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -427,7 +426,7 @@
     padding: 9px 10px;
     border-radius: 8px;
     cursor: pointer;
-    font-size: 13px;
+    font-size: var(--fs-md);
     color: var(--text-dim);
     border: 1px solid transparent;
     background: none;
@@ -454,7 +453,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 9px;
+    font-size: var(--fs-3xs);
     color: transparent;
   }
   .lesson-check.done {
@@ -468,7 +467,7 @@
     line-height: 1.35;
   }
   .lesson-item .ltag {
-    font-size: 9px;
+    font-size: var(--fs-3xs);
     color: var(--text-dimmer);
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -476,7 +475,7 @@
 
   .empty-topic-note {
     padding: 4px 22px 12px 34px;
-    font-size: 11.5px;
+    font-size: var(--fs-xs);
     color: var(--text-dimmer);
     font-style: italic;
   }
@@ -506,7 +505,7 @@
   }
 
   .topic-eyebrow {
-    font-size: 11.5px;
+    font-size: var(--fs-xs);
     color: var(--accent);
     font-weight: 800;
     letter-spacing: 0.06em;
@@ -530,7 +529,7 @@
   }
   .topic-heading {
     color: var(--text);
-    font-size: 30px;
+    font-size: var(--fs-4xl);
     font-weight: 800;
     /* Own line-height: the root's `font: 18px/145%` resolves to a fixed
        ~26px that every element inherits, which is shorter than this 30px
@@ -552,7 +551,7 @@
     gap: 6px;
     padding: 6px 12px;
     border-radius: 999px;
-    font-size: 11.5px;
+    font-size: var(--fs-xs);
     font-weight: 600;
     margin-bottom: 18px;
     border: 1px solid var(--border-soft);
@@ -566,7 +565,7 @@
   }
 
   .topic-intro {
-    font-size: 14.5px;
+    font-size: var(--fs-base);
     line-height: 1.7;
     color: var(--text-dim);
     /* was 8px + the old progress row's 30px below it */
@@ -604,7 +603,7 @@
   .chapter-lab-btn {
     flex: 0 0 auto;
     white-space: nowrap;
-    font-size: 13px;
+    font-size: var(--fs-md);
     padding: 10px 20px;
   }
 
@@ -614,7 +613,7 @@
     position: absolute;
     left: 16px;
     bottom: 14px;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     font-weight: 700;
     color: #fff;
     background: rgba(0, 0, 0, 0.5);
@@ -623,13 +622,13 @@
   }
 
   .video-caption {
-    font-size: 11.5px;
+    font-size: var(--fs-xs);
     color: var(--text-dimmer);
     margin: 0 0 30px;
   }
 
   .lesson-kicker {
-    font-size: 11.5px;
+    font-size: var(--fs-xs);
     color: var(--accent);
     font-weight: 800;
     letter-spacing: 0.06em;
@@ -639,14 +638,14 @@
   .lesson-title,
   .interactive-title {
     color: var(--text);
-    font-size: 23px;
+    font-size: var(--fs-3xl);
     font-weight: 800;
     margin: 0 0 18px;
     letter-spacing: -0.01em;
   }
 
   .lesson-article {
-    font-size: 15px;
+    font-size: var(--fs-body);
     line-height: 1.8;
     color: var(--text-dim);
   }
@@ -673,7 +672,7 @@
   }
   .studio-back-btn {
     padding: 10px 16px;
-    font-size: 12.5px;
+    font-size: var(--fs-sm);
   }
   .arrow-btn {
     padding: 10px 16px;
@@ -682,7 +681,7 @@
     border: 1px solid var(--border-soft);
     color: var(--text-dim);
     cursor: pointer;
-    font-size: 12.5px;
+    font-size: var(--fs-sm);
     font-weight: 600;
     font-family: inherit;
   }
@@ -693,6 +692,30 @@
   .arrow-btn:disabled {
     opacity: 0.35;
     cursor: default;
+  }
+  /* Phones: the three buttons used to wrap unevenly (Back to the studio
+     on one line, Previous/Next pushed right on the next). Stack them into
+     a tidy block instead — Back to the studio full width, then Previous
+     and Next sharing the row below equally, all the same height. */
+  @media (max-width: 600px) {
+    .lesson-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .nav-arrows {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      margin-left: 0;
+    }
+    .studio-back-btn,
+    .arrow-btn {
+      width: 100%;
+      justify-content: center;
+      text-align: center;
+      padding: 12px 16px;
+      font-size: var(--fs-md);
+    }
   }
   .course-status-screen {
     height: 100%;
@@ -706,7 +729,7 @@
     padding: 32px;
   }
   .course-status-screen h1 {
-    font-size: 22px;
+    font-size: var(--fs-2xl);
     margin: 0;
   }
   .course-status-screen p {
@@ -719,31 +742,102 @@
     padding: 11px 22px;
   }
 
+  /* Drawer pieces — only shown below 960px (see the media query). */
+  .sidebar-backdrop,
+  .drawer-trigger {
+    display: none;
+  }
+
   @media (max-width: 960px) {
-    /* Below this width the two columns stack instead of sitting side by
-       side, so there's no more reason for either one to scroll on its
-       own — switch back to the whole page scrolling as one, with the
-       sidebar and main column both back in normal document flow. */
-    & {
-      overflow-y: auto;
-    }
+    /* Below this width the outline becomes an off-canvas drawer: the
+       lesson (.course-main) takes the full width and keeps scrolling on
+       its own, and .course-sidebar slides in over it from the left,
+       positioned against .svr-course (position: relative, above) so it
+       sits below the app shell header instead of covering it. Opened by
+       the sticky .drawer-trigger bar, closed by the ✕, the backdrop,
+       Escape, or picking a lesson (CoursePage's drawerOpen state). */
     .course-layout,
     .course-layout.sidebar-collapsed {
       grid-template-columns: 1fr;
-      flex: none;
-      min-height: 0;
-      overflow: visible;
     }
     .course-sidebar {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 40;
+      width: min(360px, 86vw);
       height: auto;
-      overflow-y: visible;
-      border-right: none;
-      border-bottom: 1px solid var(--border-soft);
+      background: var(--bg);
+      border-right: 1px solid var(--border-soft);
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.35);
+      transform: translateX(-100%);
+      visibility: hidden;
+      transition:
+        transform 0.32s var(--motion-ease-out, ease),
+        visibility 0s linear 0.32s;
+      overscroll-behavior: contain;
+    }
+    .course-layout.drawer-open .course-sidebar {
+      transform: none;
+      visibility: visible;
+      transition: transform 0.32s var(--motion-ease-out, ease);
+    }
+    .sidebar-backdrop {
+      display: block;
+      position: absolute;
+      inset: 0;
+      z-index: 39;
+      background: rgba(0, 0, 0, 0.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.32s ease;
+    }
+    .course-layout.drawer-open .sidebar-backdrop {
+      opacity: 1;
+      pointer-events: auto;
     }
     .course-main {
-      height: auto;
-      overflow-y: visible;
-      padding: 28px 22px 70px;
+      padding: 0 22px 70px;
+    }
+    /* Sticky "Course contents" bar at the top of the lesson — the
+       drawer's handle. Bleeds to the column edges (negative margins undo
+       .course-main's side padding) so it reads as a toolbar. */
+    .drawer-trigger {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: calc(100% + 44px);
+      margin: 0 -22px 22px;
+      padding: 12px 22px;
+      border: none;
+      border-bottom: 1px solid var(--border-soft);
+      background: var(--bg);
+      color: var(--text);
+      font-size: var(--fs-md);
+      font-weight: 700;
+      text-align: left;
+      cursor: pointer;
+    }
+    .drawer-trigger-icon {
+      font-size: var(--fs-lg);
+      line-height: 1;
+      color: var(--text-dim);
+    }
+    .drawer-trigger-label {
+      flex: 1;
+    }
+    .drawer-trigger-pct {
+      font-size: var(--fs-sm);
+      font-weight: 800;
+      color: var(--accent);
+    }
+    .drawer-trigger:focus-visible {
+      outline: 2px solid var(--brand-accent, var(--accent));
+      outline-offset: -2px;
     }
     /* Narrow enough that keeping the lab button glued to the title's line
        would either truncate a long chapter title down to almost nothing

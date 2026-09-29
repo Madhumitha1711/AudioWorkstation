@@ -60,7 +60,7 @@
   border-radius: 6px;
   color: var(--tabs-text, var(--text-dim, var(--shell-text-dim)));
   font-family: var(--tabs-font, var(--font-sans));
-  font-size: var(--tabs-font-size, 14px);
+  font-size: var(--tabs-font-size, var(--fs-base));
   font-weight: var(--tabs-weight, 500);
   letter-spacing: var(--tabs-letter-spacing, 0);
   text-transform: var(--tabs-transform, none);
@@ -139,7 +139,7 @@
    like the tab labels; tabular-nums keeps the digits from shifting. */
 .ui-tabs__count {
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   letter-spacing: 0;
   white-space: nowrap;
   color: var(--tabs-count-text, var(--text-dimmer, var(--shell-text-dimmer)));
@@ -149,7 +149,7 @@
   font-weight: 600;
   color: var(--tabs-dot, var(--brand-accent, var(--accent)));
 }
-.ui-tabs--sm .ui-tabs__count { font-size: 11px; }
+.ui-tabs--sm .ui-tabs__count { font-size: var(--fs-xs); }
 /* Narrow full-width bars (tour gear panels): number only, so labels keep
    their room — the title tooltip still says "N of M tabs explored". */
 .ui-tabs--fill.ui-tabs--sm .ui-tabs__count-word { display: none; }
@@ -186,7 +186,7 @@
 .ui-tabs--sm .ui-tabs__tab {
   --tabs-pad-y: 6px;
   --tabs-pad-x: 10px;
-  font-size: var(--tabs-font-size, 12px);
+  font-size: var(--tabs-font-size, var(--fs-sm));
 }
 .ui-tabs--sm.ui-tabs--segmented .ui-tabs__tab { --tabs-pad-y: 5px; --tabs-pad-x: 10px; }
 

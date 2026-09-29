@@ -92,6 +92,57 @@
   }
 }
 
+/* ── Type scale (global — the ONLY place font sizes are defined) ─────────
+   Use these instead of literal px: `font-size: var(--fs-sm)`. Desktop
+   values below; phones (≤600px) get the smaller set in the media query,
+   so every screen that uses the tokens shrinks together and one edit here
+   retunes the whole app. Converted so far: the course page, its section /
+   quiz / video / lab-dialog components, shared lab CSS and the Foundations
+   labs. Other features still use literal px — move them over as they're
+   touched.
+     3xs  9 → 9     tiny tags, badges
+     2xs 10 → 9.5   micro labels
+     xs  11 → 10    uppercase eyebrows, captions
+     sm  12 → 11    meta text, small buttons
+     md  13 → 12    UI labels, buttons
+     base 14 → 13   dense body, controls
+     body 15 → 14   lesson prose
+     lg  16 → 15    lead paragraphs
+     xl  17 → 16    small headings
+     2xl 21 → 18    section headings
+     3xl 24 → 20    page headings
+     4xl 30 → 24    hero numbers */
+:root {
+  --fs-3xs: 9px;
+  --fs-2xs: 10px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-base: 14px;
+  --fs-body: 15px;
+  --fs-lg: 16px;
+  --fs-xl: 17px;
+  --fs-2xl: 21px;
+  --fs-3xl: 24px;
+  --fs-4xl: 30px;
+}
+@media (max-width: 600px) {
+  :root {
+    --fs-3xs: 9px;
+    --fs-2xs: 9.5px;
+    --fs-xs: 10px;
+    --fs-sm: 11px;
+    --fs-md: 12px;
+    --fs-base: 13px;
+    --fs-body: 14px;
+    --fs-lg: 15px;
+    --fs-xl: 16px;
+    --fs-2xl: 18px;
+    --fs-3xl: 20px;
+    --fs-4xl: 24px;
+  }
+}
+
 /* Light theme: toggled at runtime via ThemeContext, which sets
    data-theme="light" on <html> and persists the choice in localStorage.
    Dark (above) stays the default so anyone who hasn't picked a theme yet

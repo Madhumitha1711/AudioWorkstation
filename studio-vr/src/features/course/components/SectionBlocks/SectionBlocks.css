@@ -69,7 +69,7 @@
 
 .block-heading {
   color: var(--text);
-  font-size: 17px;
+  font-size: var(--fs-xl);
   font-weight: 700;
   margin: 0 0 12px;
   letter-spacing: -0.005em;
@@ -91,7 +91,7 @@
    keep the full-size heading from CoursePage.css's shared
    ".lesson-title, .interactive-title" rule. */
 .interactive-section.embedded .interactive-title {
-  font-size: 17px;
+  font-size: var(--fs-xl);
   font-weight: 700;
   margin: 0 0 12px;
   letter-spacing: -0.005em;
@@ -153,12 +153,12 @@
   border: 1px dashed var(--border-soft);
   background: rgba(255, 255, 255, 0.02);
   color: var(--text-dimmer);
-  font-size: 13.5px;
+  font-size: var(--fs-md);
   line-height: 1.6;
 }
 .block-disabled-tag {
   flex: 0 0 auto;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -177,7 +177,7 @@
   border: 1px dashed rgba(var(--brand-accent-rgb), 0.35);
   background: rgba(var(--brand-accent-rgb), 0.05);
   color: var(--text-dim);
-  font-size: 13.5px;
+  font-size: var(--fs-md);
   line-height: 1.65;
 }
 .block-embed-placeholder p {
@@ -190,7 +190,7 @@
   font-size: 0.95em;
 }
 .block-embed-placeholder-tag {
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;

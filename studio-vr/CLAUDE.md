@@ -202,6 +202,13 @@ design/                  # static HTML/CSS mockups (source of truth for visual
   `canvasFont(px, { weight, mono })` from `src/theme/fonts.js`
   (`ctx.font = canvasFont(10, { mono: true })`), never a hand-written
   `ctx.font` family string.
+- **Font sizes** come from the global type scale in `src/index.css`
+  (`--fs-3xs` … `--fs-4xl`), which shrinks automatically on phones
+  (≤600px). Write `font-size: var(--fs-sm)`, not a literal px value, and
+  don't add per-file mobile font-size overrides — retune the scale instead.
+  Converted so far: the course page + its components, shared lab CSS,
+  Foundations labs and `components/Tabs`; move other features over as
+  they're touched.
 
 ## Tabs standard (use everywhere)
 

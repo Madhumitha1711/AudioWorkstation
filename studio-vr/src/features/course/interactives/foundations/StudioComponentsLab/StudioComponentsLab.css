@@ -49,35 +49,21 @@
   gap: 4px;
   padding-bottom: 2px;
 }
-/* Room header: larger label flanked by thin rules that span its pair of
-   tabs, so it reads as a group title. Rules pick up the theme primary
-   when the room is active (navigation colour only — no tone colours). */
+/* Room header: larger bold label centred over its pair of tabs; the
+   active room takes the theme primary (navigation colour only). */
 .scl-room {
-  display: flex;
-  align-items: center;
-  gap: 12px;
   padding: 6px 14px 4px;
-  font-size: 13px;
+  text-align: center;
+  font-size: var(--fs-md);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  white-space: nowrap;
   color: var(--text-dim);
   transition: color var(--motion-medium, 260ms) var(--motion-ease-out, ease);
 }
-.scl-room::before,
-.scl-room::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--border-soft);
-  transition: background var(--motion-medium, 260ms) var(--motion-ease-out, ease);
-}
 .scl-room.is-active { color: var(--brand-accent); }
-.scl-room.is-active::before,
-.scl-room.is-active::after { background: color-mix(in srgb, var(--brand-accent) 45%, transparent); }
 @media (max-width: 600px) {
-  .scl-room { font-size: 12px; letter-spacing: 0.06em; gap: 8px; padding-inline: 6px; }
+  .scl-room { letter-spacing: 0.06em; padding-inline: 6px; }
 }
 .scl-rooms-divider {
   position: absolute;
@@ -130,20 +116,20 @@
   background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--c) 9%, transparent), transparent 70%);
 }
 .scl-ph svg { width: 56px; height: 56px; opacity: 0.9; }
-.scl-ph span { font-size: 12px; color: var(--text-dimmer); }
-.scl-caption { margin-top: 10px; font-size: 13px; color: var(--text-dimmer); }
+.scl-ph span { font-size: var(--fs-sm); color: var(--text-dimmer); }
+.scl-caption { margin-top: 10px; font-size: var(--fs-md); color: var(--text-dimmer); }
 
 .scl-text { min-width: 0; }
 .scl-title {
-  font-size: 24px;
+  font-size: var(--fs-3xl);
   font-weight: 600;
   line-height: 1.2;
   letter-spacing: -0.01em;
   margin: 0 0 8px;
   color: var(--text);
 }
-.scl-lead { font-size: 16px; line-height: 1.6; color: var(--text); margin: 0 0 14px; }
-.scl-body { font-size: 15px; line-height: 1.7; color: var(--text-dim); margin: 0 0 12px; }
+.scl-lead { font-size: var(--fs-lg); line-height: 1.6; color: var(--text); margin: 0 0 14px; }
+.scl-body { font-size: var(--fs-body); line-height: 1.7; color: var(--text-dim); margin: 0 0 12px; }
 .scl-body strong { color: var(--text); font-weight: 600; }
 
 
@@ -168,7 +154,7 @@
   border: 1px solid var(--border-soft);
   border-radius: 10px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--fs-base);
   font-weight: 500;
   color: var(--text-dim);
   transition:
@@ -178,7 +164,7 @@
 }
 .scl-pager button:last-child { align-items: flex-end; text-align: right; }
 .scl-pager small {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -197,5 +183,5 @@
 
 @media (max-width: 860px) {
   .scl-grid { gap: 20px; }
-  .scl-title { font-size: 21px; }
+  .scl-title { font-size: var(--fs-2xl); }
 }
