@@ -11,7 +11,8 @@
      --tabs-thumb-bg       segmented: sliding pill background
      --tabs-thumb-border   segmented: sliding pill border
      --tabs-thumb-text     segmented: active label color
-     --tabs-dot            "explored" dot + count number colour (default: theme primary)
+     --tabs-weight-unvisited  label weight of tabs not yet opened (default 700)
+     --tabs-dot            "N/M explored" count number colour (default: theme primary)
      --tabs-count-text     "N/M explored" label colour
      --tabs-font           defaults to the global --font-sans
      --tabs-font-size / --tabs-weight / --tabs-letter-spacing / --tabs-transform
@@ -97,23 +98,10 @@
     opacity var(--motion-fast, 180ms) ease;
 }
 
-/* "Explored" dot — tabs the user has already opened (Tabs markVisited). */
-.ui-tabs__dot {
-  position: absolute;
-  top: 7px;
-  right: 5px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--tabs-dot, var(--brand-accent, var(--accent)));
-  opacity: 0.8;
-  pointer-events: none;
-  animation: ui-tabs-dot-in var(--motion-medium, 260ms) var(--motion-ease-out, ease) both;
-}
-.ui-tabs--sm .ui-tabs__dot { top: 4px; right: 4px; width: 4px; height: 4px; }
-@keyframes ui-tabs-dot-in {
-  from { transform: scale(0); opacity: 0; }
-}
+/* Not-yet-visited tabs are bold; once opened they use the normal
+   --tabs-weight (Tabs markVisited). The indicator re-measures via
+   ResizeObserver when the label width changes. */
+.ui-tabs__tab.is-unvisited { font-weight: var(--tabs-weight-unvisited, 700); }
 .ui-tabs__sr {
   position: absolute;
   width: 1px;
@@ -214,5 +202,4 @@
 @media (prefers-reduced-motion: reduce) {
   .ui-tabs.is-ready .ui-tabs__indicator,
   .ui-tabs__tab { transition: none; }
-  .ui-tabs__dot { animation: none; }
 }

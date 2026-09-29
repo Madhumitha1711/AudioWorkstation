@@ -16,7 +16,7 @@ import "./briefingTabs.css";
 //
 // onInteract (from InteractiveSection) fires the first time the student
 // switches tabs themselves — the initial selection doesn't count.
-// Explored dots and the "N/M explored" count come from the standard Tabs.
+// Bold-until-visited tab labels and the "N/M explored" count come from the standard Tabs.
 function BriefingTabs({ items, ariaLabel, idPrefix, onInteract, className = "" }) {
   const [active, setActive] = useState(items[0].id);
   const [loaded, setLoaded] = useState(() => new Set());

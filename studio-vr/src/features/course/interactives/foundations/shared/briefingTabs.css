@@ -1,8 +1,8 @@
 /* Shared "tabbed briefing" layout (BriefingTabs.jsx) — StudioTypesLab,
    StudioRoomsLab. Chrome uses the course theme tokens on .svr-course
    (--panel, --border, --text-dim…) so light/dark follows ThemeContext.
-   The one lab-specific color is --brt-accent (fact labels); the tabs and
-   their "explored" dots use the theme primary (--brand-accent): the course amber, darker in light theme so it
+   The one lab-specific color is --brt-accent (fact labels); the tabs use
+   the theme primary (--brand-accent): the course amber, darker in light theme so it
    keeps contrast on white. A lab can override it on its own root class.
    Tabs themselves are the app-wide standard (components/Tabs) — only
    re-skinned here via --tabs-* tokens. */

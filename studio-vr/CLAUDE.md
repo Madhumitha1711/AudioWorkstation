@@ -217,13 +217,13 @@ state rather than snapping. Timing is global (`src/index.css`):
 (`cubic-bezier(0.16, 1, 0.3, 1)`, ease-out-expo). Everything is disabled
 under `prefers-reduced-motion`.
 
-**Explored dots + count:** every tab the user has already opened (other
-than the active one) shows a small theme-primary dot that pops in when they
-leave it, and the bar ends with an **"N/M explored"** count (the "explored"
+**Visited weight + count:** tabs the user hasn't opened yet render their
+label in **bold**; once opened (including the active one) they drop to the
+normal weight. The bar ends with an **"N/M explored"** count (the "explored"
 word hides under 600px). Both are built into `Tabs` and on by default
 (`markVisited`, `showCount`; turn off per instance only with a reason).
 Tracking is internal; pass `visited` (Set/array of ids) only if the parent
-must control it. Don't hand-roll per-feature "viewed" dots or counts —
+must control it. Don't hand-roll per-feature "viewed" markers or counts —
 extra bar content goes in `trailing`, rendered after the count.
 
 ```jsx

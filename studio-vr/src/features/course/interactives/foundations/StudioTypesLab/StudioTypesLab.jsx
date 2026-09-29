@@ -15,7 +15,7 @@ import { STUDIO_TYPES, studioTypeImagePath } from "./studioTypesData";
 //   - no page <h1> — the lesson / InteractiveSection heading covers it.
 //   - the image slot loads public/studio-types/<id>.jpg and falls back to a
 //     dashed placeholder until that photo exists.
-//   - explored dots per tab plus an N/6 explored count (standard Tabs), so
+//   - unopened tabs are bold, plus an N/6 explored count (standard Tabs), so
 //     the student can see which types they haven't opened yet.
 const ITEMS = STUDIO_TYPES.map((t) => ({
   id: t.id,

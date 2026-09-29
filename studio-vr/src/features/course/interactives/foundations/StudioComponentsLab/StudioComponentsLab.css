@@ -37,23 +37,58 @@
 
 :where(.scl) button { font: inherit; color: inherit; }
 
-/* ---------- row 1: area tab content ---------- */
-.scl-area {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
-  text-align: left;
+/* ---------- row 1: rooms + area tabs ----------
+   Room names sit once above their two tabs, split by a vertical divider.
+   The area <Tabs> uses `fill` (equal-width tabs, 4px gap) and no count, so
+   a 2-column grid with the same gap lines each room header up exactly over
+   its pair of tabs, and 50% is the gap between the two groups. */
+.scl-areas-wrap { position: relative; }
+.scl-rooms {
+  display: grid;
+  grid-template-columns: repeat(var(--scl-rooms, 2), minmax(0, 1fr));
+  gap: 4px;
+  padding-bottom: 2px;
 }
-.scl-area-room {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+/* Room header: larger label flanked by thin rules that span its pair of
+   tabs, so it reads as a group title. Rules pick up the theme primary
+   when the room is active (navigation colour only — no tone colours). */
+.scl-room {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 14px 4px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-dimmer);
+  white-space: nowrap;
+  color: var(--text-dim);
   transition: color var(--motion-medium, 260ms) var(--motion-ease-out, ease);
 }
-.ui-tabs__tab.is-active .scl-area-room { color: var(--brand-accent); }
+.scl-room::before,
+.scl-room::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-soft);
+  transition: background var(--motion-medium, 260ms) var(--motion-ease-out, ease);
+}
+.scl-room.is-active { color: var(--brand-accent); }
+.scl-room.is-active::before,
+.scl-room.is-active::after { background: color-mix(in srgb, var(--brand-accent) 45%, transparent); }
+@media (max-width: 600px) {
+  .scl-room { font-size: 12px; letter-spacing: 0.06em; gap: 8px; padding-inline: 6px; }
+}
+.scl-rooms-divider {
+  position: absolute;
+  top: 2px;
+  bottom: 10px;
+  left: 50%;
+  width: 1px;
+  background: var(--border-soft);
+  pointer-events: none;
+}
+.scl-area-type { white-space: normal; text-align: center; }
 
 /* ---------- row 2: component bar ---------- */
 .scl-rail { margin-top: 18px; }

@@ -8,8 +8,11 @@ import { ALL_COMPONENTS, ICONS, SECTIONS, componentImagePath } from "./studioCom
 // "The Studio: Recording Room and Control Room"). Horizontal layout, built
 // to design/studio-components-tabs.html:
 //
-//   ROW 1  Area tabs — standard <Tabs> (underline): one tab per section,
-//          room name over "Electronic" / "Non-electronic".
+//   ROW 1  Area tabs — standard <Tabs> (underline, fill): one tab per
+//          section labelled "Electronic" / "Non-electronic". The room names
+//          are group headers above the bar — "Control Room" over its two
+//          tabs, a vertical divider, then "Recording Room" over its two —
+//          so each room is named once instead of on every tab.
 //   ROW 2  Component tabs — standard <Tabs variant="segmented" size="sm">
 //          with the 4 components of the active area (icon + name).
 //   ROW 3  <TabPanel> — photo on top, copy below it.
@@ -58,6 +61,15 @@ function Icon({ id, className }) {
 
 const SECTION_TABS = SECTIONS.map((s) => ({ id: s.n, label: s.type, room: s.room, ariaLabel: `${s.room} — ${s.type}` }));
 
+// Rooms in order, each with its sections (Control Room → 01, 02; Recording
+// Room → 03, 04). Drives the group headers above the area bar.
+const ROOMS = SECTIONS.reduce((acc, s) => {
+  const last = acc[acc.length - 1];
+  if (last && last.name === s.room) last.ids.push(s.n);
+  else acc.push({ name: s.room, ids: [s.n] });
+  return acc;
+}, []);
+
 function StudioComponentsLab({ onInteract }) {
   const [selectedId, setSelectedId] = useState(ALL_COMPONENTS[0].id);
   const [viewed, setViewed] = useState(() => new Set([ALL_COMPONENTS[0].id]));
@@ -105,20 +117,27 @@ function StudioComponentsLab({ onInteract }) {
   return (
     <div className="lab scl">
       {/* ---------- row 1: areas ---------- */}
-      <Tabs
-        items={SECTION_TABS}
-        value={section.n}
-        onChange={selectSection}
-        ariaLabel="Studio areas"
-        idPrefix="scl-sec"
-        className="scl-areas"
-        renderTab={(t) => (
-          <span className="scl-area">
-            <span className="scl-area-room">{t.room}</span>
-            <span className="scl-area-type">{t.label}</span>
-          </span>
-        )}
-      />
+      <div className="scl-areas-wrap" style={{ "--scl-rooms": ROOMS.length }}>
+        <div className="scl-rooms" aria-hidden="true">
+          {ROOMS.map((r) => (
+            <span key={r.name} className={`scl-room${r.ids.includes(section.n) ? " is-active" : ""}`}>
+              {r.name}
+            </span>
+          ))}
+        </div>
+        <Tabs
+          items={SECTION_TABS}
+          value={section.n}
+          onChange={selectSection}
+          ariaLabel="Studio areas"
+          idPrefix="scl-sec"
+          className="scl-areas"
+          fill
+          showCount={false}
+          renderTab={(t) => <span className="scl-area-type">{t.label}</span>}
+        />
+        <span className="scl-rooms-divider" aria-hidden="true" />
+      </div>
 
       {/* ---------- row 2: components of the active area ---------- */}
       <div ref={railRef} className="scl-rail">

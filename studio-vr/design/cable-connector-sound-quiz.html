@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plug In the Band — Cable &amp; Connector Match (Studio VR)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!--
+  DESIGN MOCKUP — "Plug In the Band": a match-the-following quiz for
+  cables ↔ connectors where a correct match literally gets the sound.
+
+  Concept
+    Left column  = 10 CABLES (the signal each one carries + the real gear
+                   hop it's used for, e.g. "Vocal mic → preamp").
+    Right column = a hardware REAR PANEL of 10 connector sockets.
+    The student drags a cable's plug across the gap into a socket (or taps
+    cable, then taps socket; keyboard: Enter/Space on each, Esc cancels).
+
+    Correct   → the plug seats, the cable hangs across the gap, the socket
+                LED lights, and that cable's instrument joins a looping
+                4-bar groove (96 BPM, Am–F–C–G). The mix grows one channel
+                at a time — 10/10 = the whole band playing.
+    Wrong     → plug springs back, socket flashes red, a burst of static /
+                hum, and a hint specific to that cable (and to common
+                mistakes, e.g. instrument cable used for a speaker).
+                3 misses on one cable → "Show me" reveals the answer.
+
+    Connectors are REUSABLE (same plug, different signal): XLR takes mic,
+    balanced line AND AES; RCA takes unbalanced line AND S/PDIF coax.
+    Some cables accept an alternate connector (balanced line: TRS or XLR,
+    speaker: Speakon or banana, coax: RCA or BNC, unbalanced: RCA or TS) —
+    the feedback names the alternate so nothing correct is marked wrong.
+
+  Console strip (top) = 10 channels, one per cable; dark + "no signal"
+  until its cable is matched, then a live meter driven by that stem's
+  AnalyserNode. Transport: play/pause mix, mute, beat LEDs, master meter.
+
+  All audio is synthesised in Web Audio (no files) — in the React build it
+  would move to a per-lab AudioContext via shared/useLabAudio.js.
+
+  Tokens: course theme (.svr-course, dark/light) + --brand-accent from the
+  palette. The rear panel is HARDWARE and deliberately does not follow the
+  theme (see palettes.js note). Cable tone colours appear only in content.
+  Fonts: Inter (--font-sans) + JetBrains Mono (--font-mono) only.
+  The bar at the very top is mockup-only (theme + palette switch).
+-->
+<style>
+  /* ---------- global tokens (src/index.css) ---------- */
+  :root{
+    --font-sans:'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --font-mono:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --ink-tint-rgb:4, 20, 12;
+    --motion-ease-out:cubic-bezier(0.16, 1, 0.3, 1);
+    --motion-fast:180ms;
+    --motion-medium:260ms;
+    --brand-accent:#7dffb8;
+    --brand-accent-2:#17c76a;
+
+    /* cable tones — content colour only */
+    --c-mic:#f2a65a; --c-instrument:#b18cff; --c-balLine:#5fd9a0; --c-unbalLine:#6fa8ff;
+    --c-speaker:#ff6b6b; --c-digital:#3fd0c9; --c-midi:#f2d34f; --c-coax:#ff8fc7;
+    --c-aes:#a6e05a; --c-adat:#d6dbe4;
+    --ok:#5fd9a0; --err:#ff6b6b;
+  }
+  :root[data-theme='light']{
+    --c-mic:#c26a1a; --c-instrument:#7a52d6; --c-balLine:#1f9d68; --c-unbalLine:#2f6fd6;
+    --c-speaker:#d63d3d; --c-digital:#13968f; --c-midi:#a88a0a; --c-coax:#cf4f93;
+    --c-aes:#5f9a1f; --c-adat:#6b7280;
+    --ok:#1f9d68; --err:#d63d3d;
+  }
+
+  /* ---------- course theme tokens (CoursePage.css .svr-course) ---------- */
+  .svr-course{
+    --bg:#050507;
+    --panel:rgba(255,255,255,0.04);
+    --panel-hover:rgba(255,255,255,0.07);
+    --border:rgba(255,255,255,0.12);
+    --border-soft:rgba(255,255,255,0.08);
+    --text:#ffffff;
+    --text-dim:rgba(255,255,255,0.65);
+    --text-dimmer:rgba(255,255,255,0.45);
+    --accent:var(--brand-accent);
+    --cable-outline:rgba(0,0,0,0.75);
+  }
+  :root[data-theme='light'] .svr-course{
+    --bg:#f6f8f6;
+    --panel:rgba(var(--ink-tint-rgb),0.04);
+    --panel-hover:rgba(var(--ink-tint-rgb),0.07);
+    --border:rgba(var(--ink-tint-rgb),0.14);
+    --border-soft:rgba(var(--ink-tint-rgb),0.09);
+    --text:#0c130f;
+    --text-dim:rgba(12,19,15,0.7);
+    --text-dimmer:rgba(12,19,15,0.5);
+    --cable-outline:rgba(0,0,0,0.35);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0; padding:0;}
+  body{font:16px/1.5 var(--font-sans); -webkit-font-smoothing:antialiased; background:#050507;}
+  :root[data-theme='light'] body{background:#f6f8f6;}
+  button{font:inherit; color:inherit;}
+
+  /* ---------- mockup-only switch bar ---------- */
+  .mock-bar{
+    position:sticky; top:0; z-index:20;
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    padding:8px 16px; font:500 11px/1 var(--font-mono); letter-spacing:.08em; text-transform:uppercase;
+    background:#111114; color:#9a9aa2; border-bottom:1px solid #26262b;
+  }
+  .mock-bar b{color:#e6e6ea; font-weight:600;}
+  .mock-bar .sp{flex:1;}
+  .mock-bar button,.mock-bar select{
+    font:500 11px/1 var(--font-mono); letter-spacing:.06em; text-transform:uppercase;
+    background:#1b1b20; color:#e6e6ea; border:1px solid #2e2e35; border-radius:6px; padding:6px 9px; cursor:pointer;
+  }
+
+  /* ---------- page shell ---------- */
+  .svr-course{background:var(--bg); color:var(--text); min-height:100vh;}
+  .course-col{max-width:1040px; margin:0 auto; padding:40px 28px 72px;}
+  .lesson-eyebrow{font-size:12px; font-weight:600; line-height:1; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:12px;}
+  .lesson-h{font-size:clamp(24px,3.4vw,30px); font-weight:600; letter-spacing:-.015em; line-height:1.2; margin:0 0 8px; text-wrap:balance;}
+  .lesson-sub{font-size:15px; line-height:1.6; color:var(--text-dim); margin:0 0 28px; max-width:68ch;}
+
+  /* ======================================================================
+     LAB
+     ====================================================================== */
+  .ccq{border:1px solid var(--border); border-radius:16px; background:var(--panel); overflow:hidden;}
+
+  /* ---------- console strip ---------- */
+  .ccq-console{
+    display:flex; align-items:stretch; gap:16px; flex-wrap:wrap;
+    padding:14px 16px; border-bottom:1px solid var(--border-soft);
+  }
+  .ccq-transport{display:flex; flex-direction:column; justify-content:space-between; gap:10px; min-width:176px;}
+  .ccq-score{font:500 11px/1 var(--font-mono); letter-spacing:.08em; text-transform:uppercase; color:var(--text-dim);}
+  .ccq-score b{font-size:22px; font-weight:600; color:var(--text); letter-spacing:0; margin-right:2px;}
+  .ccq-score small{display:block; margin-top:6px; font-size:10px; color:var(--text-dimmer); letter-spacing:.06em;}
+  .ccq-tbtns{display:flex; gap:6px; align-items:center;}
+  .tbtn{
+    display:inline-flex; align-items:center; gap:7px; height:32px; padding:0 12px;
+    border-radius:8px; border:1px solid var(--border); background:var(--panel);
+    font:600 12px/1 var(--font-sans); cursor:pointer;
+    transition:background var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
+  }
+  .tbtn:hover{background:var(--panel-hover);}
+  .tbtn svg{width:14px; height:14px;}
+  .tbtn.icon{width:32px; padding:0; justify-content:center;}
+  .tbtn.primary{border-color:var(--accent); color:var(--accent);}
+  .tbtn[disabled]{opacity:.4; cursor:not-allowed;}
+  .beats{display:flex; gap:5px; align-items:center; margin-left:4px;}
+  .beats i{width:7px; height:7px; border-radius:50%; background:var(--border); transition:background 60ms;}
+  .beats i.on{background:var(--accent); box-shadow:0 0 6px var(--accent);}
+  .beats i.on:first-child{background:var(--text);}
+
+  .ccq-channels{flex:1; min-width:0; display:grid; grid-template-columns:repeat(10, minmax(0,1fr)) 34px; gap:6px;}
+  .ch{
+    display:flex; flex-direction:column; align-items:center; gap:5px; min-width:0;
+    padding:6px 0 7px; border-radius:8px; background:var(--panel); border:1px solid var(--border-soft);
+    transition:border-color var(--motion-medium), background var(--motion-medium);
+  }
+  .ch-led{width:6px; height:6px; border-radius:50%; background:var(--border); transition:background var(--motion-medium), box-shadow var(--motion-medium);}
+  .ch-meter{position:relative; width:8px; height:46px; border-radius:3px; background:rgba(0,0,0,.35); overflow:hidden;}
+  :root[data-theme='light'] .ch-meter{background:rgba(var(--ink-tint-rgb),.1);}
+  .ch-meter span{position:absolute; inset:0; transform-origin:bottom; transform:scaleY(var(--lvl,0)); background:linear-gradient(to top, var(--tone) 0 70%, #f2d34f 85%, #ff6b6b 100%);}
+  .ch-name{font:600 9px/1 var(--font-mono); letter-spacing:.06em; color:var(--text-dimmer); white-space:nowrap;}
+  .ch.live{border-color:color-mix(in srgb, var(--tone) 45%, transparent); background:color-mix(in srgb, var(--tone) 8%, transparent);}
+  .ch.live .ch-led{background:var(--tone); box-shadow:0 0 6px var(--tone);}
+  .ch.live .ch-name{color:var(--text);}
+  .ch.just{animation:chPop .6s var(--motion-ease-out);}
+  @keyframes chPop{0%{transform:scale(1)} 30%{transform:scale(1.12)} 100%{transform:scale(1)}}
+  .ch.master{--tone:var(--accent);}
+  .ch.master .ch-name{color:var(--text-dim);}
+
+  /* ---------- board ---------- */
+  .ccq-body{padding:18px 16px 16px;}
+  .ccq-heads{display:grid; grid-template-columns:minmax(0,1fr) var(--gap-w) minmax(0,1fr); margin-bottom:8px;}
+  .ccq-heads span{font:600 10px/1 var(--font-mono); letter-spacing:.12em; text-transform:uppercase; color:var(--text-dimmer);}
+  .ccq-heads span:last-child{padding-left:4px;}
+  .ccq-board{
+    --gap-w:clamp(56px, 14vw, 150px);
+    position:relative; display:grid; grid-template-columns:minmax(0,1fr) var(--gap-w) minmax(0,1fr);
+  }
+  .ccq{--gap-w:clamp(56px, 14vw, 150px);}
+  .ccq-svg{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:3; overflow:visible;}
+  .ccq-col{display:flex; flex-direction:column; gap:8px; min-width:0;}
+
+  /* cable cards */
+  .cable{
+    --tone:var(--text-dim);
+    position:relative; display:flex; align-items:center; gap:10px; min-height:58px; width:100%;
+    padding:8px 0 8px 12px; text-align:left; cursor:pointer;
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    transition:border-color var(--motion-fast), background var(--motion-fast), opacity var(--motion-medium), box-shadow var(--motion-fast);
+  }
+  .cable::before{content:''; position:absolute; left:0; top:10px; bottom:10px; width:3px; border-radius:0 3px 3px 0; background:var(--tone);}
+  .cable:hover{background:var(--panel-hover);}
+  .cable:focus-visible,.port:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  .cable-txt{flex:1; min-width:0;}
+  .cable-name{display:block; font-size:14px; font-weight:600; line-height:1.25;}
+  .cable-sub{display:block; font-size:12px; line-height:1.35; color:var(--text-dim); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .cable.armed{border-color:var(--tone); background:color-mix(in srgb, var(--tone) 10%, transparent); box-shadow:0 0 0 1px var(--tone) inset;}
+  .cable.done{cursor:default; border-color:var(--border-soft);}
+  .cable.done .cable-name::after{content:' ✓'; color:var(--ok); font-weight:700;}
+  .cable.nudge{animation:nudge .45s ease;}
+  @keyframes nudge{0%,100%{transform:translateX(0)} 30%{transform:translateX(5px)} 60%{transform:translateX(-3px)}}
+
+  /* plug handle (drag start) */
+  .plug{
+    position:relative; flex-shrink:0; width:52px; height:40px; margin-right:-1px;
+    display:flex; align-items:center; justify-content:flex-end; touch-action:none; cursor:grab;
+  }
+  .plug:active{cursor:grabbing;}
+  .plug svg{width:46px; height:22px; overflow:visible; transition:opacity var(--motion-fast), transform var(--motion-medium) var(--motion-ease-out);}
+  .cable:not(.done):hover .plug svg{transform:translateX(3px);}
+  .cable.dragging .plug svg,.cable.done .plug .plug-head{opacity:0;}
+  .plug-anchor{position:absolute; right:0; top:50%; width:1px; height:1px;}
+
+  /* rear panel (hardware — does not follow theme) */
+  .rear{
+    position:relative; border-radius:12px; padding:10px 10px 10px 0;
+    background:linear-gradient(180deg,#26282d,#1b1c20 60%,#17181b);
+    border:1px solid #33353b; box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 8px 24px -12px rgba(0,0,0,.6);
+    color:#e7e8ea;
+  }
+  .rear::before,.rear::after{content:''; position:absolute; right:8px; width:7px; height:7px; border-radius:50%;
+    background:radial-gradient(circle at 35% 35%,#8b8e95,#3a3c42); box-shadow:0 0 0 1px #111;}
+  .rear::before{top:8px;} .rear::after{bottom:8px;}
+  .rear .ccq-col{gap:8px;}
+  .port{
+    position:relative; display:flex; align-items:center; gap:10px; min-height:58px; width:100%;
+    padding:6px 14px 6px 0; text-align:left; cursor:pointer; color:#e7e8ea;
+    background:transparent; border:1px solid transparent; border-radius:10px;
+    transition:background var(--motion-fast), border-color var(--motion-fast);
+  }
+  .port:hover,.port.hover{background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.12);}
+  .ccq.arming .port{border-color:rgba(255,255,255,.07);}
+  .well{
+    position:relative; flex-shrink:0; width:46px; height:46px; margin-left:-12px; border-radius:50%;
+    display:grid; place-items:center; color:#d4d6db;
+    background:radial-gradient(circle at 50% 40%,#2b2d33,#101114 75%);
+    box-shadow:inset 0 2px 5px rgba(0,0,0,.8), 0 0 0 1px #3b3e45, 0 1px 0 1px rgba(255,255,255,.05);
+    transition:box-shadow var(--motion-medium);
+  }
+  .well svg{width:34px; height:34px;}
+  .port-txt{flex:1; min-width:0;}
+  .port-name{display:block; font:600 13px/1.25 var(--font-mono); letter-spacing:.02em;}
+  .port-sub{display:block; font-size:11.5px; line-height:1.35; color:#9da0a8; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .port-leds{display:flex; gap:3px; flex-shrink:0;}
+  .port-leds i{width:6px; height:6px; border-radius:50%; background:var(--tone); box-shadow:0 0 6px var(--tone);}
+  .port.wrong .well{box-shadow:inset 0 2px 5px rgba(0,0,0,.8), 0 0 0 2px #ff6b6b, 0 0 14px #ff6b6b;}
+  .port.wrong{animation:shake .38s ease;}
+  @keyframes shake{0%,100%{transform:translateX(0)} 20%{transform:translateX(-4px)} 40%{transform:translateX(4px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(2px)}}
+  .port.reveal .well{animation:reveal 1.1s ease-in-out 3;}
+  @keyframes reveal{50%{box-shadow:inset 0 2px 5px rgba(0,0,0,.8), 0 0 0 2px var(--brand-accent), 0 0 18px var(--brand-accent);}}
+
+  /* cables in the svg */
+  .wire-o{fill:none; stroke:var(--cable-outline); stroke-width:8; stroke-linecap:round;}
+  .wire{fill:none; stroke-width:5.5; stroke-linecap:round;}
+  .wire-hi{fill:none; stroke:rgba(255,255,255,.35); stroke-width:1.4; stroke-linecap:round; transform:translateY(-1.3px);}
+  .wire-flow{fill:none; stroke:rgba(255,255,255,.85); stroke-width:2; stroke-linecap:round; stroke-dasharray:1 16; opacity:0; transition:opacity var(--motion-medium);}
+  .ccq.playing .wire-flow{opacity:.9; animation:flow .9s linear infinite;}
+  @keyframes flow{to{stroke-dashoffset:-17;}}
+  .wire-new{animation:seat .5s var(--motion-ease-out);}
+  @keyframes seat{from{opacity:.2;}}
+  .boot{stroke:var(--cable-outline); stroke-width:1;}
+  .drag-wire .wire{opacity:.95;}
+
+  /* ---------- feedback + completion ---------- */
+  .ccq-foot{display:grid; gap:12px; margin-top:16px;}
+  .fb{
+    display:flex; gap:12px; align-items:flex-start; padding:14px 16px; border-radius:12px;
+    border:1px solid var(--border-soft); background:var(--panel);
+    transition:border-color var(--motion-medium), background var(--motion-medium);
+  }
+  .fb-ic{flex-shrink:0; width:28px; height:28px; border-radius:50%; display:grid; place-items:center; background:var(--panel-hover); color:var(--text-dim);}
+  .fb-ic svg{width:15px; height:15px;}
+  .fb-t{font:600 11px/1 var(--font-mono); letter-spacing:.1em; text-transform:uppercase; color:var(--text-dim); margin:2px 0 6px;}
+  .fb p{margin:0; font-size:14px; line-height:1.55; color:var(--text-dim); max-width:72ch;}
+  .fb p strong{color:var(--text); font-weight:600;}
+  .fb.ok{border-color:color-mix(in srgb, var(--ok) 40%, transparent); background:color-mix(in srgb, var(--ok) 7%, transparent);}
+  .fb.ok .fb-ic{background:color-mix(in srgb, var(--ok) 18%, transparent); color:var(--ok);}
+  .fb.ok .fb-t{color:var(--ok);}
+  .fb.err{border-color:color-mix(in srgb, var(--err) 40%, transparent); background:color-mix(in srgb, var(--err) 7%, transparent);}
+  .fb.err .fb-ic{background:color-mix(in srgb, var(--err) 18%, transparent); color:var(--err);}
+  .fb.err .fb-t{color:var(--err);}
+  .fb-link{margin-left:6px; padding:0; border:0; background:none; color:var(--accent); font-weight:600; cursor:pointer; text-decoration:underline; text-underline-offset:3px;}
+
+  .done-card{
+    display:none; padding:20px; border-radius:12px; text-align:center;
+    border:1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+    background:color-mix(in srgb, var(--accent) 7%, transparent);
+  }
+  .done-card.show{display:block; animation:rise .5s var(--motion-ease-out);}
+  @keyframes rise{from{opacity:0; transform:translateY(8px);}}
+  .done-card h3{margin:0 0 4px; font-size:18px; font-weight:600;}
+  .done-card > p{margin:0 0 14px; color:var(--text-dim); font-size:14px;}
+  .stats{display:flex; justify-content:center; gap:28px; margin-bottom:16px;}
+  .stats div{font:600 22px/1 var(--font-mono);}
+  .stats small{display:block; margin-top:6px; font:500 10px/1 var(--font-mono); letter-spacing:.1em; text-transform:uppercase; color:var(--text-dimmer);}
+  .recap{display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin:0 0 16px; padding:0; list-style:none;}
+  .recap li{font:500 11px/1 var(--font-mono); padding:6px 9px; border-radius:999px; border:1px solid var(--border); background:var(--panel);}
+  .recap li i{display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--tone); margin-right:6px; vertical-align:1px;}
+  .done-btns{display:flex; justify-content:center; gap:8px;}
+
+  .note{font-size:12.5px; color:var(--text-dimmer); text-align:center; margin:4px 0 0;}
+
+  /* ---------- responsive ---------- */
+  @media (max-width:760px){
+    .ccq-channels{grid-template-columns:repeat(11, minmax(0,1fr)); gap:4px; flex-basis:100%;}
+    .ch-name{font-size:8px; letter-spacing:0;}
+    .ccq-transport{flex-direction:row; align-items:center; justify-content:space-between; width:100%;}
+    .cable-sub,.port-sub{display:none;}
+  }
+  @media (max-width:600px){
+    .course-col{padding:28px 16px 56px;}
+    .ccq-body{padding:14px 10px;}
+    .ccq-console{padding:12px 10px;}
+    .cable{gap:4px; padding-left:10px; min-height:50px;}
+    .port{min-height:50px; gap:6px; padding-right:8px;}
+    .cable-name{font-size:12.5px;}
+    .port-name{font-size:11.5px;}
+    .plug{width:34px;} .plug svg{width:32px;}
+    .well{width:38px; height:38px; margin-left:-10px;} .well svg{width:28px; height:28px;}
+    .ch-meter{height:36px; width:6px;}
+    .port-leds{display:none;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important;}
+  }
+</style>
+</head>
+<body>
+
+<div class="mock-bar" aria-label="Mockup controls">
+  <span><b>Mockup</b> · Cable &amp; connector match — plug in the band</span>
+  <span class="sp"></span>
+  <label>Palette <select id="palSel"></select></label>
+  <button type="button" id="themeBtn">Light theme</button>
+</div>
+
+<div class="svr-course">
+  <div class="course-col">
+    <div class="lesson-eyebrow">Interactive lab · Cables &amp; connectors</div>
+    <h1 class="lesson-h">Plug in the band: match each cable to its connector</h1>
+    <p class="lesson-sub">Every cable carries one kind of signal, and it only works through the right plug. Drag a cable's plug into the socket that carries it, or tap the cable and then the socket. Each correct connection brings another instrument into the mix. Connect all ten and the whole band plays.</p>
+
+    <section class="ccq" id="ccq" aria-label="Cable and connector match">
+
+      <!-- console strip -->
+      <div class="ccq-console">
+        <div class="ccq-transport">
+          <div class="ccq-score"><b id="scoreN">0</b>/ 10 connected<small id="attemptsN">0 attempts</small></div>
+          <div class="ccq-tbtns">
+            <button class="tbtn primary" id="playBtn" type="button" disabled aria-label="Play mix">
+              <svg viewBox="0 0 24 24" fill="currentColor" id="playIc"><path d="M7 5v14l12-7z"/></svg><span id="playLbl">Play</span>
+            </button>
+            <button class="tbtn icon" id="muteBtn" type="button" aria-label="Mute" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" id="muteIc"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></svg>
+            </button>
+            <div class="beats" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          </div>
+        </div>
+        <div class="ccq-channels" id="channels" aria-label="Mixer channels"></div>
+      </div>
+
+      <div class="ccq-body">
+        <div class="ccq-heads"><span>Cables · the signal</span><span></span><span>Rear panel · connectors</span></div>
+        <div class="ccq-board" id="board">
+          <div class="ccq-col" id="cables"></div>
+          <div></div>
+          <div class="rear"><div class="ccq-col" id="ports"></div></div>
+          <svg class="ccq-svg" id="svg" aria-hidden="true"><g id="wires"></g><g id="dragLayer"></g></svg>
+        </div>
+
+        <div class="ccq-foot">
+          <div class="fb" id="fb" aria-live="polite">
+            <div class="fb-ic" id="fbIc"></div>
+            <div><div class="fb-t" id="fbT"></div><p id="fbP"></p></div>
+          </div>
+
+          <div class="done-card" id="done">
+            <h3>Full signal chain: the whole band is playing</h3>
+            <p>All ten cables found the connector built for their signal.</p>
+            <div class="stats">
+              <div id="stAcc">–<small>accuracy</small></div>
+              <div id="stAtt">–<small>attempts</small></div>
+            </div>
+            <ul class="recap" id="recap"></ul>
+            <div class="done-btns">
+              <button class="tbtn primary" id="restartBtn" type="button">Restart quiz</button>
+            </div>
+          </div>
+          <p class="note">Sockets can take more than one cable. Same plug, different signal: an XLR can carry a mic or AES digital, and an RCA can carry analog line level or S/PDIF.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+/* ======================================================================
+   DATA
+   ====================================================================== */
+const CABLES = [
+  { id:"mic",        name:"Microphone cable",        use:"Vocal mic → preamp",               ch:"VOX",  correct:["xlr"],
+    fact:"<strong>XLR</strong>, 3-pin, locking and balanced. A mic puts out a tiny signal, so the balanced pair cancels hum over long runs, and the latch stops it being pulled out mid-take.",
+    hint:"A mic signal is tiny and often runs a long way. Look for a <strong>locking, 3-pin, balanced</strong> connector." },
+  { id:"instrument", name:"Instrument cable",        use:"Guitar → DI box / amp",            ch:"GTR",  correct:["ts"],
+    fact:"<strong>¼\" TS</strong> (tip-sleeve). A guitar pickup is unbalanced: one conductor plus the shield. Keep the run short, under about 6 m, because unbalanced cable picks up noise.",
+    hint:"A pickup puts out a single unbalanced signal. You need a ¼\" plug with <strong>one</strong> insulating band, not two." },
+  { id:"balLine",    name:"Balanced line-level cable", use:"Synth line out → interface",      ch:"KEYS", correct:["trs","xlr"],
+    fact:"<strong>¼\" TRS</strong>: tip = hot, ring = cold, sleeve = shield. It's the standard for balanced line-level gear, and XLR carries balanced line level too.",
+    hint:"Balanced means two signal conductors plus a shield. That's three contacts on a <strong>¼\" plug</strong>." },
+  { id:"unbalLine",  name:"Unbalanced line-level cable", use:"Keyboard / phone → mixer",      ch:"EP",   correct:["rca","ts"],
+    fact:"<strong>RCA</strong> (phono), the single-pin plug on consumer and semi-pro gear. A ¼\" TS carries unbalanced line level too.",
+    hint:"Consumer gear sends unbalanced line level on a <strong>single-pin phono</strong> plug." },
+  { id:"speaker",    name:"Speaker cable",           use:"Bass amp → speaker cab",           ch:"BASS", correct:["speakon","banana"],
+    fact:"<strong>Speakon</strong>: twist-lock, heavy contacts, built for amplifier <em>current</em> rather than a delicate signal. Banana plugs into binding posts work too.",
+    hint:"This carries amplifier power. It needs thick conductors and a connector rated for current, and it doesn't need shielding." },
+  { id:"digital",    name:"Digital audio cable",     use:"Drum machine → computer",          ch:"KICK", correct:["usb"],
+    fact:"<strong>USB</strong>. Audio travels as data packets between a device and a computer. It's the same plug family as your keyboard or drive.",
+    hint:"It's plain computer data, so think of the plug a printer or audio interface uses to reach your laptop." },
+  { id:"midi",       name:"MIDI cable",              use:"Controller → synth module",        ch:"ARP",  correct:["din"],
+    fact:"<strong>5-pin DIN</strong>. MIDI never carries sound. It sends <em>instructions</em> like note on/off, velocity and CC, and the synth turns them into audio.",
+    hint:"MIDI carries notes, not audio. It uses a round connector with <strong>five</strong> pins in an arc." },
+  { id:"coax",       name:"Coaxial cable (digital)", use:"CD / sampler S/PDIF → interface",  ch:"SNR",  correct:["rca","bnc"],
+    fact:"<strong>RCA</strong>, but on 75 Ω coax. That's S/PDIF: the same plug as analog line, carrying two channels of digital audio. BNC is the locking pro version.",
+    hint:"The plug looks exactly like an analog consumer plug, but the cable inside is <strong>75 Ω coax</strong>." },
+  { id:"aes",        name:"AES cable (AES3 / AES/EBU)", use:"Digital console → converter",   ch:"HATS", correct:["xlr"],
+    fact:"<strong>XLR</strong>, on 110 Ω twisted pair. AES3 is pro balanced digital audio in the same shell as a mic cable, carrying a completely different signal.",
+    hint:"Pro digital audio borrowed the <strong>mic connector's shell</strong>. Only the cable impedance, 110 Ω, is different." },
+  { id:"adat",       name:"ADAT optical (lightpipe)", use:"8-ch preamp → interface",         ch:"STR8", correct:["toslink"],
+    fact:"<strong>TOSLINK</strong>. It carries up to 8 channels of digital audio as pulses of light in a plastic fibre, with no metal contacts at all.",
+    hint:"There are no metal pins. The signal travels as <strong>light</strong>." },
+];
+
+const PORTS = [
+  { id:"xlr",     name:"XLR",       sub:"3-pin · locking · balanced" },
+  { id:"toslink", name:"TOSLINK",   sub:"optical · light" },
+  { id:"ts",      name:"¼\" TS",    sub:"tip-sleeve · unbalanced" },
+  { id:"speakon", name:"Speakon",   sub:"twist-lock · high current" },
+  { id:"rca",     name:"RCA",       sub:"phono · single pin" },
+  { id:"din",     name:"5-pin DIN", sub:"MIDI · data only" },
+  { id:"trs",     name:"¼\" TRS",   sub:"tip-ring-sleeve · balanced" },
+  { id:"bnc",     name:"BNC",       sub:"bayonet · 75 Ω" },
+  { id:"usb",     name:"USB",       sub:"type-B / C · data" },
+  { id:"banana",  name:"Banana",    sub:"binding post · amp out" },
+];
+
+/* Specific mistake messages (cable → wrong port) override the generic hint. */
+const MISTAKES = {
+  "speaker>ts":  "That's an <strong>instrument</strong> cable connection. Its thin, shielded conductors can't handle amplifier current, so they overheat and can damage the amp. Speakers need heavy-gauge cable.",
+  "speaker>trs": "A ¼\" jack for a speaker? Some old amps used one, but a ¼\" plug can short the amp output while you're inserting it. Use a connector made for current.",
+  "speaker>xlr": "An XLR carries signal, not power. Speaker cable needs a connector rated for amplifier current.",
+  "instrument>trs": "TRS is balanced (tip + ring + sleeve). A guitar pickup only has one signal conductor, so it needs the simpler ¼\" plug.",
+  "mic>trs":  "It's balanced, so you're close. But mics standardise on the <strong>locking</strong> 3-pin connector so they can't be yanked out.",
+  "midi>usb": "USB-MIDI exists, but the classic <strong>MIDI cable</strong> uses its own round connector.",
+  "adat>rca": "That's coaxial S/PDIF, which carries 2 channels on copper. ADAT carries 8 channels on light.",
+  "coax>toslink": "TOSLINK can carry S/PDIF too, but as light. This cable is <strong>coaxial</strong> copper.",
+  "aes>rca": "RCA is the consumer digital version (S/PDIF). AES3 is the pro, balanced one.",
+  "digital>toslink": "Close. That's digital, but optical. This one connects to a <strong>computer</strong>.",
+};
+
+/* Socket-face glyphs (viewBox 0 0 40 40), drawn light-on-dark for the hardware panel */
+const H = "#0b0b0d";
+const GLYPH = {
+  xlr: `<circle cx="20" cy="20" r="15" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="20" cy="20" r="11.5" fill="#1d1e22"/><rect x="17.5" y="3.5" width="5" height="4" rx="1" fill="currentColor"/>
+        <circle cx="14.5" cy="17" r="2.4" fill="${H}" stroke="currentColor" stroke-width="1"/><circle cx="25.5" cy="17" r="2.4" fill="${H}" stroke="currentColor" stroke-width="1"/><circle cx="20" cy="26" r="2.4" fill="${H}" stroke="currentColor" stroke-width="1"/>`,
+  trs: `<path d="M3 17h14v6H3z" fill="currentColor" opacity=".75"/><path d="M17 17h2v6h-2z" fill="${H}"/><path d="M19 17h7v6h-7z" fill="currentColor"/><path d="M26 17h2v6h-2z" fill="${H}"/><path d="M28 17h5l3 3-3 3h-5z" fill="currentColor"/>
+        <text x="20" y="33" text-anchor="middle" font-size="6" font-family="JetBrains Mono,monospace" fill="currentColor" opacity=".7">S  R  T</text>`,
+  ts: `<path d="M3 17h19v6H3z" fill="currentColor" opacity=".75"/><path d="M22 17h2v6h-2z" fill="${H}"/><path d="M24 17h8l3 3-3 3h-8z" fill="currentColor"/>
+        <text x="20" y="33" text-anchor="middle" font-size="6" font-family="JetBrains Mono,monospace" fill="currentColor" opacity=".7">S    T</text>`,
+  rca: `<circle cx="20" cy="20" r="12" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="20" cy="20" r="7.5" fill="#1d1e22" stroke="currentColor" stroke-width="1"/><circle cx="20" cy="20" r="2.4" fill="${H}" stroke="currentColor" stroke-width="1.2"/>`,
+  speakon: `<circle cx="20" cy="20" r="15" fill="#1d1e22" stroke="currentColor" stroke-width="2"/><circle cx="20" cy="20" r="6" fill="${H}" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M20 5v4M20 31v4M5 20h4" stroke="${H}" stroke-width="3"/><path d="M28 9.5a13 13 0 0 1 4.5 7" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M33.5 13l-1 4-3.3-2.3" fill="none" stroke="currentColor" stroke-width="1.5"/>`,
+  banana: `<circle cx="13" cy="20" r="8" fill="#b83a3a" stroke="currentColor" stroke-width="1"/><circle cx="13" cy="20" r="2.4" fill="${H}"/>
+        <circle cx="29" cy="20" r="8" fill="#2a2b30" stroke="currentColor" stroke-width="1"/><circle cx="29" cy="20" r="2.4" fill="${H}"/>`,
+  usb: `<path d="M11 13h18v10l-4 5H15l-4-5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M15 17h10v6l-2 2h-6l-2-2z" fill="currentColor" opacity=".8"/>`,
+  din: `<circle cx="20" cy="20" r="15" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="20" cy="20" r="12" fill="#1d1e22"/><rect x="18" y="31" width="4" height="4" fill="currentColor"/>
+        ${[-90,-135,-45,180,0].map(a=>{const r=a*Math.PI/180;return `<circle cx="${(20+7.5*Math.cos(r)).toFixed(1)}" cy="${(19+7.5*Math.sin(r)).toFixed(1)}" r="1.7" fill="${H}" stroke="currentColor" stroke-width=".9"/>`}).join("")}`,
+  bnc: `<circle cx="20" cy="20" r="11" fill="#1d1e22" stroke="currentColor" stroke-width="2.4"/><rect x="5" y="18" width="5" height="4" rx="1" fill="currentColor"/><rect x="30" y="18" width="5" height="4" rx="1" fill="currentColor"/>
+        <circle cx="20" cy="20" r="5.5" fill="none" stroke="currentColor" stroke-width="1"/><circle cx="20" cy="20" r="1.6" fill="${H}" stroke="currentColor" stroke-width="1"/>`,
+  toslink: `<path d="M10 12h20v12l-4 4H14l-4-4z" fill="#1d1e22" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="20" cy="20" r="2.8" fill="#ff4a4a"/><circle cx="20" cy="20" r="5.5" fill="#ff4a4a" opacity=".22"/>`,
+};
+
+/* The plug head drawn on each cable card (generic boot in the cable colour) */
+const PLUG_SVG = `<svg viewBox="0 0 46 22" aria-hidden="true">
+  <path d="M0 11h12" stroke="var(--tone)" stroke-width="5.5" stroke-linecap="round"/>
+  <g class="plug-head"><rect x="10" y="4" width="22" height="14" rx="4" fill="var(--tone)" stroke="var(--cable-outline)"/>
+  <path d="M14 7.5v7M18 7.5v7" stroke="rgba(0,0,0,.35)" stroke-width="1.4"/>
+  <rect x="32" y="7" width="11" height="8" rx="1.5" fill="#c8cbd2" stroke="rgba(0,0,0,.4)"/></g></svg>`;
+
+/* ======================================================================
+   STATE + DOM
+   ====================================================================== */
+const $ = (id) => document.getElementById(id);
+const lab = $("ccq"), board = $("board"), svg = $("svg"), wiresG = $("wires"), dragG = $("dragLayer");
+const byId = Object.fromEntries(CABLES.map(c => [c.id, c]));
+const portById = Object.fromEntries(PORTS.map(p => [p.id, p]));
+
+const S = { armed:null, links:{}, order:[], attempts:0, misses:{}, justLinked:null };
+
+function tone(id){ return getComputedStyle(document.documentElement).getPropertyValue(`--c-${id}`).trim(); }
+
+$("cables").innerHTML = CABLES.map(c => `
+  <button type="button" class="cable" data-id="${c.id}" style="--tone:var(--c-${c.id})" aria-pressed="false"
+          aria-label="${c.name}, ${c.use}">
+    <span class="cable-txt"><span class="cable-name">${c.name}</span><span class="cable-sub">${c.use}</span></span>
+    <span class="plug" data-plug="${c.id}">${PLUG_SVG}<span class="plug-anchor"></span></span>
+  </button>`).join("");
+
+$("ports").innerHTML = PORTS.map(p => `
+  <button type="button" class="port" data-id="${p.id}" aria-label="${p.name} socket">
+    <span class="well"><svg viewBox="0 0 40 40">${GLYPH[p.id]}</svg></span>
+    <span class="port-txt"><span class="port-name">${p.name}</span><span class="port-sub">${p.sub}</span></span>
+    <span class="port-leds"></span>
+  </button>`).join("");
+
+$("channels").innerHTML = CABLES.map(c => `
+  <div class="ch" data-ch="${c.id}" style="--tone:var(--c-${c.id})" title="${c.name}: ${c.ch}">
+    <span class="ch-led"></span><span class="ch-meter"><span></span></span><span class="ch-name">${c.ch}</span>
+  </div>`).join("") + `
+  <div class="ch master" data-ch="master" title="Master"><span class="ch-led"></span><span class="ch-meter"><span></span></span><span class="ch-name">MST</span></div>`;
+
+const cableEl = (id) => lab.querySelector(`.cable[data-id="${id}"]`);
+const portEl  = (id) => lab.querySelector(`.port[data-id="${id}"]`);
+
+/* ======================================================================
+   GEOMETRY + WIRES
+   ====================================================================== */
+function pt(el){ const r = el.getBoundingClientRect(), b = board.getBoundingClientRect(); return { x:r.left - b.left + r.width/2, y:r.top - b.top + r.height/2 }; }
+function srcPt(id){ return pt(cableEl(id).querySelector(".plug-anchor")); }
+function dstPt(pid){ const w = portEl(pid).querySelector(".well"); const r = w.getBoundingClientRect(), b = board.getBoundingClientRect(); return { x:r.left - b.left + 6, y:r.top - b.top + r.height/2 }; }
+
+/* A hanging cable: horizontal exits at both ends, sag grows with span. */
+function wirePath(a, b){
+  const dx = Math.max(30, Math.abs(b.x - a.x) * 0.45);
+  const sag = 14 + Math.hypot(b.x - a.x, b.y - a.y) * 0.1;
+  return `M${a.x},${a.y} C${a.x + dx},${a.y + sag} ${b.x - dx},${b.y + sag} ${b.x},${b.y}`;
+}
+function wireMarkup(id, a, b, cls = ""){
+  const d = wirePath(a, b), c = tone(id);
+  const boot = `<rect class="boot" x="${b.x - 20}" y="${b.y - 6}" width="18" height="12" rx="3.5" fill="${c}"/>`;
+  return `<g class="${cls}"><path class="wire-o" d="${d}"/><path class="wire" stroke="${c}" d="${d}"/><path class="wire-hi" d="${d}"/><path class="wire-flow" d="${d}"/>${boot}</g>`;
+}
+function drawWires(){
+  wiresG.innerHTML = S.order.map(id => wireMarkup(id, srcPt(id), dstPt(S.links[id]), id === S.justLinked ? "wire-new" : "")).join("");
+  S.justLinked = null;
+}
+new ResizeObserver(() => drawWires()).observe(board);
+
+/* ======================================================================
+   INTERACTION — drag a plug, or tap cable then tap socket
+   ====================================================================== */
+function arm(id){
+  if (S.links[id]) { showFact(id, true); return; }
+  S.armed = S.armed === id ? null : id;
+  lab.classList.toggle("arming", !!S.armed);
+  lab.querySelectorAll(".cable").forEach(el => {
+    const on = el.dataset.id === S.armed;
+    el.classList.toggle("armed", on); el.setAttribute("aria-pressed", on);
+  });
+  if (S.armed) setFb("info", "Now pick a socket", `<strong>${byId[id].name}</strong> (${byId[id].use}). Which connector carries this signal?`);
+}
+
+let drag = null, suppressClick = false;
+lab.querySelectorAll(".plug").forEach(pl => {
+  pl.addEventListener("pointerdown", (e) => {
+    const id = pl.dataset.plug; if (S.links[id]) return;
+    audio.ensure();
+    drag = { id, x0:e.clientX, y0:e.clientY, moved:false, over:null };
+    pl.setPointerCapture(e.pointerId);
+  });
+  pl.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    if (!drag.moved && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 6) return;
+    if (!drag.moved){ drag.moved = true; cableEl(drag.id).classList.add("dragging"); if (S.armed !== drag.id) arm(drag.id); }
+    const b = board.getBoundingClientRect();
+    const p = { x:e.clientX - b.left, y:e.clientY - b.top };
+    dragG.innerHTML = wireMarkup(drag.id, srcPt(drag.id), p, "drag-wire");
+    const over = document.elementFromPoint(e.clientX, e.clientY)?.closest(".port");
+    if (over !== drag.over){ drag.over?.classList.remove("hover"); over?.classList.add("hover"); drag.over = over; }
+  });
+  const end = () => {
+    if (!drag) return;
+    const d = drag; drag = null;
+    dragG.innerHTML = "";
+    cableEl(d.id).classList.remove("dragging");
+    d.over?.classList.remove("hover");
+    if (d.moved){
+      suppressClick = true; setTimeout(() => suppressClick = false, 0);
+      if (d.over) attempt(d.over.dataset.id);
+    }
+  };
+  pl.addEventListener("pointerup", end);
+  pl.addEventListener("pointercancel", end);
+});
+
+lab.querySelectorAll(".cable").forEach(el => el.addEventListener("click", () => {
+  if (suppressClick) return;
+  audio.ensure(); arm(el.dataset.id);
+}));
+lab.querySelectorAll(".port").forEach(el => el.addEventListener("click", () => {
+  audio.ensure();
+  if (!S.armed){
+    setFb("info", "Pick a cable first", "Choose a cable on the left, then plug it into this socket.");
+    lab.querySelectorAll(".cable:not(.done)").forEach(c => { c.classList.remove("nudge"); void c.offsetWidth; c.classList.add("nudge"); });
+    return;
+  }
+  attempt(el.dataset.id);
+}));
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.armed) arm(S.armed); });
+
+function attempt(pid){
+  const id = S.armed; if (!id) return;
+  const c = byId[id];
+  S.attempts++;
+  if (c.correct.includes(pid)){
+    S.links[id] = pid; S.order.push(id); S.justLinked = id;
+    arm(id); // disarm
+    cableEl(id).classList.add("done");
+    cableEl(id).setAttribute("aria-label", `${c.name}, connected to ${portById[pid].name}`);
+    const leds = portEl(pid).querySelector(".port-leds");
+    leds.insertAdjacentHTML("beforeend", `<i style="--tone:var(--c-${id})"></i>`);
+    const ch = lab.querySelector(`.ch[data-ch="${id}"]`);
+    ch.classList.add("live", "just"); setTimeout(() => ch.classList.remove("just"), 700);
+    drawWires();
+    audio.connect(id);
+    showFact(id, false, pid);
+  } else {
+    S.misses[id] = (S.misses[id] || 0) + 1;
+    const p = portEl(pid);
+    p.classList.remove("wrong"); void p.offsetWidth; p.classList.add("wrong");
+    setTimeout(() => p.classList.remove("wrong"), 450);
+    audio.static();
+    const msg = MISTAKES[`${id}>${pid}`] || c.hint;
+    const reveal = S.misses[id] >= 3 ? ` <button type="button" class="fb-link" id="revealBtn">Show me</button>` : "";
+    setFb("err", `No signal · ${portById[pid].name} is the wrong socket`, msg + reveal);
+    $("revealBtn")?.addEventListener("click", () => {
+      const r = portEl(c.correct[0]); r.classList.remove("reveal"); void r.offsetWidth; r.classList.add("reveal");
+      setTimeout(() => r.classList.remove("reveal"), 3400);
+    });
+  }
+  updateScore();
+}
+
+function showFact(id, again, pid = S.links[id]){
+  const c = byId[id];
+  const alt = c.correct.filter(x => x !== pid).map(x => portById[x].name);
+  const altTxt = alt.length ? ` <span style="color:var(--text-dimmer)">Also correct: ${alt.join(", ")}.</span>` : "";
+  setFb("ok", `${again ? "Connected" : "Signal"} · ${c.name} → ${portById[pid].name} · ${c.ch} is in the mix`, c.fact + altTxt);
+}
+
+const IC = {
+  info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>',
+  ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  err:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h3l2-5 3 10 2.5-7 2 4H21"/></svg>',
+};
+function setFb(kind, title, html){
+  $("fb").className = "fb " + (kind === "info" ? "" : kind);
+  $("fbIc").innerHTML = IC[kind]; $("fbT").textContent = title; $("fbP").innerHTML = html;
+}
+function introFb(){ setFb("info", "How it works", "Each cable is built for one kind of signal: a tiny mic signal, line level, amplifier current, digital data, or light. <strong>Drag a plug into a socket</strong>, or tap a cable and then a socket. Get it right and you'll hear that instrument join the mix."); }
+
+function updateScore(){
+  const n = S.order.length;
+  $("scoreN").textContent = n;
+  $("attemptsN").textContent = `${S.attempts} attempt${S.attempts === 1 ? "" : "s"}`;
+  $("playBtn").disabled = n === 0;
+  if (n === CABLES.length){
+    $("stAcc").firstChild.nodeValue = Math.round(n / S.attempts * 100) + "%";
+    $("stAtt").firstChild.nodeValue = S.attempts;
+    $("recap").innerHTML = CABLES.map(c => `<li style="--tone:var(--c-${c.id})"><i></i>${c.name.replace(/ \(.*\)/,"")} → ${portById[S.links[c.id]].name}</li>`).join("");
+    $("done").classList.add("show");
+  }
+}
+
+function restart(){
+  S.armed = null; S.links = {}; S.order = []; S.attempts = 0; S.misses = {};
+  lab.classList.remove("arming");
+  lab.querySelectorAll(".cable").forEach(el => { el.classList.remove("done","armed"); el.setAttribute("aria-pressed","false"); });
+  lab.querySelectorAll(".port-leds").forEach(el => el.innerHTML = "");
+  lab.querySelectorAll(".ch").forEach(el => el.classList.remove("live"));
+  $("done").classList.remove("show");
+  audio.reset();
+  drawWires(); updateScore(); introFb();
+}
+$("restartBtn").onclick = restart;
+
+/* ======================================================================
+   AUDIO — synthesised 4-bar groove (96 BPM, Am–F–C–G). Each cable owns
+   one stem; a stem is scheduled only once its cable is connected, so the
+   mix grows as the student matches. Lookahead scheduler (25 ms tick,
+   120 ms horizon) keeps timing sample-accurate on the AudioContext clock.
+   ====================================================================== */
+const audio = (() => {
+  const BPM = 96, STEP = 60 / BPM / 4, STEPS = 64;
+  const CHORDS = [[57,60,64],[53,57,60],[55,60,64],[55,59,62]];  // Am F C/G G
+  const ROOTS  = [33,29,36,31];
+  const MEL    = [[76,72],[69,72],[67,64],[67,71]];
+  const LEVEL  = { mic:.5, instrument:.35, balLine:.28, unbalLine:.3, speaker:.55, digital:.9, midi:.14, coax:.5, aes:.22, adat:.16 };
+  let ctx, master, masterAn, noise, stems = {}, live = new Set(), playing = false, muted = false, step = 0, nextT = 0, timer, queue = [], raf;
+  const f = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
+  function ensure(){
+    if (ctx){ if (ctx.state === "suspended") ctx.resume(); return; }
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    master = ctx.createGain(); master.gain.value = muted ? 0 : .8;
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -16; comp.ratio.value = 4; comp.attack.value = .004; comp.release.value = .2;
+    master.connect(comp); comp.connect(ctx.destination);
+    masterAn = ctx.createAnalyser(); masterAn.fftSize = 512; comp.connect(masterAn);
+    noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    CABLES.forEach(c => {
+      const g = ctx.createGain(); g.gain.value = 0;
+      const an = ctx.createAnalyser(); an.fftSize = 256;
+      g.connect(master); g.connect(an);
+      stems[c.id] = { g, an, buf:new Float32Array(256), lvl:0 };
+    });
+  }
+
+  /* voice helpers */
+  function env(param, t, a, peak, d){ param.setValueAtTime(.0001, t); param.linearRampToValueAtTime(peak, t + a); param.exponentialRampToValueAtTime(.0001, t + a + d); }
+  function tone_(type, freq, t, a, peak, d, dest, filt){
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.value = freq; env(g.gain, t, a, peak, d);
+    if (filt){ filt.connect(g); o.connect(filt); } else o.connect(g);
+    g.connect(dest); o.start(t); o.stop(t + a + d + .05); return o;
+  }
+  function noiseHit(t, d, peak, hp, dest, bp){
+    const s = ctx.createBufferSource(); s.buffer = noise; s.playbackRate.value = .8 + Math.random() * .4;
+    const fl = ctx.createBiquadFilter(); fl.type = bp ? "bandpass" : "highpass"; fl.frequency.value = hp;
+    const g = ctx.createGain(); env(g.gain, t, .001, peak, d);
+    s.connect(fl); fl.connect(g); g.connect(dest); s.start(t, Math.random() * .5); s.stop(t + d + .05);
+  }
+  function lp(freq, q = .7){ const b = ctx.createBiquadFilter(); b.type = "lowpass"; b.frequency.value = freq; b.Q.value = q; return b; }
+
+  const VOICE = {
+    digital(s, t, bar, d){ // kick
+      if (![0, 7, 8, 10].includes(s) || (s === 7 && bar % 2 === 0)) return;
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + .14);
+      env(g.gain, t, .002, 1, .38); o.connect(g); g.connect(d); o.start(t); o.stop(t + .45);
+    },
+    coax(s, t, bar, d){ // snare
+      if (s !== 4 && s !== 12) return;
+      noiseHit(t, .2, .8, 1500, d); tone_("triangle", 190, t, .001, .5, .09, d);
+    },
+    aes(s, t, bar, d){ // hats
+      if (s % 2 && s !== 15) return;
+      noiseHit(t, s % 4 === 2 ? .09 : .04, s % 4 === 2 ? .7 : .4, 7500, d);
+    },
+    speaker(s, t, bar, d){ // bass
+      if (![0, 3, 6, 8, 11, 14].includes(s)) return;
+      const n = ROOTS[bar] + (s === 11 ? 12 : 0);
+      const fl = lp(420, 6); fl.frequency.setValueAtTime(900, t); fl.frequency.exponentialRampToValueAtTime(220, t + .25);
+      tone_("sawtooth", f(n), t, .005, .9, s === 0 ? .5 : .22, d, fl);
+      tone_("sine", f(n), t, .005, .7, s === 0 ? .5 : .22, d);
+    },
+    balLine(s, t, bar, d){ // pad
+      if (s !== 0) return;
+      CHORDS[bar].forEach((n, i) => { const fl = lp(1400); tone_("triangle", f(n), t, .35, .35, STEP * 16, d, fl); tone_("sawtooth", f(n) * 1.004, t, .4, .08, STEP * 16, d, lp(900)); });
+    },
+    unbalLine(s, t, bar, d){ // e-piano stabs
+      if (s !== 3 && s !== 10) return;
+      CHORDS[bar].forEach(n => { tone_("sine", f(n + 12), t, .004, .35, .7, d); tone_("sine", f(n + 24) * 1.002, t, .002, .08, .18, d); });
+    },
+    instrument(s, t, bar, d){ // plucked guitar arpeggio
+      if (s % 2) return;
+      const ch = CHORDS[bar], order = [0, 1, 2, 1, 0, 2, 1, 2];
+      const n = ch[order[(s / 2) % 8]] + (s >= 8 ? 12 : 0);
+      const fl = lp(3200, 2); fl.frequency.setValueAtTime(3600, t); fl.frequency.exponentialRampToValueAtTime(500, t + .3);
+      tone_("sawtooth", f(n), t, .002, .5, .45, d, fl);
+    },
+    mic(s, t, bar, d){ // formant "ooh/aah" vocal
+      if (s !== 0 && s !== 8) return;
+      const n = MEL[bar][s ? 1 : 0], dur = STEP * 7.5;
+      const o = ctx.createOscillator(); o.type = "sawtooth"; o.frequency.value = f(n);
+      const vib = ctx.createOscillator(), vg = ctx.createGain(); vib.frequency.value = 5.4; vg.gain.value = 9;
+      vib.connect(vg); vg.connect(o.detune);
+      const g = ctx.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(.5, t + .12);
+      g.gain.setValueAtTime(.5, t + dur - .15); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      [[700, 9, 1], [1150, 10, .6], [2600, 12, .25]].forEach(([fr, q, a]) => {
+        const b = ctx.createBiquadFilter(); b.type = "bandpass"; b.frequency.value = fr; b.Q.value = q;
+        const ga = ctx.createGain(); ga.gain.value = a * 3; o.connect(b); b.connect(ga); ga.connect(g);
+      });
+      g.connect(d); o.start(t); vib.start(t); o.stop(t + dur + .05); vib.stop(t + dur + .05);
+    },
+    midi(s, t, bar, d){ // 16th-note arp
+      const ch = CHORDS[bar], seq = [0, 1, 2, 3, 2, 1];
+      const k = seq[s % 6], n = (k === 3 ? ch[0] + 12 : ch[k]) + 12;
+      tone_("square", f(n), t, .002, .45, .11, d, lp(2600));
+    },
+    adat(s, t, bar, d){ // 8-voice string stack — one voice per ADAT channel
+      if (s !== 0) return;
+      const ch = CHORDS[bar], notes = [ch[0] - 12, ch[0], ch[1], ch[2], ch[0] + 12, ch[1] + 12, ch[2] + 12, ch[0] + 24];
+      notes.forEach((n, i) => {
+        const o = ctx.createOscillator(), g = ctx.createGain(), fl = lp(1800);
+        o.type = "sawtooth"; o.frequency.value = f(n); o.detune.value = (i % 2 ? 7 : -7);
+        const dur = STEP * 16;
+        g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(.12, t + .6);
+        g.gain.setValueAtTime(.12, t + dur - .2); g.gain.linearRampToValueAtTime(.0001, t + dur + .1);
+        o.connect(fl); fl.connect(g); g.connect(d); o.start(t); o.stop(t + dur + .15);
+      });
+    },
+  };
+
+  function tick(){
+    while (nextT < ctx.currentTime + .12){
+      const s = step % 16, bar = Math.floor(step / 16) % 4;
+      live.forEach(id => VOICE[id](s, nextT, bar, stems[id].g));
+      queue.push({ s, t:nextT });
+      nextT += STEP; step = (step + 1) % STEPS;
+    }
+  }
+  function start(){
+    ensure(); if (playing) return;
+    playing = true; step = 0; nextT = ctx.currentTime + .06;
+    timer = setInterval(tick, 25); tick();
+    lab.classList.add("playing"); setPlayUi(); loop();
+  }
+  function stop(){
+    playing = false; clearInterval(timer); queue = [];
+    lab.classList.remove("playing"); setPlayUi();
+    document.querySelectorAll(".beats i").forEach(i => i.classList.remove("on"));
+  }
+
+  const beats = [...document.querySelectorAll(".beats i")];
+  const meters = Object.fromEntries([...document.querySelectorAll(".ch")].map(el => [el.dataset.ch, el.querySelector(".ch-meter span")]));
+  const mBuf = new Float32Array(512); let mLvl = 0;
+  function rms(an, buf){ an.getFloatTimeDomainData(buf); let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i]; return Math.sqrt(s / buf.length); }
+  function loop(){
+    cancelAnimationFrame(raf);
+    const frame = () => {
+      if (!ctx) return;
+      while (queue.length && queue[0].t <= ctx.currentTime){
+        const q = queue.shift();
+        if (q.s % 4 === 0) beats.forEach((b, i) => b.classList.toggle("on", i === q.s / 4));
+      }
+      let any = false;
+      CABLES.forEach(c => {
+        const st = stems[c.id];
+        const v = live.has(c.id) ? Math.min(1, rms(st.an, st.buf) * 5) : 0;
+        st.lvl = Math.max(v, st.lvl * .88); if (st.lvl > .005) any = true;
+        meters[c.id].style.setProperty("--lvl", st.lvl.toFixed(3));
+      });
+      mLvl = Math.max(Math.min(1, rms(masterAn, mBuf) * 3.5), mLvl * .88);
+      meters.master.style.setProperty("--lvl", mLvl.toFixed(3));
+      if (playing || any || mLvl > .005) raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+  }
+
+  function connect(id){
+    ensure();
+    live.add(id);
+    const g = stems[id].g.gain; g.cancelScheduledValues(ctx.currentTime);
+    g.setValueAtTime(0, ctx.currentTime); g.linearRampToValueAtTime(LEVEL[id], ctx.currentTime + .4);
+    // plug-in "thunk"
+    tone_("sine", 70, ctx.currentTime, .002, .5, .12, master);
+    noiseHit(ctx.currentTime, .02, .25, 2500, master);
+    if (!playing) start();
+  }
+  function static_(){
+    ensure();
+    const t = ctx.currentTime;
+    for (let i = 0; i < 7; i++) noiseHit(t + i * .045 + Math.random() * .02, .03 + Math.random() * .05, .35, 2500 + Math.random() * 2000, master, true);
+    tone_("sawtooth", 50, t, .01, .18, .4, master, lp(400));
+  }
+  function reset(){ stop(); live.clear(); if (ctx) CABLES.forEach(c => stems[c.id].g.gain.value = 0); CABLES.forEach(c => meters[c.id].style.setProperty("--lvl", 0)); }
+
+  function setPlayUi(){
+    $("playLbl").textContent = playing ? "Pause" : "Play";
+    $("playBtn").setAttribute("aria-label", playing ? "Pause mix" : "Play mix");
+    $("playIc").innerHTML = playing ? '<path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/>' : '<path d="M7 5v14l12-7z"/>';
+  }
+  $("playBtn").onclick = () => playing ? stop() : start();
+  $("muteBtn").onclick = (e) => {
+    muted = !muted; ensure();
+    master.gain.setTargetAtTime(muted ? 0 : .8, ctx.currentTime, .02);
+    $("muteBtn").setAttribute("aria-pressed", muted);
+    $("muteIc").innerHTML = muted
+      ? '<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l5 6M22 9l-5 6"/>'
+      : '<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/>';
+  };
+
+  return { ensure, connect, static: static_, reset };
+})();
+
+/* ---- mockup-only: theme + palette ---- */
+const PALETTES = [
+  { id:"spotify", name:"Spotify Green",   dark:"#7dffb8", light:"#047857" },
+  { id:"stripe",  name:"Stripe Purple",   dark:"#b3aaff", light:"#4f46e5" },
+  { id:"airbnb",  name:"Airbnb Coral",    dark:"#ff9fb0", light:"#e31c5f" },
+  { id:"slack",   name:"Slack Aubergine", dark:"#d9a8e0", light:"#8e2f90" },
+  { id:"netflix", name:"Netflix Red",     dark:"#ff5a5a", light:"#b20710" },
+  { id:"apple",   name:"Apple Blue",      dark:"#7dc4ff", light:"#0066cc" },
+];
+const html = document.documentElement, palSel = $("palSel");
+palSel.innerHTML = PALETTES.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+function applyPalette(){ const p = PALETTES.find(x => x.id === palSel.value); html.style.setProperty("--brand-accent", p[html.dataset.theme]); }
+palSel.onchange = applyPalette;
+$("themeBtn").onclick = (e) => {
+  html.dataset.theme = html.dataset.theme === "dark" ? "light" : "dark";
+  e.target.textContent = html.dataset.theme === "dark" ? "Light theme" : "Dark theme";
+  applyPalette(); drawWires();
+};
+
+introFb(); updateScore(); drawWires();
+</script>
+</body>
+</html>

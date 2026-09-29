@@ -10,9 +10,10 @@ import "./Tabs.css";
 //               button and glides to it with a transform transition, so
 //               switching reads as one continuous motion instead of one
 //               underline disappearing and another appearing.
-//               Tabs already opened get a small primary-colour "explored"
-//               dot (markVisited) and the bar ends with an "N/M explored"
-//               count (showCount) — both on by default.
+//               Tabs not yet opened render their label in bold; once
+//               visited they drop to the normal weight (markVisited). The
+//               bar ends with an "N/M explored" count (showCount) — both
+//               on by default.
 //   <TabPanel>  the panel. On every tab change it plays a short fade +
 //               slide in the direction of travel (right tab → content comes
 //               from the right) via the Web Animations API, so the panel is
@@ -47,7 +48,7 @@ import "./Tabs.css";
  * @param {string}   [props.idPrefix]       prefix for tab/panel ids (pair with <TabPanel idPrefix>)
  * @param {(item, state:{selected:boolean,index:number})=>any} [props.renderTab]  custom button content
  * @param {any}      [props.trailing]       extra content pinned to the right end of the bar (after the count)
- * @param {boolean}  [props.markVisited=true] show the "explored" dot on tabs already opened
+ * @param {boolean}  [props.markVisited=true] bold the labels of tabs not yet opened
  * @param {boolean}  [props.showCount=markVisited] show the "N/M explored" count at the end of the bar
  * @param {Iterable<string>} [props.visited] controlled set of explored ids (defaults to internal tracking)
  * @param {string}   [props.className]
@@ -78,8 +79,8 @@ export function Tabs({
   const [ready, setReady] = useState(false);
   const idsKey = items.map((t) => t.id).join("|");
 
-  // "Explored" dots: every tab the user has opened (except the current one)
-  // gets a small primary-colour dot. Tracked here by default; pass
+  // Visited tracking: tabs not yet opened are bold, opened ones (and the
+  // current one) are normal weight. Tracked here by default; pass
   // `visited` (Set or array of ids) to control it from outside, e.g. when
   // the parent also shows an "N/M explored" count.
   const [seen, setSeen] = useState(() => new Set([value]));
@@ -168,10 +169,10 @@ export function Tabs({
 
   const indStyle = ind
     ? {
-        width: ind.w,
-        height: variant === "segmented" ? ind.h : undefined,
-        transform: `translate3d(${ind.x}px, ${variant === "segmented" ? ind.y : 0}px, 0)`,
-      }
+      width: ind.w,
+      height: variant === "segmented" ? ind.h : undefined,
+      transform: `translate3d(${ind.x}px, ${variant === "segmented" ? ind.y : 0}px, 0)`,
+    }
     : { opacity: 0 };
 
   return (
@@ -180,6 +181,7 @@ export function Tabs({
         <span className="ui-tabs__indicator" style={indStyle} aria-hidden="true" />
         {items.map((item, i) => {
           const selected = item.id === value;
+          const unvisited = markVisited && !selected && !visitedSet.has(item.id);
           const ids = tabDomIds(prefix, item.id);
           return (
             <button
@@ -197,16 +199,11 @@ export function Tabs({
               tabIndex={selected ? 0 : -1}
               disabled={item.disabled}
               title={item.title}
-              className={`ui-tabs__tab${selected ? " is-active" : ""}${tabClassName ? ` ${tabClassName}` : ""}`}
+              className={`ui-tabs__tab${selected ? " is-active" : ""}${unvisited ? " is-unvisited" : ""}${tabClassName ? ` ${tabClassName}` : ""}`}
               onClick={() => select(item, i)}
             >
               {renderTab ? renderTab(item, { selected, index: i }) : item.label}
-              {markVisited && !selected && visitedSet.has(item.id) && (
-                <>
-                  <span className="ui-tabs__dot" aria-hidden="true" />
-                  <span className="ui-tabs__sr">(explored)</span>
-                </>
-              )}
+              {unvisited && <span className="ui-tabs__sr">(not yet explored)</span>}
             </button>
           );
         })}
