@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getAudioDeviceFormat } from "../api/audioDevice";
 
 // Standalone audio format / playback-path tester — not part of the student flow.
 //
@@ -18,11 +17,8 @@ import { getAudioDeviceFormat } from "../api/audioDevice";
 //                output in Audio MIDI Setup) the browser/OS downsamples at the
 //                output and we flag it.
 //
-// Bit depth: Web Audio always renders in 32-bit float, and browsers do not
-// expose the output device's format (16/24/32-bit). So the device bit depth
-// is read from the OS (CoreAudio, macOS) by studio-backend's GET /audio-device
-// (see src/api/audioDevice.js) — only meaningful when the backend runs locally
-// on the same Mac, and disabled by default in production deployments.
+// Bit depth: only the source file's bit depth is shown. Browsers don't expose
+// the output device's format, so the device side is sample rate only.
 
 const AudioCtx =
   typeof window !== "undefined"
@@ -327,29 +323,11 @@ function parseHeader(arrayBuffer) {
   return null;
 }
 
-// The device's hardware format (incl. bit depth) comes from the OS via
-// studio-backend's GET /audio-device — browsers never expose bit depth.
-// Returns { ok:false, error } when the backend is unreachable, the endpoint
-// is disabled (404 in production), or the lookup fails.
-async function fetchOsFormat() {
-  try {
-    return await getAudioDeviceFormat();
-  } catch (e) {
-    return {
-      ok: false,
-      error: /404|not found/i.test(e.message)
-        ? "OS lookup is disabled on this backend (set AUDIO_DEVICE_INFO_ENABLED=true)"
-        : e.message,
-    };
-  }
-}
-
 async function probeDeviceRate() {
   if (!AudioCtx) return null;
   const c = new AudioCtx();
   const info = { sampleRate: c.sampleRate, baseLatency: c.baseLatency };
   await c.close();
-  info.os = await fetchOsFormat();
   return info;
 }
 
@@ -387,14 +365,6 @@ function AudioFormatTester() {
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [dragOver, setDragOver] = useState(false);
-
-  // OS hardware format of the default output device (bit depth the machine
-  // actually plays at), or null if the OS lookup is unavailable.
-  const os = device?.os;
-  const deviceFmt =
-    os?.ok && os.bitDepth
-      ? { bits: os.bitDepth, float: os.isFloat, label: `${os.bitDepth}-bit ${os.isFloat ? "float" : "integer"}` }
-      : null;
 
   const refreshDevice = useCallback(async () => {
     try {
@@ -569,31 +539,6 @@ function AudioFormatTester() {
     }
   }
 
-  let depthVerdict = null;
-  if (source) {
-    const b = source.bitDepth;
-    if (b == null) depthVerdict = { tone: "neutral", text: "Lossy source — decoded to 32-bit float" };
-    else if (source.isFloat && b > 32) depthVerdict = { tone: "bad", text: `${b}-bit float → reduced to 32-bit float by Web Audio` };
-    else if (!source.isFloat && b > 24) depthVerdict = { tone: "warn", text: `${b}-bit integer → ~24-bit precision (float32 mantissa)` };
-    else depthVerdict = { tone: "good", text: `${b}-bit ${source.isFloat ? "float" : "integer"} carried losslessly in 32-bit float` };
-
-    // Final hop: engine float32 → device format. Only judgeable once the
-    // user has told us the device format.
-    if (deviceFmt && b != null && !deviceFmt.float && deviceFmt.bits < Math.min(b, 24)) {
-      depthVerdict = {
-        tone: "bad",
-        text: `Reduced ${b}-bit → ${deviceFmt.bits}-bit by the OS output device`,
-      };
-    } else if (deviceFmt && depthVerdict.tone === "good") {
-      depthVerdict = { tone: "good", text: `${b}-bit preserved through to the ${deviceFmt.label} device` };
-    }
-  }
-
-  const playedBits = deviceFmt ? deviceFmt.label : "unknown";
-  const playedBitsSub = deviceFmt
-    ? `OS output device${os.deviceName ? ` · ${os.deviceName}` : ""}`
-    : "OS format unavailable";
-
   const duration = engine?.duration ?? 0;
 
   return (
@@ -698,14 +643,7 @@ function AudioFormatTester() {
                   sub={bottleneck && bottleneck !== playedRate ? `content limited to ${fmtRate(bottleneck)}` : "output device rate"}
                   tone={rateVerdict?.tone}
                 />
-                <Headline
-                  label="Played bit depth"
-                  value={playedBits}
-                  sub={playedBitsSub}
-                  tone={deviceFmt ? depthVerdict?.tone : "neutral"}
-                />
               </div>
-              {os && !os.ok && <Note warn>OS bit depth unavailable: {os.error}</Note>}
             </div>
           </>
         )}
@@ -715,10 +653,7 @@ function AudioFormatTester() {
             Output device currently running at{" "}
             <span style={{ fontWeight: 600 }}>
               {fmtRate(devRate)}
-              {deviceFmt && ` · ${deviceFmt.label}`}
             </span>
-            {os?.ok && os.deviceName && <div style={{ fontSize: "var(--fs-sm)", marginTop: 4 }}>{os.deviceName}</div>}
-            {os && !os.ok && <div style={{ fontSize: "var(--fs-xs)", marginTop: 4 }}>Bit depth unavailable: {os.error}</div>}
           </div>
         )}
       </div>
@@ -750,14 +685,6 @@ function Headline({ label, value, sub, tone }) {
 
 function Arrow() {
   return <div style={{ fontSize: "var(--fs-2xl)", opacity: 0.4, alignSelf: "center" }}>→</div>;
-}
-
-function Note({ children, warn }) {
-  return (
-    <div style={{ fontSize: "var(--fs-xs)", lineHeight: 1.5, marginTop: 8, opacity: warn ? 1 : 0.6, color: warn ? toneColor.warn : "#1f2328" }}>
-      {children}
-    </div>
-  );
 }
 
 // ─── Styles ────────────────────────────────────────────────────────────────
