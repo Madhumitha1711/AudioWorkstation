@@ -268,6 +268,25 @@ import { Tabs, TabPanel } from "../../components/Tabs";
   hotspot-labs, DAW Arrange/Mixer + dock scope, Equalizer mode, Discussion
   channels.
 
+### Key points + Prev/Next (every image/description tab lab)
+
+Two companions to `Tabs`, styled from the same tokens so they read as one
+system — use them instead of hand-rolled lists or pagers:
+
+- `KeyPoints` (`src/components/KeyPoints`) — `<KeyPoints key={item.id}
+  points={item.points} />` at the end of a panel's description. Heading on
+  the tab hairline with the 2px accent indicator, accent-dot bullets,
+  points ease in with the panel motion (give it `key` so they replay
+  on a tab switch). `**bold**` supported; renders nothing when empty.
+- `TabPager` (`import { TabPager } from "components/Tabs"`) — Prev / Next
+  buttons + "N/M" under the panel. Pass the flat, ordered tab list
+  (`[{id,label}]`, flatten nested tab rows) and the **same** `onChange` the
+  tabs use, so audio stops / visited marks / onInteract behave identically.
+
+Both are already built into `ListenTabs`, `BriefingTabs`,
+`StudioComponentsLab` and `WiringBriefing` — a lab using those only needs
+`points: []` on each item.
+
 ## Conventions
 
 - No TypeScript — `.jsx`/`.js` throughout; `@types/react` exists only for

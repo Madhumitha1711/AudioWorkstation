@@ -28,6 +28,8 @@ import CriticalListeningLab from "./listening/CriticalListeningLab";
 import HearingAgeLab from "./listening/HearingAgeLab";
 import StudioAcousticsLab from "./acoustics/StudioAcousticsLab";
 import RoomTreatmentLab from "./acoustics/RoomTreatmentLab";
+import ConnectorsLab from "./wiring/ConnectorsLab";
+import CablesLab from "./wiring/CablesLab";
 
 export const LABS = {
   "speaker-lab": SpeakerLab,
@@ -50,4 +52,6 @@ export const LABS = {
   "hearing-age-lab": HearingAgeLab,
   "studio-acoustics-lab": StudioAcousticsLab,
   "room-treatment-lab": RoomTreatmentLab,
+  "connectors-lab": ConnectorsLab,
+  "cables-lab": CablesLab,
 };

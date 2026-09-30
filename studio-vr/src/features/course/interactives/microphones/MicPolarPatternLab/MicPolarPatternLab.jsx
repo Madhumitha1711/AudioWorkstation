@@ -38,7 +38,12 @@ const CLIPS = PATTERN_IDS.flatMap((p) =>
     SOURCES.map((s) => ({ id: clipId(p, pos.angle, s.id), src: polarAudioPath(p, pos.angle, s.id) })),
   ),
 );
-const ITEMS = PATTERN_IDS.map((id) => ({ id, tab: POLAR_PATTERNS[id].label, title: POLAR_PATTERNS[id].label }));
+const ITEMS = PATTERN_IDS.map((id) => ({
+  id,
+  tab: POLAR_PATTERNS[id].label,
+  title: POLAR_PATTERNS[id].label,
+  points: POLAR_PATTERNS[id].points,
+}));
 
 function MicPolarPatternLab({ onInteract }) {
   const [pattern, setPattern] = useState(PATTERN_IDS[0]);

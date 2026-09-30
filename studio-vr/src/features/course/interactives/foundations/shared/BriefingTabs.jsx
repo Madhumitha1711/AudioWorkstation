@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Tabs, TabPanel } from "../../../../../components/Tabs";
+import { Tabs, TabPanel, TabPager } from "../../../../../components/Tabs";
+import { KeyPoints } from "../../../../../components/KeyPoints";
 import "../../shared/labs.css";
 import "./briefingTabs.css";
 
@@ -74,7 +75,10 @@ function BriefingTabs({ items, ariaLabel, idPrefix, onInteract, className = "" }
             ))}
           </dl>
         )}
+        <KeyPoints key={item.id} points={item.points} />
       </TabPanel>
+
+      <TabPager items={items.map((t) => ({ id: t.id, label: t.tab }))} value={item.id} onChange={onChange} />
     </div>
   );
 }

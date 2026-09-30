@@ -36,6 +36,16 @@ interactives/
                          #   experiment (tabs). Both use shared RoomTabs: image |
                          #   player side by side, description below
                          #   Recordings: public/audio/{studio-acoustics,room-treatment}/<id>.wav
+  wiring/                # Ch.8 "Connectors, Cables, and Studio Wiring"
+    shared/              #   WiringBriefing (+ wiringBriefing.css): family labels over
+                         #   category tabs → item tabs → image + description + key points,
+                         #   prev/next pager (StudioComponentsLab layout, data-driven)
+    ConnectorsLab/       #   connectors-lab: 14 connectors — Analog (Mic & Line, Patching
+                         #   & Multicore, Speaker) / Digital & Data (Digital Audio,
+                         #   Control & Computer). Photos: public/connectors/<id>.jpg
+    CablesLab/           #   cables-lab: 10 cables — Analog (Mic & Instrument, Line Level,
+                         #   Speaker) / Digital (Digital Audio, Control).
+                         #   Photos: public/cables/<id>.jpg
   sound/                 # Ch.1 "What Is Sound?"
     FrequencyLab/ AmplitudeLab/ WavelengthLab/ PhaseLab/ HarmonicsLab/ TimbreLab/
   speakers/
@@ -66,6 +76,9 @@ interactives/
 - Any tab set inside a lab uses the app-wide `Tabs` / `TabPanel` from
   `src/components/Tabs` (see CLAUDE.md "Tabs standard") — never a
   hand-rolled `role="tablist"`.
+- Every image/description tab lab ends each panel with the global
+  `KeyPoints` list (`points: []` on each item) and puts a `TabPager`
+  (prev / next) under the panel — see CLAUDE.md "Key points + Prev/Next".
 - Labs receive `{ onInteract }` from InteractiveSection and call it when
   the student has meaningfully engaged (marks the step done).
 

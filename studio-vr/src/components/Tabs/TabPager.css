@@ -1,0 +1,107 @@
+/* Prev / Next pager — companion to the Tabs standard. Same tokens as the
+   tab bar (--tabs-accent → --brand-accent, --tabs-text…, --tabs-line) so it
+   reads as part of the same control, and the position count mirrors the
+   bar's "N/M explored" count. Re-skin only via those tokens. */
+
+.ui-pager {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 28px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--tabs-line, var(--border-soft, var(--border)));
+}
+
+.ui-pager__btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 14px;
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: var(--tabs-font, var(--font-sans));
+  font-size: var(--fs-base);
+  font-weight: 500;
+  color: var(--tabs-text, var(--text-dim));
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color var(--motion-fast, 180ms) ease,
+    border-color var(--motion-fast, 180ms) ease,
+    background var(--motion-fast, 180ms) ease;
+}
+
+.ui-pager__btn--next {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.ui-pager__btn small {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dimmer);
+  transition: color var(--motion-fast, 180ms) ease;
+}
+
+.ui-pager__btn:hover:not(:disabled) {
+  color: var(--tabs-text-active, var(--text));
+  background: var(--panel-hover);
+  border-color: color-mix(in srgb, var(--tabs-accent, var(--brand-accent)) 55%, transparent);
+}
+
+.ui-pager__btn:hover:not(:disabled) small {
+  color: var(--tabs-accent, var(--brand-accent));
+}
+
+.ui-pager__btn:focus-visible {
+  outline: 2px solid var(--tabs-accent, var(--brand-accent));
+  outline-offset: 2px;
+}
+
+.ui-pager__btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ui-pager__name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-pager__pos {
+  flex: none;
+  font-size: var(--fs-sm);
+  color: var(--tabs-count-text, var(--text-dimmer));
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-pager__pos b {
+  font-weight: 600;
+  color: var(--tabs-dot, var(--brand-accent));
+}
+
+@media (max-width: 600px) {
+  .ui-pager {
+    gap: 8px;
+  }
+
+  .ui-pager__btn {
+    padding: 8px 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-pager__btn,
+  .ui-pager__btn small {
+    transition: none;
+  }
+}

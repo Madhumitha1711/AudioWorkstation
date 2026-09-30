@@ -52,6 +52,11 @@ export function polarAudioPath(pattern, angleDeg, sourceId) {
 export const MIC_TYPES = [
   {
     id: "dynamic",
+    points: [
+      "A moving coil in a magnet makes the signal, with no power needed.",
+      "Tough and handles very loud sources.",
+      "Great for live vocals, guitar amps and drums.",
+    ],
     label: "Dynamic",
     shape: "dynamic",
     accent: COLORS.amber,
@@ -63,6 +68,11 @@ export const MIC_TYPES = [
   },
   {
     id: "condenser-fet",
+    points: [
+      "A charged diaphragm next to a backplate, powered by 48V phantom.",
+      "Very detailed, with fast transients and clear highs.",
+      "Picks up room noise, so it's best used in a treated room.",
+    ],
     label: "Condenser (FET)",
     shape: "condenser",
     accent: COLORS.green,
@@ -74,6 +84,11 @@ export const MIC_TYPES = [
   },
   {
     id: "condenser-tube",
+    points: [
+      "Same capsule as a FET condenser, buffered by a vacuum tube.",
+      "Needs its own power supply, not phantom power.",
+      "Adds a warm, rich character.",
+    ],
     label: "Condenser (Tube)",
     shape: "tube",
     accent: COLORS.amber,
@@ -85,6 +100,11 @@ export const MIC_TYPES = [
   },
   {
     id: "ribbon",
+    points: [
+      "A thin metal ribbon vibrates in a magnetic field.",
+      "Natural figure-8 pattern and a smooth top end.",
+      "Fragile: protect it from wind, plosives and old-style phantom power.",
+    ],
     label: "Ribbon",
     shape: "ribbon",
     accent: COLORS.green,
@@ -96,6 +116,11 @@ export const MIC_TYPES = [
   },
   {
     id: "contact",
+    points: [
+      "Senses vibration through the surface, not the air.",
+      "Almost deaf to room noise and bleed.",
+      "The tone can be thin, so it often needs a DI or dedicated preamp.",
+    ],
     label: "Contact Mic",
     shape: "contact",
     accent: COLORS.amber,
@@ -116,18 +141,33 @@ export const MIC_TYPES = [
 export const POLAR_PATTERNS = {
   omni: {
     label: "Omnidirectional",
+    points: [
+      "Picks up equally from every direction.",
+      "No proximity effect; the most natural sound.",
+      "Great for capturing the room.",
+    ],
     gain: () => 1,
     blurb:
       "Picks up equally from every direction. No proximity effect and the most natural, uncolored response of any pattern — used for room ambience, some vocal booths, and boundary-mounted placements.",
   },
   cardioid: {
     label: "Cardioid",
+    points: [
+      "Most sensitive at the front, rejects the back.",
+      "The all-purpose default pattern.",
+      "Good at avoiding feedback on stage.",
+    ],
     gain: (deg) => (1 + Math.cos((deg * Math.PI) / 180)) / 2,
     blurb:
       "Heart-shaped: most sensitive to the front, rejects the rear, picks up some sound from the sides. The all-purpose default — good gain-before-feedback and strong isolation from what's behind the mic.",
   },
   bidirectional: {
     label: "Figure-8",
+    points: [
+      "Picks up front and back equally, rejects the sides.",
+      "The rear lobe is phase-inverted.",
+      "Native to ribbon mics and used in stereo pairs.",
+    ],
     gain: (deg) => Math.abs(Math.cos((deg * Math.PI) / 180)),
     blurb:
       "Captures front and rear equally — the rear lobe is phase-inverted — and rejects the sides almost completely. The native pattern of most ribbon mics, and the shape behind X/Y and Blumlein stereo pairs.",

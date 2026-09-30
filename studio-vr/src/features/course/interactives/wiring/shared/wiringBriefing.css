@@ -1,59 +1,62 @@
-.scl {
-  --scl-amber: #e8934a;
-  --scl-green: #5fd9a0;
-  --scl-blue: #6fa8e0;
-  --scl-purple: #a78bfa;
-  --scl-well: rgba(0, 0, 0, 0.25);
+/* Ch.8 wiring briefings — mirrors foundations/StudioComponentsLab.css
+   (same tokens and spacing), prefixed wbl-. */
+
+.wbl {
+  --wbl-amber: #e8934a;
+  --wbl-green: #5fd9a0;
+  --wbl-blue: #6fa8e0;
+  --wbl-purple: #a78bfa;
+  --wbl-well: rgba(0, 0, 0, 0.25);
 }
 
-:root[data-theme='light'] .scl {
-  --scl-amber: #c96f24;
-  --scl-green: #1f9a67;
-  --scl-blue: #2f72b8;
-  --scl-purple: #6d4fd6;
-  --scl-well: rgba(var(--ink-tint-rgb), 0.05);
+:root[data-theme='light'] .wbl {
+  --wbl-amber: #c96f24;
+  --wbl-green: #1f9a67;
+  --wbl-blue: #2f72b8;
+  --wbl-purple: #6d4fd6;
+  --wbl-well: rgba(var(--ink-tint-rgb), 0.05);
 }
 
-.scl-tone-amber {
-  --c: var(--scl-amber);
+.wbl-tone-amber {
+  --c: var(--wbl-amber);
 }
 
-.scl-tone-green {
-  --c: var(--scl-green);
+.wbl-tone-green {
+  --c: var(--wbl-green);
 }
 
-.scl-tone-blue {
-  --c: var(--scl-blue);
+.wbl-tone-blue {
+  --c: var(--wbl-blue);
 }
 
-.scl-tone-purple {
-  --c: var(--scl-purple);
+.wbl-tone-purple {
+  --c: var(--wbl-purple);
 }
 
-.scl,
-.scl *,
-.scl *::before,
-.scl *::after {
+.wbl,
+.wbl *,
+.wbl *::before,
+.wbl *::after {
   box-sizing: border-box;
 }
 
-:where(.scl) button {
+:where(.wbl) button {
   font: inherit;
   color: inherit;
 }
 
-.scl-areas-wrap {
+.wbl-areas-wrap {
   position: relative;
 }
 
-.scl-rooms {
+.wbl-families {
   display: grid;
-  grid-template-columns: repeat(var(--scl-rooms, 2), minmax(0, 1fr));
   gap: 4px;
   padding-bottom: 2px;
 }
 
-.scl-room {
+.wbl-family {
+  min-width: 0;
   padding: 6px 14px 4px;
   text-align: center;
   font-size: var(--fs-md);
@@ -64,49 +67,64 @@
   transition: color var(--motion-medium, 260ms) var(--motion-ease-out, ease);
 }
 
-.scl-room.is-active {
+.wbl-family.is-active {
   color: var(--brand-accent);
 }
 
 @media (max-width: 600px) {
-  .scl-room {
+  .wbl-family {
     letter-spacing: 0.06em;
     padding-inline: 6px;
   }
 }
 
-.scl-rooms-divider {
+.wbl-divider {
   position: absolute;
   top: 2px;
   bottom: 10px;
-  left: 50%;
   width: 1px;
   background: var(--border-soft);
   pointer-events: none;
 }
 
-.scl-area-type {
+.wbl-area-type {
   white-space: normal;
   text-align: center;
 }
 
+.wbl-area-short {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .wbl-area-type.has-short {
+    display: none;
+  }
+
+  .wbl-area-short {
+    display: inline;
+    white-space: normal;
+    text-align: center;
+  }
+}
+
 /* ---------- row 2: component bar ---------- */
-.scl-rail {
+.wbl-rail {
   margin-top: 18px;
 }
 
-.scl-rail-ic {
+.wbl-rail-ic {
   width: 14px;
   height: 14px;
   flex: none;
 }
 
 /* ---------- row 3: panel ---------- */
-.scl-panel {
+.wbl-panel {
   padding-top: 24px;
 }
 
-.scl-grid {
+.wbl-grid {
   display: grid;
   /* One column: photo on top, copy underneath (same stacking as the
      Foundations BriefingTabs). */
@@ -114,21 +132,21 @@
   gap: 24px;
 }
 
-.scl-media {
+.wbl-media {
   margin: 0;
 }
 
-.scl-frame {
+.wbl-frame {
   position: relative;
   aspect-ratio: 16 / 9;
   max-height: 440px;
   width: 100%;
   border-radius: 12px;
   overflow: hidden;
-  background: var(--scl-well);
+  background: var(--wbl-well);
 }
 
-.scl-frame img {
+.wbl-frame img {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -137,7 +155,7 @@
   display: block;
 }
 
-.scl-ph {
+.wbl-ph {
   position: absolute;
   inset: 0;
   display: flex;
@@ -153,28 +171,28 @@
   background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--c) 9%, transparent), transparent 70%);
 }
 
-.scl-ph svg {
+.wbl-ph svg {
   width: 56px;
   height: 56px;
   opacity: 0.9;
 }
 
-.scl-ph span {
+.wbl-ph span {
   font-size: var(--fs-sm);
   color: var(--text-dimmer);
 }
 
-.scl-caption {
+.wbl-caption {
   margin-top: 10px;
   font-size: var(--fs-md);
   color: var(--text-dimmer);
 }
 
-.scl-text {
+.wbl-text {
   min-width: 0;
 }
 
-.scl-title {
+.wbl-title {
   font-size: var(--fs-3xl);
   font-weight: 600;
   line-height: 1.2;
@@ -183,32 +201,32 @@
   color: var(--text);
 }
 
-.scl-lead {
+.wbl-lead {
   font-size: var(--fs-lg);
   line-height: 1.6;
   color: var(--text);
   margin: 0 0 14px;
 }
 
-.scl-body {
+.wbl-body {
   font-size: var(--fs-body);
   line-height: 1.7;
   color: var(--text-dim);
   margin: 0 0 12px;
 }
 
-.scl-body strong {
+.wbl-body strong {
   color: var(--text);
   font-weight: 600;
 }
 
 
 @media (max-width: 860px) {
-  .scl-grid {
+  .wbl-grid {
     gap: 20px;
   }
 
-  .scl-title {
+  .wbl-title {
     font-size: var(--fs-2xl);
   }
 }

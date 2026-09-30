@@ -5,6 +5,11 @@ const DIR = "room-treatment";
 export const STEPS = [
   {
     id: "bare",
+    points: [
+      "Hard, parallel walls bounce sound around.",
+      "You hear ringing, a boxy tone and booming bass notes.",
+      "This is the starting point to fix.",
+    ],
     src: audioPath(DIR, "bare"),
     image: imagePath(DIR, "bare"),
     tab: "Bare room",
@@ -14,6 +19,11 @@ export const STEPS = [
   },
   {
     id: "absorption",
+    points: [
+      "Panels go where sound first hits the walls.",
+      "They soak up mids and highs.",
+      "Ringing and flutter echo go away.",
+    ],
     src: audioPath(DIR, "absorption"),
     image: imagePath(DIR, "absorption"),
     tab: "Absorption",
@@ -22,6 +32,11 @@ export const STEPS = [
   },
   {
     id: "basstraps",
+    points: [
+      "Thick absorbers go in the corners.",
+      "Thin panels can't stop bass, but bass traps can.",
+      "The low end becomes tight and even.",
+    ],
     src: audioPath(DIR, "basstraps"),
     image: imagePath(DIR, "basstraps"),
     tab: "Bass traps",
@@ -30,6 +45,11 @@ export const STEPS = [
   },
   {
     id: "diffusion",
+    points: [
+      "Diffusers scatter sound instead of soaking it up.",
+      "They keep the room lively and natural.",
+      "No distinct echoes bounce back at the mic.",
+    ],
     src: audioPath(DIR, "diffusion"),
     image: imagePath(DIR, "diffusion"),
     tab: "Diffusers",
@@ -38,6 +58,11 @@ export const STEPS = [
   },
   {
     id: "full",
+    points: [
+      "Absorption, bass traps and diffusion together.",
+      "Clear, balanced, natural sound.",
+      "A/B it against the bare room to hear the difference.",
+    ],
     src: audioPath(DIR, "full"),
     image: imagePath(DIR, "full"),
     tab: "Fully treated",
@@ -50,6 +75,11 @@ export const STEPS = [
 
 export const OVERFOAM = {
   id: "overfoam",
+  points: [
+    "Thin foam everywhere kills the mids and highs.",
+    "The bass problems are all still there.",
+    "The result sounds dull, and the booming remains.",
+  ],
   src: audioPath(DIR, "overfoam"),
   image: imagePath(DIR, "overfoam"),
   tab: "All foam",

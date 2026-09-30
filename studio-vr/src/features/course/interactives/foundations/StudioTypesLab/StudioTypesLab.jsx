@@ -8,6 +8,7 @@ const ITEMS = STUDIO_TYPES.map((t) => ({
   title: t.title,
   lead: t.lead,
   image: studioTypeImagePath(t.id),
+  points: t.points,
   facts: [
     { label: "Layout", text: t.layout },
     { label: "Acoustics & Build", text: t.build },

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Tabs, TabPanel } from "../../../../../components/Tabs";
+import { Tabs, TabPanel, TabPager } from "../../../../../components/Tabs";
+import { KeyPoints } from "../../../../../components/KeyPoints";
 import "./listenTabs.css";
 
 // "Listen tabs" — the shared horizontal layout for audio labs that browse a
@@ -15,7 +16,9 @@ import "./listenTabs.css";
 // image loading/placeholder and layout. Controlled: the lab keeps `value`
 // so it can decide what happens to playback on a switch.
 //
-//   items          [{ id, tab, title, image? }]
+//   items          [{ id, tab, title, image?, points? }] — `points` render
+//                  as the global KeyPoints list under the description, and a
+//                  TabPager (prev/next) sits under the panel
 //   renderListen   (item) => node   — card content (label/hint/player…)
 //   renderBody     (item) => node   — text under the title
 //   placeholderArt (item) => node   — optional art for the image
@@ -86,8 +89,10 @@ function ListenTabs({ items, value, onChange, ariaLabel, idPrefix, renderListen,
         <div className="ltb-desc">
           <h3>{item.title}</h3>
           {renderBody(item)}
+          <KeyPoints key={item.id} points={item.points} />
         </div>
       </TabPanel>
+      <TabPager items={items.map((it) => ({ id: it.id, label: it.tab }))} value={item.id} onChange={onChange} />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Tabs, TabPanel, useTabTransition } from "../../../../../components/Tabs";
+import { Tabs, TabPanel, TabPager, useTabTransition } from "../../../../../components/Tabs";
+import { KeyPoints } from "../../../../../components/KeyPoints";
 import "../../shared/labs.css";
 import "./StudioComponentsLab.css";
 import { ALL_COMPONENTS, ICONS, SECTIONS, componentImagePath } from "./studioComponentsData";
@@ -26,6 +27,8 @@ function Icon({ id, className }) {
 
 const SECTION_TABS = SECTIONS.map((s) => ({ id: s.n, label: s.type, room: s.room, ariaLabel: `${s.room} — ${s.type}` }));
 
+const PAGER_ITEMS = ALL_COMPONENTS.map((c) => ({ id: c.id, label: c.name }));
+
 const ROOMS = SECTIONS.reduce((acc, s) => {
   const last = acc[acc.length - 1];
   if (last && last.name === s.room) last.ids.push(s.n);
@@ -49,8 +52,6 @@ function StudioComponentsLab({ onInteract }) {
   const item = ALL_COMPONENTS[index];
   const section = item.section;
   const sectionIndex = SECTIONS.indexOf(section);
-  const prev = ALL_COMPONENTS[index - 1];
-  const next = ALL_COMPONENTS[index + 1];
 
   useTabTransition(railRef, section.n, sectionIndex);
 
@@ -156,22 +157,14 @@ function StudioComponentsLab({ onInteract }) {
                 {renderRich(p)}
               </p>
             ))}
+            <KeyPoints key={item.id} points={item.points} />
           </div>
         </div>
 
       </TabPanel>
 
-      {/* ---------- row 4: pager ---------- */}
-      <div className="scl-pager">
-        <button type="button" disabled={!prev} onClick={() => prev && select(prev.id)}>
-          <small>← Previous</small>
-          <span className="scl-pager-name">{prev ? prev.name : "—"}</span>
-        </button>
-        <button type="button" disabled={!next} onClick={() => next && select(next.id)}>
-          <small>Next →</small>
-          <span className="scl-pager-name">{next ? next.name : "—"}</span>
-        </button>
-      </div>
+      {/* ---------- row 4: pager (walks all components across areas) ---------- */}
+      <TabPager items={PAGER_ITEMS} value={item.id} onChange={select} />
     </div>
   );
 }

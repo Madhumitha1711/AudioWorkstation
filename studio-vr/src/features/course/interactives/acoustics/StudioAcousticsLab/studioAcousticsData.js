@@ -5,6 +5,11 @@ const DIR = "studio-acoustics";
 export const ROOMS = [
   {
     id: "booth",
+    points: [
+      "Almost no echo reaches the mic.",
+      "You hear only the source: close, clear and dry.",
+      "This is the reference sound for the other rooms.",
+    ],
     src: audioPath(DIR, "booth"),
     image: imagePath(DIR, "booth"),
     tab: "Vocal booth",
@@ -14,6 +19,11 @@ export const ROOMS = [
   },
   {
     id: "liveroom",
+    points: [
+      "A mix of absorption and diffusion.",
+      "Adds a little natural space and stays clear.",
+      "Good for drums and acoustic instruments.",
+    ],
     src: audioPath(DIR, "liveroom"),
     image: imagePath(DIR, "liveroom"),
     tab: "Treated studio",
@@ -23,6 +33,11 @@ export const ROOMS = [
   },
   {
     id: "bedroom",
+    points: [
+      "Bare walls close to the mic bounce sound straight back.",
+      "The tone gets “boxy”, and some bass notes boom.",
+      "Treatment is what fixes this.",
+    ],
     src: audioPath(DIR, "bedroom"),
     image: imagePath(DIR, "bedroom"),
     tab: "Bedroom",
@@ -32,6 +47,11 @@ export const ROOMS = [
   },
   {
     id: "bathroom",
+    points: [
+      "Hard tiles and glass reflect almost everything.",
+      "The sound rings for over a second and turns harsh.",
+      "Words blur together.",
+    ],
     src: audioPath(DIR, "bathroom"),
     image: imagePath(DIR, "bathroom"),
     tab: "Bathroom",
@@ -41,6 +61,11 @@ export const ROOMS = [
   },
   {
     id: "hall",
+    points: [
+      "A long, smooth echo.",
+      "Sounds far away even with a close mic.",
+      "Lovely for orchestras, muddy for speech.",
+    ],
     src: audioPath(DIR, "hall"),
     image: imagePath(DIR, "hall"),
     tab: "Large hall",

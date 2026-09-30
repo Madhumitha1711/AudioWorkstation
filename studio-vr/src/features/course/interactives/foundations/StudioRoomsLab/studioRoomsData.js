@@ -1,6 +1,11 @@
 export const STUDIO_ROOMS = [
   {
     id: "recording-room",
+    points: [
+      "This is where the performance happens.",
+      "Microphones capture the sound; nothing is mixed here.",
+      "A wall box sends every mic signal to the control room.",
+    ],
     tab: "Recording Room",
     title: "The Recording Room",
     lead: "Also called the live room — the space where the performance happens and musicians, singers and instruments are captured by microphones.",
@@ -21,6 +26,11 @@ export const STUDIO_ROOMS = [
   },
   {
     id: "control-room",
+    points: [
+      "The engineer listens, records and mixes here.",
+      "Console, outboard gear, the DAW and studio monitors live here.",
+      "It's built for accurate listening, with a window into the recording room.",
+    ],
     tab: "Control Room",
     title: "The Control Room",
     lead: "The engineer's room — every signal from the recording room arrives here to be monitored, shaped and recorded.",

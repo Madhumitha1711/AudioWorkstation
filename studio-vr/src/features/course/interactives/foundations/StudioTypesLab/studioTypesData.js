@@ -1,6 +1,11 @@
 export const STUDIO_TYPES = [
   {
     id: "commercial",
+    points: [
+      "Big, multi-room facilities for professional projects.",
+      "Heavy isolation keeps loud sound in and noise out.",
+      "Best for full bands, drums and orchestral sessions.",
+    ],
     tab: "Commercial",
     title: "Commercial Recording Studios",
     lead: "Large-scale, multi-room facilities designed for professional music production, record labels, and commercial projects.",
@@ -11,6 +16,11 @@ export const STUDIO_TYPES = [
   },
   {
     id: "home-project",
+    points: [
+      "One room for recording, editing and mixing.",
+      "Uses acoustic panels, not structural isolation.",
+      "Great for solo artists, songwriters and producers.",
+    ],
     tab: "Home & Project",
     title: "Home & Project Studios",
     lead: "Personal workspaces built in residential or private spaces, ranging from bedroom setups to dedicated garage conversions.",
@@ -20,6 +30,11 @@ export const STUDIO_TYPES = [
   },
   {
     id: "mixing-mastering",
+    points: [
+      "Built for listening, not recording.",
+      "Very accurate monitoring and acoustics.",
+      "Used to finish mixes and prepare the final master.",
+    ],
     tab: "Mixing & Mastering",
     title: "Mixing & Mastering Suites",
     lead: "Specialized control rooms built purely for post-production audio processing rather than live tracking.",
@@ -30,6 +45,11 @@ export const STUDIO_TYPES = [
   },
   {
     id: "voiceover-podcast",
+    points: [
+      "Small, very quiet rooms made for speech.",
+      "Almost no echo, so voices sound clean and close.",
+      "Used for podcasts, audiobooks and voice acting.",
+    ],
     tab: "Voiceover & Podcast",
     title: "Voiceover & Podcast Studios",
     lead: "Compact, highly insulated spaces engineered specifically for speech clarity and spoken-word media.",
@@ -39,6 +59,11 @@ export const STUDIO_TYPES = [
   },
   {
     id: "post-foley",
+    points: [
+      "Sound for film, TV and games.",
+      "Foley pits recreate footsteps and everyday sounds.",
+      "Tuned for surround and immersive formats like Dolby Atmos.",
+    ],
     tab: "Post & Foley",
     title: "Post-Production & Foley Facilities",
     lead: "Audio-for-picture workspaces built specifically to create, edit, and sync sound effects, film scores, and dialogue for film, television, and gaming.",
@@ -49,6 +74,11 @@ export const STUDIO_TYPES = [
   },
   {
     id: "broadcast-streaming",
+    points: [
+      "Made for live radio, TV and streaming.",
+      "Many mics, cameras and switchers on one desk.",
+      "Low noise and fast turnaround matter most.",
+    ],
     tab: "Broadcast & Streaming",
     title: "Broadcast & Streaming Suites",
     lead: "On-air spaces designed for real-time radio, live television, news production, and high-end digital streaming.",

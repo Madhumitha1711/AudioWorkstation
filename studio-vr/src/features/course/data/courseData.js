@@ -177,6 +177,13 @@ export const TOPICS = [
     hotspotId: "patch-bay",
     title: "Connectors, Cables, and Studio Wiring",
     intro: "One panel, every connection in the room — the patch bay is what makes a complex studio fast to reconfigure.",
+    // This chapter's two interactive labs already exist — "connectors-lab"
+    // (interactives/wiring/ConnectorsLab) and "cables-lab"
+    // (interactives/wiring/CablesLab). A topic only carries one
+    // `interactive` here, so the Cables lab is mapped from its own lesson's
+    // interactive Section block in studio-cms (swap the kind below to
+    // preview it locally). Takes effect once this topic is `ready: true`.
+    interactive: { id: "wiring-connectors-interactive", title: "Know Your Connectors", kind: "connectors-lab" },
     ready: false,
   },
   {
