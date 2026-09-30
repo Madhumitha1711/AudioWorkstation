@@ -111,7 +111,7 @@ src/
                             # Equalizer, DeEsser, Delay, Limiter, NoiseGate, Reverb
                             # (+ chapters.css); each drives a real Faust WASM patch.
                             # Also embedded by the DAW plugin popup + course labs.
-  dev-tools/      # /panorama-test, /splat-test, /model-test utility pages
+  dev-tools/      # /panorama-test, /splat-test, /model-test, /audio-test utility pages
   _unused/        # not imported anywhere — kept for reference, safe to delete
 
 public/
@@ -177,9 +177,9 @@ design/                  # static HTML/CSS mockups (source of truth for visual
   in-progress purchase form. `PRICE` (single lifetime-access price) lives in
   `checkoutSlice.js`; actual card capture is handed off to an external
   payment gateway, not implemented here.
-- **Test/dev-only routes**: `/panorama-test`, `/splat-test`, `/model-test`
-  are utility pages for testing panorama images, Gaussian splats, and 3D
-  models in isolation — not part of the student-facing flow.
+- **Test/dev-only routes**: `/panorama-test`, `/splat-test`, `/model-test`,
+  `/audio-test` are utility pages for testing panorama images, Gaussian splats,
+  3D models, and audio sample-rate/bit-depth playback in isolation — not part of the student-facing flow.
 
 ## Typography (global — never per file)
 

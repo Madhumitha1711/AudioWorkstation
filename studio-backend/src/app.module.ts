@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AudioDeviceModule } from './audio-device/audio-device.module';
 import { AuthModule } from './auth/auth.module';
 import { CoursesModule } from './courses/courses.module';
 import { DatabaseModule } from './database/database.module';
@@ -18,6 +19,7 @@ import { UsersModule } from './users/users.module';
     PaymentsModule,
     CoursesModule,
     DiscussionsModule,
+    AudioDeviceModule,
   ],
   controllers: [AppController],
   providers: [AppService],

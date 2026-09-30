@@ -14,6 +14,7 @@ import PanoramaTour from "./features/tour/PanoramaTour";
 import PanoramaImageTester from "./dev-tools/PanoramaImageTester";
 import GaussianSplatTester from "./dev-tools/GaussianSplatTester";
 import ObjectModelTester from "./dev-tools/ObjectModelTester";
+import AudioFormatTester from "./dev-tools/AudioFormatTester";
 
 function App() {
   const { pathname } = useLocation();
@@ -69,6 +70,7 @@ function App() {
           <Route path="/panorama-test" element={<PanoramaImageTester />} />
           <Route path="/splat-test" element={<GaussianSplatTester />} />
           <Route path="/model-test" element={<ObjectModelTester />} />
+          <Route path="/audio-test" element={<AudioFormatTester />} />
         </Routes>
       </div>
     </div>
