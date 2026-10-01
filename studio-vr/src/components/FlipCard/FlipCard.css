@@ -1,0 +1,174 @@
+/* FlipCard — global. The flip is a rotateY on .ui-flip__inner with a gentle
+   back-out curve (~3° overshoot that settles) while the card lifts a few px
+   and drops back — a physical card being turned over, not a 2D swap.
+   Both faces sit in the same grid cell, so height = the taller face.
+   Under prefers-reduced-motion the turn becomes a short crossfade.
+
+   Size-relative perspective: a fixed `perspective: 1400px` magnifies the
+   near edge mid-turn by d / (d − w/2), so a wide card ballooned to ~1.5×
+   (a 900px card) while a narrow one barely grew. Instead .ui-flip is an
+   inline-size container and the inner uses perspective(450cqw) — depth
+   scales with the card's own width, so every card peaks at the same
+   ~1.12× no matter how wide it is. 2000px fallback without cq units.
+
+   Performance: only `transform` and `opacity` animate (compositor-only).
+   No backdrop-filter, no scale in the lift, no permanent will-change.
+
+   No layers behind the faces: the hover shadow lives on the faces
+   themselves so it turns with the card. (It used to be a ::before on
+   .ui-flip, which stayed flat while the card rotated and showed as a
+   pale "ghost card" behind it, worst in light theme.) */
+
+.ui-flip {
+  --flip-radius: 14px;
+  --flip-bg: var(--panel, var(--shell-panel));
+  --flip-border: var(--border-soft, var(--border));
+  --flip-accent: var(--brand-accent, var(--accent));
+  --flip-duration: 700ms;
+  --flip-ease: cubic-bezier(0.3, 1.12, 0.5, 1);
+  --flip-depth: 2000px;
+
+  position: relative;
+  display: block;
+  container-type: inline-size;
+  cursor: pointer;
+  outline: none;
+  border-radius: var(--flip-radius);
+  -webkit-tap-highlight-color: transparent;
+}
+
+@supports (width: 1cqw) {
+  .ui-flip {
+    --flip-depth: 450cqw;
+  }
+}
+
+.ui-flip__inner {
+  position: relative;
+  display: grid;
+  height: 100%;
+  transform-style: preserve-3d;
+  transform: perspective(var(--flip-depth)) rotateY(0deg);
+  transition: transform var(--flip-duration) var(--flip-ease);
+}
+
+.ui-flip.is-flipped .ui-flip__inner {
+  transform: perspective(var(--flip-depth)) rotateY(180deg);
+}
+
+.ui-flip__face {
+  grid-area: 1 / 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--flip-border);
+  border-radius: var(--flip-radius);
+  background: var(--flip-bg);
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transition:
+    border-color var(--motion-medium, 260ms) ease,
+    box-shadow var(--motion-medium, 260ms) ease;
+}
+
+.ui-flip__face--back {
+  transform: rotateY(180deg);
+}
+
+/* Mid-turn lift: the card rises a few px and settles (translate only — a
+   scale here stacks on the perspective growth). JSX sets data-turn="a"/"b"
+   alternately on each flip (absent before the first, so nothing animates
+   on mount); two identical keyframes so swapping the name restarts it. */
+.ui-flip[data-turn="a"] {
+  animation: ui-flip-lift-a var(--flip-duration) var(--motion-ease-out, ease-out);
+}
+.ui-flip[data-turn="b"] {
+  animation: ui-flip-lift-b var(--flip-duration) var(--motion-ease-out, ease-out);
+}
+
+@keyframes ui-flip-lift-a {
+  0%, 100% { transform: translateY(0); }
+  40%      { transform: translateY(-4px); }
+}
+@keyframes ui-flip-lift-b {
+  0%, 100% { transform: translateY(0); }
+  40%      { transform: translateY(-4px); }
+}
+
+/* Hover: a slight tilt hints that the card turns. */
+@media (hover: hover) {
+  .ui-flip:hover .ui-flip__inner {
+    transform: perspective(var(--flip-depth)) rotateY(-4deg);
+  }
+  .ui-flip.is-flipped:hover .ui-flip__inner {
+    transform: perspective(var(--flip-depth)) rotateY(184deg);
+  }
+  .ui-flip:hover .ui-flip__face {
+    border-color: color-mix(in srgb, var(--flip-accent) 45%, var(--flip-border));
+    box-shadow: 0 10px 28px rgb(0 0 0 / 0.22);
+  }
+}
+
+.ui-flip:focus-visible .ui-flip__face {
+  border-color: var(--flip-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--flip-accent) 35%, transparent);
+}
+
+/* Corner badge: the turn-over icon. Solid background (no backdrop blur —
+   that re-samples every frame of a 3D turn). */
+.ui-flip__hint {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--flip-bg) 80%, rgb(0 0 0 / 0.6));
+  border: 1px solid color-mix(in srgb, var(--flip-accent) 40%, transparent);
+  pointer-events: none;
+}
+
+.ui-flip__hint svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: var(--flip-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform var(--flip-duration) var(--flip-ease);
+}
+
+@media (hover: hover) {
+  .ui-flip:hover .ui-flip__hint svg {
+    transform: rotate(180deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-flip[data-turn] {
+    animation: none;
+  }
+  .ui-flip__inner,
+  .ui-flip.is-flipped .ui-flip__inner,
+  .ui-flip:hover .ui-flip__inner,
+  .ui-flip.is-flipped:hover .ui-flip__inner {
+    transform: none;
+    transition: none;
+  }
+  .ui-flip__face,
+  .ui-flip__face--back {
+    transform: none;
+    backface-visibility: visible;
+    transition: opacity 200ms ease;
+  }
+  .ui-flip__face--back { opacity: 0; }
+  .ui-flip.is-flipped .ui-flip__face--front { opacity: 0; }
+  .ui-flip.is-flipped .ui-flip__face--back { opacity: 1; }
+  .ui-flip__hint svg { transition: none; }
+}

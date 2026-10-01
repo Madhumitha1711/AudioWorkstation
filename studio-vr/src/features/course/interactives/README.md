@@ -48,6 +48,35 @@ interactives/
     CablesLab/           #   cables-lab: 10 cables — Analog (Mic & Instrument, Line Level,
                          #   Speaker) / Digital (Digital Audio, Control).
                          #   Photos: public/cables/<id>.jpg
+  preamps/               # Ch.10 "Preamps, Channel Strips, Mixers, and Input Routing"
+    WhyAmplificationLab/ #   why-amplification-lab: "Why Amplification?" — one row per example
+                         #   (talking, TV, headlights, AC, studio): its own clip/picture beside
+                         #   the paragraph, no subheadings, + key points.
+                         #   Media: public/why-amplification/{talking,tv}.mp4, {headlights,ac,studio}.jpg
+    AmplificationLab/    #   amplification-lab: "Amplification & the Amplifier" — gain control
+                         #   (0…+60 dB, Original/Amplified A/B) on a provided recording, IN/OUT
+                         #   peak meters with clip LED, live input vs output spectrum; description
+                         #   + key points below. No synthetic audio.
+                         #   Recording: public/amplification/amplification-sample.wav
+    AmpPassiveSpeakerLab/ #  amp-passive-speaker-lab: "Amplifier + Passive Speaker" — one screen, no
+                         #   tabs: how it works, then NS10 + Amp / CLA-10 + CLA-200 as image +
+                         #   description cards side by side, key points below.
+                         #   Photos: public/amp-passive-speaker/<id>.jpg
+    ActiveSpeakerLab/    #   active-speaker-lab: "Active Speaker" — one screen, no tabs (same
+                         #   layout as AmpPassiveSpeakerLab): what's inside, signal chain, room
+                         #   controls, soffit-mounted mains (amps in a separate rack for heat),
+                         #   then examples: Genelec 8340A, Neumann KH 120 II, Yamaha HS8, Kali
+                         #   LP-6 V2 cards + full-width Genelec 1234A soffit card; key points.
+                         #   Photos: public/active-speaker/<id>.jpg
+    SubwooferLab/        #   subwoofer-lab: "Subwoofer" — 4 tabs (standard Tabs + TabPager), same
+                         #   card look as ActiveSpeakerLab: Subwoofer (top image; why a separate
+                         #   box, sealed vs ported, controls, placement) / Subwoofer + LFE (the
+                         #   .1 channel, +10 dB, bass management) / Pro audio (Genelec
+                         #   7360A, Neumann KH 750 DSP, Yamaha HS8S, Genelec 7382A) /
+                         #   Home theatre (SVS SB-1000 Pro, KEF KC62, Klipsch R-120SW,
+                         #   5.1 → 7.1.4 layout card; 4 photo cards as 2 + 2, no top image);
+                         #   key points per tab. Photos: public/subwoofer/<id>.jpg (top image:
+                         #   subwoofer.jpg, first tab only)
   sound/                 # Ch.1 "What Is Sound?"
     FrequencyLab/ AmplitudeLab/ WavelengthLab/ PhaseLab/ HarmonicsLab/ TimbreLab/
   speakers/

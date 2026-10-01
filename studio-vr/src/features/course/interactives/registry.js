@@ -30,6 +30,11 @@ import StudioAcousticsLab from "./acoustics/StudioAcousticsLab";
 import RoomTreatmentLab from "./acoustics/RoomTreatmentLab";
 import ConnectorsLab from "./wiring/ConnectorsLab";
 import CablesLab from "./wiring/CablesLab";
+import WhyAmplificationLab from "./preamps/WhyAmplificationLab";
+import AmplificationLab from "./preamps/AmplificationLab";
+import AmpPassiveSpeakerLab from "./preamps/AmpPassiveSpeakerLab";
+import ActiveSpeakerLab from "./preamps/ActiveSpeakerLab";
+import SubwooferLab from "./preamps/SubwooferLab";
 
 export const LABS = {
   "speaker-lab": SpeakerLab,
@@ -54,4 +59,9 @@ export const LABS = {
   "room-treatment-lab": RoomTreatmentLab,
   "connectors-lab": ConnectorsLab,
   "cables-lab": CablesLab,
+  "why-amplification-lab": WhyAmplificationLab,
+  "amplification-lab": AmplificationLab,
+  "amp-passive-speaker-lab": AmpPassiveSpeakerLab,
+  "active-speaker-lab": ActiveSpeakerLab,
+  "subwoofer-lab": SubwooferLab,
 };

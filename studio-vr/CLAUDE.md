@@ -282,10 +282,42 @@ system — use them instead of hand-rolled lists or pagers:
   buttons + "N/M" under the panel. Pass the flat, ordered tab list
   (`[{id,label}]`, flatten nested tab rows) and the **same** `onChange` the
   tabs use, so audio stops / visited marks / onInteract behave identically.
+  It's a single compact 30px row (`--pager-h`), identical in every lab —
+  never hand-roll a Prev/Next or pad/resize it per lab.
 
 Both are already built into `ListenTabs`, `BriefingTabs`,
 `StudioComponentsLab` and `GroupedBriefing` — a lab using those only needs
 `points: []` on each item.
+
+### Flip cards (image + one line → details on the back)
+
+`FlipCard` (`src/components/FlipCard`) — a card that turns over in 3D on
+click / Enter / Space. Use it for "example" cards where the front is a
+photo + a single line and the details live on the back, instead of
+hand-rolling a flip.
+
+```jsx
+import { FlipCard } from "../../components/FlipCard";
+<FlipCard label={ex.title} front={<>…image… <h4>{ex.title}</h4></>} back={<>…facts…</>} />
+```
+
+- Both faces share one grid cell → card height = taller face; let a front
+  image `flex: 1` to fill. Works inside any CSS grid row.
+- Uncontrolled (`defaultFlipped`) or controlled (`flipped` + `onFlip(next)`).
+- Built-in: corner flip icon (`hint={false}` to hide), hover tilt, mid-turn
+  lift, focus ring, `inert`/aria-hidden on the hidden face, crossfade under
+  `prefers-reduced-motion`. No links/buttons inside faces (the whole card
+  is the toggle).
+- Perspective is relative to the card's width (`perspective(450cqw)`, card
+  is an inline-size container), so wide and narrow cards grow by the same
+  ~1.12× mid-turn. Don't swap it back to a fixed px `perspective` or add a
+  scale to the lift — wide cards balloon. Only transform/opacity animate.
+- Nothing may sit behind the faces (no ::before shadow/backdrop on
+  `.ui-flip`) — it stays flat while the card turns and shows as a ghost
+  card. Shadows go on `.ui-flip__face`.
+- Re-skin only via tokens on `className`: `--flip-accent`, `--flip-bg`,
+  `--flip-border`, `--flip-radius`, `--flip-duration`.
+- Current users: ActiveSpeakerLab, AmpPassiveSpeakerLab.
 
 ## Conventions
 

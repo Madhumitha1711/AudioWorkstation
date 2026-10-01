@@ -206,6 +206,18 @@ export const TOPICS = [
     title: "Preamps, Channel Strips, Mixers, and Input Routing",
     intro:
       "Before anything reaches the console, it passes through a preamp — the first, and one of the most character-defining, stages in the chain.",
+    // Second lab for this chapter: "amplification-lab"
+    // (interactives/preamps/AmplificationLab) — gain + live spectrum on a
+    // provided recording. A topic only carries one `interactive` here, so
+    // it is mapped by referencing its kind from its lesson's interactive
+    // Section block in studio-cms. Same for the third lab,
+    // "amp-passive-speaker-lab" (interactives/preamps/AmpPassiveSpeakerLab):
+    // NS10 + amp and CLA-10 + CLA-200 pairings.
+    // Fourth lab: "active-speaker-lab" (interactives/preamps/ActiveSpeakerLab):
+    // built-in amps, soffit mains with rack amps, Genelec / Neumann / Yamaha / Kali.
+    // Fifth lab: "subwoofer-lab" (interactives/preamps/SubwooferLab): subwoofer
+    // basics, Subwoofer + LFE (bass management), pro audio and home theatre subs.
+    interactive: { id: "preamp-rack-interactive", title: "Why Amplification?", kind: "why-amplification-lab" },
     ready: false,
   },
   {

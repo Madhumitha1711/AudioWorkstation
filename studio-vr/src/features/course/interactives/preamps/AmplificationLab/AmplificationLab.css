@@ -1,0 +1,378 @@
+/* "Amplification / Amplifier" lab — interactive amplifier (spectrum,
+   in/out meters, gain control) on top, description + key points below.
+   Reuses the shared sound-lab chrome from ../../shared/labs.css
+   (.sound-lab-frame, .sound-lab-panel-head, .lab-slider, .lab-play-btn,
+   .lab-toggle); everything here is layout plus the meters. Colours come
+   from theme tokens so light/dark both work — the canvas "screen" colours
+   come from soundLabShared.js scopePalette(), matched below for the
+   meter tracks. */
+
+.amp {
+  /* Section-label accent — same orange as the other labs' headings
+     (BriefingTabs --brt-accent, WhyAmplificationLab --wal-accent). */
+  --amp-accent: #e8934a;
+  --amp-good: #5fd9a0;
+  --amp-warn: #e8934a;
+  --amp-clip: #e8615f;
+  --amp-in: #5fa3d9;
+  --amp-screen: #0e0e11;
+  --amp-track-line: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme='light'] .amp {
+  --amp-accent: #c96f24;
+  --amp-good: #0f9d58;
+  --amp-warn: #ad6a12;
+  --amp-clip: #c0293f;
+  --amp-in: #2563eb;
+  --amp-screen: #e7eae1;
+  --amp-track-line: rgba(var(--ink-tint-rgb), 0.12);
+}
+
+.amp,
+.amp *,
+.amp *::before,
+.amp *::after {
+  box-sizing: border-box;
+}
+
+.amp-rig {
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  background: var(--panel);
+  padding: 18px 20px 16px;
+}
+
+/* ── head + legend ── */
+.amp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.amp-head-title {
+  margin-bottom: 0;
+}
+.amp-legend {
+  display: flex;
+  gap: 14px;
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+}
+.amp-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.amp-legend-item::before {
+  content: "";
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--amp-in);
+}
+.amp-legend-item.out::before {
+  height: 8px;
+  background: color-mix(in srgb, var(--amp-good) 35%, transparent);
+  border-top: 2px solid var(--amp-good);
+}
+.amp-legend-item.out.warn::before {
+  background: color-mix(in srgb, var(--amp-warn) 35%, transparent);
+  border-top-color: var(--amp-warn);
+}
+.amp-legend-item.out.danger::before {
+  background: color-mix(in srgb, var(--amp-clip) 35%, transparent);
+  border-top-color: var(--amp-clip);
+}
+
+/* ── spectrum ── */
+.amp-frame {
+  position: relative;
+  padding: 6px;
+}
+.amp-canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 6;
+  min-height: 200px;
+  max-height: 340px;
+}
+.amp-axis-note {
+  position: absolute;
+  right: 14px;
+  top: 12px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+  letter-spacing: 0.06em;
+  color: var(--text-dimmer);
+  pointer-events: none;
+}
+
+/* ── meters ── */
+.amp-meters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.amp-meter {
+  display: grid;
+  grid-template-columns: 34px 1fr 58px 44px;
+  align-items: center;
+  gap: 10px;
+}
+.amp-meter-label {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dimmer);
+}
+.amp-meter-track {
+  position: relative;
+  height: 14px;
+  border-radius: 4px;
+  background: var(--amp-screen);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--amp-track-line);
+}
+/* The target band (-18 … -6 dBFS) — a faint outline behind the bar. */
+.amp-meter-target {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--amp-good) 12%, transparent);
+  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--amp-good) 45%, transparent),
+    inset -1px 0 0 color-mix(in srgb, var(--amp-good) 45%, transparent);
+}
+.amp-meter-fill {
+  position: absolute;
+  inset: 0;
+  will-change: clip-path;
+}
+.amp-meter-hold {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--text);
+  transition: opacity 0.2s ease;
+}
+.amp-meter-val {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--text);
+}
+.amp-clip-led {
+  justify-self: start;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dimmer);
+  border: 1px solid var(--border-soft);
+  transition: background 0.08s ease, color 0.08s ease, border-color 0.08s ease;
+}
+.amp-clip-led.on {
+  background: var(--amp-clip);
+  border-color: var(--amp-clip);
+  color: #fff;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--amp-clip) 60%, transparent);
+}
+.amp-meter-scale {
+  position: relative;
+  height: 14px;
+}
+.amp-meter-scale span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+  color: var(--text-dimmer);
+  white-space: nowrap;
+}
+.amp-meter-scale span:first-child {
+  transform: none;
+}
+.amp-meter-scale span:last-child {
+  transform: translateX(-100%);
+}
+
+/* ── gain + status ── */
+.amp-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 22px;
+  align-items: start;
+}
+.amp-gain-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.amp-gain-head .lab-control-label {
+  margin-bottom: 0;
+}
+.amp-gain-value {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  transition: opacity 0.2s ease;
+}
+.amp-gain-value.bypassed {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+.amp-gain-db {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.amp-gain-ratio {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.amp-gain-unity {
+  margin-left: 8px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-dimmer);
+}
+.amp-gain .lab-slider {
+  margin-top: 12px;
+}
+
+.amp-status-card {
+  background: var(--amp-screen);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.amp-status-card .rl {
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dimmer);
+  margin-bottom: 4px;
+}
+.amp-status {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.amp-status.good {
+  color: var(--amp-good);
+}
+.amp-status.warn {
+  color: var(--amp-warn);
+}
+.amp-status.danger {
+  color: var(--amp-clip);
+}
+.amp-status-hint {
+  margin-top: 6px;
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  color: var(--text-dimmer);
+}
+
+.amp-actions {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.amp-ab {
+  gap: 6px;
+}
+.amp-ab .lab-toggle {
+  padding: 8px 14px;
+  font-size: var(--fs-sm);
+}
+.amp-reset {
+  margin-left: auto;
+}
+.amp-hint {
+  margin-bottom: 0;
+}
+
+/* ── description ── */
+.amp-title {
+  font-size: var(--fs-3xl);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin: 32px 0 8px;
+  color: var(--text);
+}
+.amp-lead {
+  font-size: var(--fs-lg);
+  line-height: 1.6;
+  color: var(--text-dim);
+  margin: 0 0 4px;
+  max-width: 820px;
+}
+.amp-sections {
+  margin: 0;
+  max-width: 820px;
+}
+.amp-section dt {
+  margin-top: 20px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--amp-accent);
+}
+.amp-section dd {
+  margin: 6px 0 0;
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  color: var(--text);
+}
+
+@media (max-width: 720px) {
+  .amp-controls {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+@media (max-width: 600px) {
+  .amp-rig {
+    padding: 14px 12px 12px;
+  }
+  .amp-meter {
+    grid-template-columns: 28px 1fr 46px 38px;
+    gap: 6px;
+  }
+  .amp-meter-scale span:nth-child(even) {
+    display: none;
+  }
+  .amp-reset {
+    margin-left: 0;
+  }
+  .amp-title {
+    font-size: var(--fs-2xl);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .amp-clip-led,
+  .amp-meter-hold,
+  .amp-gain-value {
+    transition: none;
+  }
+}

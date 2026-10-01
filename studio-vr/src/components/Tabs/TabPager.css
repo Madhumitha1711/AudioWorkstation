@@ -1,62 +1,67 @@
 /* Prev / Next pager — companion to the Tabs standard. Same tokens as the
    tab bar (--tabs-accent → --brand-accent, --tabs-text…, --tabs-line) so it
    reads as part of the same control, and the position count mirrors the
-   bar's "N/M explored" count. Re-skin only via those tokens. */
+   bar's "N/M explored" count. Re-skin only via those tokens.
+
+   Deliberately compact: one row, fixed --pager-h height (30px), so it is
+   the same slim bar in every interactive and never eats vertical space.
+   Override the height only via --pager-h, never per-lab padding. */
 
 .ui-pager {
+  --pager-h: 30px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 10px;
   margin-top: 28px;
-  padding-bottom: 18px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--tabs-line, var(--border-soft, var(--border)));
 }
 
 .ui-pager__btn {
-  flex: 1;
+  flex: 0 1 auto;
+  max-width: 42%;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  padding: 10px 14px;
-  text-align: left;
+  height: var(--pager-h);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1;
+  color: var(--tabs-text, var(--text-dim));
   background: var(--panel);
   border: 1px solid var(--border-soft);
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
-  font-family: var(--tabs-font, var(--font-sans));
-  font-size: var(--fs-base);
-  font-weight: 500;
-  color: var(--tabs-text, var(--text-dim));
-  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
   transition:
     color var(--motion-fast, 180ms) ease,
-    border-color var(--motion-fast, 180ms) ease,
-    background var(--motion-fast, 180ms) ease;
+    background var(--motion-fast, 180ms) ease,
+    border-color var(--motion-fast, 180ms) ease;
 }
 
-.ui-pager__btn--next {
-  align-items: flex-end;
-  text-align: right;
-}
-
-.ui-pager__btn small {
-  font-size: var(--fs-xs);
+.ui-pager__dir {
+  flex: none;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-dimmer);
+  color: var(--text);
   transition: color var(--motion-fast, 180ms) ease;
 }
 
+.ui-pager__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-dimmer);
+}
+
 .ui-pager__btn:hover:not(:disabled) {
-  color: var(--tabs-text-active, var(--text));
   background: var(--panel-hover);
   border-color: color-mix(in srgb, var(--tabs-accent, var(--brand-accent)) 55%, transparent);
 }
 
-.ui-pager__btn:hover:not(:disabled) small {
+.ui-pager__btn:hover:not(:disabled) .ui-pager__dir {
   color: var(--tabs-accent, var(--brand-accent));
 }
 
@@ -70,16 +75,10 @@
   cursor: default;
 }
 
-.ui-pager__name {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .ui-pager__pos {
   flex: none;
-  font-size: var(--fs-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
   color: var(--tabs-count-text, var(--text-dimmer));
   font-variant-numeric: tabular-nums;
 }
@@ -95,13 +94,18 @@
   }
 
   .ui-pager__btn {
-    padding: 8px 10px;
+    padding: 0 10px;
+  }
+
+  /* Phones: direction only — the tab bar above already names the steps. */
+  .ui-pager__name {
+    display: none;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .ui-pager__btn,
-  .ui-pager__btn small {
+  .ui-pager__dir {
     transition: none;
   }
 }
