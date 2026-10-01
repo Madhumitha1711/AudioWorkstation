@@ -1,15 +1,15 @@
-/* MicSelectionLab — ported from design/mic-selection-lab.html.
-   Chrome uses the course theme tokens on .svr-course (--panel, --border*,
-   --text*, --accent), so light/dark follows ThemeContext. Type follows the
-   app, not the mockup's Space Grotesk / JetBrains Mono: body text inherits
-   the .svr-course font, titles use var(--font-sans), small uppercase labels
-   match .lab-control-label / .lab-section-label (labs.css). Brand --accent
-   stands in for the mockup's green (best pick); amber marks alternatives /
-   trade-offs and --danger marks "not practical", each with a deeper
-   light-theme value for contrast on white (same approach as
-   acousticsLabs.css). The two panels stack vertically (questions above,
-   recommendation below); narrow layouts use container queries so they
-   adapt to the course column's width, not the viewport's. */
+/* MicSelectionLab — "Pick the mic for the job". Built from the shared lab
+   pieces so it reads like ActiveSpeakerLab / WhyAmplificationLab:
+     - lead + section subheads (same sizes as .actl-lead / .actl-subhead)
+     - the four questions are shared Accordion steps (components/Accordion)
+     - the recommendation is a grid of shared FlipCards (components/FlipCard):
+       best pick full width, the other four 2 × 2, one column when narrow
+     - A/B player, "How is the pick made?" reveal, KeyPoints
+   Colour roles: brand --accent = best pick (FlipCard / Accordion default),
+   amber = good alternatives + trade-offs, --text-dimmer = weaker fit,
+   --danger = not practical. Each has a deeper light-theme value. Narrow
+   layouts use container queries so they follow the course column, not
+   the viewport. */
 
 .msl {
   --msl-amber: #e8934a;
@@ -28,102 +28,185 @@
 .msl *::before,
 .msl *::after { box-sizing: border-box; }
 
-.msl-intro {
-  margin: 0 0 20px;
-  max-width: 720px;
-  font-size: 15px;
+/* ---------- lead + subheads ---------- */
+.msl-lead {
+  margin: 0 0 4px;
+  font-size: var(--fs-lg);
   line-height: 1.6;
   color: var(--text-dim);
 }
-
-/* ---------- layout ---------- */
-/* Stacked vertically: "Describe the recording" on top, "Recommendation"
-   directly below it, both full width. */
-.msl-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 18px;
-}
-.msl-card {
-  padding: 20px;
-  border-radius: 14px;
-  background: var(--panel);
-  border: 1px solid var(--border-soft);
-  min-width: 0;
+.msl-subhead {
+  margin: 32px 0 14px;
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  color: var(--text);
 }
 
-/* ---------- questions ---------- */
-.msl-q + .msl-q { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border-soft); }
-.msl-q-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
-.msl-q-num { font-size: 11px; font-weight: 700; color: var(--msl-amber); font-variant-numeric: tabular-nums; }
-.msl-q-label { font-size: 14px; font-weight: 600; color: var(--text); }
-.msl-q-hint { margin: -4px 0 10px; font-size: 12.5px; line-height: 1.45; color: var(--text-dimmer); }
-
+/* ---------- question steps (Accordion) ---------- */
+.msl-q-hint {
+  margin: 0 0 10px;
+  font-size: var(--fs-md);
+  line-height: 1.45;
+  color: var(--text-dimmer);
+}
 .msl-chips { gap: 6px; }
-.lab-toggle.msl-chip { padding: 7px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 500; }
+.lab-toggle.msl-chip {
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: var(--fs-md);
+  font-weight: 500;
+}
 .lab-toggle.msl-chip.selected { font-weight: 600; }
 .msl-auto {
   margin-left: 6px;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   opacity: 0.75;
 }
 
-/* ---------- best pick ---------- */
-.msl-pick {
-  padding: 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(var(--brand-accent-rgb), 0.4);
-  background: linear-gradient(180deg, rgba(var(--brand-accent-rgb), 0.08), transparent 75%);
+/* ---------- recommendation cards (FlipCard) ---------- */
+.msl-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
 }
-.msl-pick-tag { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
-.msl-pick-row { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
-.mic-portrait.msl-portrait {
-  width: 60px;
-  height: 76px;
-  padding: 8px;
-  margin: 0;
-  flex: none;
+.msl-card--best { grid-column: 1 / -1; }
+
+/* Card accent follows its rank role; surface comes from FlipCard. */
+.msl-card--alt { --flip-accent: var(--msl-amber); }
+.msl-card--weak { --flip-accent: var(--text-dimmer); }
+.msl-card--no { --flip-accent: var(--danger); }
+.msl-card--best .ui-flip__face--front {
+  border-color: rgba(var(--brand-accent-rgb), 0.4);
+  background:
+    linear-gradient(180deg, rgba(var(--brand-accent-rgb), 0.08), transparent 75%),
+    var(--flip-bg);
 }
-.mic-portrait.msl-portrait svg { height: 58px; }
-.msl-pick-text { min-width: 0; }
-.msl-pick-name {
-  font-family: var(--font-sans);
-  font-size: 22px;
+
+/* Right padding clears FlipCard's corner flip icon. */
+.msl-face {
+  flex: 1;
+  padding: 18px 48px 18px 18px;
+}
+
+.msl-kicker {
+  display: block;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dimmer);
+}
+.msl-kicker--win { color: var(--accent); }
+.msl-kicker--alt { color: var(--msl-amber); }
+.msl-kicker--no { color: var(--danger); }
+.msl-rank { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.msl-card-title {
+  margin: 4px 0 0;
+  font-size: var(--fs-xl);
   font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.2;
+  line-height: 1.25;
   color: var(--text);
 }
-.msl-pick-sub { margin-top: 3px; font-size: 13px; color: var(--text-dim); }
-.msl-specs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.msl-card-title--lg {
+  font-size: var(--fs-3xl);
+  letter-spacing: -0.01em;
+}
+.msl-card-sub {
+  margin: 4px 0 0;
+  font-size: var(--fs-md);
+  color: var(--text-dim);
+}
+
+/* mic "screens" (micLabs.css .mic-portrait) */
+.mic-portrait.msl-portrait {
+  flex: none;
+  margin: 0;
+  padding: 8px;
+}
+.mic-portrait.msl-portrait--lg { width: 96px; height: 124px; }
+.mic-portrait.msl-portrait--lg svg { height: 96px; }
+.mic-portrait.msl-portrait--sm { width: 56px; height: 72px; }
+.mic-portrait.msl-portrait--sm svg { height: 54px; }
+
+/* best pick front */
+.msl-best-front {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+}
+.msl-best-text { flex: 1; min-width: 0; }
+.msl-specs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .msl-spec {
   padding: 4px 8px;
   border-radius: 6px;
   background: var(--msl-well);
   border: 1px solid var(--border-soft);
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   color: var(--text-dimmer);
 }
 .msl-spec b { color: var(--text); font-weight: 600; }
 
-/* ---------- reasons ---------- */
-.msl-h {
-  margin: 22px 0 10px;
-  font-family: var(--font-sans);
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text);
+/* runner front */
+.msl-runner-front {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
+.msl-runner-text { flex: 1; min-width: 0; }
+.msl-runner-text .msl-card-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* fit meter */
+.msl-fit {
+  display: grid;
+  grid-template-columns: auto 1fr 40px;
+  gap: 10px;
+  align-items: center;
+  margin-top: 14px;
+}
+.msl-fit-label {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dimmer);
+}
+.msl-bar { height: 8px; border-radius: 4px; background: var(--border-soft); overflow: hidden; }
+.msl-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--text-dimmer);
+  transition: width var(--motion-panel-duration) var(--motion-ease-out);
+}
+.msl-fit--win .msl-bar i { background: var(--accent); }
+.msl-fit--alt .msl-bar i { background: var(--msl-amber); }
+.msl-fit--no .msl-bar i { background: var(--danger); }
+.msl-pct {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-dimmer);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.msl-fit--win .msl-pct { color: var(--text); }
+
+/* backs */
+.msl-back .msl-kicker { margin-bottom: 10px; }
 .msl-reasons { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .msl-reasons li {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 10px;
   align-items: start;
-  font-size: 14px;
+  font-size: var(--fs-base);
   line-height: 1.55;
   color: var(--text);
 }
@@ -133,51 +216,34 @@
   border-radius: 5px;
   border: 1px solid rgba(var(--brand-accent-rgb), 0.4);
   color: var(--accent);
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
 }
 .msl-ftag--trade { border-color: rgba(var(--msl-amber-rgb), 0.45); color: var(--msl-amber); }
-.msl-examples { margin: 14px 0 0; font-size: 13px; line-height: 1.5; color: var(--text-dim); }
-.msl-examples b { color: var(--text); font-weight: 600; }
-
-/* ---------- ranked fit meter ---------- */
-.msl-rank { display: flex; flex-direction: column; gap: 4px; }
-.msl-rank-row {
-  display: grid;
-  grid-template-columns: 136px 1fr 36px;
-  gap: 10px;
-  align-items: center;
-  margin: 0 -6px;
-  padding: 5px 6px;
-  border: none;
-  border-radius: 8px;
-  background: none;
-  color: inherit;
-  font: inherit;
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
+.msl-back-text,
+.msl-back-note {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: 1.55;
+  color: var(--text);
 }
-.msl-rank-row:hover:not(:disabled) { background: var(--panel-hover); }
-.msl-rank-row:disabled { cursor: default; }
-.msl-rank-name { color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.msl-rank-row.is-win .msl-rank-name { color: var(--text); font-weight: 600; }
-.msl-bar { height: 8px; border-radius: 4px; background: var(--border-soft); overflow: hidden; }
-.msl-bar i { display: block; height: 100%; border-radius: 4px; background: var(--text-dimmer); transition: width 0.35s ease; }
-.msl-rank-row.is-win .msl-bar i { background: var(--accent); }
-.msl-rank-row.is-alt .msl-bar i { background: var(--msl-amber); }
-.msl-rank-row.is-no .msl-bar i { background: var(--danger); }
-.msl-pct { font-size: 11.5px; color: var(--text-dimmer); text-align: right; font-variant-numeric: tabular-nums; }
-
-/* ---------- why not ---------- */
-.msl-whynot { display: flex; flex-direction: column; gap: 10px; }
-.msl-wn { display: grid; grid-template-columns: 136px 1fr; gap: 10px; font-size: 13.5px; line-height: 1.5; }
-.msl-wn-name { font-weight: 600; color: var(--text); }
-.msl-wn-text { color: var(--text-dim); }
-.msl-wn-text em { font-style: normal; color: var(--msl-amber); }
+.msl-back-note { margin-top: 10px; color: var(--text-dim); }
+.msl-back-note b { color: var(--text); font-weight: 600; }
+.msl-back-text em,
+.msl-reasons em { font-style: normal; font-weight: 600; color: var(--msl-amber); }
+.msl-card--no .msl-back-text em { color: var(--danger); }
+.msl-examples {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+.msl-examples b { color: var(--text); font-weight: 600; }
 
 /* ---------- player ---------- */
 .msl-player {
@@ -186,18 +252,26 @@
   gap: 12px;
   flex-wrap: wrap;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px dashed var(--border);
   background: var(--msl-well);
 }
 
+/* ---------- scoring reveal ---------- */
+.msl-how { margin-top: 24px; }
+.msl-how .ui-acc__content { color: var(--text-dim); }
+
 /* ---------- narrow course column ---------- */
+@container (max-width: 620px) {
+  .msl-cards { grid-template-columns: minmax(0, 1fr); }
+}
 @container (max-width: 480px) {
-  .msl-rank-row { grid-template-columns: 108px 1fr 32px; }
-  .msl-wn { grid-template-columns: 1fr; gap: 2px; }
-  .msl-card { padding: 16px; }
+  .msl-best-front { flex-direction: column; }
+  .mic-portrait.msl-portrait--lg { width: 72px; height: 92px; }
+  .mic-portrait.msl-portrait--lg svg { height: 70px; }
+  .msl-face { padding: 16px 44px 16px 16px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .msl *, .msl *::before, .msl *::after { transition: none !important; }
+  .msl-bar i { transition: none; }
 }

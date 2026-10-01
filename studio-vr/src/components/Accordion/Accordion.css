@@ -1,0 +1,148 @@
+/* Accordion — global. Same look as the original WhyAmplificationLab reveal:
+   a bordered, rounded well; the border picks up the accent while open; a
+   round tinted marker, bold title, optional dim summary on the right, and
+   a chevron that turns 180°. Body height eases 0fr → 1fr on the Tabs
+   panel timing (--motion-panel-duration, --motion-ease-out). */
+
+.ui-acc {
+  --acc-accent: var(--brand-accent, var(--accent));
+  --acc-well: rgba(0, 0, 0, 0.25);
+  --acc-border: var(--border);
+  --acc-radius: 12px;
+
+  border: 1px solid var(--acc-border);
+  border-radius: var(--acc-radius);
+  background: var(--acc-well);
+  transition: border-color var(--motion-medium) var(--motion-ease-out);
+}
+
+:root[data-theme='light'] .ui-acc {
+  --acc-well: rgba(var(--ink-tint-rgb), 0.05);
+}
+
+.ui-acc.is-open {
+  border-color: color-mix(in srgb, var(--acc-accent) 55%, var(--acc-border));
+}
+
+.ui-acc-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ui-acc__head {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  border-radius: var(--acc-radius);
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--text-h, var(--text));
+}
+
+.ui-acc__head:focus-visible {
+  outline: 2px solid var(--acc-accent);
+  outline-offset: 2px;
+}
+
+.ui-acc__marker {
+  flex: none;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 4px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--acc-accent);
+  background: color-mix(in srgb, var(--acc-accent) 14%, transparent);
+}
+
+.ui-acc__title {
+  flex: 1;
+  min-width: 0;
+}
+
+.ui-acc__summary {
+  flex: none;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.ui-acc__chev {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--text-dim);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform var(--motion-panel-duration) var(--motion-ease-out);
+}
+
+.ui-acc__head:hover .ui-acc__chev {
+  stroke: var(--text-h, var(--text));
+}
+
+.ui-acc.is-open .ui-acc__chev {
+  transform: rotate(180deg);
+}
+
+.ui-acc__body {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows var(--motion-panel-duration) var(--motion-ease-out),
+    opacity var(--motion-panel-duration) var(--motion-ease-out);
+}
+
+.ui-acc.is-open .ui-acc__body {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.ui-acc__clip {
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Body text lines up under the title (marker 26px + 12px gap + 16px pad). */
+.ui-acc__content {
+  padding: 0 16px 16px 54px;
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-acc,
+  .ui-acc__chev,
+  .ui-acc__body {
+    transition: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .ui-acc__content {
+    padding-left: 16px;
+  }
+  .ui-acc__summary {
+    max-width: 38%;
+  }
+}

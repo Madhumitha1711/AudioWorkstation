@@ -30,11 +30,17 @@ import StudioAcousticsLab from "./acoustics/StudioAcousticsLab";
 import RoomTreatmentLab from "./acoustics/RoomTreatmentLab";
 import ConnectorsLab from "./wiring/ConnectorsLab";
 import CablesLab from "./wiring/CablesLab";
+import CableMatchLab from "./wiring/CableMatchLab";
 import WhyAmplificationLab from "./preamps/WhyAmplificationLab";
 import AmplificationLab from "./preamps/AmplificationLab";
 import AmpPassiveSpeakerLab from "./preamps/AmpPassiveSpeakerLab";
 import ActiveSpeakerLab from "./preamps/ActiveSpeakerLab";
 import SubwooferLab from "./preamps/SubwooferLab";
+import PreampChannelStripLab from "./preamps/PreampChannelStripLab";
+import WhatIsMixerLab from "./preamps/WhatIsMixerLab";
+import MixerTypesLab from "./preamps/MixerTypesLab";
+import WhatIsInterfaceLab from "./interfaces/WhatIsInterfaceLab";
+import LifeBeforeDawLab from "./computers/LifeBeforeDawLab";
 
 export const LABS = {
   "speaker-lab": SpeakerLab,
@@ -59,9 +65,15 @@ export const LABS = {
   "room-treatment-lab": RoomTreatmentLab,
   "connectors-lab": ConnectorsLab,
   "cables-lab": CablesLab,
+  "cable-match-lab": CableMatchLab,
   "why-amplification-lab": WhyAmplificationLab,
   "amplification-lab": AmplificationLab,
   "amp-passive-speaker-lab": AmpPassiveSpeakerLab,
   "active-speaker-lab": ActiveSpeakerLab,
   "subwoofer-lab": SubwooferLab,
+  "preamp-channel-strip-lab": PreampChannelStripLab,
+  "what-is-mixer-lab": WhatIsMixerLab,
+  "mixer-types-lab": MixerTypesLab,
+  "what-is-interface-lab": WhatIsInterfaceLab,
+  "life-before-daw-lab": LifeBeforeDawLab,
 };

@@ -231,3 +231,32 @@ export function scoreMic(micId, { source, level, room, goal }) {
 
 /** Map a raw score onto a 0–100 fit meter (fixed range so bars compare across answers). */
 export const fitPercent = (total) => Math.max(4, Math.min(100, Math.round(((total + 14) / 28) * 100)));
+
+/** The four questions, in order — the accordion steps in MicSelectionLab. */
+export const QUESTIONS = [
+  { id: "source", num: "01", label: "What are you recording?" },
+  {
+    id: "level",
+    num: "02",
+    label: "How loud is it at the mic?",
+    hint: "Set automatically from the source. Change it if your situation is different.",
+  },
+  { id: "room", num: "03", label: "Where are you recording?" },
+  { id: "goal", num: "04", label: "What should it sound like?" },
+];
+
+/** Ranking status shown on each runner-up card's front. */
+export const rankStatus = (index, fit) =>
+  fit === 0 ? { tone: "no", label: "Not practical" } : index < 3 ? { tone: "alt", label: "Good alternative" } : { tone: "weak", label: "Weaker fit" };
+
+/** "How is the pick made?" reveal copy. */
+export const SCORING_NOTE =
+  "Each mic family gets a score from your four answers. The source sets the starting point (how often engineers use this kind of mic on it). Loudness rewards mics that cope with high sound pressure. The room rewards mics that reject reflections and noise, and a stage also rewards toughness. Your sound goal rewards detail, warmth, smoothness or punch. The mic with the highest total wins. Anything that just isn’t used on the source drops to the bottom as “not practical”.";
+
+export const POINTS = [
+  "There’s no best microphone, only the **best one for this source, this room and this sound**.",
+  "**Loud, close sources** favour dynamics (and ribbons on guitar amps). **Quiet, detailed sources** favour condensers.",
+  "An **untreated or noisy room** pushes you towards less sensitive mics with a tighter pattern, because the room ends up in the take.",
+  "**Character goals** (warm, smooth, punchy) can matter more than accuracy. That’s why tube and ribbon mics exist.",
+  "Every pick has a **trade-off**. Know what you’re giving up before you press record.",
+];

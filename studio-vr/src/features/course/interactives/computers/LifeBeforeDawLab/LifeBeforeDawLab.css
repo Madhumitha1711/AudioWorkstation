@@ -1,0 +1,265 @@
+/* "Life Before the DAW" — tabbed, same look as SubwooferLab.css (lead,
+   labelled facts, 16:9 media well with a dashed placeholder, FlipCards two
+   per row, orange accent). No top image; the cards are
+   "then → now" pairs: the old tool on the front (photo + caption bar, as
+   WhatIsMixerLab), then vs DAW facts on the back. Colours come from theme
+   tokens so light/dark both work. */
+.lbd {
+  --lbd-accent: #e8934a;
+  --lbd-well: rgba(0, 0, 0, 0.25);
+}
+
+:root[data-theme='light'] .lbd {
+  --lbd-accent: #c96f24;
+  --lbd-well: rgba(var(--ink-tint-rgb), 0.05);
+}
+
+.lbd,
+.lbd *,
+.lbd *::before,
+.lbd *::after {
+  box-sizing: border-box;
+}
+
+/* FlipCards lift slightly mid-turn; let that lift show past the tab
+   panel's horizontal clip instead of being cut off at the edges. */
+.lbd .ui-tabpanel-clip {
+  overflow-clip-margin: 24px;
+}
+
+.lbd-panel {
+  padding-top: 18px;
+}
+
+/* ── intro ── */
+.lbd-lead {
+  font-size: var(--fs-lg);
+  line-height: 1.6;
+  color: var(--text-dim);
+  margin: 0 0 4px;
+}
+
+.lbd-facts {
+  margin: 0;
+}
+
+.lbd-fact dt {
+  margin-top: 20px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lbd-accent);
+}
+
+.lbd-fact dd {
+  margin: 6px 0 0;
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.lbd-subhead {
+  margin: 32px 0 14px;
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ── example cards ── */
+.lbd-examples {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin-bottom: 8px;
+}
+
+.lbd-card {
+  --flip-accent: var(--lbd-accent);
+}
+
+.lbd-media {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  overflow: hidden;
+  background: var(--lbd-well);
+}
+
+.lbd-media img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.lbd-ph {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  text-align: center;
+  border-bottom: 1.5px dashed var(--border);
+  background:
+    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--lbd-accent) 8%, transparent), transparent 70%);
+}
+
+.lbd-ph-icon {
+  width: 32px;
+  height: 32px;
+  fill: none;
+  stroke: var(--text-dimmer);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.8;
+}
+
+.lbd-ph-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dimmer);
+}
+
+.lbd-ph-path {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-dimmer);
+  opacity: 0.7;
+  word-break: break-all;
+}
+
+.lbd-card-front {
+  padding: 14px 18px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.lbd-card-title {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Back: right padding clears FlipCard's corner icon. */
+.lbd-card-body {
+  padding: 18px 48px 20px 20px;
+}
+
+.lbd-card-kicker {
+  margin: 0 0 8px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lbd-accent);
+}
+
+.lbd-card-lead {
+  margin: 0;
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+
+.lbd-card-facts .lbd-fact dt {
+  margin-top: 16px;
+  font-size: var(--fs-xs);
+}
+
+.lbd-card-facts .lbd-fact dd {
+  font-size: var(--fs-sm);
+}
+
+/* Full-row card: wider, shorter photo; facts in three columns on the back. */
+.lbd-card--wide {
+  grid-column: 1 / -1;
+}
+
+.lbd-card--wide .lbd-media {
+  aspect-ratio: 3 / 1;
+}
+
+.lbd-card--wide .lbd-card-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 24px;
+}
+
+@media (max-width: 760px) {
+  .lbd-examples {
+    grid-template-columns: 1fr;
+  }
+
+  .lbd-card--wide .lbd-media {
+    aspect-ratio: 16 / 9;
+  }
+
+  .lbd-card--wide .lbd-card-facts {
+    display: block;
+  }
+
+}
+
+/* ── then → now cards ──
+   Front: the old tool's photo + a caption bar ("Then" kicker + name), the
+   WhatIsMixerLab card face. Back: "<then> → <now>" kicker, then two
+   labelled facts (Then / In a DAW) using the .lbd-card-facts sizes above. */
+.lbd-hint {
+  margin: -6px 0 16px;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.lbd-card-cap {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.lbd-card-cap-kicker {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dimmer);
+}
+
+.lbd-card-cap-name {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lbd-card-arrow {
+  color: var(--text-dimmer);
+  margin: 0 6px;
+}
+
+.lbd-card-now {
+  color: var(--lbd-accent);
+}
+
+.lbd-card-facts .lbd-fact:first-child dt {
+  margin-top: 4px;
+  color: var(--text-dimmer);
+}

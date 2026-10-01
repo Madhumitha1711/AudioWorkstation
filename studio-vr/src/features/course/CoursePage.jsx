@@ -349,7 +349,6 @@ function CoursePage() {
                   className={`module-head${isModuleOpen ? " open" : ""}`}
                   onClick={() => toggleModule(mod.id)}
                 >
-                  <span className="chev">▸</span>
                   <span className="mname">{mod.title}</span>
                   {moduleSteps.length > 0 && (
                     <span className="tcount">
@@ -364,10 +363,9 @@ function CoursePage() {
                       return (
                         <div className="topic-block" key={topic.id}>
                           <div className="topic-head locked">
-                            <span className="chev" />
                             <span className="tname-col">
                               <span className="tname">
-                                {topic.number ? `Ch ${topic.number} · ` : ""}
+                                {topic.number ? `Ch ${topic.number} ` : ""}
                                 {topic.title}
                               </span>
                               {topic.room && (
@@ -392,10 +390,9 @@ function CoursePage() {
                           className={`topic-head${isOpen ? " open" : ""}${isCurrent ? " current" : ""}`}
                           onClick={() => toggleTopic(topic.id)}
                         >
-                          <span className="chev">▸</span>
                           <span className="tname-col">
                             <span className="tname">
-                              {topic.number ? `Ch ${topic.number} · ` : ""}
+                              {topic.number ? `Ch ${topic.number} ` : ""}
                               {topic.title}
                             </span>
                             {topic.room && (
@@ -412,7 +409,7 @@ function CoursePage() {
                           {topicSteps.map((step) => (
                             <button
                               key={step.id}
-                              className={`lesson-item${step.id === activeStep?.id ? " active" : ""}`}
+                              className={`lesson-item${step.id === activeStep?.id ? " active" : ""}${step.kind === "interactive" ? " interactive" : ""}`}
                               onClick={() => selectStep(step.id, topic.id)}
                             >
                               <span className={`lesson-check${completed.has(step.id) ? " done" : ""}`}>

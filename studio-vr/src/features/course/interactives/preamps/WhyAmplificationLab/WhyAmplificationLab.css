@@ -1,5 +1,5 @@
 /* "Why Amplification?" — lead (title comes from the section header), then one row per everyday example
-   (16:9 picture/clip beside its paragraph, no subheadings), then key points.
+   (16:9 clip beside a "What do you think happened?" reveal accordion), then key points.
    Colours come from theme tokens so light/dark both work. */
 .wal {
   --wal-accent: #e8934a;
@@ -110,7 +110,113 @@
   color: var(--text);
 }
 
+/* ── Reveal accordion ("What do you think happened?") ── */
+.wal-reveal {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--wal-well);
+  transition: border-color var(--motion-medium) var(--motion-ease-out);
+}
+
+.wal-reveal.is-open {
+  border-color: color-mix(in srgb, var(--wal-accent) 55%, var(--border));
+}
+
+.wal-reveal-q {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  border-radius: 12px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.wal-reveal-q:focus-visible {
+  outline: 2px solid var(--wal-accent);
+  outline-offset: 2px;
+}
+
+.wal-reveal-mark {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--wal-accent);
+  background: color-mix(in srgb, var(--wal-accent) 14%, transparent);
+}
+
+.wal-reveal-label {
+  flex: 1;
+}
+
+.wal-reveal-chev {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--text-dim);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform var(--motion-panel-duration) var(--motion-ease-out);
+}
+
+.wal-reveal-q:hover .wal-reveal-chev {
+  stroke: var(--text-h);
+}
+
+.wal-reveal.is-open .wal-reveal-chev {
+  transform: rotate(180deg);
+}
+
+/* 0fr → 1fr row animates to the answer's natural height. */
+.wal-reveal-a {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows var(--motion-panel-duration) var(--motion-ease-out),
+    opacity var(--motion-panel-duration) var(--motion-ease-out);
+}
+
+.wal-reveal.is-open .wal-reveal-a {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.wal-reveal-clip {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.wal-reveal-clip .wal-example-text {
+  padding: 0 16px 16px 54px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wal-reveal,
+  .wal-reveal-chev,
+  .wal-reveal-a {
+    transition: none;
+  }
+}
+
 @media (max-width: 600px) {
+  .wal-reveal-clip .wal-example-text {
+    padding-left: 16px;
+  }
+
   .wal-example {
     grid-template-columns: 1fr;
     gap: 10px;

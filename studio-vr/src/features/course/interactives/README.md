@@ -14,7 +14,7 @@ interactives/
                          #   the same position, "coming soon" when a file is missing)
     GroupedBriefing/     #   family labels over category tabs → item tabs → image +
                          #   description + key points, prev/next pager (data-driven;
-                         #   StudioComponentsLab layout) — Ch.8 ConnectorsLab + CablesLab
+                         #   StudioComponentsLab layout) — Ch.8 ConnectorsLab + CablesLab, Ch.10 MixerTypesLab
     BriefingTabs/        #   image-over-description tabs + facts + key points + pager —
                          #   StudioRoomsLab, StudioTypesLab
     ListenTabs/          #   ListenTabs (standard tabs; image | Listen card, text
@@ -48,6 +48,10 @@ interactives/
     CablesLab/           #   cables-lab: 10 cables — Analog (Mic & Instrument, Line Level,
                          #   Speaker) / Digital (Digital Audio, Control).
                          #   Photos: public/cables/<id>.jpg
+    CableMatchLab/       #   cable-match-lab: match 10 cables to sockets on a hardware rear
+                         #   panel (drag plug or tap cable → socket); status strip of red /
+                         #   green lights (not connected / connected), hints, "Show me" after
+                         #   3 misses. No audio. Mockup: design/cable-connector-sound-quiz.html
   preamps/               # Ch.10 "Preamps, Channel Strips, Mixers, and Input Routing"
     WhyAmplificationLab/ #   why-amplification-lab: "Why Amplification?" — one row per example
                          #   (talking, TV, headlights, AC, studio): its own clip/picture beside
@@ -77,6 +81,38 @@ interactives/
                          #   5.1 → 7.1.4 layout card; 4 photo cards as 2 + 2, no top image);
                          #   key points per tab. Photos: public/subwoofer/<id>.jpg (top image:
                          #   subwoofer.jpg, first tab only)
+    PreampChannelStripLab/ # preamp-channel-strip-lab: "Preamps / Channel Strips" (Outboard Gear) —
+                         #   4 tabs, SubwooferLab look: Mic preamp (gain, phantom, pad, clean vs
+                         #   coloured, rack / 500-series, patching into a line input) / Channel strip
+                         #   (stage order, tracking vs mixing, committing) / Classic preamps (Neve
+                         #   1073, API 512c, UA 2-610, Grace m101) / Channel strips (Avalon VT-737sp,
+                         #   UA 6176, RND Shelford, 500-series lunchbox; 2 + 2 grid); key points.
+                         #   Photos: public/outboard-preamps/<id>.jpg
+    WhatIsMixerLab/      #   what-is-mixer-lab: "What Is a Mixer?" — one screen, no tabs (like
+                         #   ActiveSpeakerLab): hero image, what a mixer does, kitchen analogy
+                         #   rows (kitchen/studio FlipCard beside paragraph) joined by curvy arrows,
+                         #   key points. Photos: public/mixer/<id>.jpg (mixer.jpg, kitchen-*.jpg)
+    MixerTypesLab/       #   mixer-types-lab: "How Do You Categorise Mixers?" — GroupedBriefing
+                         #   layout (as ConnectorsLab): category tabs Architecture (Analog /
+                         #   Digital / Hybrid) / Application (Live / Studio / Broadcast /
+                         #   Project studio) / Circuit design (Split / Inline) → type tabs.
+                         #   Photos: public/mixer-types/<id>.jpg
+  interfaces/            # Ch.11 "Audio Interfaces, Converters, I/O, and MIDI"
+    WhatIsInterfaceLab/  #   what-is-interface-lab: "What Is an Interface?" — one screen, no tabs
+                         #   (WhatIsMixerLab layout): hero image, what an interface does, why not
+                         #   the computer's jack, what makes a good one; translator analogy rows
+                         #   (translator/studio FlipCard beside paragraph: two languages → speak
+                         #   up → A/D → D/A → gestures = MIDI) joined by curvy arrows; key points.
+                         #   Photos: public/audio-interface/<id>.jpg (audio-interface.jpg,
+                         #   translator-*.jpg, studio-*.jpg)
+  computers/             # Ch.12 "Computers, Power, and Studio Configuration" (Computer & DAW)
+    LifeBeforeDawLab/    #   life-before-daw-lab: "Life Before the DAW" — 4 tabs (standard Tabs +
+                         #   TabPager, SubwooferLab look): Recording (multitrack tape, bouncing,
+                         #   SMPTE sync to picture) / Editing (razor & splicing block, mag film) /
+                         #   Processing (outboard, chambers & plates, recall sheets) / Routing
+                         #   (patchbay, buses & sends, hand mixdown, two-track master). Each: hero
+                         #   image, facts, four "then → now" FlipCards (2 + 2), key points.
+                         #   Photos: public/life-before-daw/<id>.jpg
   sound/                 # Ch.1 "What Is Sound?"
     FrequencyLab/ AmplitudeLab/ WavelengthLab/ PhaseLab/ HarmonicsLab/ TimbreLab/
   speakers/
@@ -84,8 +120,12 @@ interactives/
   microphones/           # Ch.6 "Microphones: Types, Characteristics & Selection"
     shared/              #   micLabShared.js, micLabs.css, MicPortrait, MicPolarDiagram
     MicTypeLab/ MicPolarPatternLab/
-    MicSelectionLab/     #   mic-selection-lab: "Pick the mic for the job" — 4 questions ->
-                         #   scored pick + why / why not (micSelectionData.js)
+    MicSelectionLab/     #   mic-selection-lab: "Pick the mic for the job" — 4 questions as
+                         #   Accordion steps (picking opens the next) -> scored pick as
+                         #   FlipCards: best pick full width (front: mic + specs + fit; back:
+                         #   why + trade-off), other four 2 + 2 (front: rank + fit; back: why
+                         #   not); A/B player, "How is the pick made?" reveal, key points
+                         #   (micSelectionData.js)
   mic-techniques/        # Ch.7 "Microphone Techniques and Stereo Recording"
     shared/MicLab/       #   shared by the two guide labs below: MicStage3D (three.js 3D room
                          #   + public/3D assets/ models, driven by a `view` prop; floor

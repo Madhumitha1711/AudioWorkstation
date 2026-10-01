@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "./FlipCard.css";
 
 // FlipCard — a card with a front and a back face that turns over in 3D when
@@ -53,6 +53,15 @@ export function FlipCard({
   // Count of user flips — drives data-turn so the lift animation replays
   // on every turn but not on mount (or when a controlled parent flips it).
   const [turns, setTurns] = useState(0);
+  // `turning`: true from the click until the rotation's transitionend —
+  // keeps the 3D layer promoted (will-change) for the whole turn.
+  // `tiltOff`: after a click the hover tilt stays off until the pointer
+  // leaves, so the card lands flat at 0° / 180° instead of settling into a
+  // 4° hover tilt that reads as the card hanging there, bigger and frozen.
+  const [turning, setTurning] = useState(false);
+  const [tiltOff, setTiltOff] = useState(false);
+  const fallbackRef = useRef(0);
+  useEffect(() => () => clearTimeout(fallbackRef.current), []);
   const controlled = flippedProp !== undefined;
   const flipped = controlled ? flippedProp : flippedState;
 
@@ -60,6 +69,11 @@ export function FlipCard({
     const next = !flipped;
     if (!controlled) setFlippedState(next);
     setTurns((n) => n + 1);
+    setTurning(true);
+    setTiltOff(true);
+    // Safety net if transitionend never fires (reduced motion, tab hidden).
+    clearTimeout(fallbackRef.current);
+    fallbackRef.current = setTimeout(() => setTurning(false), 1200);
     onFlip?.(next);
   }, [flipped, controlled, onFlip]);
 
@@ -74,7 +88,9 @@ export function FlipCard({
   return (
     <div
       {...rest}
-      className={`ui-flip${flipped ? " is-flipped" : ""} ${className}`.trim()}
+      className={`ui-flip${flipped ? " is-flipped" : ""}${turning ? " is-turning" : ""}${
+        tiltOff ? " no-tilt" : ""
+      } ${className}`.trim()}
       role="button"
       tabIndex={0}
       aria-pressed={flipped}
@@ -82,8 +98,14 @@ export function FlipCard({
       aria-label={label ? `${label}: ${flipped ? "showing details" : "show details"}` : undefined}
       onClick={toggle}
       onKeyDown={onKeyDown}
+      onPointerLeave={() => setTiltOff(false)}
     >
-      <div className="ui-flip__inner">
+      <div
+        className="ui-flip__inner"
+        onTransitionEnd={(e) => {
+          if (e.target === e.currentTarget && e.propertyName === "transform") setTurning(false);
+        }}
+      >
         <div className="ui-flip__face ui-flip__face--front" aria-hidden={flipped} inert={flipped}>
           {front}
           {hint && (

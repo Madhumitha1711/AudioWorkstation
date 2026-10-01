@@ -179,7 +179,8 @@ export const TOPICS = [
     intro: "One panel, every connection in the room — the patch bay is what makes a complex studio fast to reconfigure.",
     // This chapter's two interactive labs already exist — "connectors-lab"
     // (interactives/wiring/ConnectorsLab) and "cables-lab"
-    // (interactives/wiring/CablesLab). A topic only carries one
+    // (interactives/wiring/CablesLab), plus the "cable-match-lab" quiz
+    // (interactives/wiring/CableMatchLab). A topic only carries one
     // `interactive` here, so the Cables lab is mapped from its own lesson's
     // interactive Section block in studio-cms (swap the kind below to
     // preview it locally). Takes effect once this topic is `ready: true`.
@@ -217,6 +218,13 @@ export const TOPICS = [
     // built-in amps, soffit mains with rack amps, Genelec / Neumann / Yamaha / Kali.
     // Fifth lab: "subwoofer-lab" (interactives/preamps/SubwooferLab): subwoofer
     // basics, Subwoofer + LFE (bass management), pro audio and home theatre subs.
+    // Mixer labs: "what-is-mixer-lab" (interactives/preamps/WhatIsMixerLab):
+    // what a mixer does + kitchen analogy (single screen); and
+    // "mixer-types-lab" (interactives/preamps/MixerTypesLab): categorise by
+    // architecture, application and circuit design (inline / split).
+    // Outboard Gear: "preamp-channel-strip-lab"
+    // (interactives/preamps/PreampChannelStripLab): outboard mic preamps,
+    // channel strips, classic preamp and strip examples (tabbed).
     interactive: { id: "preamp-rack-interactive", title: "Why Amplification?", kind: "why-amplification-lab" },
     ready: false,
   },
@@ -229,6 +237,10 @@ export const TOPICS = [
     title: "Audio Interfaces, Converters, I/O, and MIDI",
     intro:
       "The audio interface is the bridge between the analog and digital worlds — and its quality sets a hard ceiling on everything recorded through it.",
+    // "what-is-interface-lab" (interactives/interfaces/WhatIsInterfaceLab):
+    // what an interface does + translator analogy (single screen, like
+    // WhatIsMixerLab).
+    interactive: { id: "sound-card-interactive", title: "What Is an Interface?", kind: "what-is-interface-lab" },
     ready: false,
   },
   {
@@ -240,6 +252,9 @@ export const TOPICS = [
     title: "Computers, Power, and Studio Configuration",
     intro:
       "The most important piece of gear in the room might be the computer running it — storage, drivers, and clean power are what keep a session from falling apart mid-take.",
+    // "life-before-daw-lab" (interactives/computers/LifeBeforeDawLab):
+    // recording / editing / processing / routing before the DAW, then → now.
+    interactive: { id: "computers-power-interactive", title: "Life Before the DAW", kind: "life-before-daw-lab" },
     ready: false,
   },
 

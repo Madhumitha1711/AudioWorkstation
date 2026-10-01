@@ -111,6 +111,42 @@ function renderLeafBlock(block, { fallbackDuration, sectionTitle, onInteractiveC
 }
 
 /**
+ * Sound-chapter labs (ch. 1 "What Is Sound?") read better with the lab up
+ * top and the lesson's explanatory text underneath, so the student plays
+ * with the tone first and the paragraphs explain what they just heard.
+ * Editors author those sections as image-text → interactive in studio-cms,
+ * so for these kinds only, an interactive block is lifted above the run of
+ * image-text blocks directly before it. Videos, rows and every other lab
+ * keep the CMS order untouched.
+ */
+const LAB_FIRST_KINDS = new Set([
+  "frequency-lab",
+  "amplitude-lab",
+  "wavelength-lab",
+  "phase-lab",
+  "harmonics-lab",
+  "timbre-lab",
+]);
+
+function isLabFirstBlock(block) {
+  return block.type === "interactive" && LAB_FIRST_KINDS.has(block.interactive?.kind);
+}
+
+function orderBlocks(blocks) {
+  const out = [];
+  for (const block of blocks) {
+    if (isLabFirstBlock(block)) {
+      let i = out.length;
+      while (i > 0 && out[i - 1].type === "image-text") i--;
+      out.splice(i, 0, block);
+    } else {
+      out.push(block);
+    }
+  }
+  return out;
+}
+
+/**
  * Renders a Section's ordered `blocks` array — the CMS-configurable mix of
  * lesson video, image + text, interactive activity, and custom-embed
  * content that replaces the old fixed `video`/`paragraphs` fields on a
@@ -127,7 +163,8 @@ function renderLeafBlock(block, { fallbackDuration, sectionTitle, onInteractiveC
  * turned on in the CMS — see STRAPI_SCHEMA_NOTES.md's "Side-by-side block
  * layout" for why that grouping happens server-side rather than as its own
  * CMS block type. This just lays its `columns` out as a flex row instead
- * of rendering one full-width block.
+ * of rendering one full-width block. (Exception: orderBlocks above, for
+ * the sound-chapter labs.)
  */
 function SectionBlocks({ blocks, fallbackDuration, sectionTitle, onInteractiveComplete }) {
   if (!blocks?.length) return null;
@@ -136,7 +173,7 @@ function SectionBlocks({ blocks, fallbackDuration, sectionTitle, onInteractiveCo
 
   return (
     <div className="section-blocks">
-      {blocks.map((block) => {
+      {orderBlocks(blocks).map((block) => {
         if (block.type !== "row") return renderLeafBlock(block, leafProps);
 
         return (

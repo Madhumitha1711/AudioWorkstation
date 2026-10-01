@@ -1,0 +1,761 @@
+/* Type: global tokens only — --font-sans for every label and text,
+   --font-mono only for the numeric readouts (connected count, stats).
+   CableMatchLab — ported from design/cable-connector-sound-quiz.html.
+   Course theme tokens (--panel, --border, --text*, --accent) come from
+   .svr-course. Colour is kept minimal: one neutral cable colour, the theme
+   accent for the selected cable, and red / green for status only. The rear panel
+   uses the same course theme colours as the cable column (see the rear
+   panel block below). */
+
+.cml {
+  --cml-cable: #b9bdc5;
+  --cml-ok: #3ee07f;
+  --cml-err: #ff4d4d;
+  --cml-cable-outline: rgba(0, 0, 0, 0.75);
+  --cml-gap-w: clamp(56px, 14vw, 150px);
+
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--panel);
+  overflow: hidden;
+}
+:root[data-theme='light'] .cml {
+  --cml-cable: #7a808a;
+  --cml-ok: #16a34a;
+  --cml-err: #dc2626;
+  --cml-cable-outline: rgba(0, 0, 0, 0.35);
+}
+
+.cml-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- status strip: one light per cable ---------- */
+.cml-status {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.cml-score {
+  min-width: 150px;
+  font: 500 var(--fs-xs) / 1 var(--font-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.cml-score b {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0;
+  margin-right: 2px;
+}
+.cml-score small {
+  display: block;
+  margin-top: 6px;
+  font-size: var(--fs-2xs);
+  color: var(--text-dimmer);
+  letter-spacing: 0.06em;
+}
+.cml-leds {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cml-led {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 9px 0 8px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  transition: border-color var(--motion-medium), background var(--motion-medium);
+}
+.cml-lamp {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ff9a9a, var(--cml-err) 55%, #7a1010);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 0 8px color-mix(in srgb, var(--cml-err) 70%, transparent);
+  transition: background var(--motion-medium), box-shadow var(--motion-medium);
+}
+.cml-led-name {
+  font: 600 var(--fs-3xs) / 1 var(--font-sans);
+  letter-spacing: 0.06em;
+  color: var(--text-dimmer);
+  white-space: nowrap;
+}
+.cml-led.on {
+  border-color: color-mix(in srgb, var(--cml-ok) 45%, transparent);
+  background: color-mix(in srgb, var(--cml-ok) 8%, transparent);
+}
+.cml-led.on .cml-lamp {
+  background: radial-gradient(circle at 35% 30%, #c8ffd9, var(--cml-ok) 55%, #0b6b30);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 0 12px var(--cml-ok);
+}
+.cml-led.on .cml-led-name {
+  color: var(--text);
+}
+.cml-led.armed {
+  border-color: var(--accent);
+}
+.cml-led.just {
+  animation: cmlPop 0.6s var(--motion-ease-out);
+}
+.cml-led.blink .cml-lamp {
+  animation: cmlBlink 0.3s steps(2, jump-none) 3;
+}
+@keyframes cmlPop {
+  30% { transform: scale(1.12); }
+}
+@keyframes cmlBlink {
+  50% { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 0 16px 3px var(--cml-err); filter: brightness(1.35); }
+}
+
+/* ---------- board ---------- */
+.cml-body {
+  padding: 18px 16px 16px;
+}
+.cml-heads {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--cml-gap-w) minmax(0, 1fr);
+  margin-bottom: 8px;
+}
+.cml-heads span {
+  font: 600 var(--fs-2xs) / 1 var(--font-sans);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dimmer);
+}
+.cml-heads span:last-child {
+  padding-left: 4px;
+}
+.cml-board {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--cml-gap-w) minmax(0, 1fr);
+}
+.cml-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 3;
+  overflow: visible;
+}
+.cml-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* cable cards */
+.cml-cable {
+  --tone: var(--cml-cable);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  width: 100%;
+  padding: 6px 0 6px 14px;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: var(--cml-panel-text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  transition:
+    border-color var(--motion-medium) var(--motion-ease-out),
+    background var(--motion-medium) var(--motion-ease-out),
+    box-shadow var(--motion-medium) var(--motion-ease-out),
+    transform var(--motion-fast) var(--motion-ease-out);
+}
+/* Accent bar on the row's left edge: hidden at rest, peeks in on hover
+   (half height, faint), grows to full height when the cable is selected.
+   Only transform/opacity animate. */
+.cml-cable::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--accent);
+  opacity: 0;
+  transform: scaleY(0);
+  transition:
+    transform var(--motion-medium) var(--motion-ease-out),
+    opacity var(--motion-medium) var(--motion-ease-out);
+}
+.cml-cable:not(.done):hover {
+  background: var(--cml-panel-hover-bg);
+  border-color: var(--cml-panel-hover-border);
+}
+.cml-cable:not(.done):hover::before {
+  opacity: 0.45;
+  transform: scaleY(0.5);
+}
+.cml-cable:not(.done):active {
+  transform: scale(0.99);
+}
+/* text slides a touch toward the gap on hover / selection */
+.cml-cable-txt,
+.cml-cable-name {
+  transition:
+    transform var(--motion-medium) var(--motion-ease-out),
+    color var(--motion-medium) var(--motion-ease-out);
+}
+.cml-cable:not(.done):hover .cml-cable-txt,
+.cml-cable.armed .cml-cable-txt {
+  transform: translateX(3px);
+}
+.cml-cable:focus-visible,
+.cml-port:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.cml-cable-txt {
+  flex: 1;
+  min-width: 0;
+}
+.cml-cable-name {
+  display: block;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  line-height: 1.25;
+}
+.cml-cable-sub {
+  display: block;
+  font-size: var(--fs-sm);
+  line-height: 1.35;
+  color: var(--cml-panel-sub);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Selected: a subtle wash of the theme primary (not a solid ring), full
+   accent bar, accent-tinted plug that gently "breathes" toward the
+   sockets to invite the drag. */
+.cml-cable.armed,
+.cml-cable.armed:hover {
+  --tone: color-mix(in srgb, var(--accent) 65%, var(--cml-cable));
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  box-shadow: 0 6px 18px -12px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.cml-cable.armed::before,
+.cml-cable.armed:hover::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+.cml-cable.armed .cml-cable-name {
+  color: color-mix(in srgb, var(--accent) 35%, var(--cml-panel-text));
+}
+.cml-cable.armed:not(.dragging) .cml-plug svg {
+  animation: cmlPlugBreathe 1.6s var(--motion-ease-out) infinite alternate;
+}
+@keyframes cmlPlugBreathe {
+  from { transform: translateX(0); }
+  to { transform: translateX(5px); }
+}
+.cml-cable.done {
+  cursor: default;
+}
+.cml-cable.done:hover {
+  background: transparent;
+  border-color: transparent;
+}
+.cml-cable.done .cml-cable-name::after {
+  content: ' ✓';
+  color: var(--cml-ok);
+  font-weight: 700;
+}
+.cml-cable.nudge {
+  animation: cmlNudge 0.45s ease;
+}
+@keyframes cmlNudge {
+  30% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+}
+
+/* plug handle (drag start) */
+.cml-plug {
+  position: relative;
+  flex-shrink: 0;
+  width: 52px;
+  height: 40px;
+  margin-right: -12px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  touch-action: none;
+  cursor: grab;
+}
+.cml-plug:active {
+  cursor: grabbing;
+}
+.cml-plug svg {
+  width: 46px;
+  height: 22px;
+  overflow: visible;
+  transition: opacity var(--motion-fast), transform var(--motion-medium) var(--motion-ease-out);
+}
+.cml-plug svg * {
+  transition: fill var(--motion-medium), stroke var(--motion-medium);
+}
+.cml-cable:not(.done):not(.dragging):hover .cml-plug svg {
+  transform: translateX(3px);
+}
+.cml-cable.dragging .cml-plug-head,
+.cml-cable.done .cml-plug-head {
+  opacity: 0;
+}
+.cml-cable.done .cml-plug {
+  cursor: default;
+}
+/* Wire start point = the end of the plug's cable stub (svg x=12 of the
+   46-wide viewBox; the svg is right-aligned in the 52px handle → 6 + 12).
+   When the plug head hides on connect, the wire continues straight out of
+   the stub with no gap. Mobile values in the 600px block below. */
+.cml-plug-anchor {
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  width: 1px;
+  height: 1px;
+}
+
+/* both panels (cables + rear panel) — same surface colours as the cable column (course theme
+   tokens), so both sides of the board match in dark and light. The socket
+   wells + glyphs are themed via --cml-well-* (glyph fills read these vars). */
+.cml {
+  --cml-panel-bg: var(--panel);
+  --cml-panel-border: var(--border);
+  --cml-panel-shadow: none;
+  --cml-panel-text: var(--text);
+  --cml-panel-sub: var(--text-dim);
+  --cml-panel-hover-bg: var(--panel-hover);
+  --cml-panel-hover-border: var(--border);
+  --cml-panel-arming-border: var(--border-soft);
+  --cml-panel-screw: var(--border);
+  --cml-panel-screw-ring: var(--border-soft);
+  --cml-well-bg: radial-gradient(circle at 50% 40%, #2b2d33, #101114 75%);
+  --cml-well-ink: #d4d6db;
+  --cml-well-face: #1d1e22;
+  --cml-well-hole: #0b0b0d;
+  --cml-well-ring: #3b3e45;
+  --cml-well-inset: rgba(0, 0, 0, 0.8);
+}
+:root[data-theme='light'] .cml {
+  --cml-well-bg: radial-gradient(circle at 50% 40%, #ffffff, #e4e7eb 75%);
+  --cml-well-ink: #3a3f47;
+  --cml-well-face: #f4f5f7;
+  --cml-well-hole: #c9cdd3;
+  --cml-well-ring: rgba(var(--ink-tint-rgb), 0.18);
+  --cml-well-inset: rgba(var(--ink-tint-rgb), 0.18);
+}
+.cml-panel {
+  position: relative;
+  border-radius: 12px;
+  padding: 10px 10px 10px 0;
+  background: var(--cml-panel-bg);
+  border: 1px solid var(--cml-panel-border);
+  box-shadow: var(--cml-panel-shadow);
+  color: var(--cml-panel-text);
+}
+.cml-panel::before,
+.cml-panel::after {
+  content: '';
+  position: absolute;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cml-panel-screw);
+  box-shadow: 0 0 0 1px var(--cml-panel-screw-ring);
+}
+.cml-panel::before { top: 8px; }
+.cml-panel::after { bottom: 8px; }
+/* cable panel is the mirror image: plugs poke out of its right edge,
+   screws sit on its outer (left) edge */
+.cml-panel--cables {
+  padding: 10px 0 10px 10px;
+}
+.cml-panel--cables::before,
+.cml-panel--cables::after {
+  right: auto;
+  left: 8px;
+}
+.cml-port {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  width: 100%;
+  padding: 6px 14px 6px 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: var(--cml-panel-text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  transition: background var(--motion-fast), border-color var(--motion-fast);
+}
+.cml-port:hover,
+.cml-port.hover {
+  background: var(--cml-panel-hover-bg);
+  border-color: var(--cml-panel-hover-border);
+}
+.cml.arming .cml-port {
+  border-color: var(--cml-panel-arming-border);
+}
+.cml-well {
+  position: relative;
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  margin-left: -12px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--cml-well-ink);
+  background: var(--cml-well-bg);
+  box-shadow: inset 0 2px 5px var(--cml-well-inset), 0 0 0 1px var(--cml-well-ring);
+  transition: box-shadow var(--motion-medium);
+}
+.cml-well svg {
+  width: 34px;
+  height: 34px;
+}
+.cml-well text {
+  font-family: var(--font-sans);
+}
+.cml-port-txt {
+  flex: 1;
+  min-width: 0;
+}
+.cml-port-name {
+  display: block;
+  font: 600 var(--fs-md) / 1.25 var(--font-sans);
+  letter-spacing: 0.02em;
+}
+.cml-port-sub {
+  display: block;
+  font-size: var(--fs-xs);
+  line-height: 1.35;
+  color: var(--cml-panel-sub);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cml-port-leds {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.cml-port-leds i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cml-ok);
+  box-shadow: 0 0 6px var(--cml-ok);
+}
+.cml-port.wrong .cml-well {
+  box-shadow: inset 0 2px 5px var(--cml-well-inset), 0 0 0 2px #ff6b6b, 0 0 14px #ff6b6b;
+}
+.cml-port.wrong {
+  animation: cmlShake 0.38s ease;
+}
+@keyframes cmlShake {
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+.cml-port.reveal .cml-well {
+  animation: cmlReveal 1.1s ease-in-out 3;
+}
+@keyframes cmlReveal {
+  50% { box-shadow: inset 0 2px 5px var(--cml-well-inset), 0 0 0 2px var(--brand-accent), 0 0 18px var(--brand-accent); }
+}
+
+/* wires in the svg */
+.cml-wire-o {
+  fill: none;
+  stroke: var(--cml-cable-outline);
+  stroke-width: 4.5;
+  stroke-linecap: round;
+}
+.cml-wire {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.cml-wire-hi {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 0.8;
+  stroke-linecap: round;
+  transform: translateY(-0.7px);
+}
+.cml-wire-flow {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.8);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-dasharray: 1 16;
+  opacity: 0.75;
+  animation: cmlFlow 1.4s linear infinite;
+}
+.cml-drag-wire .cml-wire-flow {
+  opacity: 0;
+}
+@keyframes cmlFlow {
+  to { stroke-dashoffset: -17; }
+}
+.cml-wire-new {
+  animation: cmlSeat 0.5s var(--motion-ease-out);
+}
+@keyframes cmlSeat {
+  from { opacity: 0.2; }
+}
+.cml-boot {
+  stroke: var(--cml-cable-outline);
+  stroke-width: 1;
+}
+
+/* ---------- feedback + completion ---------- */
+.cml-foot {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+.cml-fb {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border-soft);
+  background: var(--panel);
+  transition: border-color var(--motion-medium), background var(--motion-medium);
+}
+.cml-fb-ic {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--panel-hover);
+  color: var(--text-dim);
+}
+.cml-fb-ic svg {
+  width: 15px;
+  height: 15px;
+}
+.cml-fb-t {
+  font: 600 var(--fs-xs) / 1.3 var(--font-sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 2px 0 6px;
+}
+.cml-fb p {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: 1.55;
+  color: var(--text-dim);
+  max-width: 72ch;
+}
+.cml-fb p strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.cml-fb-alt {
+  color: var(--text-dimmer);
+}
+.cml-fb.ok {
+  border-color: color-mix(in srgb, var(--cml-ok) 40%, transparent);
+  background: color-mix(in srgb, var(--cml-ok) 7%, transparent);
+}
+.cml-fb.ok .cml-fb-ic {
+  background: color-mix(in srgb, var(--cml-ok) 18%, transparent);
+  color: var(--cml-ok);
+}
+.cml-fb.ok .cml-fb-t {
+  color: var(--cml-ok);
+}
+.cml-fb.err {
+  border-color: color-mix(in srgb, var(--cml-err) 40%, transparent);
+  background: color-mix(in srgb, var(--cml-err) 7%, transparent);
+}
+.cml-fb.err .cml-fb-ic {
+  background: color-mix(in srgb, var(--cml-err) 18%, transparent);
+  color: var(--cml-err);
+}
+.cml-fb.err .cml-fb-t {
+  color: var(--cml-err);
+}
+.cml-fb-link {
+  margin-left: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cml-done {
+  padding: 20px;
+  border-radius: 12px;
+  text-align: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  animation: cmlRise 0.5s var(--motion-ease-out);
+}
+@keyframes cmlRise {
+  from { opacity: 0; transform: translateY(8px); }
+}
+.cml-done h3 {
+  margin: 0 0 4px;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+.cml-done > p {
+  margin: 0 0 14px;
+  color: var(--text-dim);
+  font-size: var(--fs-base);
+}
+.cml-stats {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  margin-bottom: 16px;
+}
+.cml-stats div {
+  font: 600 var(--fs-2xl) / 1 var(--font-mono);
+}
+.cml-stats small {
+  display: block;
+  margin-top: 6px;
+  font: 500 var(--fs-2xs) / 1 var(--font-sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dimmer);
+}
+.cml-recap {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+.cml-recap li {
+  font: 500 var(--fs-xs) / 1 var(--font-sans);
+  padding: 6px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+}
+.cml-recap li i {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cml-ok);
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+.cml-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: var(--panel);
+  color: var(--accent);
+  font: 600 var(--fs-sm) / 1 var(--font-sans);
+  cursor: pointer;
+  transition: background var(--motion-fast);
+}
+.cml-btn:hover {
+  background: var(--panel-hover);
+}
+.cml-note {
+  font-size: var(--fs-sm);
+  color: var(--text-dimmer);
+  text-align: center;
+  margin: 4px 0 0;
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 760px) {
+  .cml-leds {
+    flex-basis: 100%;
+    gap: 4px;
+  }
+  .cml-led-name {
+    letter-spacing: 0;
+  }
+  .cml-cable-sub,
+  .cml-port-sub {
+    display: none;
+  }
+}
+@media (max-width: 600px) {
+  .cml-body { padding: 14px 10px; }
+  .cml-status { padding: 12px 10px; }
+  .cml-leds { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .cml-cable { gap: 4px; padding-left: 10px; min-height: 50px; }
+  .cml-port { min-height: 50px; gap: 6px; padding-right: 8px; }
+  .cml-plug { width: 34px; }
+  .cml-plug svg { width: 32px; }
+  .cml-plug-anchor { left: 10px; } /* 2 + 12 × 32/46 */
+  .cml-well { width: 38px; height: 38px; margin-left: -10px; }
+  .cml-well svg { width: 28px; height: 28px; }
+  .cml-port-leds { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cml *,
+  .cml *::before,
+  .cml *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

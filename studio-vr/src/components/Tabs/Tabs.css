@@ -36,7 +36,9 @@
   border-radius: 6px;
   color: var(--tabs-text, var(--text-dim, var(--shell-text-dim)));
   font-family: var(--tabs-font, var(--font-sans));
-  font-size: var(--tabs-font-size, var(--fs-base));
+  /* +1px over the type scale (and over any per-instance --tabs-font-size),
+     so tab labels read a touch larger everywhere. */
+  font-size: calc(var(--tabs-font-size, var(--fs-base)) + 1px);
   font-weight: var(--tabs-weight, 500);
   letter-spacing: var(--tabs-letter-spacing, 0);
   text-transform: var(--tabs-transform, none);
@@ -207,7 +209,7 @@
 .ui-tabs--sm .ui-tabs__tab {
   --tabs-pad-y: 6px;
   --tabs-pad-x: 10px;
-  font-size: var(--tabs-font-size, var(--fs-sm));
+  font-size: calc(var(--tabs-font-size, var(--fs-sm)) + 1px);
 }
 
 .ui-tabs--sm.ui-tabs--segmented .ui-tabs__tab {

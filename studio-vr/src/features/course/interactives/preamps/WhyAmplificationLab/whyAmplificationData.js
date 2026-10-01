@@ -2,13 +2,19 @@
 // room AC, the studio) is paired with its own picture or short clip so the
 // student can connect the idea of gain to something they've already seen.
 //
-// media.type is "video" or "image". Drop the file at public<media.src> and it
-// appears automatically; until then that row shows a placeholder frame with
-// the expected path. `label` is never shown as a heading — it's only used as
-// the media's alt / aria-label and on the placeholder.
+// Every example is a short clip: the student watches it, then opens the
+// "What do you think happened?" accordion underneath to reveal `text` (the
+// explanation). Keeping the answer folded makes them guess first.
+//
+// media.type is "video" (or "image" if a clip isn't available). Drop the file
+// at public<media.src> and it appears automatically; until then that row shows
+// a placeholder frame with the expected path. `label` is never shown as a
+// heading — it's only used as the media's alt / aria-label and on the
+// placeholder. `question` is optional; it defaults to WHY_AMPLIFICATION.question.
 
 export const WHY_AMPLIFICATION = {
   title: "Why Amplification?",
+  question: "What do you think happened?",
   lead: "Most signals start out too small to be useful. Amplification makes a bigger copy of a weak signal so it can reach the listener, drive a speaker or feed the next piece of gear.",
   examples: [
     {
@@ -26,19 +32,19 @@ export const WHY_AMPLIFICATION = {
     {
       id: "headlights",
       label: "Driving a car with headlights",
-      media: { type: "image", src: "/why-amplification/headlights.jpg" },
+      media: { type: "video", src: "/why-amplification/headlights.mp4" },
       text: "High beam lets you see further, like adding gain. But in fog it also lights up every droplet: amplification boosts the noise along with the signal, and too much dazzles the next driver.",
     },
     {
       id: "ac",
       label: "AC temperature in a room",
-      media: { type: "image", src: "/why-amplification/ac.jpg" },
+      media: { type: "video", src: "/why-amplification/ac.mp4" },
       text: "A tiny thermostat signal controls a powerful compressor. An amplifier works the same way: a small input controls a large source of power from the supply, and holding a steady target level is what gain staging is about.",
     },
     {
       id: "studio",
       label: "Mic preamp in the studio",
-      media: { type: "image", src: "/why-amplification/studio.jpg" },
+      media: { type: "video", src: "/why-amplification/studio.mp4" },
       text: "A microphone's output is tiny, often around a thousandth of a volt. A mic preamp adds about 40–60 dB of gain to bring it up to line level, strong enough for the console, interface and recorder to work with.",
     },
   ],

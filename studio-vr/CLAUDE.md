@@ -186,7 +186,7 @@ design/                  # static HTML/CSS mockups (source of truth for visual
 - The app uses exactly **two font families**, defined once in `src/index.css`
   `:root`:
   - `--font-sans` — **Inter** — all text: body, headings, UI, labels, tabs.
-  - `--font-mono` — **JetBrains Mono** — only numeric readouts, timecodes,
+  - `--font-mono` — **Space Grotesk** (tabular figures) — only numeric readouts, timecodes,
     meter/dB values, code.
 - Web fonts are loaded **only** in `index.html` (one Google Fonts `<link>`).
   Never add `@import url(fonts.googleapis…)` or `<link>` font loads in
@@ -304,20 +304,50 @@ import { FlipCard } from "../../components/FlipCard";
 - Both faces share one grid cell → card height = taller face; let a front
   image `flex: 1` to fill. Works inside any CSS grid row.
 - Uncontrolled (`defaultFlipped`) or controlled (`flipped` + `onFlip(next)`).
-- Built-in: corner flip icon (`hint={false}` to hide), hover tilt, mid-turn
-  lift, focus ring, `inert`/aria-hidden on the hidden face, crossfade under
+- Built-in: corner flip icon (`hint={false}` to hide), hover tilt (off
+  after a click until the pointer leaves, so the turn lands flat), mid-turn
+  lift, ease-in-out turn with no overshoot (600ms), focus ring, `inert`/aria-hidden on the hidden face, crossfade under
   `prefers-reduced-motion`. No links/buttons inside faces (the whole card
   is the toggle).
-- Perspective is relative to the card's width (`perspective(450cqw)`, card
-  is an inline-size container), so wide and narrow cards grow by the same
-  ~1.12× mid-turn. Don't swap it back to a fixed px `perspective` or add a
-  scale to the lift — wide cards balloon. Only transform/opacity animate.
+- Perspective is relative to the card's width (`perspective(1200cqw)`,
+  card is an inline-size container), so wide and narrow cards all peak at
+  the same subtle ~1.04× mid-turn. Don't swap it back to a fixed px
+  `perspective` or add a scale to the lift — wide cards balloon. Only
+  transform/opacity animate.
 - Nothing may sit behind the faces (no ::before shadow/backdrop on
   `.ui-flip`) — it stays flat while the card turns and shows as a ghost
   card. Shadows go on `.ui-flip__face`.
 - Re-skin only via tokens on `className`: `--flip-accent`, `--flip-bg`,
   `--flip-border`, `--flip-radius`, `--flip-duration`.
-- Current users: ActiveSpeakerLab, AmpPassiveSpeakerLab.
+  The depth is set globally — don't override `--flip-depth` per lab
+  (the old per-lab 900cqw patches were removed when the default went to
+  1200cqw). If a card still looks too big mid-turn, fix the default in
+  `FlipCard.css`, keep it in `cqw`, and never lower it or make it px.
+- Current users: ActiveSpeakerLab, AmpPassiveSpeakerLab, WhatIsMixerLab,
+  MicSelectionLab.
+
+### Accordion (reveal rows / question steps)
+
+`Accordion` + `AccordionItem` (`src/components/Accordion`) — a bordered,
+rounded row (round marker, title, optional right-aligned `summary`,
+chevron) whose body eases open 0fr → 1fr on the Tabs panel timing. Use it
+instead of hand-rolling `<details>` or a show/hide.
+
+```jsx
+import { Accordion, AccordionItem } from "../../components/Accordion";
+<AccordionItem marker="?" title="How is the pick made?" onOpen={onInteract}>…</AccordionItem>
+<Accordion value={openId} onChange={setOpenId}>   {/* single-open group, by id */}
+  <AccordionItem id="source" marker="01" title="…" summary={answer}>…</AccordionItem>
+</Accordion>
+```
+
+- Item is uncontrolled (`defaultOpen`) or controlled (`open` + `onToggle`);
+  `onOpen` fires each time it opens. Body stays mounted (`inert` when
+  closed), so child state survives. Reduced motion → instant.
+- Re-skin only via tokens on `className`: `--acc-accent` (default
+  `--brand-accent`), `--acc-well`, `--acc-border`, `--acc-radius`.
+- Current users: MicSelectionLab. WhyAmplificationLab still has the
+  original private copy (`RevealAnswer`) — migrate it when next touched.
 
 ## Conventions
 

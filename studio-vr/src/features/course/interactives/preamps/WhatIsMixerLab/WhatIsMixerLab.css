@@ -1,0 +1,300 @@
+/* "What Is a Mixer?" — single screen, no tabs. Same lead, labelled
+   facts, 16:9 media well with a dashed placeholder and orange accent as
+   SubwooferLab / ActiveSpeakerLab, with WhyAmplificationLab's
+   picture-beside-paragraph rows for the kitchen analogy, joined by
+   hand-drawn arrows. Colours come from theme tokens so light/dark both
+   work. */
+.wml {
+  --wml-accent: #e8934a;
+  --wml-well: rgba(0, 0, 0, 0.25);
+}
+
+:root[data-theme='light'] .wml {
+  --wml-accent: #c96f24;
+  --wml-well: rgba(var(--ink-tint-rgb), 0.05);
+}
+
+.wml,
+.wml *,
+.wml *::before,
+.wml *::after {
+  box-sizing: border-box;
+}
+
+/* ── intro ── */
+.wml-lead {
+  font-size: var(--fs-lg);
+  line-height: 1.6;
+  color: var(--text-dim);
+  margin: 0 0 4px;
+}
+
+.wml-facts {
+  margin: 0;
+}
+
+.wml-fact dt {
+  margin-top: 20px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wml-accent);
+}
+
+.wml-fact dd {
+  margin: 6px 0 0;
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.wml-subhead {
+  margin: 32px 0 14px;
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ── media ── */
+.wml-media {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--wml-well);
+}
+
+.wml-media--hero {
+  margin-bottom: 18px;
+  border: 1px solid var(--border-soft);
+}
+
+.wml-media img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.wml-ph {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  text-align: center;
+  border: 1.5px dashed var(--border);
+  border-radius: 12px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--wml-accent) 8%, transparent), transparent 70%);
+}
+
+.wml-media--hero .wml-ph {
+  border: none;
+}
+
+.wml-ph-icon {
+  width: 32px;
+  height: 32px;
+  fill: none;
+  stroke: var(--text-dimmer);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.8;
+}
+
+.wml-ph-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dimmer);
+}
+
+.wml-ph-path {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-dimmer);
+  opacity: 0.7;
+  word-break: break-all;
+}
+
+/* ── kitchen analogy: rows joined by sketched arrows ──
+   Rows keep the WhyAmplificationLab layout (picture 2fr | text 3fr). The
+   gap between rows holds a hand-drawn SVG arrow centred under the picture
+   column; alternate arrows are mirrored so they swing left/right. */
+.wml-analogy {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+.wml-sketch {
+  position: relative;
+  height: 56px;
+}
+
+.wml-sketch svg {
+  position: absolute;
+  top: 0;
+  /* centre of the picture column: 2/5 of (width − 20px gap), halved */
+  left: calc((100% - 20px) * 0.2 - 40px);
+  width: 80px;
+  height: 56px;
+  overflow: visible;
+}
+
+.wml-sketch--flip svg {
+  transform: scaleX(-1);
+}
+
+.wml-sketch path {
+  fill: none;
+  stroke: var(--wml-accent);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* 120 > the path's real length (~75 units), so one dash covers it and
+   the offset hides it completely until it animates to 0. */
+.wml-sketch-line {
+  stroke-dasharray: 120;
+  stroke-dashoffset: 120;
+  animation: wml-draw 700ms var(--motion-ease-out) 200ms forwards;
+}
+
+.wml-sketch-head {
+  opacity: 0;
+  animation: wml-pop 200ms ease-out 800ms forwards;
+}
+
+@keyframes wml-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes wml-pop {
+  to {
+    opacity: 1;
+  }
+}
+
+.wml-hint {
+  margin: -6px 0 16px;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+/* Kitchen ↔ studio flip card. FlipCard supplies the surface (border,
+   radius, panel) and the corner flip icon; inside, the picture fills the
+   face edge to edge and a caption bar names the side shown. */
+.wml-kcard {
+  --flip-accent: var(--wml-accent);
+}
+
+.wml-kcard .wml-media {
+  flex: 1 1 auto;
+  min-height: 0;
+  border-radius: 0;
+}
+
+.wml-kcard .wml-ph {
+  border: none;
+  border-bottom: 1.5px dashed var(--border);
+  border-radius: 0;
+}
+
+.wml-kcard-cap {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.wml-kcard-kicker {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dimmer);
+}
+
+.wml-kcard-name {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wml-kcard-cap--studio .wml-kcard-kicker,
+.wml-kcard-cap--studio .wml-kcard-name {
+  color: var(--wml-accent);
+}
+
+.wml-analogy-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 20px;
+  align-items: center;
+}
+
+.wml-pair {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.wml-pair-arrow {
+  color: var(--text-dimmer);
+}
+
+.wml-pair-mixer {
+  color: var(--wml-accent);
+}
+
+.wml-analogy-body {
+  margin: 0;
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wml-sketch-line,
+  .wml-sketch-head {
+    animation: none;
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+@media (max-width: 600px) {
+  .wml-analogy-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .wml-sketch svg {
+    left: calc(50% - 40px);
+  }
+}

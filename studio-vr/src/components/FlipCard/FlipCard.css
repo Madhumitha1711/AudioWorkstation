@@ -1,18 +1,32 @@
-/* FlipCard — global. The flip is a rotateY on .ui-flip__inner with a gentle
-   back-out curve (~3° overshoot that settles) while the card lifts a few px
-   and drops back — a physical card being turned over, not a 2D swap.
+/* FlipCard — global. The flip is a rotateY on .ui-flip__inner on a smooth
+   ease-in-out (no overshoot) while the card lifts a few px and drops back —
+   a physical card being turned over, not a 2D swap.
+
+   Why no overshoot / back-out curve: the old cubic-bezier(0.3, 1.12, 0.5, 1)
+   front-loaded the turn (105° in the first 140ms of 700ms), overshot, then
+   crept for ~300ms; with the hover tilt re-applying at the end, the card
+   looked like it hung there, slightly bigger, before letting go. Now the
+   rotation uses the whole duration and lands flat: after a click the hover
+   tilt is off (.no-tilt) until the pointer leaves the card.
    Both faces sit in the same grid cell, so height = the taller face.
    Under prefers-reduced-motion the turn becomes a short crossfade.
 
    Size-relative perspective: a fixed `perspective: 1400px` magnifies the
    near edge mid-turn by d / (d − w/2), so a wide card ballooned to ~1.5×
    (a 900px card) while a narrow one barely grew. Instead .ui-flip is an
-   inline-size container and the inner uses perspective(450cqw) — depth
+   inline-size container and the inner uses perspective(1200cqw) — depth
    scales with the card's own width, so every card peaks at the same
-   ~1.12× no matter how wide it is. 2000px fallback without cq units.
+   ~1.04× (12 / 11.5) no matter how wide it is. That's enough depth to read
+   as a real 3D turn without the card swelling past its neighbours or the
+   page's overflow clip. (The old 450cqw default peaked at ~1.12×, which
+   made cards look like they jumped out at you; several labs had patched
+   it locally with 900cqw — those overrides are gone now.) 6000px fallback
+   without cq units (~1.08× on a 900px card, less on smaller ones).
 
    Performance: only `transform` and `opacity` animate (compositor-only).
-   No backdrop-filter, no scale in the lift, no permanent will-change.
+   No backdrop-filter, no scale in the lift, no permanent will-change —
+   will-change is set only on hover (so the layer is already promoted when
+   the click lands, avoiding a first-frame hitch) and while .is-turning.
 
    No layers behind the faces: the hover shadow lives on the faces
    themselves so it turns with the card. (It used to be a ::before on
@@ -24,9 +38,9 @@
   --flip-bg: var(--panel, var(--shell-panel));
   --flip-border: var(--border-soft, var(--border));
   --flip-accent: var(--brand-accent, var(--accent));
-  --flip-duration: 700ms;
-  --flip-ease: cubic-bezier(0.3, 1.12, 0.5, 1);
-  --flip-depth: 2000px;
+  --flip-duration: 600ms;
+  --flip-ease: cubic-bezier(0.45, 0, 0.2, 1);
+  --flip-depth: 6000px;
 
   position: relative;
   display: block;
@@ -39,7 +53,7 @@
 
 @supports (width: 1cqw) {
   .ui-flip {
-    --flip-depth: 450cqw;
+    --flip-depth: 1200cqw;
   }
 }
 
@@ -77,32 +91,45 @@
   transform: rotateY(180deg);
 }
 
+/* Layer promotion: only while it can matter (hover → about to turn, or
+   mid-turn), never permanently. */
+.ui-flip.is-turning .ui-flip__inner {
+  will-change: transform;
+}
+@media (hover: hover) {
+  .ui-flip:hover .ui-flip__inner {
+    will-change: transform;
+  }
+}
+
 /* Mid-turn lift: the card rises a few px and settles (translate only — a
    scale here stacks on the perspective growth). JSX sets data-turn="a"/"b"
    alternately on each flip (absent before the first, so nothing animates
    on mount); two identical keyframes so swapping the name restarts it. */
 .ui-flip[data-turn="a"] {
-  animation: ui-flip-lift-a var(--flip-duration) var(--motion-ease-out, ease-out);
+  animation: ui-flip-lift-a var(--flip-duration) ease-in-out;
 }
 .ui-flip[data-turn="b"] {
-  animation: ui-flip-lift-b var(--flip-duration) var(--motion-ease-out, ease-out);
+  animation: ui-flip-lift-b var(--flip-duration) ease-in-out;
 }
 
+/* Peak at 50% — the edge-on moment of the ease-in-out turn. */
 @keyframes ui-flip-lift-a {
   0%, 100% { transform: translateY(0); }
-  40%      { transform: translateY(-4px); }
+  50%      { transform: translateY(-4px); }
 }
 @keyframes ui-flip-lift-b {
   0%, 100% { transform: translateY(0); }
-  40%      { transform: translateY(-4px); }
+  50%      { transform: translateY(-4px); }
 }
 
-/* Hover: a slight tilt hints that the card turns. */
+/* Hover: a slight tilt hints that the card turns — but not right after a
+   click (.no-tilt, cleared on pointerleave), so the turn lands flat. */
 @media (hover: hover) {
-  .ui-flip:hover .ui-flip__inner {
+  .ui-flip:not(.no-tilt):hover .ui-flip__inner {
     transform: perspective(var(--flip-depth)) rotateY(-4deg);
   }
-  .ui-flip.is-flipped:hover .ui-flip__inner {
+  .ui-flip.is-flipped:not(.no-tilt):hover .ui-flip__inner {
     transform: perspective(var(--flip-depth)) rotateY(184deg);
   }
   .ui-flip:hover .ui-flip__face {
@@ -156,8 +183,8 @@
   }
   .ui-flip__inner,
   .ui-flip.is-flipped .ui-flip__inner,
-  .ui-flip:hover .ui-flip__inner,
-  .ui-flip.is-flipped:hover .ui-flip__inner {
+  .ui-flip:not(.no-tilt):hover .ui-flip__inner,
+  .ui-flip.is-flipped:not(.no-tilt):hover .ui-flip__inner {
     transform: none;
     transition: none;
   }

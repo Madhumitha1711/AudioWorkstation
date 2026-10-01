@@ -3,12 +3,12 @@
 // once in src/index.css :root) and builds `ctx.font` strings from them.
 // Never hard-code a family name in a ctx.font string — use canvasFont().
 //
-//   ctx.font = canvasFont(10, { mono: true });          // "400 10px 'JetBrains Mono', …"
+//   ctx.font = canvasFont(10, { mono: true });          // "400 10px 'Space Grotesk', …"
 //   ctx.font = canvasFont(40, { weight: 600, mono: true });
 
 const FALLBACK = {
   sans: "Inter, system-ui, sans-serif",
-  mono: "'JetBrains Mono', ui-monospace, monospace",
+  mono: "'Space Grotesk', 'Inter', system-ui, sans-serif",
 };
 const cache = {};
 
