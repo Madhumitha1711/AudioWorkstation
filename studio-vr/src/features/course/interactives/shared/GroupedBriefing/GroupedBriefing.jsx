@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Tabs, TabPanel, TabPager, useTabTransition } from "../../../../../components/Tabs";
 import { KeyPoints } from "../../../../../components/KeyPoints";
-import "../../shared/labs.css";
-import "./wiringBriefing.css";
+import "../labs.css";
+import "./groupedBriefing.css";
 
-// Three-level briefing used by the Ch.8 wiring labs (ConnectorsLab,
-// CablesLab). Same layout and motion as Foundations' StudioComponentsLab:
+// Three-level grouped briefing — Ch.8's ConnectorsLab + CablesLab.
+// (Originally wiring/shared/WiringBriefing; kept in interactives/shared/ so
+// other chapters can use it — CSS classes keep their `wbl-` prefix.)
+// Same layout and motion as Foundations' StudioComponentsLab:
 //
 //   row 1  family labels (Analog / Digital …) over the category tabs
 //   row 2  segmented item tabs for the active category (icon + name)
@@ -46,7 +48,7 @@ function Icon({ icons, id, className }) {
   );
 }
 
-function WiringBriefing({ sections, icons, imagePath, idPrefix, ariaLabel, onInteract }) {
+function GroupedBriefing({ sections, icons, imagePath, idPrefix, ariaLabel, onInteract }) {
   const [all] = useState(() => sections.flatMap((section) => section.items.map((item) => ({ ...item, section }))));
   const [families] = useState(() =>
     sections.reduce((acc, s) => {
@@ -210,4 +212,4 @@ function WiringBriefing({ sections, icons, imagePath, idPrefix, ariaLabel, onInt
   );
 }
 
-export default WiringBriefing;
+export default GroupedBriefing;

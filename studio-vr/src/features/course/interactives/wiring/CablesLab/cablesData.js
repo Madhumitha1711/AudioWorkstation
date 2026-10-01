@@ -1,5 +1,5 @@
 // Content for "cables-lab" (Ch.8 "Connectors, Cables, and Studio Wiring").
-// Shape consumed by ../shared/WiringBriefing — families (row-1 labels) →
+// Shape consumed by ../../shared/GroupedBriefing — families (row-1 labels) →
 // categories (row-1 tabs) → cables (row-2 tabs) → detail panel.
 // `points` are the short takeaways shown in the global KeyPoints list.
 

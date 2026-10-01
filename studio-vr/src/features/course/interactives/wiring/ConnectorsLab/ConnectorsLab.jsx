@@ -1,12 +1,12 @@
-import WiringBriefing from "../shared/WiringBriefing";
+import GroupedBriefing from "../../shared/GroupedBriefing";
 import { ICONS, SECTIONS, connectorImagePath } from "./connectorsData";
 
 // "Connectors" briefing for Ch.8 — Analog (Mic & Line / Patching & Multicore /
 // Speaker) and Digital & Data (Digital Audio / Control & Computer), 14
-// connectors in all. Layout lives in ../shared/WiringBriefing.
+// connectors in all. Layout lives in ../../shared/GroupedBriefing.
 function ConnectorsLab({ onInteract }) {
   return (
-    <WiringBriefing
+    <GroupedBriefing
       sections={SECTIONS}
       icons={ICONS}
       imagePath={connectorImagePath}

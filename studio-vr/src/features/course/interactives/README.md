@@ -12,6 +12,11 @@ interactives/
     useLabAudio.js       #   per-lab AudioContext lifecycle hook
     useClipAudio.js      #   recorded-clip playback (one <audio> per clip, A/B at
                          #   the same position, "coming soon" when a file is missing)
+    GroupedBriefing/     #   family labels over category tabs → item tabs → image +
+                         #   description + key points, prev/next pager (data-driven;
+                         #   StudioComponentsLab layout) — Ch.8 ConnectorsLab + CablesLab
+    BriefingTabs/        #   image-over-description tabs + facts + key points + pager —
+                         #   StudioRoomsLab, StudioTypesLab
     ListenTabs/          #   ListenTabs (standard tabs; image | Listen card, text
                          #   below) + ClipPlayer — acoustics labs, MicTypeLab,
                          #   MicPolarPatternLab
@@ -21,8 +26,7 @@ interactives/
                          #   area tabs → component tabs → detail (16 components)
     StudioRoomsLab/      #   studio-rooms-lab: Recording Room / Control Room, tabbed (Ch.2)
     StudioTypesLab/      #   studio-types-lab: 6 studio types, tabbed (Ch.3)
-    shared/              #   BriefingTabs (+ briefingTabs.css): image-over-description
-                         #   tabbed layout used by StudioRoomsLab + StudioTypesLab
+                         #   (StudioRoomsLab + StudioTypesLab layout: ../shared/BriefingTabs)
   listening/             # Ch.4 "Listening Skills, Hearing Health, and Critical Listening"
     CriticalListeningLab/ #  critical-listening-lab: "Spot the problem" ear training —
                          #   Beginner (1 problem) / Intermediate / Pro (several) tabs,
@@ -37,9 +41,7 @@ interactives/
                          #   player side by side, description below
                          #   Recordings: public/audio/{studio-acoustics,room-treatment}/<id>.wav
   wiring/                # Ch.8 "Connectors, Cables, and Studio Wiring"
-    shared/              #   WiringBriefing (+ wiringBriefing.css): family labels over
-                         #   category tabs → item tabs → image + description + key points,
-                         #   prev/next pager (StudioComponentsLab layout, data-driven)
+                         #   (layout: ../shared/GroupedBriefing)
     ConnectorsLab/       #   connectors-lab: 14 connectors — Analog (Mic & Line, Patching
                          #   & Multicore, Speaker) / Digital & Data (Digital Audio,
                          #   Control & Computer). Photos: public/connectors/<id>.jpg
@@ -55,9 +57,19 @@ interactives/
     MicTypeLab/ MicPolarPatternLab/
     MicSelectionLab/     #   mic-selection-lab: "Pick the mic for the job" — 4 questions ->
                          #   scored pick + why / why not (micSelectionData.js)
-    MicPlacementLab/     #   embed frame + MikingRoom/ (3D room, three.js)
   mic-techniques/        # Ch.7 "Microphone Techniques and Stereo Recording"
-    MicTechniqueLab/     #   embed frame + MicTechniqueRoom/ (3D room, three.js)
+    shared/MicLab/       #   shared by the two guide labs below: MicStage3D (three.js 3D room
+                         #   + public/3D assets/ models, driven by a `view` prop; floor
+                         #   hotspots), MicLabControls (Choices with fit dots, Toggles,
+                         #   Slider, Note), micLab.css (tokens, layout), micLabData.js
+                         #   (sources, stereo pairs, ensembles, layers, spot targets)
+    MicTechniqueGuideLab/ #  mic-technique-guide-lab: refresher — Mono / Stereo / Ensemble,
+                         #   one choice per tab, mic fixed at the standard position.
+                         #   Recordings: public/audio/mic-techniques/<clipId>.wav
+    MicPlacementGuideLab/ #  mic-placement-guide-lab: interactive 3D placement — Close /
+                         #   Spot / Distant-Room (floor hotspots), Stereo (XY, ORTF, AB, MS,
+                         #   Blumlein, Overheads, Decca Tree, Outriggers), Multi Miking
+                         #   (snare, kick, amp). Recordings: public/audio/mic-placement/<clipId>.wav
   daw/
     DawCompingLab/       # not yet registered in registry.js
 ```
@@ -68,8 +80,7 @@ interactives/
   that re-exports the default. Import a lab by its folder
   (`./sound/FrequencyLab`), never by its inner file.
 - A lab's private pieces (its CSS, sub-components, 3D scenes, data) live
-  **inside that lab's folder**. MikingRoom and MicTechniqueRoom are nested
-  under the lab that frames them for this reason.
+  **inside that lab's folder**.
 - Code shared by several labs in **one chapter** goes in
   `<chapter>/shared/`. Code shared **across chapters** goes in
   `interactives/shared/`.

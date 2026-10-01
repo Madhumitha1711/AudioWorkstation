@@ -97,7 +97,7 @@
    values below; phones (≤600px) get the smaller set in the media query,
    so every screen that uses the tokens shrinks together and one edit here
    retunes the whole app. Converted so far: the course page, its section /
-   quiz / video / lab-dialog components, shared lab CSS and the Foundations
+   quiz / video components, shared lab CSS and the Foundations
    labs. Other features still use literal px — move them over as they're
    touched.
      3xs  9 → 9     tiny tags, badges

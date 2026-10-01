@@ -1,0 +1,301 @@
+/* Shared styles for the Ch.7 mic labs (MicTechniqueGuideLab,
+   MicPlacementGuideLab): colour tokens, the panel layout (3D stage |
+   card), the 3D stage's overlay chrome, and the card controls in
+   MicLabControls.jsx. Card, chips, description and player come from shared
+   ListenTabs/listenTabs.css (.ltb-*); tabs are the app-wide standard.
+
+   Tokens live on .mic-lab (each lab's root). MicStage3D reads them from
+   its own element, so they're inherited — the room's background, floor,
+   grid and walls are mixed from the course theme (--bg / --text, which
+   flip with light/dark) and tinted with the brand palette's primary; the
+   light block only deepens hues for contrast. Layer / pair colours are
+   shared between the 3D mics and the card toggles so they always match. */
+
+.mic-lab {
+  --ml-screen-bg: color-mix(in srgb, var(--bg, #050507) 94%, var(--text, #fff) 6%);
+  --ml-floor: color-mix(in srgb, color-mix(in srgb, var(--bg, #050507) 86%, var(--text, #fff) 14%) 90%, var(--brand-accent, #5fd9a0));
+  --ml-grid: color-mix(in srgb, var(--bg, #050507) 55%, var(--brand-accent, #5fd9a0));
+  --ml-wall: var(--text, #fff);
+  --ml-label: #c9c6cf;
+  --ml-label-bg: rgba(14, 14, 17, 0.72);
+  --ml-src: #c9c6cf;
+  --ml-lobe: #54d6e0;
+  --ml-lobe-b: #e8934a;
+  --ml-c-close: #e8934a;
+  --ml-c-main: #54d6e0;
+  --ml-c-spots: #a78bfa;
+  --ml-c-room: #6fa8e0;
+  --ml-good: #5fd9a0;
+}
+:root[data-theme='light'] .mic-lab {
+  --ml-label: #2c3029;
+  --ml-label-bg: rgba(247, 248, 244, 0.85);
+  --ml-src: #6d7266;
+  --ml-lobe: #0b7c86;
+  --ml-lobe-b: #c4691c;
+  --ml-c-close: #c4691c;
+  --ml-c-main: #0b7c86;
+  --ml-c-spots: #6d4fd6;
+  --ml-c-room: #2f72b8;
+  --ml-good: #1f9a67;
+}
+
+/* ---------- panel layout: 3D stage | card ---------- */
+.ml-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 1fr);
+  gap: 20px;
+  align-items: stretch;
+}
+
+/* ---------- 3D stage ---------- */
+.ml-stage {
+  position: relative;
+  min-width: 0;
+  min-height: 380px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--ml-screen-bg);
+  border: 1px solid var(--border-soft);
+}
+.ml-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  touch-action: pan-y;
+}
+.ml-canvas.is-dragging {
+  cursor: grabbing;
+}
+.ml-stage-hint,
+.ml-stage-loading,
+.ml-stage-reset {
+  position: absolute;
+  font-size: var(--fs-sm);
+  border-radius: 999px;
+  padding: 5px 11px;
+  background: var(--ml-label-bg);
+  color: var(--ml-label);
+  border: 1px solid var(--border-soft);
+}
+.ml-stage-hint {
+  left: 12px;
+  bottom: 12px;
+  pointer-events: none;
+  transition: opacity var(--motion-medium, 260ms) ease;
+}
+.ml-stage-hint.is-faded {
+  opacity: 0;
+}
+.ml-stage-loading {
+  left: 12px;
+  top: 12px;
+}
+.ml-stage-reset {
+  right: 12px;
+  bottom: 12px;
+  cursor: pointer;
+}
+.ml-stage-reset:hover {
+  color: var(--text);
+  border-color: var(--brand-accent);
+}
+.ml-stage-msg {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: var(--fs-base);
+  color: var(--text-dimmer);
+}
+
+/* ---------- card controls ---------- */
+.mic-lab .ml-cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.mic-lab .ml-cols-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.mic-lab .ltb-choices.has-legend {
+  margin-bottom: 8px;
+}
+.mic-lab .ltb-choice {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-inline: 8px;
+}
+
+.ml-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--text-dimmer);
+}
+.ml-dot.tier-best {
+  background: var(--ml-good);
+}
+.ml-dot.tier-good {
+  background: var(--ml-c-main);
+}
+.ml-dot.tier-ok {
+  background: var(--warning, #e8b04a);
+}
+.ml-dot.tier-poor {
+  background: var(--danger-soft, #e65a5a);
+}
+.ml-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0 0 16px;
+  font-size: var(--fs-xs);
+  color: var(--text-dimmer);
+}
+.ml-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.mic-lab .ml-note {
+  margin: -6px 0 16px;
+  line-height: 1.55;
+}
+.ml-note b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.ml-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: -4px 0 16px;
+  font-size: var(--fs-md);
+  color: var(--text-dim);
+}
+.ml-slider b {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--text);
+}
+.ml-slider input {
+  width: 100%;
+  accent-color: var(--brand-accent);
+}
+
+/* on/off toggles — tone = layer / mic colour, same as the 3D mics */
+.ml-tone--close {
+  --ml-c: var(--ml-c-close);
+}
+.ml-tone--main {
+  --ml-c: var(--ml-c-main);
+}
+.ml-tone--spots {
+  --ml-c: var(--ml-c-spots);
+}
+.ml-tone--room {
+  --ml-c: var(--ml-c-room);
+}
+.ml-tone--a {
+  --ml-c: var(--ml-lobe);
+}
+.ml-tone--b {
+  --ml-c: var(--ml-lobe-b);
+}
+.ml-toggles {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.ml-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--motion-fast, 180ms) ease,
+    background var(--motion-fast, 180ms) ease;
+}
+.ml-toggle:hover:not(.is-on) {
+  border-color: var(--text-dimmer);
+}
+.ml-toggle.is-on {
+  border-color: color-mix(in srgb, var(--ml-c) 60%, transparent);
+  background: color-mix(in srgb, var(--ml-c) 10%, transparent);
+}
+.ml-toggle-sw {
+  width: 28px;
+  height: 16px;
+  flex: none;
+  border-radius: 8px;
+  background: var(--border);
+  position: relative;
+  transition: background var(--motion-fast, 180ms) ease;
+}
+.ml-toggle-sw::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  transition: transform var(--motion-fast, 180ms) var(--motion-ease-out, ease);
+}
+.ml-toggle.is-on .ml-toggle-sw {
+  background: var(--ml-c);
+}
+.ml-toggle.is-on .ml-toggle-sw::after {
+  transform: translateX(12px);
+  background: #fff;
+}
+.ml-toggle-txt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ml-toggle-txt b {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--text);
+}
+.ml-toggle-txt small {
+  font-size: var(--fs-sm);
+  color: var(--text-dimmer);
+}
+
+@media (max-width: 760px) {
+  .ml-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  .ml-stage {
+    min-height: 0;
+    aspect-ratio: 4 / 3;
+  }
+}
+@media (max-width: 600px) {
+  .mic-lab .ml-cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mic-lab *,
+  .mic-lab *::after {
+    transition: none !important;
+  }
+}

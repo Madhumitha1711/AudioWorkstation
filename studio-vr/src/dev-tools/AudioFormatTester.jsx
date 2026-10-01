@@ -126,9 +126,8 @@ function parseWav(dv) {
     channels: fmt.channels,
     bitDepth: isPcm ? fmt.validBits : fmt.bits,
     bitDepthLabel: isPcm
-      ? `${fmt.validBits}-bit ${isFloat ? "float" : "integer"}${
-          fmt.validBits !== fmt.bits ? ` (in ${fmt.bits}-bit container)` : ""
-        }`
+      ? `${fmt.validBits}-bit ${isFloat ? "float" : "integer"}${fmt.validBits !== fmt.bits ? ` (in ${fmt.bits}-bit container)` : ""
+      }`
       : `${fmt.bits}-bit ${codec}`,
     isFloat,
     lossless: true,
@@ -430,6 +429,13 @@ function AudioFormatTester() {
     const src = ctx.createBufferSource();
     src.buffer = buffer;
     src.connect(ctx.destination);
+
+    // block below and set TRIM_DB (negative = quieter, e.g. -3, -6).
+    // const TRIM_DB = -3;
+    // const trim = ctx.createGain();
+    // trim.gain.value = Math.pow(10, TRIM_DB / 20); // dB -> linear
+    // src.connect(trim);
+    // trim.connect(ctx.destination);
     const start = Math.min(Math.max(from, 0), buffer.duration);
     src.start(0, start);
     src.onended = () => {

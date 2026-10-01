@@ -144,11 +144,9 @@ export const TOPICS = [
     // subchapters already exist (see InteractiveSection.jsx's
     // "mic-type-lab" / "mic-polar-pattern-lab" / "mic-selection-lab",
     // ported from design/mic-types-chapter.html — "mic-selection-lab" is
-    // the "Pick the mic for the job" lab from design/mic-selection-lab.html),
-    // and its Placement subchapter now has one too
-    // — "mic-placement-lab", MikingRoom's 3D room (see src/features/course/
-    // MikingRoom and MicPlacementLab.jsx) — this topic stays
-    // `ready: false` until its lessons/blocks are authored in studio-cms,
+    // the "Pick the mic for the job" lab from design/mic-selection-lab.html).
+    // Mic placement is covered by Ch.7's "mic-placement-guide-lab". This
+    // topic stays `ready: false` until its lessons/blocks are authored in studio-cms,
     // same as the "What Is Sound?" chapter above.
     ready: false,
   },
@@ -161,10 +159,12 @@ export const TOPICS = [
     title: "Microphone Techniques and Stereo Recording",
     intro:
       "The same mic in a different spot is a different instrument — technique and placement do as much work as the microphone itself, especially once you're capturing in stereo.",
-    // This chapter's interactive lab already exists — see
-    // InteractiveSection.jsx's "mic-technique-lab" (src/features/course/
-    // MicTechniqueRoom), MikingRoom's sibling 3D room covering Close/Spot/
-    // Distant-Room/Stereo/Multi Miking — this topic stays `ready: false`
+    // This chapter's two labs (referenced from their lessons' interactive
+    // Section blocks in studio-cms), both with an embedded 3D room:
+    // "mic-technique-guide-lab" (a Mono / Stereo / Ensemble refresher) and
+    // "mic-placement-guide-lab" (interactive 3D placement: Close / Spot /
+    // Distant-Room / Stereo / Multi Miking), both in
+    // interactives/mic-techniques/ — this topic stays `ready: false`
     // until its lessons/blocks are authored in
     // studio-cms, same as chapter 6's mic-stand topic above.
     ready: false,
@@ -626,45 +626,25 @@ export const TOPICS = [
   },
 ];
 
-// Kinds of interactive activity that get different treatment than a
-// normal `topic.interactive` step: instead of getting their own entry in
-// the sidebar (see buildStepList below and InteractiveSection.jsx), a
-// chapter whose `interactive.kind` is one of these gets a button at the
-// top of its content instead — shown regardless of which lesson/step
-// within the chapter is active — that opens the same lab full-panel, in a
-// dialog over the entire course page (topbar + sidebar + content — see
-// LabButtonDialog.jsx and CoursePage.jsx's `labButton`).
-//
-// Both are the big 3D-room labs (MikingRoom/MicTechniqueRoom, behind
-// MicPlacementLab.jsx/MicTechniqueLab.jsx) — they want more space than a
-// lesson's normal flow, or even a full standalone Lab step, gives them.
-//
-// Matched by `kind` rather than by topic id/slug: which chapter a lab is
-// attached to is authored in studio-cms and can drift from this file's own
-// legacy TOPICS entries above (e.g. the "Microphones" chapter actually
-// live in studio-cms doesn't necessarily share chapter 6's "mic-stand" id
-// here, or its "capture-signal-path" module — content editors are free to
-// re-slug/re-group a chapter without this file knowing). Keying off the
-// lab's own `kind` instead means this keeps working no matter which
-// chapter/module a lab ends up attached to in the CMS.
-export const CHAPTER_LEVEL_LAB_KINDS = new Set(["mic-placement-lab", "mic-technique-lab"]);
-
 // Flattens every ready topic's lessons + assessment + interactive step into
 // one ordered list so the course can support linear "Previous / Next"
 // navigation across the whole curriculum, not just within a topic.
-export function buildStepList(topics) {
+//
+// `hasLab(kind)` (optional) says whether a lab is actually registered for a
+// chapter-level `interactive.kind`. A chapter whose CMS `interactive` field
+// still names a lab that no longer exists (e.g. the old "3D Recording
+// Space" mic rooms, kinds "mic-placement-lab" / "mic-technique-lab") would
+// otherwise become an empty sidebar step, so it's skipped. CoursePage
+// passes it in from the lab registry — kept out of this file so the tour,
+// which also imports courseData, doesn't pull in every lab's code.
+export function buildStepList(topics, hasLab = () => true) {
   const steps = [];
   topics.forEach((topic) => {
     if (!topic.ready) return;
     topic.lessons.forEach((lesson) => {
       steps.push({ kind: "lesson", topicId: topic.id, id: lesson.id, data: lesson });
     });
-    // A chapter-level lab (see CHAPTER_LEVEL_LAB_KINDS above) is rendered
-    // as a top-of-chapter button + dialog instead — CoursePage.jsx reads
-    // it straight off `topic.interactive`, so it's deliberately left out
-    // of the step list here rather than also appearing as its own
-    // sidebar step.
-    if (topic.interactive && !CHAPTER_LEVEL_LAB_KINDS.has(topic.interactive.kind)) {
+    if (topic.interactive && hasLab(topic.interactive.kind)) {
       steps.push({
         kind: "interactive",
         topicId: topic.id,

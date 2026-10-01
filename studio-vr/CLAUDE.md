@@ -93,7 +93,7 @@ src/
     course/                 # CoursePage + course content
       data/                   # courseData.js (TOPICS), useCourseTopics.js
       components/             # generic course UI: AssessmentSection, SectionBlocks,
-                              # VideoPlayer, InteractiveSection, LabButtonDialog
+                              # VideoPlayer, InteractiveSection
       interactives/           # every course lab, by chapter — see its README.md
     tour/                   # the 360° studio tour
       PanoramaTour.jsx        # photo-sphere-viewer setup, hotspot markers, room nav
@@ -263,8 +263,8 @@ import { Tabs, TabPanel } from "../../components/Tabs";
   `--tabs-font-size`, `--tabs-letter-spacing`, `--tabs-transform`. Don't
   restyle `.ui-tabs__*` rules or add your own tab transitions.
 - Accessibility is built in (roving tabindex, ←/→/Home/End, aria wiring via
-  `idPrefix`). Current users: Foundations `BriefingTabs` (StudioRoomsLab,
-  StudioTypesLab), CriticalListeningLab, HearingAgeLab, all tour
+  `idPrefix`). Current users: `BriefingTabs` (StudioRoomsLab,
+  StudioTypesLab), MicTechniqueGuideLab, MicPlacementGuideLab, CriticalListeningLab, HearingAgeLab, all tour
   hotspot-labs, DAW Arrange/Mixer + dock scope, Equalizer mode, Discussion
   channels.
 
@@ -284,7 +284,7 @@ system — use them instead of hand-rolled lists or pagers:
   tabs use, so audio stops / visited marks / onInteract behave identically.
 
 Both are already built into `ListenTabs`, `BriefingTabs`,
-`StudioComponentsLab` and `WiringBriefing` — a lab using those only needs
+`StudioComponentsLab` and `GroupedBriefing` — a lab using those only needs
 `points: []` on each item.
 
 ## Conventions

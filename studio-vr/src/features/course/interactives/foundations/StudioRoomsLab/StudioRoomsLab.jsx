@@ -1,4 +1,4 @@
-import BriefingTabs from "../shared/BriefingTabs";
+import BriefingTabs from "../../shared/BriefingTabs";
 import { STUDIO_ROOMS, studioRoomImagePath } from "./studioRoomsData";
 
 const ITEMS = STUDIO_ROOMS.map((r) => ({ ...r, image: studioRoomImagePath(r.id) }));

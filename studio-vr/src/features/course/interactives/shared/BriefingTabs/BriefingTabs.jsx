@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Tabs, TabPanel, TabPager } from "../../../../../components/Tabs";
 import { KeyPoints } from "../../../../../components/KeyPoints";
-import "../../shared/labs.css";
+import "../labs.css";
 import "./briefingTabs.css";
+
+// Single-row image-over-description tabs: tab bar → image → title / lead /
+// labelled facts → KeyPoints → Prev/Next pager. Shared across chapters —
+// Foundations' StudioRoomsLab + StudioTypesLab. (Moved here from
+// foundations/shared/ so other chapters can use it.) Items: [{ id, tab, title, lead?, image?, facts?:
+// [{ label, text }], points? }].
 
 function BriefingTabs({ items, ariaLabel, idPrefix, onInteract, className = "" }) {
   const [active, setActive] = useState(items[0].id);

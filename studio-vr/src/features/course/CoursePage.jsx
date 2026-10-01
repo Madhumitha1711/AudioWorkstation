@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { buildStepList, firstStepIdForTopic, CHAPTER_LEVEL_LAB_KINDS } from "./data/courseData";
+import { buildStepList, firstStepIdForTopic } from "./data/courseData";
 import { useCourseTopics } from "./data/useCourseTopics";
 import AssessmentSection from "./components/AssessmentSection";
 import InteractiveSection from "./components/InteractiveSection";
+import { LABS } from "./interactives/registry";
 import SectionBlocks from "./components/SectionBlocks";
-import LabButtonDialog from "./components/LabButtonDialog";
 import { ROOMS } from "../tour/data/roomsData";
 import "./CoursePage.css";
 
@@ -55,7 +55,9 @@ function CoursePage() {
   // the initial active step can't be computed at mount the way they used
   // to be. This derives STEPS whenever topics load/change, and the effect
   // below picks an initial step the first time real topics show up.
-  const STEPS = useMemo(() => (topics ? buildStepList(topics) : []), [topics]);
+  // Only chapter labs that are actually registered become steps — a CMS
+  // chapter still pointing at a removed lab kind is skipped (see buildStepList).
+  const STEPS = useMemo(() => (topics ? buildStepList(topics, (kind) => Boolean(LABS[kind])) : []), [topics]);
 
   // Sidebar module groups (Foundations, Monitoring, ...) used to come from
   // a hardcoded MODULES import in courseData.js. They now come from each
@@ -92,7 +94,6 @@ function CoursePage() {
   const [openModules, setOpenModules] = useState(() => new Set());
   const [activeStepId, setActiveStepId] = useState(null);
   const [completed, setCompleted] = useState(() => new Set());
-  const [labDialogOpen, setLabDialogOpen] = useState(false);
   // Whether the course-outline sidebar is collapsed to a slim rail — lets
   // a student reclaim the width for wide interactive labs/panorama panels
   // without losing their place (toggling back out doesn't disturb
@@ -144,26 +145,6 @@ function CoursePage() {
   const activeIndex = STEPS.findIndex((s) => s.id === activeStepId);
   const activeStep = STEPS[activeIndex] ?? STEPS[0];
   const activeTopic = (topics ?? []).find((t) => t.id === activeStep?.topicId);
-
-  // Chapter-level lab (see courseData.js's CHAPTER_LEVEL_LAB_KINDS) — read
-  // straight off whatever `topic.interactive` studio-backend/studio-cms
-  // actually sent for the active chapter, the same object a normal Lab
-  // step would otherwise be built from (see buildStepList), just matched
-  // by its `kind` instead of being keyed to a particular chapter id. Not a
-  // step itself (buildStepList leaves it out on purpose), so it never
-  // shows up in STEPS/the sidebar — CoursePage renders it directly, below.
-  const labButton =
-    activeTopic?.interactive && CHAPTER_LEVEL_LAB_KINDS.has(activeTopic.interactive.kind)
-      ? activeTopic.interactive
-      : undefined;
-
-  // A chapter's lab dialog shouldn't stay open across a topic switch —
-  // reset it the moment the active topic changes instead of leaving the
-  // next chapter's content behind a still-open dialog for the previous
-  // one's lab.
-  useEffect(() => {
-    setLabDialogOpen(false);
-  }, [activeTopic?.id]);
 
   const stepsInTopic = useMemo(
     () => STEPS.filter((s) => s.topicId === activeTopic?.id),
@@ -514,33 +495,7 @@ function CoursePage() {
                   </div>
                 </div>
               </div>
-              {/* Chapter-level lab (see courseData.js's
-                  CHAPTER_LEVEL_LAB_KINDS) — sits inline with the chapter
-                  title, shown regardless of which lesson/step within the
-                  chapter is active, instead of getting its own entry in
-                  the sidebar's step list the way a topic.interactive step
-                  normally would (see InteractiveSection.jsx). Opens
-                  LabButtonDialog full-panel rather than swapping into
-                  .course-content the way every other step does. */}
-              <div className="topic-heading-row">
-                {/* title attribute backs up the ellipsis truncation
-                    above (CoursePage.css's .topic-heading) with a native
-                    tooltip, so a long chapter title is never fully
-                    unreadable just because the lab button needs to share
-                    its line. */}
-                <h1 className="topic-heading" title={activeTopic.title}>
-                  {activeTopic.title}
-                </h1>
-                {labButton && (
-                  <button
-                    type="button"
-                    className="btn-primary chapter-lab-btn"
-                    onClick={() => setLabDialogOpen(true)}
-                  >
-                    {labButton.title}
-                  </button>
-                )}
-              </div>
+              <h1 className="topic-heading">{activeTopic.title}</h1>
               {activeTopic.hotspotId && (
                 <div className="loc-chip anchored">
                   📍 Anchored —{" "}
@@ -598,14 +553,6 @@ function CoursePage() {
         </main>
       </div>
 
-      {labButton && (
-        <LabButtonDialog
-          open={labDialogOpen}
-          title={labButton.title}
-          kind={labButton.kind}
-          onClose={() => setLabDialogOpen(false)}
-        />
-      )}
     </div>
   );
 }

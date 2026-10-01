@@ -30,12 +30,10 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  /* LabButtonDialog.jsx's overlay is positioned absolute/inset:0 so it
-     covers this entire course panel (sidebar + content) rather
-     than the whole browser viewport (which would also cover the app
-     shell header rendered above this page — see App.jsx) — this is what
-     makes that overlay resolve against .svr-course instead of reaching
-     further up the DOM for a positioned ancestor. */
+  /* Positioning context for the course page's absolutely positioned
+     pieces (e.g. the mobile sidebar drawer), so they resolve against this
+     panel rather than the whole viewport (which would also cover the app
+     shell header rendered above this page — see App.jsx). */
   position: relative;
   /* .course-layout owns the scrolling (above 960px its two columns scroll
      independently via flex + min-height: 0; below it .course-main scrolls
@@ -512,21 +510,6 @@
     text-transform: uppercase;
     margin-bottom: 8px;
   }
-  /* Keeps the chapter-lab button (see .chapter-lab-btn) pinned to the
-     title's own line no matter how long that title runs — nowrap here,
-     .topic-heading below shrinking + ellipsizing instead of wrapping,
-     rather than flex-wrap pushing the button down to a second line the
-     way justify-content: space-between + wrap used to. Long titles still
-     get their full text back below 960px (see that media query), where
-     the sidebar/main columns have already stacked and there's vertical
-     room to spare. */
-  .topic-heading-row {
-    display: flex;
-    align-items: center;
-    flex-wrap: nowrap;
-    gap: 16px;
-    margin: 0 0 10px;
-  }
   .topic-heading {
     color: var(--text);
     font-size: var(--fs-4xl);
@@ -536,13 +519,8 @@
        text — with overflow: hidden (for the ellipsis) that clipped the
        descenders (p, y, g, commas). */
     line-height: 1.3;
-    margin: 0;
+    margin: 0 0 10px;
     letter-spacing: -0.01em;
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .loc-chip {
@@ -593,18 +571,6 @@
   .topic-progress-row .progress-track {
     width: 72px;
     height: 5px;
-  }
-
-  /* A touch smaller/tighter than the standard .btn-primary (e.g. "Back to
-     the studio") so it reads as a secondary-but-clear action sitting next
-     to a 30px heading rather than competing with it — and never shrinks
-     or wraps its own label, so it stays a stable, predictable width for
-     .topic-heading to ellipsize around. */
-  .chapter-lab-btn {
-    flex: 0 0 auto;
-    white-space: nowrap;
-    font-size: var(--fs-md);
-    padding: 10px 20px;
   }
 
   /* Shared duration/label pill — used by VideoPlayer's "coming soon"
@@ -838,19 +804,6 @@
     .drawer-trigger:focus-visible {
       outline: 2px solid var(--brand-accent, var(--accent));
       outline-offset: -2px;
-    }
-    /* Narrow enough that keeping the lab button glued to the title's line
-       would either truncate a long chapter title down to almost nothing
-       or crowd the button itself — there's already extra vertical room
-       here from the columns stacking above, so trade the single-line
-       layout for a wrapped one and give the title its full text back. */
-    .topic-heading-row {
-      flex-wrap: wrap;
-    }
-    .topic-heading {
-      white-space: normal;
-      overflow: visible;
-      text-overflow: clip;
     }
   }
 }

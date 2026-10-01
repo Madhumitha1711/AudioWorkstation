@@ -1,4 +1,4 @@
-import BriefingTabs from "../shared/BriefingTabs";
+import BriefingTabs from "../../shared/BriefingTabs";
 import "./StudioTypesLab.css";
 import { STUDIO_TYPES, studioTypeImagePath } from "./studioTypesData";
 

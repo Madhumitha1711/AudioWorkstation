@@ -19,8 +19,8 @@ import TimbreLab from "./sound/TimbreLab";
 import MicTypeLab from "./microphones/MicTypeLab";
 import MicPolarPatternLab from "./microphones/MicPolarPatternLab";
 import MicSelectionLab from "./microphones/MicSelectionLab";
-import MicPlacementLab from "./microphones/MicPlacementLab";
-import MicTechniqueLab from "./mic-techniques/MicTechniqueLab";
+import MicTechniqueGuideLab from "./mic-techniques/MicTechniqueGuideLab";
+import MicPlacementGuideLab from "./mic-techniques/MicPlacementGuideLab";
 import StudioComponentsLab from "./foundations/StudioComponentsLab";
 import StudioTypesLab from "./foundations/StudioTypesLab";
 import StudioRoomsLab from "./foundations/StudioRoomsLab";
@@ -43,8 +43,8 @@ export const LABS = {
   "mic-type-lab": MicTypeLab,
   "mic-polar-pattern-lab": MicPolarPatternLab,
   "mic-selection-lab": MicSelectionLab,
-  "mic-placement-lab": MicPlacementLab,
-  "mic-technique-lab": MicTechniqueLab,
+  "mic-technique-guide-lab": MicTechniqueGuideLab,
+  "mic-placement-guide-lab": MicPlacementGuideLab,
   "studio-components-lab": StudioComponentsLab,
   "studio-rooms-lab": StudioRoomsLab,
   "studio-types-lab": StudioTypesLab,
