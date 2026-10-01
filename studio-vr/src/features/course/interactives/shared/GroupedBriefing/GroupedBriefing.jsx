@@ -4,29 +4,27 @@ import { KeyPoints } from "../../../../../components/KeyPoints";
 import "../labs.css";
 import "./groupedBriefing.css";
 
-// Three-level grouped briefing — Ch.8's ConnectorsLab + CablesLab.
-// (Originally wiring/shared/WiringBriefing; kept in interactives/shared/ so
-// other chapters can use it — CSS classes keep their `wbl-` prefix.)
-// Same layout and motion as Foundations' StudioComponentsLab:
+// Grouped briefing — one lab = one group of categories. Used by Ch.2's
+// Control Room / Recording Room components labs, Ch.8's analog / digital
+// connector and cable labs, and Ch.10's MixerTypesLab.
 //
-//   row 1  family labels (Analog / Digital …) over the category tabs
+//   row 1  category tabs
 //   row 2  segmented item tabs for the active category (icon + name)
 //   row 3  image on top, title / lead / description / key points below
 //   row 4  prev / next pager that walks every item across all categories
 //
-// Everything is data-driven — a lab passes `sections` shaped like:
-//   [{ n, family, type, short?, tone, items: [{ id, name, lead, body[], points[] }] }]
-// (`short` is the category label shown instead of `type` on phones, where
-// five full labels don't fit one row.)
-// plus an ICONS map (24×24 stroke SVG bodies keyed by item id) and an
-// `imagePath(id)` for the photo. Until a photo exists in public/ the frame
-// shows the item's icon and the expected path, same as StudioComponentsLab.
+// There is deliberately no second header level (e.g. a "CONTROL ROOM /
+// RECORDING ROOM" or "ANALOG / DIGITAL" label row over the tabs): when
+// content splits into families like that, each family is its own lab
+// (its own `kind` in registry.js) that passes only its sections here.
 //
-// Unlike StudioComponentsLab (which assumes two rooms with two areas each),
-// families here can hold different numbers of categories, so the family
-// label row is laid out with fr units proportional to each family's
-// category count and the dividers are placed at the cumulative fractions —
-// that keeps each label centred over its own tabs.
+// Everything is data-driven — a lab passes `sections` shaped like:
+//   [{ n, type, short?, tone, items: [{ id, name, lead, body[], points[] }] }]
+// (`short` is the category label shown instead of `type` on phones.)
+// plus an ICONS map (24×24 stroke SVG bodies keyed by item id), an
+// `imagePath(id)` for the photo, and an optional `caption` (e.g. the room
+// name) appended to the photo caption. Until a photo exists in public/ the
+// frame shows the item's icon and the expected path.
 
 function renderRich(text) {
   return text.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 ? <strong key={i}>{part}</strong> : part));
@@ -48,16 +46,8 @@ function Icon({ icons, id, className }) {
   );
 }
 
-function GroupedBriefing({ sections, icons, imagePath, idPrefix, ariaLabel, onInteract }) {
+function GroupedBriefing({ sections, icons, imagePath, idPrefix, ariaLabel, caption, onInteract }) {
   const [all] = useState(() => sections.flatMap((section) => section.items.map((item) => ({ ...item, section }))));
-  const [families] = useState(() =>
-    sections.reduce((acc, s) => {
-      const last = acc[acc.length - 1];
-      if (last && last.name === s.family) last.ids.push(s.n);
-      else acc.push({ name: s.family, ids: [s.n] });
-      return acc;
-    }, []),
-  );
   const [selectedId, setSelectedId] = useState(all[0].id);
   const [viewed, setViewed] = useState(() => new Set([all[0].id]));
   const [loadedImgs, setLoadedImgs] = useState(() => new Set());
@@ -92,13 +82,7 @@ function GroupedBriefing({ sections, icons, imagePath, idPrefix, ariaLabel, onIn
     select((s.items.find((it) => !viewed.has(it.id)) || s.items[0]).id);
   }
 
-  const sectionTabs = sections.map((s) => ({ id: s.n, label: s.type, short: s.short, ariaLabel: `${s.family} — ${s.type}` }));
-  const total = sections.length;
-  const dividers = families.slice(0, -1).reduce((acc, f) => {
-    const prevCount = acc.length ? acc[acc.length - 1] : 0;
-    acc.push(prevCount + f.ids.length);
-    return acc;
-  }, []);
+  const sectionTabs = sections.map((s) => ({ id: s.n, label: s.type, short: s.short }));
 
   const imgSrc = imagePath(item.id);
   const imgLoaded = loadedImgs.has(item.id);
@@ -106,19 +90,8 @@ function GroupedBriefing({ sections, icons, imagePath, idPrefix, ariaLabel, onIn
 
   return (
     <div className="lab wbl">
-      {/* ---------- row 1: families + categories ---------- */}
+      {/* ---------- row 1: categories ---------- */}
       <div className="wbl-areas-wrap">
-        <div
-          className="wbl-families"
-          aria-hidden="true"
-          style={{ gridTemplateColumns: families.map((f) => `${f.ids.length}fr`).join(" ") }}
-        >
-          {families.map((f) => (
-            <span key={f.name} className={`wbl-family${f.ids.includes(section.n) ? " is-active" : ""}`}>
-              {f.name}
-            </span>
-          ))}
-        </div>
         <Tabs
           items={sectionTabs}
           value={section.n}
@@ -135,9 +108,6 @@ function GroupedBriefing({ sections, icons, imagePath, idPrefix, ariaLabel, onIn
             </>
           )}
         />
-        {dividers.map((d) => (
-          <span key={d} className="wbl-divider" aria-hidden="true" style={{ left: `${(d / total) * 100}%` }} />
-        ))}
       </div>
 
       {/* ---------- row 2: items of the active category ---------- */}
@@ -150,7 +120,7 @@ function GroupedBriefing({ sections, icons, imagePath, idPrefix, ariaLabel, onIn
           value={item.id}
           onChange={select}
           visited={section.items.filter((it) => viewed.has(it.id)).map((it) => it.id)}
-          ariaLabel={`${section.family} — ${section.type}`}
+          ariaLabel={section.type}
           idPrefix={`${idPrefix}-item`}
           renderTab={(t) => (
             <>
@@ -189,7 +159,7 @@ function GroupedBriefing({ sections, icons, imagePath, idPrefix, ariaLabel, onIn
               )}
             </div>
             <figcaption className="wbl-caption">
-              {item.name} · {section.family} · {section.type}
+              {[item.name, section.type, caption].filter(Boolean).join(" · ")}
             </figcaption>
           </figure>
 

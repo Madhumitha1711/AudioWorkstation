@@ -654,6 +654,7 @@
     display: flex;
     gap: 10px;
     margin-left: auto;
+    min-width: 0;
   }
   .studio-back-btn {
     padding: 10px 16px;
@@ -669,6 +670,23 @@
     font-size: var(--fs-sm);
     font-weight: 600;
     font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    max-width: 320px;
+    white-space: nowrap;
+  }
+  /* Destination step's title next to the direction — muted, truncated. */
+  .arrow-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 400;
+    color: var(--text-dimmer);
+  }
+  .arrow-dir {
+    flex: none;
   }
   .arrow-btn:hover:not(:disabled) {
     color: #fff;
@@ -700,6 +718,10 @@
       text-align: center;
       padding: 12px 16px;
       font-size: var(--fs-md);
+    }
+    /* Too narrow for names in two half-width buttons — direction only. */
+    .arrow-name {
+      display: none;
     }
   }
   .course-status-screen {

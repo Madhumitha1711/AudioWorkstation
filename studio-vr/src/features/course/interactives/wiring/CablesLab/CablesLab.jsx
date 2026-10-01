@@ -1,20 +1,37 @@
 import GroupedBriefing from "../../shared/GroupedBriefing";
 import { ICONS, SECTIONS, cableImagePath } from "./cablesData";
 
-// "Cables" briefing for Ch.8 — Analog (Mic & Instrument / Line Level /
-// Speaker) and Digital (Digital Audio / Control), 10 cables in all. Layout
-// lives in ../../shared/GroupedBriefing.
-function CablesLab({ onInteract }) {
+// Ch.8 cable briefings — two separate labs, one per family in cablesData.js.
+// Layout lives in ../../shared/GroupedBriefing.
+//   "analog-cables-lab"  Mic & Instrument / Line Level / Speaker
+//   "digital-cables-lab" Digital Audio / Control
+const ANALOG = SECTIONS.filter((s) => s.family === "Analog");
+const DIGITAL = SECTIONS.filter((s) => s.family === "Digital");
+
+export function AnalogCablesLab({ onInteract }) {
   return (
     <GroupedBriefing
-      sections={SECTIONS}
+      sections={ANALOG}
       icons={ICONS}
       imagePath={cableImagePath}
-      idPrefix="cable"
-      ariaLabel="Cable categories"
+      idPrefix="cable-analog"
+      ariaLabel="Analog cable categories"
+      caption="Analog"
       onInteract={onInteract}
     />
   );
 }
 
-export default CablesLab;
+export function DigitalCablesLab({ onInteract }) {
+  return (
+    <GroupedBriefing
+      sections={DIGITAL}
+      icons={ICONS}
+      imagePath={cableImagePath}
+      idPrefix="cable-digital"
+      ariaLabel="Digital cable categories"
+      caption="Digital"
+      onInteract={onInteract}
+    />
+  );
+}

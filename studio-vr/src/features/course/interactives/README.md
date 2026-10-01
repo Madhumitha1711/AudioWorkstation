@@ -12,9 +12,12 @@ interactives/
     useLabAudio.js       #   per-lab AudioContext lifecycle hook
     useClipAudio.js      #   recorded-clip playback (one <audio> per clip, A/B at
                          #   the same position, "coming soon" when a file is missing)
-    GroupedBriefing/     #   family labels over category tabs → item tabs → image +
-                         #   description + key points, prev/next pager (data-driven;
-                         #   StudioComponentsLab layout) — Ch.8 ConnectorsLab + CablesLab, Ch.10 MixerTypesLab
+    GroupedBriefing/     #   category tabs → item tabs → image + description + key points,
+                         #   prev/next pager (data-driven) — Ch.2 StudioComponentsLab, Ch.8
+                         #   ConnectorsLab + CablesLab, Ch.10 MixerTypesLab. ONE header level
+                         #   only: never put a family label row (Control Room / Recording
+                         #   Room, Analog / Digital) over the tabs — split each family into
+                         #   its own lab + `kind` instead.
     BriefingTabs/        #   image-over-description tabs + facts + key points + pager —
                          #   StudioRoomsLab, StudioTypesLab
     ListenTabs/          #   ListenTabs (standard tabs; image | Listen card, text
@@ -22,8 +25,9 @@ interactives/
                          #   MicPolarPatternLab
     soundLabShared.js    #   oscilloscope drawing, palettes, freq/note math
   foundations/           # Foundations briefings (Ch.2 "The Studio", Ch.3 "Types of Studios")
-    StudioComponentsLab/ #   studio-components-lab: "Key Elements of the Recording Space" —
-                         #   area tabs → component tabs → detail (16 components)
+    StudioComponentsLab/ #   "Key Elements of the Recording Space" — two labs, 8 components each:
+                         #   control-room-components-lab / recording-room-components-lab,
+                         #   Electronic / Non-electronic tabs → component tabs → detail
     StudioRoomsLab/      #   studio-rooms-lab: Recording Room / Control Room, tabbed (Ch.2)
     StudioTypesLab/      #   studio-types-lab: 6 studio types, tabbed (Ch.3)
                          #   (StudioRoomsLab + StudioTypesLab layout: ../shared/BriefingTabs)
@@ -42,11 +46,11 @@ interactives/
                          #   Recordings: public/audio/{studio-acoustics,room-treatment}/<id>.wav
   wiring/                # Ch.8 "Connectors, Cables, and Studio Wiring"
                          #   (layout: ../shared/GroupedBriefing)
-    ConnectorsLab/       #   connectors-lab: 14 connectors — Analog (Mic & Line, Patching
-                         #   & Multicore, Speaker) / Digital & Data (Digital Audio,
-                         #   Control & Computer). Photos: public/connectors/<id>.jpg
-    CablesLab/           #   cables-lab: 10 cables — Analog (Mic & Instrument, Line Level,
-                         #   Speaker) / Digital (Digital Audio, Control).
+    ConnectorsLab/       #   two labs, 14 connectors: analog-connectors-lab (Mic & Line,
+                         #   Patching & Multicore, Speaker) / digital-connectors-lab
+                         #   (Digital Audio, Control & Computer). Photos: public/connectors/<id>.jpg
+    CablesLab/           #   two labs, 10 cables: analog-cables-lab (Mic & Instrument, Line
+                         #   Level, Speaker) / digital-cables-lab (Digital Audio, Control).
                          #   Photos: public/cables/<id>.jpg
     CableMatchLab/       #   cable-match-lab: match 10 cables to sockets on a hardware rear
                          #   panel (drag plug or tap cable → socket); status strip of red /

@@ -1,15 +1,13 @@
 // Content for "mixer-types-lab" ("How Do You Categorise Mixers?", Ch.10).
 // Shape consumed by ../../shared/GroupedBriefing (the ConnectorsLab /
-// CablesLab layout): family label (row 1) → category tabs (row 1) →
-// mixer-type tabs (row 2) → image + description + key points.
+// CablesLab layout): category tabs (row 1) → mixer-type tabs (row 2) →
+// image + description + key points.
 //
 //   Architecture   → Analog / Digital / Hybrid
 //   Application    → Live / Studio / Broadcast / Project studio
 //   Circuit design → Split / Inline
 //
-// All three categories sit under one family label ("Mixer types"), so the
-// label spans the whole tab row. `points` are the short takeaways shown in
-// the global KeyPoints list.
+// `points` are the short takeaways shown in the global KeyPoints list.
 //
 // Photos aren't added yet — drop them in at public/mixer-types/<id>.jpg and
 // they appear automatically; until then the frame shows the item's icon
@@ -17,12 +15,9 @@
 
 export const mixerTypesImagePath = (id) => `/mixer-types/${id}.jpg`;
 
-const FAMILY = "Mixer types";
-
 export const SECTIONS = [
   {
     n: "01",
-    family: FAMILY,
     type: "Architecture",
     short: "Architecture",
     tone: "amber",
@@ -78,7 +73,6 @@ export const SECTIONS = [
   },
   {
     n: "02",
-    family: FAMILY,
     type: "Application",
     short: "Application",
     tone: "green",
@@ -147,7 +141,6 @@ export const SECTIONS = [
   },
   {
     n: "03",
-    family: FAMILY,
     type: "Circuit design",
     short: "Circuit",
     tone: "blue",

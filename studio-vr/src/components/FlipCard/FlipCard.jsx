@@ -77,9 +77,23 @@ export function FlipCard({
     onFlip?.(next);
   }, [flipped, controlled, onFlip]);
 
+  // A double-click (or a quick trackpad double-tap) fires two clicks: the
+  // second reversed the turn a few degrees in, so the card twitched and sat
+  // there looking frozen. Only the first click of a multi-click counts
+  // (e.detail is the click count); a deliberate second click later — even
+  // mid-turn — still turns it back. Same for a held Enter/Space auto-repeat.
+  const onClick = (e) => {
+    if (e.detail > 1) return;
+    toggle();
+  };
+
   const onKeyDown = (e) => {
     if (e.target !== e.currentTarget) return;
     if (e.key === "Enter" || e.key === " ") {
+      if (e.repeat) {
+        e.preventDefault();
+        return;
+      }
       e.preventDefault();
       toggle();
     }
@@ -96,7 +110,7 @@ export function FlipCard({
       aria-pressed={flipped}
       data-turn={turns ? (turns % 2 ? "a" : "b") : undefined}
       aria-label={label ? `${label}: ${flipped ? "showing details" : "show details"}` : undefined}
-      onClick={toggle}
+      onClick={onClick}
       onKeyDown={onKeyDown}
       onPointerLeave={() => setTiltOff(false)}
     >

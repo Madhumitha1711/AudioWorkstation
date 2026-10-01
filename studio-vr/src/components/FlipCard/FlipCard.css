@@ -39,7 +39,11 @@
   --flip-border: var(--border-soft, var(--border));
   --flip-accent: var(--brand-accent, var(--accent));
   --flip-duration: 600ms;
-  --flip-ease: cubic-bezier(0.45, 0, 0.2, 1);
+  /* Starts moving on the first frames (~14° by 60ms) — the old
+     (0.45, 0, 0.2, 1) barely moved for the first ~90ms (<10°), which on
+     top of the 4° hover tilt read as the card freezing before it turned.
+     Still no overshoot; lands flat. */
+  --flip-ease: cubic-bezier(0.35, 0.15, 0.2, 1);
   --flip-depth: 6000px;
 
   position: relative;
@@ -92,11 +96,16 @@
 }
 
 /* Layer promotion: only while it can matter (hover → about to turn, or
-   mid-turn), never permanently. */
+   mid-turn), never permanently. The outer .ui-flip is promoted too: its
+   lift animation (transform) otherwise creates a new compositor layer on
+   the click frame and re-rasterises the whole card first — a one-frame
+   hitch right before the turn starts. */
+.ui-flip.is-turning,
 .ui-flip.is-turning .ui-flip__inner {
   will-change: transform;
 }
 @media (hover: hover) {
+  .ui-flip:hover,
   .ui-flip:hover .ui-flip__inner {
     will-change: transform;
   }

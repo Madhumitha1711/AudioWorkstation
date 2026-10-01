@@ -1,1 +1,1 @@
-export { default } from "./ConnectorsLab";
+export { AnalogConnectorsLab, DigitalConnectorsLab } from "./ConnectorsLab";

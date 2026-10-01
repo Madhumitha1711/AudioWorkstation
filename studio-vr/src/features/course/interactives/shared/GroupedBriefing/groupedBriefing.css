@@ -1,6 +1,5 @@
-/* GroupedBriefing (Ch.8 wiring briefings) —
-   mirrors foundations/StudioComponentsLab.css (same tokens and spacing),
-   prefixed wbl-. */
+/* GroupedBriefing — shared by the Ch.2 studio-components labs, Ch.8 wiring
+   labs and Ch.10 MixerTypesLab. Prefixed wbl-. */
 
 .wbl {
   --wbl-amber: #e8934a;
@@ -48,44 +47,6 @@
 
 .wbl-areas-wrap {
   position: relative;
-}
-
-.wbl-families {
-  display: grid;
-  gap: 4px;
-  padding-bottom: 2px;
-}
-
-.wbl-family {
-  min-width: 0;
-  padding: 6px 14px 4px;
-  text-align: center;
-  font-size: var(--fs-md);
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  transition: color var(--motion-medium, 260ms) var(--motion-ease-out, ease);
-}
-
-.wbl-family.is-active {
-  color: var(--brand-accent);
-}
-
-@media (max-width: 600px) {
-  .wbl-family {
-    letter-spacing: 0.06em;
-    padding-inline: 6px;
-  }
-}
-
-.wbl-divider {
-  position: absolute;
-  top: 2px;
-  bottom: 10px;
-  width: 1px;
-  background: var(--border-soft);
-  pointer-events: none;
 }
 
 .wbl-area-type {

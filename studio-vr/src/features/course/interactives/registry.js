@@ -21,15 +21,15 @@ import MicPolarPatternLab from "./microphones/MicPolarPatternLab";
 import MicSelectionLab from "./microphones/MicSelectionLab";
 import MicTechniqueGuideLab from "./mic-techniques/MicTechniqueGuideLab";
 import MicPlacementGuideLab from "./mic-techniques/MicPlacementGuideLab";
-import StudioComponentsLab from "./foundations/StudioComponentsLab";
+import { ControlRoomComponentsLab, RecordingRoomComponentsLab } from "./foundations/StudioComponentsLab";
 import StudioTypesLab from "./foundations/StudioTypesLab";
 import StudioRoomsLab from "./foundations/StudioRoomsLab";
 import CriticalListeningLab from "./listening/CriticalListeningLab";
 import HearingAgeLab from "./listening/HearingAgeLab";
 import StudioAcousticsLab from "./acoustics/StudioAcousticsLab";
 import RoomTreatmentLab from "./acoustics/RoomTreatmentLab";
-import ConnectorsLab from "./wiring/ConnectorsLab";
-import CablesLab from "./wiring/CablesLab";
+import { AnalogConnectorsLab, DigitalConnectorsLab } from "./wiring/ConnectorsLab";
+import { AnalogCablesLab, DigitalCablesLab } from "./wiring/CablesLab";
 import CableMatchLab from "./wiring/CableMatchLab";
 import WhyAmplificationLab from "./preamps/WhyAmplificationLab";
 import AmplificationLab from "./preamps/AmplificationLab";
@@ -56,15 +56,18 @@ export const LABS = {
   "mic-selection-lab": MicSelectionLab,
   "mic-technique-guide-lab": MicTechniqueGuideLab,
   "mic-placement-guide-lab": MicPlacementGuideLab,
-  "studio-components-lab": StudioComponentsLab,
+  "control-room-components-lab": ControlRoomComponentsLab,
+  "recording-room-components-lab": RecordingRoomComponentsLab,
   "studio-rooms-lab": StudioRoomsLab,
   "studio-types-lab": StudioTypesLab,
   "critical-listening-lab": CriticalListeningLab,
   "hearing-age-lab": HearingAgeLab,
   "studio-acoustics-lab": StudioAcousticsLab,
   "room-treatment-lab": RoomTreatmentLab,
-  "connectors-lab": ConnectorsLab,
-  "cables-lab": CablesLab,
+  "analog-connectors-lab": AnalogConnectorsLab,
+  "digital-connectors-lab": DigitalConnectorsLab,
+  "analog-cables-lab": AnalogCablesLab,
+  "digital-cables-lab": DigitalCablesLab,
   "cable-match-lab": CableMatchLab,
   "why-amplification-lab": WhyAmplificationLab,
   "amplification-lab": AmplificationLab,

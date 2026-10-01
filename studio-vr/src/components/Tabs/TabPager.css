@@ -70,6 +70,17 @@
   outline-offset: 2px;
 }
 
+/* Crossing into the previous/next course section (see StepNavContext):
+   accent-tinted so it reads as "leaving this lab", not just another tab. */
+.ui-pager__btn--section {
+  border-color: color-mix(in srgb, var(--tabs-accent, var(--brand-accent)) 40%, var(--border-soft));
+  background: color-mix(in srgb, var(--tabs-accent, var(--brand-accent)) 8%, var(--panel));
+}
+
+.ui-pager__btn--section .ui-pager__dir {
+  color: var(--tabs-accent, var(--brand-accent));
+}
+
 .ui-pager__btn:disabled {
   opacity: 0.4;
   cursor: default;

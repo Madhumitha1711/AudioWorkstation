@@ -1,6 +1,7 @@
-// Content for "cables-lab" (Ch.8 "Connectors, Cables, and Studio Wiring").
-// Shape consumed by ../../shared/GroupedBriefing — families (row-1 labels) →
-// categories (row-1 tabs) → cables (row-2 tabs) → detail panel.
+// Content for "analog-cables-lab" + "digital-cables-lab" (Ch.8 "Connectors,
+// Cables, and Studio Wiring"). `family` decides which lab a section belongs
+// to (CablesLab.jsx filters on it); inside a lab: categories (row-1 tabs) →
+// cables (row-2 tabs) → detail panel (../../shared/GroupedBriefing).
 // `points` are the short takeaways shown in the global KeyPoints list.
 
 export const SECTIONS = [

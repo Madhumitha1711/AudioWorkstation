@@ -284,6 +284,10 @@ system — use them instead of hand-rolled lists or pagers:
   tabs use, so audio stops / visited marks / onInteract behave identically.
   It's a single compact 30px row (`--pager-h`), identical in every lab —
   never hand-roll a Prev/Next or pad/resize it per lab.
+  Inside the course, `CoursePage` provides `StepNavContext`: at the first /
+  last tab the pager becomes "← Prev section" / "Next section →" and the
+  page hides its own bottom Previous/Next while a pager is mounted — one
+  pair of buttons, never two stacked rows.
 
 Both are already built into `ListenTabs`, `BriefingTabs`,
 `StudioComponentsLab` and `GroupedBriefing` — a lab using those only needs
@@ -306,7 +310,7 @@ import { FlipCard } from "../../components/FlipCard";
 - Uncontrolled (`defaultFlipped`) or controlled (`flipped` + `onFlip(next)`).
 - Built-in: corner flip icon (`hint={false}` to hide), hover tilt (off
   after a click until the pointer leaves, so the turn lands flat), mid-turn
-  lift, ease-in-out turn with no overshoot (600ms), focus ring, `inert`/aria-hidden on the hidden face, crossfade under
+  lift, ease-in-out turn with no overshoot (600ms, starts moving on the first frames — don't go back to a slow ease-in like 0.45,0), focus ring, `inert`/aria-hidden on the hidden face, crossfade under
   `prefers-reduced-motion`. No links/buttons inside faces (the whole card
   is the toggle).
 - Perspective is relative to the card's width (`perspective(1200cqw)`,
@@ -324,7 +328,7 @@ import { FlipCard } from "../../components/FlipCard";
   1200cqw). If a card still looks too big mid-turn, fix the default in
   `FlipCard.css`, keep it in `cqw`, and never lower it or make it px.
 - Current users: ActiveSpeakerLab, AmpPassiveSpeakerLab, WhatIsMixerLab,
-  MicSelectionLab.
+  MicSelectionLab, LifeBeforeDawLab.
 
 ### Accordion (reveal rows / question steps)
 

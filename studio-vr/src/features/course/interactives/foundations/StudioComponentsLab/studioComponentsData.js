@@ -258,12 +258,6 @@ export const SECTIONS = [
   },
 ];
 
-// Flat list (with a back-reference to each item's section) for prev/next
-// paging across all 16 components, in section order.
-export const ALL_COMPONENTS = SECTIONS.flatMap((section) =>
-  section.items.map((item) => ({ ...item, section })),
-);
-
 // Photos are served from public/ — drop a 16:9 (or 16:10) JPG per item at
 // public/studio-components/<id>.jpg. Until a file exists the lab shows a
 // labelled icon placeholder with the expected path, same as the mockup.

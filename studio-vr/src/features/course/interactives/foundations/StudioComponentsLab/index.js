@@ -1,1 +1,1 @@
-export { default } from "./StudioComponentsLab";
+export { ControlRoomComponentsLab, RecordingRoomComponentsLab } from "./StudioComponentsLab";

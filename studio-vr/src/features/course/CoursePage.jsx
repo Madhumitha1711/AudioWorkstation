@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { buildStepList, firstStepIdForTopic } from "./data/courseData";
 import { useCourseTopics } from "./data/useCourseTopics";
@@ -6,6 +6,7 @@ import AssessmentSection from "./components/AssessmentSection";
 import InteractiveSection from "./components/InteractiveSection";
 import { LABS } from "./interactives/registry";
 import SectionBlocks from "./components/SectionBlocks";
+import { StepNavContext } from "../../components/Tabs";
 import { ROOMS } from "../tour/data/roomsData";
 import "./CoursePage.css";
 
@@ -210,6 +211,27 @@ function CoursePage() {
     if (s) selectStep(s.id, s.topicId);
   };
 
+  // One pair of Prev/Next buttons, not two. Labs with tabs render a
+  // TabPager; through StepNavContext it continues into the previous/next
+  // section at either end of its tabs and registers itself here, and while
+  // one is mounted the bottom Previous/Next below is hidden (it would just
+  // duplicate it). Steps without a pager keep the bottom buttons.
+  const [pagerCount, setPagerCount] = useState(0);
+  const registerPager = useCallback(() => {
+    setPagerCount((n) => n + 1);
+    return () => setPagerCount((n) => n - 1);
+  }, []);
+  const stepLabel = (s) => (s ? s.data?.title || STEP_TAG[s.kind] || "Section" : null);
+  const prevStep = STEPS[activeIndex - 1];
+  const nextStep = STEPS[activeIndex + 1];
+  const stepNav = {
+    prev: prevStep ? { label: stepLabel(prevStep) } : null,
+    next: nextStep ? { label: stepLabel(nextStep) } : null,
+    goPrev,
+    goNext,
+    register: registerPager,
+  };
+
   const lessonIndex =
     activeStep?.kind === "lesson"
       ? (activeTopic?.lessons ?? []).findIndex((l) => l.id === activeStep.id)
@@ -248,20 +270,35 @@ function CoursePage() {
 
   // Bottom-of-step navigation, shared by every step kind: "Back to the
   // studio" on the left (moved here from the removed topbar), Previous/
-  // Next on the right.
+  // Next on the right. Previous/Next name the step they go to (lesson, lab
+  // or quiz title), like TabPager names the neighbouring tab.
   const lessonNav = (
     <div className="lesson-actions">
       <button type="button" className="btn-secondary studio-back-btn" onClick={() => goToStudio()}>
         ← Back to the studio
       </button>
-      <div className="nav-arrows">
-        <button className="arrow-btn" onClick={goPrev} disabled={activeIndex === 0}>
-          ← Previous
-        </button>
-        <button className="arrow-btn" onClick={goNext} disabled={activeIndex === STEPS.length - 1}>
-          Next →
-        </button>
-      </div>
+      {pagerCount === 0 && (
+        <div className="nav-arrows">
+          <button
+            className="arrow-btn"
+            onClick={goPrev}
+            disabled={!stepNav.prev}
+            title={stepNav.prev ? `Previous: ${stepNav.prev.label}` : undefined}
+          >
+            <span className="arrow-dir">← Previous</span>
+            {stepNav.prev && <span className="arrow-name">{stepNav.prev.label}</span>}
+          </button>
+          <button
+            className="arrow-btn"
+            onClick={goNext}
+            disabled={!stepNav.next}
+            title={stepNav.next ? `Next: ${stepNav.next.label}` : undefined}
+          >
+            {stepNav.next && <span className="arrow-name">{stepNav.next.label}</span>}
+            <span className="arrow-dir">Next →</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 
@@ -442,6 +479,7 @@ function CoursePage() {
           })}
         </aside>
 
+        <StepNavContext.Provider value={stepNav}>
         <main className="course-main">
           {/* Mobile only (hidden by CSS above 960px): sticky bar that opens
               the outline drawer. */}
@@ -548,6 +586,7 @@ function CoursePage() {
             </div>
           )}
         </main>
+        </StepNavContext.Provider>
       </div>
 
     </div>
