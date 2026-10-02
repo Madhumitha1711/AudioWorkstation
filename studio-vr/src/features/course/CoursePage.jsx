@@ -6,6 +6,7 @@ import AssessmentSection from "./components/AssessmentSection";
 import InteractiveSection from "./components/InteractiveSection";
 import { LABS } from "./interactives/registry";
 import SectionBlocks from "./components/SectionBlocks";
+import SectionExtras from "./components/SectionExtras";
 import { StepNavContext } from "../../components/Tabs";
 import { ROOMS } from "../tour/data/roomsData";
 import "./CoursePage.css";
@@ -434,43 +435,39 @@ function CoursePage() {
               )}
               <p className="topic-intro">{activeTopic.intro}</p>
 
-              {activeStep.kind === "lesson" && (
-                <>
-                  <div className="lesson-kicker">
-                    Lesson {lessonIndex + 1} of {activeTopic.lessons.length}
-                  </div>
-                  <h2 className="lesson-title">{activeStep.data.title}</h2>
+              <SectionExtras key={activeStep.id} step={activeStep}>
+                {activeStep.kind === "lesson" && (
+                  <>
+                    <div className="lesson-kicker">
+                      Lesson {lessonIndex + 1} of {activeTopic.lessons.length}
+                    </div>
+                    <h2 className="lesson-title">{activeStep.data.title}</h2>
 
-                  <SectionBlocks
-                    blocks={activeStep.data.blocks}
-                    fallbackDuration={activeStep.data.duration}
-                    sectionTitle={activeStep.data.title}
-                    onInteractiveComplete={() => markComplete(activeStep.id)}
-                  />
+                    <SectionBlocks
+                      blocks={activeStep.data.blocks}
+                      fallbackDuration={activeStep.data.duration}
+                      sectionTitle={activeStep.data.title}
+                      onInteractiveComplete={() => markComplete(activeStep.id)}
+                    />
+                  </>
+                )}
 
-                  {lessonNav}
-                </>
-              )}
-
-              {activeStep.kind === "assessment" && (
-                <>
+                {activeStep.kind === "assessment" && (
                   <AssessmentSection
                     assessment={activeStep.data}
                     onComplete={() => markComplete(activeStep.id)}
                   />
-                  {lessonNav}
-                </>
-              )}
+                )}
 
-              {activeStep.kind === "interactive" && (
-                <>
+                {activeStep.kind === "interactive" && (
                   <InteractiveSection
                     interactive={activeStep.data}
                     onComplete={() => markComplete(activeStep.id)}
                   />
-                  {lessonNav}
-                </>
-              )}
+                )}
+              </SectionExtras>
+
+              {lessonNav}
 
             </div>
           )}

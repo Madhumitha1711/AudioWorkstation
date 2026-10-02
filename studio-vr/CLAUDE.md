@@ -93,9 +93,10 @@ src/
     payment/                # PaymentPage, PaymentCompletePage
     discussion/             # DiscussionPage
     course/                 # CoursePage + course content
-      data/                   # courseData.js (TOPICS), useCourseTopics.js
+      data/                   # courseData.js (TOPICS), useCourseTopics.js,
+                              # sectionExtras.js (Resources/Practice per section kind)
       components/             # generic course UI: AssessmentSection, SectionBlocks,
-                              # VideoPlayer, InteractiveSection
+                              # VideoPlayer, InteractiveSection, SectionExtras
       interactives/           # every course lab, by chapter — see its README.md
     tour/                   # the 360° studio tour
       PanoramaTour.jsx        # photo-sphere-viewer setup, hotspot markers, room nav
