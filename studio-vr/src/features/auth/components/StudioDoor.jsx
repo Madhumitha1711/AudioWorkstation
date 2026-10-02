@@ -1,24 +1,10 @@
-import { useEffect, useRef } from "react";
-
-const STACKED_QUERY = "(max-width: 820px)";
-
 function StudioDoor({ phase, sublabel }) {
-  const unitRef = useRef(null);
-  useEffect(() => {
-    if (phase !== "verifying") return;
-    if (!window.matchMedia?.(STACKED_QUERY).matches) return;
-    const scroller = unitRef.current?.closest(".svr-auth");
-    if (!scroller || scroller.scrollTop === 0) return;
-    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    scroller.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
-  }, [phase]);
-
   const inFocus = phase === "granted" || phase === "opening";
   const opening = phase === "opening";
   const scanning = phase === "verifying";
 
   return (
-    <div className="door-unit" aria-hidden="true" ref={unitRef}>
+    <div className="door-unit" aria-hidden="true">
       <div className="jamb" />
       <div className={`door-opening${inFocus ? " clear" : ""}`}>
         <div className="interior" />

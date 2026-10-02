@@ -166,14 +166,3 @@ export function polarTierOf(db) {
   if (db >= -18) return { tier: "heavy", label: "Heavily attenuated" };
   return { tier: "null", label: "Rejected / null" };
 }
-
-export function polarLobePoints(pattern, cx, cy, maxR, steps = 96) {
-  const pts = [];
-  for (let i = 0; i <= steps; i++) {
-    const deg = (i * 360) / steps;
-    const r = maxR * Math.max(0, polarGainOf(pattern, deg));
-    const rad = (deg * Math.PI) / 180;
-    pts.push([(cx + r * Math.sin(rad)).toFixed(1), (cy - r * Math.cos(rad)).toFixed(1)]);
-  }
-  return pts;
-}

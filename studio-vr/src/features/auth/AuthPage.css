@@ -612,8 +612,14 @@
     & {
       overflow-y: auto;
       align-items: flex-start;
-      padding: 64px 16px 32px;
+      padding: 72px 16px 32px;
       box-sizing: border-box;
+    }
+
+    .auth-backdrop,
+    .auth-grain,
+    .auth-welcome {
+      position: fixed;
     }
 
     .auth-back {
@@ -622,63 +628,80 @@
     }
 
     .auth-stage {
-      flex-direction: column;
-      align-items: center;
-      gap: 22px;
+      display: grid;
       width: 100%;
+      max-width: 420px;
+      margin: auto;
+    }
+
+    .auth-stage > * {
+      grid-area: 1 / 1;
+    }
+
+    .door-unit {
+      z-index: 0;
     }
 
     .door-opening {
-      width: 200px;
-      height: 280px;
+      flex: 1;
+      width: auto;
     }
 
-    .jamb {
-      height: 280px;
+    .decal {
+      display: none;
     }
 
     .auth-panel {
-      width: 100%;
-      max-width: 380px;
+      width: auto;
       box-sizing: border-box;
-      margin-bottom: 0;
+    }
+
+    .door-unit + .auth-panel {
+      position: relative;
+      z-index: 1;
+      margin: 0 15px;
+      padding: 34px 26px 30px;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      backdrop-filter: none;
+      transition: opacity 0.45s ease, transform 0.45s ease;
+    }
+
+    .door-unit + .auth-panel:focus-within {
+      border: none;
+      box-shadow: none;
+    }
+
+    .auth-stage.is-unlocked .auth-panel {
+      opacity: 0;
+      transform: scale(0.98);
+      pointer-events: none;
     }
   }
   @media (max-width: 600px) {
     & {
-      padding-top: 60px;
-    }
-
-    .auth-stage {
-      gap: 18px;
-    }
-
-    .door-opening {
-      width: 150px;
-      height: 200px;
+      padding: 64px 12px 24px;
     }
 
     .jamb {
       width: 11px;
-      height: 200px;
     }
 
-    .patch {
-      width: 42px;
-      height: 10px;
+    .door-unit + .auth-panel {
+      margin: 0 11px;
+      padding: 30px 22px 26px;
     }
 
-    .decal .word {
-      font-size: var(--fs-body);
+    .auth-field {
+      font-size: var(--fs-lg);
+      padding: 12px 14px;
     }
 
-    .decal .sub {
-      white-space: nowrap;
-      letter-spacing: 0.18em;
-    }
-
-    .auth-panel {
-      padding: 20px 18px 18px;
+    .auth-unlock-btn,
+    .auth-google-btn {
+      padding: 14px 0;
     }
   }
 

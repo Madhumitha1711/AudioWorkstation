@@ -6,14 +6,13 @@ import AssessmentSection from "./components/AssessmentSection";
 import InteractiveSection from "./components/InteractiveSection";
 import { LABS } from "./interactives/registry";
 import SectionBlocks from "./components/SectionBlocks";
-import SectionExtras from "./components/SectionExtras";
 import { StepNavContext } from "../../components/Tabs";
 import { ROOMS } from "../tour/data/roomsData";
+import { useMediaQuery, DRAWER_QUERY } from "../../hooks/useMediaQuery";
 import "./CoursePage.css";
 
 const STEP_TAG = { assessment: "Quiz", interactive: "Lab" };
 
-const MOBILE_QUERY = "(max-width: 960px)";
 
 const ALL_HOTSPOTS = ROOMS.flatMap((room) => room.markers ?? []);
 function hotspotName(hotspotId, fallbackTitle) {
@@ -66,20 +65,11 @@ function CoursePage() {
   const [completed, setCompleted] = useState(() => new Set());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const [isMobile, setIsMobile] = useState(
-    () => typeof window !== "undefined" && !!window.matchMedia?.(MOBILE_QUERY).matches
-  );
+  const isMobile = useMediaQuery(DRAWER_QUERY);
   const [drawerOpen, setDrawerOpen] = useState(false);
   useEffect(() => {
-    const mq = window.matchMedia?.(MOBILE_QUERY);
-    if (!mq) return undefined;
-    const onChange = (e) => {
-      setIsMobile(e.matches);
-      if (!e.matches) setDrawerOpen(false);
-    };
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
+    if (!isMobile) setDrawerOpen(false);
+  }, [isMobile]);
   useEffect(() => {
     if (!drawerOpen) return undefined;
     const onKey = (e) => e.key === "Escape" && setDrawerOpen(false);
@@ -435,37 +425,35 @@ function CoursePage() {
               )}
               <p className="topic-intro">{activeTopic.intro}</p>
 
-              <SectionExtras key={activeStep.id} step={activeStep}>
-                {activeStep.kind === "lesson" && (
-                  <>
-                    <div className="lesson-kicker">
-                      Lesson {lessonIndex + 1} of {activeTopic.lessons.length}
-                    </div>
-                    <h2 className="lesson-title">{activeStep.data.title}</h2>
+              {activeStep.kind === "lesson" && (
+                <>
+                  <div className="lesson-kicker">
+                    Lesson {lessonIndex + 1} of {activeTopic.lessons.length}
+                  </div>
+                  <h2 className="lesson-title">{activeStep.data.title}</h2>
 
-                    <SectionBlocks
-                      blocks={activeStep.data.blocks}
-                      fallbackDuration={activeStep.data.duration}
-                      sectionTitle={activeStep.data.title}
-                      onInteractiveComplete={() => markComplete(activeStep.id)}
-                    />
-                  </>
-                )}
-
-                {activeStep.kind === "assessment" && (
-                  <AssessmentSection
-                    assessment={activeStep.data}
-                    onComplete={() => markComplete(activeStep.id)}
+                  <SectionBlocks
+                    blocks={activeStep.data.blocks}
+                    fallbackDuration={activeStep.data.duration}
+                    sectionTitle={activeStep.data.title}
+                    onInteractiveComplete={() => markComplete(activeStep.id)}
                   />
-                )}
+                </>
+              )}
 
-                {activeStep.kind === "interactive" && (
-                  <InteractiveSection
-                    interactive={activeStep.data}
-                    onComplete={() => markComplete(activeStep.id)}
-                  />
-                )}
-              </SectionExtras>
+              {activeStep.kind === "assessment" && (
+                <AssessmentSection
+                  assessment={activeStep.data}
+                  onComplete={() => markComplete(activeStep.id)}
+                />
+              )}
+
+              {activeStep.kind === "interactive" && (
+                <InteractiveSection
+                  interactive={activeStep.data}
+                  onComplete={() => markComplete(activeStep.id)}
+                />
+              )}
 
               {lessonNav}
 

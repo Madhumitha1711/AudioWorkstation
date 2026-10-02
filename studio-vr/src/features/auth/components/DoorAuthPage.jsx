@@ -17,6 +17,7 @@ export function DoorAuthPage({ auth, sublabel, sub, onSubmit, submitLabel, verif
   return (
     <AuthFrame
       door={<StudioDoor phase={phase} sublabel={sublabel} />}
+      stageClass={unlocked ? "is-unlocked" : ""}
       statusClass={`${phase === "verifying" ? " pending" : ""}${unlocked ? " granted" : ""}`}
       sub={sub}
       after={

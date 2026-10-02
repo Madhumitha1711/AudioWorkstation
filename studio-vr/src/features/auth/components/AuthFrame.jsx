@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import "../AuthPage.css";
 
-export function AuthFrame({ backTo = "/", backLabel = "Back to home", door, statusClass = "", sub, children, after }) {
+export function AuthFrame({ backTo = "/", backLabel = "Back to home", door, stageClass = "", statusClass = "", sub, children, after }) {
   return (
     <div className="svr-auth">
       <div className="auth-backdrop" />
@@ -12,7 +12,7 @@ export function AuthFrame({ backTo = "/", backLabel = "Back to home", door, stat
           <polyline points="12 19 5 12 12 5" />
         </svg>
       </Link>
-      <div className={`auth-stage${door ? "" : " auth-stage-solo"}`}>
+      <div className={`auth-stage${door ? "" : " auth-stage-solo"} ${stageClass}`.trim()}>
         {door}
         <div className="auth-panel">
           <div className="auth-panel-top">

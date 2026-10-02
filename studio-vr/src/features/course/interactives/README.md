@@ -30,8 +30,8 @@ interactives/
                          #   ExampleCard (FlipCard: image + title / lead + facts)
     ExampleLab/          #   ExampleLab (one screen: lead, facts, example flip cards) and
                          #   TopicTabsLab (tabs of the same) — ActiveSpeakerLab,
-                         #   AmpPassiveSpeakerLab, SubwooferLab, PreampChannelStripLab are
-                         #   thin data wrappers around these
+                         #   AmpPassiveSpeakerLab, SubwooferLab, PreampChannelStripLab,
+                         #   AnalogDigitalConnectionsLab are thin data wrappers around these
     AnalogyConceptLab/   #   hero image + facts + "think of a …" flip-card analogy —
                          #   WhatIsMixerLab, WhatIsInterfaceLab are thin data wrappers
   foundations/           # Foundations briefings (Ch.2 "The Studio", Ch.3 "Types of Studios")
@@ -66,6 +66,11 @@ interactives/
                          #   panel (drag plug or tap cable → socket); status strip of red /
                          #   green lights (not connected / connected), hints, "Show me" after
                          #   3 misses. No audio. Mockup: design/cable-connector-sound-quiz.html
+    AnalogDigitalConnectionsLab/ # analog-digital-connections-lab: "Analog & Digital Connections" —
+                         #   6 tabs (TopicTabsLab, SubwooferLab look): Signal levels / Balanced &
+                         #   unbalanced / Analog ↔ digital / Digital formats (S/PDIF, AES3, ADAT,
+                         #   MADI) / Clock & sync / Computer & network (USB, Thunderbolt, Dante,
+                         #   AVB/AES67); key points. Photos: public/analog-digital-connections/<id>.jpg
   preamps/               # Ch.10 "Preamps, Channel Strips, Mixers, and Input Routing"
     WhyAmplificationLab/ #   why-amplification-lab: "Why Amplification?" — one row per example
                          #   (talking, TV, headlights, AC, studio): its own clip/picture beside

@@ -62,7 +62,7 @@ function MicPolarPatternLab({ onInteract }) {
         idPrefix="mpl-pattern"
         renderMedia={(item) => (
           <div className="mic-polar-wrap">
-            <MicPolarDiagram pattern={item.id} angle={angle} onSelectAngle={(a) => switchTo({ angle: a })} />
+<MicPolarDiagram pattern={item.id} angle={angle} onSelectAngle={(a) => switchTo({ angle: a })} />
           </div>
         )}
         renderListen={(item) => {

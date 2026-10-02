@@ -4,6 +4,7 @@ import "./StudioHotspotsPanel.css";
 import { ICONS, buildDeviceList } from "../../data/hotspotDevices";
 import { powerUp, powerDown } from "../../../../store/controlRoomSlice";
 import { quickHelpHoverProps } from "../../help/helpHover";
+import { useMediaQuery, DRAWER_QUERY } from "../../../../hooks/useMediaQuery";
 
 function buildClue(devices, canonicalIndex) {
   if (canonicalIndex === 0) return "Clue: no dependency — this powers first.";
@@ -30,7 +31,6 @@ function allOnRoundState(devices) {
   return { status };
 }
 
-const MOBILE_QUERY = "(max-width: 960px)";
 
 function StudioHotspotsPanel({
   room,
@@ -42,20 +42,11 @@ function StudioHotspotsPanel({
   onQuickHelp,
   openRequest = 0,
 }) {
-  const [isMobile, setIsMobile] = useState(
-    () => typeof window !== "undefined" && !!window.matchMedia?.(MOBILE_QUERY).matches
-  );
+  const isMobile = useMediaQuery(DRAWER_QUERY);
   const [collapsed, setCollapsed] = useState(isMobile);
   useEffect(() => {
-    const mq = window.matchMedia?.(MOBILE_QUERY);
-    if (!mq) return undefined;
-    const onChange = (e) => {
-      setIsMobile(e.matches);
-      setCollapsed(e.matches);
-    };
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
+    setCollapsed(isMobile);
+  }, [isMobile]);
   useEffect(() => {
     if (openRequest) setCollapsed(false);
   }, [openRequest]);

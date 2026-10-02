@@ -21,6 +21,7 @@ import RoomTreatmentLab from "./acoustics/RoomTreatmentLab";
 import { AnalogConnectorsLab, DigitalConnectorsLab } from "./wiring/ConnectorsLab";
 import { AnalogCablesLab, DigitalCablesLab } from "./wiring/CablesLab";
 import CableMatchLab from "./wiring/CableMatchLab";
+import AnalogDigitalConnectionsLab from "./wiring/AnalogDigitalConnectionsLab";
 import WhyAmplificationLab from "./preamps/WhyAmplificationLab";
 import AmplificationLab from "./preamps/AmplificationLab";
 import AmpPassiveSpeakerLab from "./preamps/AmpPassiveSpeakerLab";
@@ -59,6 +60,7 @@ export const LABS = {
   "analog-cables-lab": AnalogCablesLab,
   "digital-cables-lab": DigitalCablesLab,
   "cable-match-lab": CableMatchLab,
+  "analog-digital-connections-lab": AnalogDigitalConnectionsLab,
   "why-amplification-lab": WhyAmplificationLab,
   "amplification-lab": AmplificationLab,
   "amp-passive-speaker-lab": AmpPassiveSpeakerLab,

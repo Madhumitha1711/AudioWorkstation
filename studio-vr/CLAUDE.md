@@ -79,6 +79,8 @@ src/
                             # level/GR meter smoothing
     faust/faustTypes.js     # Faust UI-metadata helpers + compileFaustWasm()
                             # (compileStreaming with a buffered fallback)
+  hooks/          # shared hooks: useMediaQuery + DRAWER breakpoint
+                  # queries (use these instead of a hand-rolled matchMedia listener)
   components/     # UI shared by 2+ features only
     Header/                 # app header
     controls/               # Knob, Fader
@@ -93,10 +95,9 @@ src/
     payment/                # PaymentPage, PaymentCompletePage
     discussion/             # DiscussionPage
     course/                 # CoursePage + course content
-      data/                   # courseData.js (TOPICS), useCourseTopics.js,
-                              # sectionExtras.js (Resources/Practice per section kind)
+      data/                   # courseData.js (TOPICS), useCourseTopics.js
       components/             # generic course UI: AssessmentSection, SectionBlocks,
-                              # VideoPlayer, InteractiveSection, SectionExtras
+                              # VideoPlayer, InteractiveSection
       interactives/           # every course lab, by chapter — see its README.md
     tour/                   # the 360° studio tour
       PanoramaTour.jsx        # photo-sphere-viewer setup, hotspot markers, room nav
@@ -380,7 +381,7 @@ import { Accordion, AccordionItem } from "../../components/Accordion";
   Don't add narrating or section-divider comments.
 - Before writing a new helper, check the shared modules (`components/`,
   `audio/effects/ballistics.js`, `gear-studio/shared/`,
-  `tour/hotspot-labs/shared/`, `course/interactives/shared/`) — duplicate
+  `tour/hotspot-labs/shared/`, `course/interactives/shared/`, `hooks/`) — duplicate
   logic should be extracted there rather than copied between files.
 - Lint rules of note (`.oxlintrc.json`): `react/rules-of-hooks` is an error;
   `react/only-export-components` is a warning (constant exports allowed).

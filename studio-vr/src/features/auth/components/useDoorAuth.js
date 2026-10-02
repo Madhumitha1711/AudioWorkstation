@@ -5,6 +5,7 @@ import { setSession } from "../../../store/sessionSlice";
 import { initAudio, resumeAudio } from "../../../audio/spatialAudioEngine";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const DOOR_STEPS = [["granted", 550], ["opening", 1050], ["welcome", 900]];
 export const emailName = (email) => email.split("@")[0] || "Student";
 
 export function useDoorAuth() {
@@ -38,7 +39,7 @@ export function useDoorAuth() {
       }
       return;
     }
-    for (const [next, ms] of [["granted", 550], ["opening", 1050], ["welcome", 900]]) {
+    for (const [next, ms] of DOOR_STEPS) {
       if (next === "welcome") setShowWelcome(true);
       else setPhase(next);
       await sleep(ms);
