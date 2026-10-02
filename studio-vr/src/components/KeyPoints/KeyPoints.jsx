@@ -1,12 +1,5 @@
 import "./KeyPoints.css";
 
-// "Key points" — the short takeaway list at the end of a tabbed lab panel.
-// Styled from the same tokens as the Tabs standard so the two read as one
-// system: the heading sits on the tab bar's hairline with the 2px accent
-// indicator under it (like the active underline tab), and each point's
-// bullet is a small dot in the tab accent colour.
-// `**bold**` in a point renders as <strong>. Renders nothing when empty.
-
 function renderRich(text) {
   return String(text)
     .split(/\*\*(.+?)\*\*/g)
@@ -31,5 +24,3 @@ export function KeyPoints({ points, title = "Key points", className = "" }) {
     </section>
   );
 }
-
-export default KeyPoints;

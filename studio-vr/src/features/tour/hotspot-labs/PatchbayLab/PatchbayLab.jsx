@@ -1,146 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Tabs, useTabTransition } from "../../../../components/Tabs";
-import "../shared/speakerListeningLab.css";
+import { LabShell } from "../shared/LabShell";
 import "./PatchbayLab.css";
-import { PlayIcon, PauseIcon, LevelMeter, AhaBox, AudioNote } from "../shared/listeningLabShared";
-import { quickHelpHoverProps } from "../../help/helpHover";
+import { AhaBox, LevelMeter, LineIcon, PauseIcon, PlayBar, PlayIcon, SegControl } from "../shared/listeningLabShared";
+import { useLoopPlayer } from "../shared/useLoopPlayer";
 
-// Patch Bay hotspot's "Patchbay Lab" — same treatment as the Speakers
-// hotspot's Listening Lab (see SpeakerListeningLab.jsx): replaces the
-// generic "Test your knowledge" quiz for the patch-bay gear panel only (see
-// PanoramaTour.jsx, which renders this instead of HotspotKnowledgeCheck
-// whenever activeGear.id === "patch-bay"). Ported from
-// design/patchbay-lab.html, restructured from that mockup's
-// scroll-with-progress-dots layout into two navigable tabs — one per
-// experiment — same as MixingConsoleLab.jsx/SoundCardLab.jsx.
-//
-// Reuses the exact same docked .svr-tour-gear-panel.llab-panel-shell shell,
-// width, tab bar, and take-away chip/overlay interaction as
-// SpeakerListeningLab (see listeningLabShared.jsx and speakerListeningLab.css
-// for the shared pieces) so this reads as the same "Listening Lab" family,
-// just with different content inside.
-//
-// Module 1 ("The Telephone Switchboard") is the one real restructure beyond
-// the tab layout: the original mockup lets you *drag* a cable from a source
-// jack to a destination jack with a pointermove-tracked SVG cable. That
-// works fine at 760px; inside this panel's ~320px docked column there isn't
-// room to drag past your own thumb, especially on the touchscreens this
-// panel also has to support. So this "click a source, then click a
-// destination to patch it" instead — same mental model (source → cable →
-// destination), same rendered cable, same "only Synth → Reverb reveals the
-// take-away" logic, just tap-to-connect instead of drag-to-connect.
-//
-// AUDIO IS UI-ONLY FOR NOW — see SpeakerListeningLab.jsx's own comment for
-// why: every module wires up a real <audio> element pointed at a
-// `public/audio/listening-lab/...` path that doesn't exist yet, play()
-// failures are swallowed, and the "playing" look is driven by React state
-// rather than real playback events.
-function PatchbayLab({
-  open,
-  onClose,
-  onBackToOverview,
-  onStartCourse,
-  // Reports whatever's currently hovered/focused in this lab up to
-  // PanoramaTour's Quick Help popup (help mode) — see helpHover.js and
-  // QuickHelpPanel.jsx. Called with a short description on hover/focus
-  // and `null` on leave/blur.
-  onQuickHelp,
-}) {
-  const [activeTab, setActiveTab] = useState(0);
-  // Standard tab-panel motion (components/Tabs) on the body, which is
-  // also the scroll container — see useTabTransition.
-  const bodyRef = useRef(null);
-  useTabTransition(bodyRef, activeTab, activeTab);
-
-  // Every visit starts back on experiment one — a fresh "before the lesson"
-  // primer each time it's opened, not a resumable session.
-  useEffect(() => {
-    if (open) setActiveTab(0);
-  }, [open]);
-
-  if (!open) return null;
-
-  const tab = TABS[activeTab];
-
+export default function PatchbayLab(props) {
   return (
-    <div className="svr-tour-gear-panel llab-panel-shell">
-      <div className="svr-tour-gear-panel__head">
-        <span className="svr-tour-gear-badge llab-badge" aria-hidden="true">
-          🔀
-        </span>
-        <div className="svr-tour-gear-panel__titles">
-          <div className="svr-tour-gear-panel__title">Patchbay Lab</div>
-          <div className="svr-tour-gear-panel__kicker">
-            {tab.label} · {activeTab + 1} of {TABS.length}
-          </div>
-        </div>
-        <button
-          onClick={onClose}
-          className="svr-tour-gear-panel__close"
-          aria-label="Close Patchbay Lab"
-          type="button"
-          {...quickHelpHoverProps(onQuickHelp, "Close this lab and go back to the panel.")}
-        >
-          ×
-        </button>
-      </div>
-
-      <Tabs
-        className="llab-tabs"
-        tabClassName="llab-tab"
-        variant="segmented"
-        size="sm"
-        fill
-        items={TABS.map((t) => ({ id: t.id, title: t.label, n: t.n, short: t.short }))}
-        value={tab.id}
-        onChange={(_, i) => setActiveTab(i)}
-        ariaLabel="Patchbay Lab experiments"
-        idPrefix="llab"
-        renderTab={(t) => (
-          <>
-            <span className="llab-tab__n mono">{t.n}</span>
-            <span className="llab-tab__label">{t.short}</span>
-          </>
-        )}
-      />
-
-      <div
-        ref={bodyRef}
-        className="svr-tour-gear-panel__body"
-        role="tabpanel"
-        id={`pblab-panel-${tab.id}`}
-        aria-labelledby={`pblab-tab-${tab.id}`}
-        // Remounting the module on tab switch (via key) stops its audio
-        // automatically — see SpeakerListeningLab.jsx's identical comment.
-        key={tab.id}
-      >
-        {activeTab === 0 && <SwitchboardModule />}
-        {activeTab === 1 && <RailroadModule />}
-      </div>
-
-      <div className="svr-tour-gear-panel__footer">
-        <div className="svr-tour-gear-panel__footer-row">
-          <button
-            type="button"
-            className="svr-tour-btn svr-tour-btn-secondary"
-            onClick={onBackToOverview}
-            {...quickHelpHoverProps(onQuickHelp, "Go back to the choose-how-to-start overview.")}
-          >
-            ← Back
-          </button>
-          {onStartCourse && (
-            <button
-              type="button"
-              className="svr-tour-btn svr-tour-btn-primary"
-              onClick={onStartCourse}
-              {...quickHelpHoverProps(onQuickHelp, "Jump straight into the full lesson for this topic.")}
-            >
-              Start course →
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+    <LabShell
+      {...props}
+      icon="🔀"
+      title="Patchbay Lab"
+      tabs={TABS}
+      modules={[SwitchboardModule, RailroadModule]}
+    />
   );
 }
 
@@ -149,57 +21,51 @@ const TABS = [
   { id: "railroad", n: "02", label: "Signal Detours", short: "Detours" },
 ];
 
-// ============================================================
-// Icons
-// ============================================================
 function MicIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z" />
-      <path d="M19 11a7 7 0 0 1-14 0" />
-      <line x1="12" y1="18" x2="12" y2="22" />
-      <line x1="8" y1="22" x2="16" y2="22" />
-    </svg>
+    <LineIcon>
+    <path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z" />
+    <path d="M19 11a7 7 0 0 1-14 0" />
+    <line x1="12" y1="18" x2="12" y2="22" />
+    <line x1="8" y1="22" x2="16" y2="22" />
+    </LineIcon>
   );
 }
 function ComputerIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <rect x="3" y="4" width="18" height="12" rx="1" />
-      <path d="M6 10l2 -3 2 5 2 -6 2 4 2 -2" />
-      <line x1="9" y1="19" x2="15" y2="19" />
-      <line x1="12" y1="16" x2="12" y2="19" />
-    </svg>
+    <LineIcon>
+    <rect x="3" y="4" width="18" height="12" rx="1" />
+    <path d="M6 10l2 -3 2 5 2 -6 2 4 2 -2" />
+    <line x1="9" y1="19" x2="15" y2="19" />
+    <line x1="12" y1="16" x2="12" y2="19" />
+    </LineIcon>
   );
 }
 function TubeIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <rect x="4" y="4" width="16" height="16" rx="1.5" />
-      <ellipse cx="12" cy="10" rx="3" ry="4" />
-      <line x1="12" y1="14" x2="12" y2="18" />
-    </svg>
+    <LineIcon>
+    <rect x="4" y="4" width="16" height="16" rx="1.5" />
+    <ellipse cx="12" cy="10" rx="3" ry="4" />
+    <line x1="12" y1="14" x2="12" y2="18" />
+    </LineIcon>
   );
 }
 function DirectIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <line x1="3" y1="12" x2="21" y2="12" />
-      <polyline points="16 7 21 12 16 17" />
-    </svg>
+    <LineIcon>
+    <line x1="3" y1="12" x2="21" y2="12" />
+    <polyline points="16 7 21 12 16 17" />
+    </LineIcon>
   );
 }
 function DetourIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <path d="M3 12h6l3-5 3 10 3-5h3" />
-    </svg>
+    <LineIcon>
+    <path d="M3 12h6l3-5 3 10 3-5h3" />
+    </LineIcon>
   );
 }
 
-// ============================================================
-// MODULE 1 — The Telephone Switchboard (patch a source to a destination)
-// ============================================================
 const SOURCES = [
   { id: "singer", name: "Singer", color: "#e8934a" },
   { id: "synth", name: "Synthesizer", color: "#5fd9a0" },
@@ -210,9 +76,6 @@ const DESTS = [
   { id: "headphones", name: "Headphones" },
   { id: "reverb", name: "Reverb Unit" },
 ];
-// dry = straight into that destination, reverb = the same source patched
-// into the Reverb Unit instead. Only the reverb destination ever plays the
-// "reverb" file; the other two destinations always play "dry".
 const AUDIO_SOURCES = {
   singer: {
     dry: "/audio/listening-lab/patchbay-singer-dry.mp3",
@@ -229,7 +92,7 @@ const AUDIO_SOURCES = {
 };
 
 function SwitchboardModule() {
-  const [connections, setConnections] = useState({}); // sourceId -> destId
+  const [connections, setConnections] = useState({});
   const [armedSource, setArmedSource] = useState(null);
   const [playingDest, setPlayingDest] = useState(null);
   const [revealed, setRevealed] = useState(false);
@@ -247,9 +110,6 @@ function SwitchboardModule() {
     return () => audio.pause();
   }, []);
 
-  // Jack positions never move (nothing animates within the board itself),
-  // so a single measure on mount + on resize is enough to keep the cable
-  // paths lined up — no need to re-measure every time a connection changes.
   useLayoutEffect(() => {
     const measure = () => {
       const board = boardRef.current;
@@ -285,8 +145,6 @@ function SwitchboardModule() {
     stopPlayback();
   };
 
-  // Same "aha" trigger as the original mockup: patching the Synthesizer
-  // into the Reverb Unit specifically is what unlocks the take-away.
   useEffect(() => {
     if (connections.synth === "reverb") setRevealed(true);
   }, [connections]);
@@ -308,7 +166,7 @@ function SwitchboardModule() {
     if (audio) {
       audio.src = AUDIO_SOURCES[srcId][destId === "reverb" ? "reverb" : "dry"];
       audio.currentTime = 0;
-      audio.play().catch(() => { });
+      audio.play().catch(() => {});
     }
     setPlayingDest(destId);
   };
@@ -445,7 +303,6 @@ function SwitchboardModule() {
             Reset patch
           </button>
         </div>
-        {/* <AudioNote>patchbay-singer/synth/guitar-dry/reverb.mp3</AudioNote> */}
 
         <AhaBox show={revealed}>
           A patch bay is just a central control hub. It brings the hidden
@@ -458,9 +315,6 @@ function SwitchboardModule() {
   );
 }
 
-// ============================================================
-// MODULE 2 — The Railroad Switch (direct vs. detour)
-// ============================================================
 const AUDIO_SOURCES_2 = {
   direct: "/audio/listening-lab/railroad-direct.mp3",
   detour: "/audio/listening-lab/railroad-detour.mp3",
@@ -486,45 +340,7 @@ const SEG_2 = [
 ];
 
 function RailroadModule() {
-  const [mode, setMode] = useState("direct");
-  const [playing, setPlaying] = useState(false);
-  const [revealed, setRevealed] = useState(false);
-  const audioRef = useRef(null);
-
-  useEffect(() => {
-    const audio = new Audio();
-    audio.loop = true;
-    audio.preload = "auto";
-    audio.src = AUDIO_SOURCES_2.direct;
-    audioRef.current = audio;
-    return () => audio.pause();
-  }, []);
-
-  // Same "switch stations, keep listening" behavior as every other lab's
-  // segmented toggle (see SpeakerListeningLab.jsx's SpeakerTestModule).
-  const selectMode = (m) => {
-    setMode(m);
-    setRevealed(true);
-    setPlaying(true);
-    const audio = audioRef.current;
-    if (audio) {
-      audio.src = AUDIO_SOURCES_2[m];
-      audio.play().catch(() => { });
-    }
-  };
-
-  const togglePlay = () => {
-    setRevealed(true);
-    const audio = audioRef.current;
-    setPlaying((prev) => {
-      const next = !prev;
-      if (audio) {
-        if (next) audio.play().catch(() => { });
-        else audio.pause();
-      }
-      return next;
-    });
-  };
+  const { mode, playing, revealed, selectMode, togglePlay } = useLoopPlayer(AUDIO_SOURCES_2, "direct");
 
   const track = TRACK_MODES[mode];
   const isDetour = mode === "detour";
@@ -538,19 +354,7 @@ function RailroadModule() {
       </p>
 
       <div className="llab-card">
-        <div className="llab-seg" role="group" aria-label="Choose a track">
-          {SEG_2.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              type="button"
-              className={"llab-seg__btn" + (mode === key ? " active" : "")}
-              onClick={() => selectMode(key)}
-            >
-              <Icon />
-              {label}
-            </button>
-          ))}
-        </div>
+        <SegControl options={SEG_2} value={mode} onSelect={selectMode} label="Choose a track" />
 
         <div className="pblab-track-box">
           <div className="pblab-track-label mono">
@@ -614,18 +418,7 @@ function RailroadModule() {
           </svg>
         </div>
 
-        <div className="llab-playbar">
-          <button
-            className="llab-play"
-            onClick={togglePlay}
-            type="button"
-            aria-label={playing ? "Pause" : "Play"}
-          >
-            {playing ? <PauseIcon /> : <PlayIcon />}
-          </button>
-          <LevelMeter playing={playing} />
-        </div>
-        {/* <AudioNote>railroad-direct/detour.mp3</AudioNote> */}
+        <PlayBar playing={playing} onToggle={togglePlay} />
 
         <AhaBox show={revealed}>
           A patch bay lets you create custom detours for your sound, sending
@@ -636,5 +429,3 @@ function RailroadModule() {
     </div>
   );
 }
-
-export default PatchbayLab;

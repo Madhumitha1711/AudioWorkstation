@@ -5,43 +5,10 @@ import { downloadBlob, audioBufferToWavBlob } from '../../audio/wavRender';
 import { useTheme } from '../../theme/ThemeContext';
 import './chapters.css';
 import { Tabs, TabPanel } from '../../components/Tabs';
-import {
-    ADDR, LIVE_GAIN_ADDR_TO_BAND, ORDER_VALUES, orderToIndex,
-    DEFAULT_DYNAMIC, DEFAULT_BANDS, setBool, applyBandsToNode, BAND_DEFS,
-    getFreq, getGain, getQ, getBypass, getDynamicOn, getThreshold, getRange, getAttack, getRelease, getOrder,
-    withFreq, withGain, withQ, withBypass, withDynamicOn, withThreshold, withRange, withAttack, withRelease, withOrder,
-    FMIN, FMAX, GMIN, GMAX, ANALYSER_MIN_DB, ANALYSER_MAX_DB, clamp,
-    butterHighpassDB, butterLowpassDB, SHELF_KNEE_OCTAVES, SHELF_REF_Q, shelfKneeShape, lowShelfDB, highShelfDB, peakDB,
-    dynamicExtremeGain, bandResponseDB, totalResponseDB, gainOnlyResponseDB,
-    curveRMSErrorDB, scoreFromRMS,
-    fToFrac, fracToF, gainToFrac, fracToGain,
-    EQ_PRESETS, mergeBands, applyPreset, pickRandomPreset,
-    dbToLinear, applyOutputGain,
-} from '../../audio/effects/equalizerEngine';
+import { LIVE_GAIN_ADDR_TO_BAND, DEFAULT_BANDS, applyBandsToNode, BAND_DEFS, getFreq, getGain, getQ, getBypass, getDynamicOn, getThreshold, getRange, getAttack, getRelease, getOrder, withFreq, withGain, withQ, withBypass, withDynamicOn, withThreshold, withRange, withAttack, withRelease, withOrder, FMIN, FMAX, GMIN, GMAX, ANALYSER_MIN_DB, ANALYSER_MAX_DB, clamp, bandResponseDB, totalResponseDB, gainOnlyResponseDB, curveRMSErrorDB, scoreFromRMS, fToFrac, fracToF, gainToFrac, fracToGain, EQ_PRESETS, applyPreset, pickRandomPreset, dbToLinear, applyOutputGain } from '../../audio/effects/equalizerEngine';
 import { canvasFont } from "../../theme/fonts";
-// ═══════════════════════════════════════════════════════════════════════════
-// Chapter 2b — ParamEQ (Logic-style parametric EQ, Faust WASM)
-// ═══════════════════════════════════════════════════════════════════════════
-// Uses the real 8-band "ParamEQ" Faust patch in public/faust/ParamEQ/
-// (HPF → Low Shelf → 4x Peak → High Shelf → LPF), driven by a single Faust
-// AudioWorkletNode whose params are the addresses in dsp-meta.json — instead
-// of per-band BiquadFilterNodes (Chapter 2) or per-band Faust instances
-// (Chapter 2a). The UI mirrors a Logic-style Channel EQ: a draggable curve
-// with one node per band, plus a live spectrum analyzer.
-//
-// Two exercises share the same engine:
-//   • TEST BENCH  — upload your own audio, freely sculpt the curve, download
-//     the processed result. Meant for experimentation.
-//   • EAR TRAINING — a hidden target curve is set on load; adjust your own
-//     curve by listening (not looking) until it sounds the same, then submit
-//     for a score. Download both the target and your own render as WAV.
+import { hiDpi } from './shared/panelUtils';
 const FAUST_BASE_PATH = '/faust/ParamEQ';
-// ADDR/LIVE_GAIN_ADDR_TO_BAND/ORDER_VALUES/orderToIndex/DEFAULT_DYNAMIC/
-// DEFAULT_BANDS/setBool/applyBandsToNode/BAND_DEFS and every getX/withX band
-// accessor/setter below now live in ./equalizerEngine (see
-// EqualizerEditorPanel further down for the shared editor UI built on them).
-// Picks the graph-canvas color or the panel-chrome color for a band,
-// depending on the active theme — see the comment on BAND_DEFS above.
 function uiColor(def, theme) {
     return theme === 'light' ? def.lightColor : def.color;
 }
@@ -60,9 +27,6 @@ async function renderParamEQOffline(generator, meta, dspModule, source, bands, o
     src.start();
     return offlineCtx.startRendering();
 }
-// ── Demo loop (used until the user uploads their own audio) ─────────────────
-// A short pad + bass + hat pulse — enough spectral content across the band to
-// make every ParamEQ move audible, without needing an uploaded file.
 function normAndFade(buf, peakTarget = 0.3) {
     const L = buf.getChannelData(0);
     const R = buf.getChannelData(1);
@@ -91,7 +55,6 @@ function createDemoLoopBuffer(ctx) {
     const buf = ctx.createBuffer(2, sr * dur, sr);
     const L = buf.getChannelData(0);
     const R = buf.getChannelData(1);
-    // Sustained Am7 pad (harmonic series, slow attack)
     const padNotes = [110.0, 130.81, 164.81, 196.0, 261.63];
     const harmonics = [[1, 1.0], [2, 0.35], [3, 0.18], [4, 0.09], [5, 0.05]];
     for (const fund of padNotes) {
@@ -108,7 +71,6 @@ function createDemoLoopBuffer(ctx) {
             }
         }
     }
-    // Bass pulse every 0.5s (E1/A1 alternating)
     const bassFreqs = [41.2, 55.0];
     for (let beat = 0; beat < 8; beat++) {
         const start = Math.round(beat * 0.5 * sr);
@@ -121,7 +83,6 @@ function createDemoLoopBuffer(ctx) {
             R[start + i] += s;
         }
     }
-    // Hat pulse every eighth note for high-frequency content
     for (let e = 0; e < 32; e++) {
         const start = Math.round(e * 0.25 * sr);
         let prev = 0;
@@ -138,54 +99,8 @@ function createDemoLoopBuffer(ctx) {
     normAndFade(buf);
     return buf;
 }
-// ── HiDPI canvas helper ───────────────────────────────────────────────────────
-function hiDpi(canvas) {
-    const dpr = window.devicePixelRatio || 1;
-    const W = canvas.clientWidth || canvas.width;
-    const H = canvas.clientHeight || canvas.height;
-    if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) {
-        canvas.width = Math.round(W * dpr);
-        canvas.height = Math.round(H * dpr);
-    }
-    const ctx = canvas.getContext('2d');
-    if (!ctx)
-        return null;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    return { ctx, W, H };
-}
-// ── Combined EQ graph — curve + live spectrum on one shared plot ────────────
-// FabFilter-style: the frequency response curve and the live/dry spectrum
-// analyzer are drawn on the *same* canvas, sharing one log-frequency x-axis.
-// They still read off two different dB scales (the curve is EQ gain,
-// GMIN..GMAX; the spectrum is real signal level, ANALYSER_MIN_DB..
-// ANALYSER_MAX_DB) — rather than force them onto one scale, each horizontal
-// gridline is dual-labeled: gain on the left (in the curve's blue-ish tone),
-// live level on the right (in the spectrum's red tone), same as the two
-// stacked number columns on a Pro-Q graph. The spectrum is drawn first so
-// the curve sits visually on top of it, exactly like the reference.
 const GAIN_GRID_DB = [18, 12, 6, 0, -6, -12, -18];
-// Below this, a band's live dynamic gain reads as noise-floor jitter rather
-// than real GR/boost activity — used to decide which bands get an automatic
-// per-band highlight on the curve (see strokeCurve's activity-highlight
-// block below).
 const ACTIVITY_EPS_DB = 0.05;
-// The graph used to stay a fixed near-black "screen" in both themes, like
-// every other chapter's oscilloscope/meter, then got its own independent
-// light-mode "graph paper" background (a near-white #fbfcf8) so it wouldn't
-// read as a black rectangle sitting in an otherwise light panel. That paper
-// tone never actually matched any other "screen" in the app, though —
-// eqCompressorHotspot.css's .eqcomp-screen (the EQ+Compressor rack panel
-// you reach from the home/panorama tour) uses var(--console) for the same
-// kind of readout background, which resolves to a khaki-tinted off-white
-// (#e7eae1) in light mode, not a clean white. bg below now uses that same
-// value so this graph's "screen" and the home panel's screen read as one
-// consistent surface instead of two different whites. Every other color is
-// picked to hold reasonable contrast against its own background: axis text
-// at ~0.75 alpha over that off-white canvas reads clearly, and the
-// curve/spectrum colors reuse the same deepened hues as the rest of the
-// light theme (see uiColor() and the --amber/--blue/--teal/--purple/--red
-// overrides in chapters.css) so the graph and the panel around it read as
-// one consistent palette.
 const EQ_GRAPH_PALETTE = {
     dark: {
         bg: '#0A0A0C',
@@ -231,7 +146,6 @@ function drawEQGraph(canvas, opts) {
     const { ctx, W, H } = hd;
     ctx.fillStyle = pal.bg;
     ctx.fillRect(0, 0, W, H);
-    // Vertical frequency grid — shared x-axis for curve + spectrum.
     ctx.strokeStyle = pal.gridMinor;
     ctx.lineWidth = 1;
     const freqLines = [
@@ -245,9 +159,6 @@ function drawEQGraph(canvas, opts) {
         ctx.lineTo(x, H);
         ctx.stroke();
     }
-    // Horizontal grid, dual-labeled: left = EQ gain (this row's y, straight off
-    // the gain axis), right = the live-level dB that happens to fall at that
-    // same pixel row on the spectrum's own (wider) scale.
     ctx.font = canvasFont(9, { mono: true });
     for (const g of GAIN_GRID_DB) {
         const y = gainToFrac(g) * H;
@@ -271,7 +182,6 @@ function drawEQGraph(canvas, opts) {
     ctx.fillStyle = pal.freqLabel;
     for (const [f, l] of freqLines)
         ctx.fillText(l, fToFrac(f) * W - 6, H - 3);
-    // ---- Spectrum (drawn first, so the curve sits on top of it) ----
     const levelToY = (db) => H - clamp((db - ANALYSER_MIN_DB) / (ANALYSER_MAX_DB - ANALYSER_MIN_DB), 0, 1) * H;
     const toSpectrumPts = (data) => {
         const pts = [];
@@ -286,9 +196,6 @@ function drawEQGraph(canvas, opts) {
         }
         return pts;
     };
-    // Original (pre-EQ / dry) spectrum — tapped straight off the source, before
-    // the Faust node, so it never reflects any band's freq/gain/bypass state.
-    // Drawn as a plain dashed outline (no fill), purely as a reference shape.
     if (dryAnalyserData) {
         const dryPts = toSpectrumPts(dryAnalyserData);
         if (dryPts.length > 1) {
@@ -306,11 +213,6 @@ function drawEQGraph(canvas, opts) {
             ctx.setLineDash([]);
         }
     }
-    // Live analyzer (post-EQ spectrum). getByteFrequencyData() returns bytes
-    // already mapped *linearly* between the AnalyserNode's own
-    // minDecibels/maxDecibels (see ANALYSER_MIN_DB/ANALYSER_MAX_DB, set to
-    // match on the node itself) — applying another log10() on top of that
-    // would double-transform the value and warp the shape.
     if (analyserData) {
         const levelPts = toSpectrumPts(analyserData);
         if (levelPts.length > 1) {
@@ -338,7 +240,6 @@ function drawEQGraph(canvas, opts) {
             ctx.restore();
         }
     }
-    // ---- EQ curve(s) — drawn on top of the spectrum ----
     const y0 = gainToFrac(0) * H;
     const sampleResponse = (b, responseFn) => {
         const N = 160;
@@ -351,11 +252,6 @@ function drawEQGraph(canvas, opts) {
         }
         return pts;
     };
-    // Fill only covers the gap between the *gain-only* response and the 0 dB
-    // line — i.e. only where an actual gain control is boosting/cutting. HPF
-    // and LPF are excluded from this (see gainOnlyResponseDB), so a fully flat
-    // setting (all gain knobs at 0) shows no shading at all, even if HPF/LPF
-    // are dialed somewhere and shaping the line itself.
     const strokeCurve = (b, color, alpha, fillAlpha, outputGain = 0, curveLiveDynGain) => {
         if (fillAlpha > 0) {
             const fillPts = sampleResponse(b, (bb, f) => gainOnlyResponseDB(bb, f, curveLiveDynGain));
@@ -372,11 +268,6 @@ function drawEQGraph(canvas, opts) {
             ctx.fill();
             ctx.restore();
         }
-        // Master/output Gain band — a second, differently-colored shaded ribbon
-        // between the EQ's own response and that same response shifted by the
-        // output Gain slider (e.g. a peak at +6 dB with +3 dB of output Gain
-        // shades 0→6 in the EQ color and 6→9 in this one), since that extra
-        // boost/cut is coming from the broadband Gain control, not the band.
         if (outputGain !== 0) {
             const basePts = sampleResponse(b, (bb, f) => totalResponseDB(bb, f, false, curveLiveDynGain));
             const shiftedPts = sampleResponse(b, (bb, f) => totalResponseDB(bb, f, false, curveLiveDynGain) + outputGain);
@@ -393,8 +284,6 @@ function drawEQGraph(canvas, opts) {
             ctx.fill();
             ctx.restore();
         }
-        // The stroked line is the *true* response — the EQ curve (incl. HPF/LPF)
-        // shifted by the output Gain, since that's what actually reaches the ear.
         const linePts = sampleResponse(b, (bb, f) => totalResponseDB(bb, f, false, curveLiveDynGain) + outputGain);
         ctx.save();
         ctx.globalAlpha = alpha;
@@ -407,12 +296,6 @@ function drawEQGraph(canvas, opts) {
             ctx.lineTo(p.x, p.y);
         ctx.stroke();
         ctx.restore();
-        // Live per-band activity — any band whose dynamic engine is actually
-        // moving right now on *this* curve (|live gain| above the noise floor)
-        // gets its own un-summed response highlighted in its own color, so
-        // gain-reduction/boost activity reads directly off the curve as it
-        // happens, for every band at once, not just the one you're dragging
-        // (see the separate, brighter highlightBandId block below for that).
         if (curveLiveDynGain) {
             for (const def of BAND_DEFS) {
                 if (!def.gainKey || getBypass(b, def))
@@ -448,10 +331,6 @@ function drawEQGraph(canvas, opts) {
             }
         }
     };
-    // Dynamic-range preview — dashed line showing where the curve would settle
-    // if every dynamic-armed band were fully engaged (signal continuously past
-    // Threshold). Only drawn once at least one band has Dynamic On, using the
-    // same signed-Range math as the Faust DSP (see dynamicExtremeGain).
     const anyDynamic = BAND_DEFS.some(def => getDynamicOn(bands, def));
     if (anyDynamic) {
         const dynPts = sampleResponse(bands, (bb, f) => totalResponseDB(bb, f, true) + outputGainDb);
@@ -477,10 +356,6 @@ function drawEQGraph(canvas, opts) {
         ctx.fillText('TARGET HIDDEN — LISTEN & MATCH BY EAR', W / 2 - 150, 14);
     }
     strokeCurve(bands, pal.curveMine, 0.95, 0.22, outputGainDb, liveDynGainTarget === 'target' ? undefined : liveDynGain);
-    // ---- Active-drag highlight — this one band's own (un-summed) response,
-    // in its own color, layered on top of everything above. Mirrors FabFilter
-    // shading the band you're currently moving so the gain you're dialing in
-    // reads directly off the main graph, not just off the little node. ----
     if (highlightBandId) {
         const hDef = BAND_DEFS.find(d => d.id === highlightBandId);
         if (hDef && !getBypass(bands, hDef)) {
@@ -513,19 +388,11 @@ function drawEQGraph(canvas, opts) {
         }
     }
 }
-// ── Interactive band node (drag = freq/gain, wheel = Q) ──────────────────────
 function EQNode({ def, bands, containerRef, onChange, editable, selected, onSelect, onDragStateChange, }) {
     const dragRef = useRef(false);
     const [dragging, setDragging] = useState(false);
     const freq = getFreq(bands, def);
     const gain = getGain(bands, def);
-    // Every node's position depends only on *this band's own* parameters —
-    // never on any other band's freq/gain/Q. That's the only way to guarantee
-    // that changing one dot never moves another: HPF/LPF sit on the 0 dB
-    // reference line (they have no gain of their own), and shelves/peaks sit
-    // at their own gain value, full stop. The drawn curve (the sum of every
-    // band) will only coincide with a given dot when that's the only band
-    // doing anything — completely normal for a multi-band EQ.
     const xPct = fToFrac(freq) * 100;
     const yPct = gainToFrac(def.gainKey ? gain : 0) * 100;
     const updateFromPointer = useCallback((clientX, clientY) => {
@@ -573,12 +440,6 @@ function EQNode({ def, bands, containerRef, onChange, editable, selected, onSele
     };
     const q = getQ(bands, def);
     const bypassed = getBypass(bands, def);
-    // Off bands stay clickable (so you can still select + turn one on from
-    // the graph) but sit small, dashed and faint — since every band starts
-    // OFF, this keeps 8 idle markers from cluttering the flat 0 dB line while
-    // still hinting they're there. Once turned on, a node grows, fills solid,
-    // and gets its color's glow, so the graph reads at a glance which bands
-    // are actually shaping the sound.
     const size = bypassed ? 9 : 14;
     const title = `${def.label}: ${freq >= 1000 ? (freq / 1000).toFixed(2) + 'k' : Math.round(freq)}Hz`
         + (def.gainKey ? ` · ${gain > 0 ? '+' : ''}${gain.toFixed(1)}dB` : '')
@@ -603,11 +464,6 @@ function EQNode({ def, bands, containerRef, onChange, editable, selected, onSele
             touchAction: 'none',
             zIndex: selected ? 3 : 2,
         }}>
-      {/* Live readout while dragging — mirrors the floating Freq/Gain/Q box
-            FabFilter shows next to the cursor mid-drag, so the exact value
-            you're dialing in is visible without looking away to the panel
-            below. Positioned relative to the node itself (its parent already
-            establishes the containing block via position: absolute). */}
       {dragging && (<div style={{
                 position: 'absolute', left: '50%', bottom: `calc(100% + ${size / 2 + 8}px)`,
                 transform: 'translateX(-50%)', pointerEvents: 'none', zIndex: 10,
@@ -623,10 +479,6 @@ function EQNode({ def, bands, containerRef, onChange, editable, selected, onSele
         </div>)}
     </div>);
 }
-// ── Output (makeup) gain — a plain vertical slider, not a knob, matching the
-// thin fader-style "Gain" control on a real Channel EQ. Drag anywhere on the
-// track to jump/scrub to that value; a small tick ruler (15/10/5/0/5/10/15)
-// runs alongside it, same as the reference screenshot.
 function OutputGainSlider({ value, onChange, min = -15, max = 15, }) {
     const trackRef = useRef(null);
     const dragRef = useRef(false);
@@ -662,7 +514,6 @@ function OutputGainSlider({ value, onChange, min = -15, max = 15, }) {
         }}>
           {ticks.map(t => <div key={t}>{Math.abs(t)}</div>)}
         </div>
-        {/* Slightly wider invisible hit-area so a thin visual track is still easy to grab */}
         <div onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} title={`Output gain: ${clamped > 0 ? '+' : ''}${clamped.toFixed(1)} dB`} style={{
             position: 'relative',
             width: 16,
@@ -695,10 +546,6 @@ function OutputGainSlider({ value, onChange, min = -15, max = 15, }) {
       </div>
     </div>);
 }
-// ── Reusable curve widget ─────────────────────────────────────────────────────
-// One combined canvas (see drawEQGraph) — the curve and the live/dry
-// spectrum share the same plot instead of two stacked canvases, so the
-// waveform and the response curve are always on one screen together.
 function ParamEQCurve({ bands, onChange, targetBands, showTarget, analyserRef, dryAnalyserRef, analyserActive, sampleRate, outputGainDb, onOutputGainChange, selectedBandId, onSelectBand, liveDynGainRef, liveDynGainActive, liveDynGainTarget, }) {
     const { theme } = useTheme();
     const themeRef = useRef(theme);
@@ -708,13 +555,7 @@ function ParamEQCurve({ bands, onChange, targetBands, showTarget, analyserRef, d
     const dataRef = useRef(null);
     const dryDataRef = useRef(null);
     const rafRef = useRef(null);
-    // Which band's node is actively being dragged right now (null when idle) —
-    // drives the extra per-band highlight on the graph (see drawEQGraph) so
-    // the gain you're moving shows up on the curve itself, not just the dot.
     const [draggingBandId, setDraggingBandId] = useState(null);
-    // Latest props mirrored into refs so the RAF loop below (which only
-    // restarts when analyserActive/analyserRef/sampleRate change) always draws
-    // with up-to-date bands/target/gain instead of a stale closure.
     const bandsRef = useRef(bands);
     useEffect(() => { bandsRef.current = bands; }, [bands]);
     const targetRef = useRef(targetBands);
@@ -729,8 +570,6 @@ function ParamEQCurve({ bands, onChange, targetBands, showTarget, analyserRef, d
     useEffect(() => { liveDynGainActiveRef.current = liveDynGainActive; }, [liveDynGainActive]);
     const liveDynGainTargetRef = useRef(liveDynGainTarget);
     useEffect(() => { liveDynGainTargetRef.current = liveDynGainTarget; }, [liveDynGainTarget]);
-    // Immediate redraw whenever bands/target/gain change — covers dragging a
-    // node while audio isn't playing (no RAF loop running in that case).
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas)
@@ -743,9 +582,6 @@ function ParamEQCurve({ bands, onChange, targetBands, showTarget, analyserRef, d
             liveDynGainTarget, theme,
         });
     }, [bands, targetBands, showTarget, outputGainDb, sampleRate, draggingBandId, liveDynGainActive, liveDynGainRef, liveDynGainTarget, theme]);
-    // Live RAF loop while audio is playing — animates the spectrum and keeps
-    // redrawing the curve every frame too, so drags made mid-playback track
-    // just as responsively as when stopped.
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas)
@@ -796,9 +632,6 @@ function ParamEQCurve({ bands, onChange, targetBands, showTarget, analyserRef, d
         <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
         {BAND_DEFS.map(def => (<EQNode key={def.id} def={def} bands={bands} containerRef={containerRef} onChange={onChange} editable={!!onChange} selected={selectedBandId === def.id} onSelect={onSelectBand ? () => {
                 onSelectBand(def.id);
-                // Selecting a band's node is a declaration of intent to shape
-                // it — turn it on rather than leaving it selected-but-OFF and
-                // silently doing nothing until a separate ON click.
                 if (onChange && getBypass(bands, def))
                     onChange(withBypass(bands, def, false));
             } : undefined} onDragStateChange={dragging => setDraggingBandId(prev => {
@@ -814,12 +647,6 @@ function roundTo(v, decimals) {
     const p = Math.pow(10, decimals);
     return Math.round(v * p) / p;
 }
-// Small themed numeric input — types a value directly instead of dragging.
-// Commits live on every keystroke that parses to a number (so the curve,
-// dot, and audio all update as you type), while keeping its own draft
-// string while focused so the *displayed* text isn't clobbered mid-type by
-// the clamped value bouncing back (e.g. typing "1" then "10" then "100").
-// On blur, the display snaps to the final clamped value.
 function NumberField({ value, onChange, min, max, step, disabled, }) {
     const [local, setLocal] = useState(String(value));
     const focusedRef = useRef(false);
@@ -853,13 +680,6 @@ function NumberField({ value, onChange, min, max, step, disabled, }) {
             outline: 'none',
         }}/>);
 }
-// ── Rotary knob — the FabFilter-style round control ──────────────────────────
-// Drag vertically (up = increase) or scroll to nudge; both work purely in
-// fraction-of-range space (0..1) so the same component handles a log-scale
-// control (Freq) and a linear one (Gain/Q/Threshold/Range/Attack/Release)
-// identically — only valueToFrac/fracToValue below know about the log curve.
-// A 270° arc (-135°..+135°) fills to show the current value at a glance,
-// same sweep as a hardware-style knob.
 function valueToFrac(v, min, max, log) {
     if (log) {
         const lv = Math.log10(Math.max(v, 1e-6)), lmin = Math.log10(min), lmax = Math.log10(max);
@@ -876,16 +696,8 @@ function fracToValue(f, min, max, log) {
     return min + frac * (max - min);
 }
 const KNOB_SWEEP_DEG = 270;
-const KNOB_START_DEG = -135; // measured clockwise from straight up (12 o'clock)
-const KNOB_DRAG_PX = 170; // vertical pixels for a full 0..1 sweep
-// Clockwise-from-12-o'clock polar coordinates (0deg = straight up, +90deg =
-// 3 o'clock, +180deg = 6 o'clock) — shared by the fill arc and the pointer
-// below so they always agree, and so the *midpoint* of the range (frac 0.5)
-// lands at 12 o'clock like a real hardware knob, with min/max at the usual
-// ~7:30/~4:30. (Matches the angle convention already proven out in the
-// shared components/Knob.tsx — this one stayed a separate implementation
-// because of its log-scale/disabled/drag-px specifics, but reuses the same
-// math.)
+const KNOB_START_DEG = -135;
+const KNOB_DRAG_PX = 170;
 function knobPolar(r, angleDeg) {
     const rad = (angleDeg * Math.PI) / 180;
     return { x: r * Math.sin(rad), y: -r * Math.cos(rad) };
@@ -897,10 +709,6 @@ function knobArcPath(r, startDeg, endDeg) {
     const largeArc = endDeg - startDeg > 180 ? 1 : 0;
     return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 ${largeArc} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
 }
-// Same light-vs-dark metal treatment as the shared components/controls/Knob.jsx and
-// the .big-knob/.sat-knob/.pan-knob CSS knobs — a physical control reads as
-// a raised metal/plastic disc, brushed aluminum in light mode rather than
-// the same near-black plastic body regardless of theme.
 const KNOB_BODY = {
     dark: {
         background: 'radial-gradient(circle at 35% 30%, #2b2b32, #131316 75%)',
@@ -962,10 +770,6 @@ function Knob({ value, onChange, min, max, disabled, color = 'var(--blue)', log 
         }}/>
     </div>);
 }
-// Knob + label + precise numeric entry, stacked — used identically for both
-// the Standard EQ row (Freq/Gain/Q) and the Dynamic EQ row (Threshold/Range/
-// Attack/Release) in BandEditPanel, so the two sections read as one family
-// of controls rather than two differently-styled UIs.
 function KnobField({ label, value, onChange, min, max, step, disabled, color, log, decimals = 1, }) {
     return (<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem' }}>
       <span style={{ fontSize: '0.55rem', color: 'var(--text-faint)', fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}>{label}</span>
@@ -975,7 +779,6 @@ function KnobField({ label, value, onChange, min, max, step, disabled, color, lo
       </div>
     </div>);
 }
-// ── Small labeled field wrapper used throughout BandEditPanel ────────────────
 function Field({ label, children }) {
     return (<div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', alignItems: 'center' }}>
       <span style={{ fontSize: '0.55rem', color: 'var(--text-faint)', fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}>{label}</span>
@@ -987,27 +790,10 @@ const navBtnStyle = {
     border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-dim)',
     fontFamily: 'var(--font-mono)', fontSize: '0.75rem', lineHeight: 1, flexShrink: 0,
 };
-// Shared header-row height across the FREQUENCY / STANDARD EQ / DYNAMIC EQ
-// knob groups in BandEditPanel — tall enough to fit DYNAMIC EQ's header +
-// mode buttons (the tallest of the three) without clipping. FREQUENCY has
-// no header text of its own, so it gets a blank spacer of this same height
-// instead; the effect is that every group's knob row lines up on one
-// horizontal line regardless of whether that group has a label above it.
 const KNOB_HEADER_H = '1.5rem';
 const SHAPE_LABEL = {
     hpf: 'LOW CUT', lowshelf: 'LOW SHELF', peak: 'BELL', highshelf: 'HIGH SHELF', lpf: 'HIGH CUT',
 };
-// Standard EQ / Dynamic EQ / Both — a band's gain can come purely from its
-// static Gain knob (Standard), purely from the level-triggered Range once
-// Threshold is crossed with static Gain pinned to 0 (Dynamic), or both
-// added together (Both), matching how the Faust engine actually sums them
-// (gain = static Gain + dyn_gain_db(...)).
-// Gain alone can't always tell "Dynamic" and "Both" apart — Both with Gain
-// dialed back to 0 looks identical, in terms of stored params, to plain
-// Dynamic. This is only a fallback for bands whose mode was never explicitly
-// picked in this panel (e.g. loaded from a preset); BandEditPanel below
-// remembers the user's actual button choice per band so BOTH stays selected
-// even while Gain sits at 0.
 function getDynModeUI(bands, def) {
     if (!getDynamicOn(bands, def))
         return 'static';
@@ -1018,20 +804,10 @@ function withDynModeUI(bands, def, mode) {
         return withDynamicOn(bands, def, false);
     if (mode === 'dynamic')
         return withGain(withDynamicOn(bands, def, true), def, 0);
-    return withDynamicOn(bands, def, true); // 'both' — leave Gain wherever it is
+    return withDynamicOn(bands, def, true);
 }
-// ── Band edit panel ──────────────────────────────────────────────────────────
-// A single-band editor, FabFilter Pro-Q-style: pick a band (tabs, prev/next
-// arrows, or click its node on the graph above) and edit everything about it
-// — Freq/Gain/Q (or slope for HPF/LPF), Bypass, and, for the six bands Faust
-// gives level-dependent processing to, a Standard/Dynamic/Both mode selector
-// plus Threshold/Range/Attack/Release. Replaces the old all-bands-at-once
-// BandReadout grid + separate DynamicEQPanel list with one focused panel.
 function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
     const { theme } = useTheme();
-    // Explicit per-band mode choice, so BOTH sticks even while Gain sits at 0
-    // (see getDynModeUI above) — falls back to the gain-based heuristic for
-    // any band whose mode hasn't been explicitly clicked in this panel yet.
     const [modeOverride, setModeOverride] = useState({});
     const idx = Math.max(0, BAND_DEFS.findIndex(d => d.id === selectedId));
     const def = BAND_DEFS[idx] ?? BAND_DEFS[0];
@@ -1041,9 +817,6 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
     const q = getQ(bands, def);
     const dynCapable = !!def.dynamicOnKey;
     const dynamicOn = dynCapable && getDynamicOn(bands, def);
-    // Dynamic Off always wins regardless of any remembered override — flipping
-    // MODE back on later should re-derive from scratch, not resurrect a stale
-    // choice from before it was switched off.
     const dynMode = !dynCapable ? 'static'
         : !dynamicOn ? 'static'
             : (modeOverride[def.id] ?? getDynModeUI(bands, def));
@@ -1051,10 +824,6 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
     const range = getRange(bands, def);
     const attack = getAttack(bands, def);
     const release = getRelease(bands, def);
-    // Freq/Q are intentionally neutral-colored (not tied to the band's own
-    // color) — see the comment above the FREQUENCY group. #9AA5B1 is a light
-    // gray-blue tuned for the dark knob body; needs a darker equivalent once
-    // the knob itself goes light (see KNOB_BODY above).
     const neutralKnobColor = theme === 'light' ? '#5b6472' : '#9AA5B1';
     const goto = (delta) => {
         const next = (idx + delta + BAND_DEFS.length) % BAND_DEFS.length;
@@ -1064,11 +833,6 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
             border: '1px solid var(--border)', borderRadius: '8px',
             background: 'rgba(255,255,255,0.02)', padding: '1rem 1.4rem', marginTop: '0.75rem',
         }}>
-      {/* Band selector doubles as the on/off control — no separate ON/OFF
-            button. Clicking an inactive tab selects that band and turns it on
-            (picking a tab is a declaration you want to work on it, not just
-            look at it). Clicking the already-active tab toggles it on/off in
-            place. The small dot shows each band's on/off state at a glance. */}
       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
         {BAND_DEFS.map(d => {
             const active = d.id === selectedId;
@@ -1103,17 +867,7 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
         })}
       </div>
 
-      {/* Aligned control groups — same knob widget, same row layout, side
-            by side in a single row (scrolls horizontally rather than
-            wrapping, so Dynamic EQ's 4 knobs never drop to a second line
-            under Freq/Gain) — so Standard EQ and Dynamic EQ read as one
-            family of controls instead of two differently-styled UIs. */}
       <div style={{ display: 'flex', alignItems: 'stretch', gap: '1.5rem', flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: '0.3rem' }}>
-        {/* Band identity + nav. Vertically centered (rather than packed at
-            the top) since — unlike every other column here — it has no
-            header-row + knob-row structure of its own; centering it lines
-            it up with the knob row that sits below a header in the other
-            columns, instead of stranding it up top with empty space below. */}
         <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.6rem',
             paddingRight: '1.8rem', borderRight: '1px solid var(--border)', flexShrink: 0,
@@ -1128,16 +882,6 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
           </div>
         </div>
 
-        {/* FREQUENCY group — Freq/Q (or Slope) are shared: the same knobs
-            shape the static peak/shelf AND set the center + width of the
-            dynamic engine's own level-detection filter (see fc/q in
-            dyn_gain_db, ParamEQDynamic.dsp). Kept neutral-colored and
-            separate from STANDARD EQ so it doesn't read as "these belong to
-            Standard EQ" while Dynamic (or Both) is active — they apply
-            either way. A blank spacer matching KNOB_HEADER_H stands in for
-            a header here, purely so its knob row lines up with STANDARD
-            EQ's / DYNAMIC EQ's knob rows below *their* headers, instead of
-            sitting a header's-height higher than them. */}
         <div style={{
             display: 'flex', flexDirection: 'column', gap: '0.7rem', flexShrink: 0,
             paddingRight: (def.gainKey || dynCapable) ? '1.8rem' : 0,
@@ -1163,9 +907,6 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
           </div>
         </div>
 
-        {/* STANDARD EQ group — just the static Gain knob now; Freq/Q moved
-            to the shared FREQUENCY group above since Dynamic EQ uses them
-            too (see comment there). */}
         {def.gainKey && (<div style={{
                 display: 'flex', flexDirection: 'column', gap: '0.7rem', flexShrink: 0,
                 paddingRight: dynCapable ? '1.8rem' : 0, borderRight: dynCapable ? '1px solid var(--border)' : 'none',
@@ -1180,7 +921,6 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
             </div>
           </div>)}
 
-        {/* DYNAMIC EQ group — same row shape as Standard EQ above, in teal */}
         {dynCapable && (<div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem', flexShrink: 0 }}>
             <div style={{ minHeight: KNOB_HEADER_H, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '0.58rem', color: 'var(--teal)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', fontWeight: 600 }}>
@@ -1218,40 +958,6 @@ function BandEditPanel({ bands, onChange, selectedId, onSelect, }) {
         </div>)}
     </div>);
 }
-// ── Shared editor panel ───────────────────────────────────────────────────────
-// ParamEQCurve (the draggable curve + live spectrum) plus BandEditPanel (the
-// focused per-band editor below it) — the exact same body the standalone
-// Test Bench / Ear Training tabs below render, reused verbatim by the DAW
-// workstation's insert-chain popup (../tour/daw/DawWorkstationScreen) instead
-// of its generic buildEqCurvePath approximation. Same split as
-// GateEditorPanel in ./NoiseGate — ParamEQCurve/BandEditPanel were already
-// host-agnostic reusable components (they take bands/onChange, analyser
-// refs, sampleRate, etc. as plain props), so this is a thin wrapper that
-// gives every host one single component to render, mirroring the other five
-// plugins' *EditorPanel shape.
-//
-// Host contract:
-//   - bands/setBands — host-owned typed band state, pushed onto the live
-//     Faust node by the host via applyBandsToNode (see ./equalizerEngine)
-//     whenever it changes.
-//   - selectedBandId/setSelectedBandId — which band the BandEditPanel below
-//     the graph is currently showing (also settable by clicking a node
-//     directly on the curve).
-//   - outputGainDb/setOutputGainDb — the broadband output-gain fader shown
-//     alongside the curve.
-//   - analyserRef/dryAnalyserRef — post-EQ / pre-EQ AnalyserNodes for the
-//     live spectrum overlay; analyserActive gates whether the RAF loop reads
-//     them (only while the host's transport is actually playing).
-//   - sampleRate — the live AudioContext's sample rate, for the spectrum's
-//     frequency axis.
-//   - liveDynGainRef/liveDynGainActive — a ref to `{ [bandId]: dB }`
-//     populated by the host's own setOutputParamHandler subscription to each
-//     band's Live_Gain hbargraph output (see LIVE_GAIN_ADDR_TO_BAND in
-//     ./equalizerEngine), so the curve can show real per-band dynamic-EQ
-//     movement rather than an estimate.
-//   - targetBands/showTarget/liveDynGainTarget — optional, Ear-Training-only
-//     (the standalone lab's hidden-target overlay); hosts with no such
-//     concept (like the DAW) simply omit them.
 export function EqualizerEditorPanel({
     bands, setBands,
     selectedBandId, setSelectedBandId,
@@ -1265,28 +971,17 @@ export function EqualizerEditorPanel({
       <BandEditPanel bands={bands} onChange={setBands} selectedId={selectedBandId} onSelect={setSelectedBandId}/>
     </>);
 }
-// ── Tabs ──────────────────────────────────────────────────────────────────────
-// Test Bench / Ear Training — app-wide standard Tabs (segmented).
 const EQ_TABS = [
     { id: 'bench', label: '🧪 TEST BENCH' },
     { id: 'ear', label: '🎧 EAR TRAINING' },
 ];
 export default function Equalizer() {
     const { theme } = useTheme();
-    // The "original pre-EQ" trace is drawn near-white (#E5E7EB) on the
-    // graph canvas, which always stays dark — fine there, but the tiny
-    // legend swatch that echoes this color sits on the panel below the
-    // graph, which does follow the theme, so it needs its own darker
-    // equivalent once that panel goes light.
     const originalLineColor = theme === 'light' ? '#8b93a0' : '#E5E7EB';
-    // Same idea for the "live GR/boost" legend swatch — a 3-stop gradient
-    // sampling a few bands' bright canvas colors, swapped for their darker
-    // panel-chrome equivalents in light mode.
     const grBoostGradient = theme === 'light'
         ? 'linear-gradient(90deg, #7a8a1a, #0f9488, #7c3aed)'
         : 'linear-gradient(90deg, #D9E86B, #2DD4BF, #A78BFA)';
     const [tab, setTab] = useState('bench');
-    // ── Faust engine (loaded once) ─────────────────────────────────────────────
     const [engineStatus, setEngineStatus] = useState('idle');
     const [engineError, setEngineError] = useState(null);
     const dspMetaRef = useRef(null);
@@ -1317,21 +1012,12 @@ export default function Equalizer() {
         })();
         return () => { cancelled = true; };
     }, []);
-    // ── Shared audio engine — one Faust node / source / analyser at a time ─────
     const audioCtxRef = useRef(null);
     const sourceNodeRef = useRef(null);
     const activeNodeRef = useRef(null);
     const outputGainNodeRef = useRef(null);
     const analyserRef = useRef(null);
-    // Second analyser tapped straight off the source, before the Faust node —
-    // never connected onward to the destination, so it's silent/inaudible and
-    // exists purely to let the canvas draw the original (pre-EQ) spectrum
-    // alongside the live, post-EQ one.
     const dryAnalyserRef = useRef(null);
-    // Real per-band dynamic-EQ gain, read live off the Faust patch's own
-    // Live_Gain hbargraph meters via setOutputParamHandler (see play() below)
-    // — updates every audio-thread control tick, so it's a plain mutable ref
-    // (not state) read straight out of ParamEQCurve's own draw loop.
     const liveDynGainRef = useRef({});
     const demoBufferRef = useRef(null);
     const [playSource, setPlaySource] = useState('idle');
@@ -1349,7 +1035,6 @@ export default function Equalizer() {
             demoBufferRef.current = createDemoLoopBuffer(ctx);
         return demoBufferRef.current;
     }, []);
-    // ── Test Bench state ────────────────────────────────────────────────────────
     const [benchBands, setBenchBands] = useState(DEFAULT_BANDS);
     const benchBandsRef = useRef(benchBands);
     useEffect(() => { benchBandsRef.current = benchBands; }, [benchBands]);
@@ -1362,15 +1047,10 @@ export default function Equalizer() {
     const [benchUploadError, setBenchUploadError] = useState('');
     const benchFileInputRef = useRef(null);
     const [benchDownloading, setBenchDownloading] = useState(false);
-    // Multiple uploaded tracks — each upload adds a new track instead of
-    // replacing the last one, so you can switch between several files.
     const [benchTracks, setBenchTracks] = useState([]);
     const [benchActiveTrackId, setBenchActiveTrackId] = useState(null);
     const benchUploadIdSeqRef = useRef(0);
-    // Which band the BandEditPanel below the graph is currently showing —
-    // also settable by clicking a node directly on the curve.
     const [benchSelectedBandId, setBenchSelectedBandId] = useState('peak1');
-    // ── Ear Training state ──────────────────────────────────────────────────────
     const [targetPreset, setTargetPreset] = useState(() => pickRandomPreset());
     const targetBands = applyPreset(DEFAULT_BANDS, targetPreset);
     const targetBandsRef = useRef(targetBands);
@@ -1391,13 +1071,12 @@ export default function Equalizer() {
     const [hintUsed, setHintUsed] = useState(false);
     const [earDownloading, setEarDownloading] = useState(null);
     const [earSelectedBandId, setEarSelectedBandId] = useState('peak1');
-    // ── Playback ────────────────────────────────────────────────────────────────
     const stopAudio = useCallback(() => {
         if (sourceNodeRef.current) {
             try {
                 sourceNodeRef.current.stop();
             }
-            catch { /* already stopped */ }
+            catch {  }
             sourceNodeRef.current.disconnect();
             sourceNodeRef.current = null;
         }
@@ -1405,28 +1084,28 @@ export default function Equalizer() {
             try {
                 activeNodeRef.current.disconnect();
             }
-            catch { /* ok */ }
+            catch {  }
             activeNodeRef.current = null;
         }
         if (outputGainNodeRef.current) {
             try {
                 outputGainNodeRef.current.disconnect();
             }
-            catch { /* ok */ }
+            catch {  }
             outputGainNodeRef.current = null;
         }
         if (analyserRef.current) {
             try {
                 analyserRef.current.disconnect();
             }
-            catch { /* ok */ }
+            catch {  }
             analyserRef.current = null;
         }
         if (dryAnalyserRef.current) {
             try {
                 dryAnalyserRef.current.disconnect();
             }
-            catch { /* ok */ }
+            catch {  }
             dryAnalyserRef.current = null;
         }
         liveDynGainRef.current = {};
@@ -1467,9 +1146,6 @@ export default function Equalizer() {
         const factory = { module: dspModuleRef.current, json: JSON.stringify(dspMetaRef.current), soundfiles: {} };
         let node;
         try {
-            // sp=true: ScriptProcessorNode instead of AudioWorkletNode (which needs a secure
-            // context) since this is currently served over plain HTTP. Revert to false once HTTPS
-            // is in front of the deploy.
             node = await generatorRef.current.createNode(ctx, dspMetaRef.current.name, factory, true, 512);
         }
         catch (err) {
@@ -1478,12 +1154,6 @@ export default function Equalizer() {
             return;
         }
         applyBandsToNode(node, bands);
-        // Subscribe to the live per-band dynamic-gain meters (read-only DSP
-        // outputs — never registered as AudioParams, so this needs
-        // setOutputParamHandler rather than getParamValue; see the comment on
-        // FaustNodeLike.setOutputParamHandler in faustTypes.ts). Reset first so
-        // a stale reading from whichever bands were loaded before this play()
-        // call can't linger into the new one.
         liveDynGainRef.current = {};
         node.setOutputParamHandler?.((path, value) => {
             const bandId = LIVE_GAIN_ADDR_TO_BAND[path];
@@ -1497,11 +1167,6 @@ export default function Equalizer() {
         analyser.smoothingTimeConstant = 0.78;
         analyser.minDecibels = ANALYSER_MIN_DB;
         analyser.maxDecibels = ANALYSER_MAX_DB;
-        // Dry (pre-EQ) analyser — tapped directly off the source, in parallel
-        // with the signal chain into the Faust node, and never connected onward
-        // to the destination, so it's silent and doesn't change what's heard.
-        // Same decibel range/smoothing as the post-EQ analyser above so the two
-        // traces are directly comparable on the same canvas.
         const dryAnalyser = ctx.createAnalyser();
         dryAnalyser.fftSize = 2048;
         dryAnalyser.smoothingTimeConstant = 0.78;
@@ -1523,7 +1188,6 @@ export default function Equalizer() {
         dryAnalyserRef.current = dryAnalyser;
         setPlaySource(which);
     }, [playSource, stopAudio, engineStatus, benchBuffer, earBuffer, ensureAudioCtx, ensureDemoBuffer]);
-    // Live param updates while playing
     useEffect(() => {
         if (playSource === 'bench' && activeNodeRef.current)
             applyBandsToNode(activeNodeRef.current, benchBands);
@@ -1540,7 +1204,6 @@ export default function Equalizer() {
         if (playSource === 'mine' && activeNodeRef.current)
             applyBandsToNode(activeNodeRef.current, myBands);
     }, [myBands, playSource]);
-    // Stop playback + reset engine state when switching tabs
     const handleTabChange = useCallback((next) => {
         stopAudio();
         setTab(next);
@@ -1549,18 +1212,17 @@ export default function Equalizer() {
         try {
             sourceNodeRef.current?.stop();
         }
-        catch { /* ok */ }
+        catch {  }
         sourceNodeRef.current?.disconnect();
         try {
             activeNodeRef.current?.disconnect();
         }
-        catch { /* ok */ }
+        catch {  }
         outputGainNodeRef.current?.disconnect();
         analyserRef.current?.disconnect();
         dryAnalyserRef.current?.disconnect();
         audioCtxRef.current?.close();
     }, []);
-    // ── Test Bench actions ──────────────────────────────────────────────────────
     const handleBenchUploadClick = useCallback(() => { benchFileInputRef.current?.click(); }, []);
     const handleBenchFileSelected = useCallback(async (e) => {
         const files = Array.from(e.target.files ?? []);
@@ -1608,8 +1270,6 @@ export default function Equalizer() {
             setBenchDecoding(false);
         }
     }, [stopAudio, ensureAudioCtx]);
-    // Switch the active Test Bench source between the demo loop and any of the
-    // previously uploaded tracks, without needing to re-upload.
     const handleBenchSelectTrack = useCallback((id) => {
         stopAudio();
         setBenchActiveTrackId(id);
@@ -1651,7 +1311,6 @@ export default function Equalizer() {
             setBenchDownloading(false);
         }
     }, [engineStatus, benchBuffer, benchBands, benchOutputGain, benchFileName, ensureAudioCtx, ensureDemoBuffer]);
-    // ── Ear Training actions ────────────────────────────────────────────────────
     const handleEarUploadClick = useCallback(() => { earFileInputRef.current?.click(); }, []);
     const handleEarFileSelected = useCallback(async (e) => {
         const file = e.target.files?.[0];
@@ -1725,7 +1384,6 @@ export default function Equalizer() {
             setEarDownloading(null);
         }
     }, [engineStatus, earBuffer, myBands, targetBands, myOutputGain, ensureAudioCtx, ensureDemoBuffer]);
-    // ── Derived ─────────────────────────────────────────────────────────────────
     const rms = curveRMSErrorDB(myBands, targetBands);
     const score = scoreFromRMS(rms);
     const scoreColor = score >= 90 ? 'var(--green)' : score >= 60 ? 'var(--amber)' : 'var(--red)';
@@ -1746,7 +1404,6 @@ export default function Equalizer() {
     };
     const eb = engineBadge[engineStatus];
     const engineReady = engineStatus === 'ready';
-    // ── Spacebar toggles play/stop ─────────────────────────────────────────────
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (e.code !== 'Space')
@@ -1767,7 +1424,6 @@ export default function Equalizer() {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [playSource, engineReady, tab, play, stopAudio]);
     return (<div className="chapter-lab eq-lab">
-      {/* Top bar */}
       <div className="lab-topbar">
         <div className="lab-title-row">
           <div className="lab-icon" style={{ background: 'var(--purple-dim)', borderColor: 'rgba(167,139,250,0.4)' }}>
@@ -1779,11 +1435,6 @@ export default function Equalizer() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          {/* Play/stop, mirrored here from each tab's own footer control (see
-              the spacebar handler above, which drives the exact same
-              play(tab === 'bench' ? 'bench' : 'target') / stopAudio() toggle)
-              so playback can be started without scrolling past the curve,
-              band panel, and presets to reach the footer. */}
           <button className="btn-secondary" onClick={() => (playSource !== 'idle' ? stopAudio() : play(tab === 'bench' ? 'bench' : 'target'))} disabled={!engineReady} title={engineReady ? '' : 'Loading Faust ParamEQ engine…'} style={{
                 fontSize: '0.65rem',
                 padding: '0.4rem 0.9rem',
@@ -1825,15 +1476,12 @@ export default function Equalizer() {
           <code>public/faust/ParamEQ/</code>.
         </div>)}
 
-      {/* Tab row */}
       <div className="eq-tabrow" style={{ padding: '0.55rem 1rem', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
         <Tabs className="eq-mode-tabs" variant="segmented" size="sm" items={EQ_TABS} value={tab} onChange={handleTabChange} ariaLabel="Equalizer mode" idPrefix="eq-mode"/>
       </div>
 
-      {/* Standard tab-panel motion (components/Tabs) for everything below the tab row. */}
       <TabPanel idPrefix="eq-mode" value={tab} index={EQ_TABS.findIndex((t) => t.id === tab)}>
 
-      {/* Source row — switch between the demo loop and any uploaded tracks */}
       {tab === 'bench' && benchTracks.length > 0 && (<div style={{
                 display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center',
                 padding: '0.5rem 1rem 0',
@@ -1867,7 +1515,6 @@ export default function Equalizer() {
             })}
         </div>)}
 
-      {/* ═══ TEST BENCH ═══ */}
       {tab === 'bench' && (<>
           <div className="eq-body" style={{ gridTemplateColumns: '1fr' }}>
             <div className="eq-main" style={{ borderRight: 'none' }}>
@@ -1925,7 +1572,6 @@ export default function Equalizer() {
           </div>
         </>)}
 
-      {/* ═══ EAR TRAINING ═══ */}
       {tab === 'ear' && (<>
           <div className="eq-body">
             <div className="eq-main">

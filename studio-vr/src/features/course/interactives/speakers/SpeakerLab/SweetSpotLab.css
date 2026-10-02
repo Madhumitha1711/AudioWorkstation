@@ -1,10 +1,3 @@
-/* Faithful port of design/sweet-spot-lab-ui.html's 2D top-down lab screen.
-   The mockup's own 3D overlay has been dropped entirely (see the "remove
-   3D" request this replaced) — everything below is the "stage + sidebar"
-   view from that file, scoped under .sslab so it can sit alongside the
-   rest of the course's styling without colliding with it. Fonts come from
-   the global --font-sans / --font-mono tokens (src/index.css). */
-
 .sslab {
   --sslab-bg: #0b0a08;
   --sslab-panel: #141210;
@@ -20,20 +13,7 @@
   --sslab-green-rgb: 95, 217, 160;
   --sslab-green-dim: #2c5c48;
   --sslab-danger: #ff8080;
-  /* Fixed dark ink for text on a bright accent fill (e.g. the "playing"
-     audio button) — stays readable regardless of theme, since --sslab-bg
-     itself flips light/dark below. */
   --sslab-ink: #0b0a08;
-
-  /* Dedicated palette for .sslab-room's floor-plan graphic (grid, outer
-     frame, center line, speaker cabinets). Kept separate from the chassis
-     tokens above (--sslab-bg/panel/border*) rather than reusing them: those
-     are tuned as a tight, subtle gradient of near-white tones for chrome
-     like buttons and card borders, so in light mode they sit too close to
-     each other to read as a floor plan's grid/frame/cabinets — see the
-     light-theme override below for the higher-contrast light values.
-     Dark-mode values here match the room's original hardcoded colors
-     exactly, so dark mode is unchanged. */
   --sslab-room-bg: #0d0b09;
   --sslab-room-grid: #1a1611;
   --sslab-room-border: #241f18;
@@ -52,14 +32,9 @@
 .sslab .mono {
   font-family: var(--font-mono);
 }
-
-/* ---------- header ---------- */
 .sslab-header {
   padding: 24px 28px 4px;
 }
-/* Play/stop (and the L/R sanity check) live in the header now, right next
-   to the title, so they're on screen the moment this lab scrolls into
-   view — no need to scroll past the stage + sidebar to reach them. */
 .sslab-header-top {
   display: flex;
   align-items: flex-start;
@@ -100,8 +75,6 @@
   max-width: 560px;
   margin: 8px 0 0;
 }
-
-/* ---------- hint chips ---------- */
 .sslab-chips {
   display: flex;
   gap: 8px;
@@ -124,8 +97,6 @@
   border-color: var(--sslab-amber);
   color: var(--sslab-amber);
 }
-
-/* ---------- layout ---------- */
 .sslab-layout {
   display: grid;
   grid-template-columns: 1fr 300px;
@@ -151,12 +122,6 @@
   position: relative;
   border: 1px solid var(--sslab-border);
   border-radius: 14px;
-  /* Used to be a hardcoded near-black background regardless of theme (see
-     the light-theme note below) — that left this "screen" stuck dark even
-     after switching to light mode. --sslab-room-bg carries the right tone
-     for each theme instead (identical to the old hardcoded value in dark
-     mode, a darker "console" tone matching the EQ chapter's graph in light
-     mode). */
   background:
     radial-gradient(ellipse at 50% 15%, rgba(var(--sslab-amber-rgb), 0.05), transparent 55%),
     var(--sslab-room-bg);
@@ -238,8 +203,6 @@
 .sslab-readout-value.bad {
   color: var(--sslab-amber);
 }
-
-/* ---------- sidebar ---------- */
 .sslab-sidebar {
   background: var(--sslab-bg);
   padding: 24px 22px;
@@ -422,8 +385,6 @@
   border-color: var(--sslab-amber);
   color: var(--sslab-amber);
 }
-
-/* ---------- try it yourself footer ---------- */
 .sslab-try-it {
   margin: 0 28px 24px;
   border: 1px solid var(--sslab-border);
@@ -504,29 +465,6 @@
 .sslab-link-btn:hover {
   color: var(--sslab-amber);
 }
-
-/* ── Light theme ──────────────────────────────────────────────────────────
-   Flips the chassis (bg/panel/border/text). --sslab-ink stays a fixed dark
-   color (used only as text on a bright fill). --sslab-amber/--sslab-green
-   are darkened here since the originals are pastel tones tuned to glow
-   against a permanently-dark room — the room graphic's speaker rings,
-   dashed guides, sweet spot glow, legend swatches, and the image-position
-   meter fill all read var(--sslab-amber)/var(--sslab-green) directly now
-   (previously hardcoded JS color constants), so they pick up these deepened
-   values automatically instead of washing out pale-on-pale.
-
-   --sslab-room-* below used to just be .sslab-room's own hardcoded near-
-   black colors, unconditionally, in both themes — a "screen" that never
-   followed the theme toggle. First attempt at fixing that reused the
-   chassis tokens directly above (--sslab-bg/panel/border/border-soft), but
-   those sit within ~10 units of each other by design (a tight, subtle
-   gradient of near-white chrome tones) — against each other they read as
-   almost the same flat pale color, which is exactly why the grid, frame,
-   and speaker cabinets all but disappeared in light mode. The values below
-   are picked independently for contrast instead: --sslab-room-bg matches
-   the darker "console" tone the EQ chapter's graph also uses in light mode
-   (#e7eae1, not a near-white), and grid/border/cabinet tones step down from
-   there by a clearly visible amount rather than a barely-there one. */
 :root[data-theme='light'] .sslab {
   --sslab-bg: #f6f7f3;
   --sslab-panel: #eef0e9;

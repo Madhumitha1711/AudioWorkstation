@@ -1,1 +1,1 @@
-export { default, Accordion, AccordionItem } from "./Accordion";
+export { Accordion, AccordionItem } from "./Accordion";

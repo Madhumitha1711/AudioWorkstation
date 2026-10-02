@@ -1,10 +1,6 @@
 import { usePalette } from "./PaletteContext";
 import "./PaletteSwitcher.css";
 
-// TEMPORARY: palette switcher - lets us test the different-palette-per-site
-// concept live from the nav bar instead of editing palettes.js by hand. See
-// the block comment at the top of PaletteContext.jsx for what to remove if
-// this doesn't stick around after a palette is finalized.
 export function PaletteSwitcher({ className = "" }) {
   const { paletteId, setPaletteId, palettes } = usePalette();
   const current = palettes.find((p) => p.id === paletteId) || palettes[0];

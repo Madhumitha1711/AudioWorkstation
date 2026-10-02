@@ -1,13 +1,3 @@
-// "Amplifier + Passive Speaker" — content for AmpPassiveSpeakerLab.
-//
-// Single screen, no tabs: intro + how the pairing works, then each classic
-// studio pairing as an image + description card, then key points. Spec
-// figures are the manufacturers' published numbers (NS-10M Studio:
-// Yamaha; CLA-10 / CLA-200: Avantone Pro).
-//
-// Photos aren't added yet — drop them in at public/amp-passive-speaker/<id>.jpg
-// and they appear automatically; until then each card shows a placeholder.
-
 export const ampPassiveImagePath = (id) => `/amp-passive-speaker/${id}.jpg`;
 
 export const AMP_PASSIVE = {

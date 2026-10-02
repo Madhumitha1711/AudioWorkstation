@@ -55,9 +55,6 @@ function Header({ pathname, studentName }) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  // Landing and payment pages ship their own headers, so the shared app
-  // chrome only needs to appear for login, the course page, the studio
-  // tour, and the discussion board.
   if (pathname === "/" || pathname === "/payment" || pathname === "/payment/complete") {
     return null;
   }

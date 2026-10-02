@@ -1,30 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Tabs, TabPanel, TabPager, useTabTransition } from "../../../../../components/Tabs";
 import { KeyPoints } from "../../../../../components/KeyPoints";
 import "../labs.css";
 import "./groupedBriefing.css";
-
-// Grouped briefing — one lab = one group of categories. Used by Ch.2's
-// Control Room / Recording Room components labs, Ch.8's analog / digital
-// connector and cable labs, and Ch.10's MixerTypesLab.
-//
-//   row 1  category tabs
-//   row 2  segmented item tabs for the active category (icon + name)
-//   row 3  image on top, title / lead / description / key points below
-//   row 4  prev / next pager that walks every item across all categories
-//
-// There is deliberately no second header level (e.g. a "CONTROL ROOM /
-// RECORDING ROOM" or "ANALOG / DIGITAL" label row over the tabs): when
-// content splits into families like that, each family is its own lab
-// (its own `kind` in registry.js) that passes only its sections here.
-//
-// Everything is data-driven — a lab passes `sections` shaped like:
-//   [{ n, type, short?, tone, items: [{ id, name, lead, body[], points[] }] }]
-// (`short` is the category label shown instead of `type` on phones.)
-// plus an ICONS map (24×24 stroke SVG bodies keyed by item id), an
-// `imagePath(id)` for the photo, and an optional `caption` (e.g. the room
-// name) appended to the photo caption. Until a photo exists in public/ the
-// frame shows the item's icon and the expected path.
+import { useInteractOnce } from "../useInteractOnce";
 
 function renderRich(text) {
   return text.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 ? <strong key={i}>{part}</strong> : part));
@@ -53,11 +32,7 @@ function GroupedBriefing({ sections, icons, imagePath, idPrefix, ariaLabel, capt
   const [loadedImgs, setLoadedImgs] = useState(() => new Set());
   const [failedImgs, setFailedImgs] = useState(() => new Set());
   const railRef = useRef(null);
-  const firedRef = useRef(false);
-  const onInteractRef = useRef(onInteract);
-  useEffect(() => {
-    onInteractRef.current = onInteract;
-  }, [onInteract]);
+  const markInteracted = useInteractOnce(onInteract);
 
   const index = all.findIndex((c) => c.id === selectedId);
   const item = all[index];
@@ -70,10 +45,7 @@ function GroupedBriefing({ sections, icons, imagePath, idPrefix, ariaLabel, capt
     if (id === selectedId || !all.some((c) => c.id === id)) return;
     setSelectedId(id);
     setViewed((v) => (v.has(id) ? v : new Set(v).add(id)));
-    if (!firedRef.current) {
-      firedRef.current = true;
-      onInteractRef.current?.();
-    }
+    markInteracted();
   }
 
   function selectSection(n) {
@@ -90,7 +62,6 @@ function GroupedBriefing({ sections, icons, imagePath, idPrefix, ariaLabel, capt
 
   return (
     <div className="lab wbl">
-      {/* ---------- row 1: categories ---------- */}
       <div className="wbl-areas-wrap">
         <Tabs
           items={sectionTabs}
@@ -110,7 +81,6 @@ function GroupedBriefing({ sections, icons, imagePath, idPrefix, ariaLabel, capt
         />
       </div>
 
-      {/* ---------- row 2: items of the active category ---------- */}
       <div ref={railRef} className="wbl-rail">
         <Tabs
           key={section.n}
@@ -131,7 +101,6 @@ function GroupedBriefing({ sections, icons, imagePath, idPrefix, ariaLabel, capt
         />
       </div>
 
-      {/* ---------- row 3: detail ---------- */}
       <TabPanel
         idPrefix={`${idPrefix}-item`}
         value={item.id}
@@ -176,7 +145,6 @@ function GroupedBriefing({ sections, icons, imagePath, idPrefix, ariaLabel, capt
         </div>
       </TabPanel>
 
-      {/* ---------- row 4: pager (walks every item across categories) ---------- */}
       <TabPager items={all.map((c) => ({ id: c.id, label: c.name }))} value={item.id} onChange={select} />
     </div>
   );

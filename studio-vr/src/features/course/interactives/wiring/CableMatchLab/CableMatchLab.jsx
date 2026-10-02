@@ -4,35 +4,6 @@ import { useLabAudio } from "../../shared/useLabAudio";
 import "./CableMatchLab.css";
 import { CABLES, GLYPH, MISTAKES, PORTS } from "./cableMatchData";
 
-// Ported from design/cable-connector-sound-quiz.html — a match-the-following
-// quiz for Ch.8 "Connectors, Cables, and Studio Wiring": 10 cables (left)
-// are plugged into the right socket on a hardware rear panel (right).
-// Drag a cable's plug onto a socket, or tap the cable then the socket
-// (keyboard: Enter/Space on each, Esc cancels).
-//
-// Differences from the mockup:
-//   - No music. The mockup synthesised a 4-bar groove where each correct
-//     match brought an instrument into the mix. Here the console strip is a
-//     row of status lights instead: one per cable, red = not connected,
-//     green = connected. A wrong socket blinks that cable's red light.
-//     The only sound is a short feedback tone per attempt (playFeedback).
-//   - Connected wires show a slow "signal flow" dash instead of only while
-//     the (now removed) mix is playing.
-//   - No page heading / theme switch — the lesson heading and ThemeContext
-//     cover those. Type uses the global --font-* / --fs-* tokens.
-//
-// Both columns sit in matching panels (course theme colours). Colour is
-// minimal: one neutral cable colour, the accent for the selected cable,
-// red / green for status.
-// onInteract fires on the student's first connection attempt.
-
-/* Feedback tones — one short blip per attempt, built from plain
-   oscillators on the lab's own AudioContext (useLabAudio, not the
-   panorama's spatialAudioEngine). Right = a bright rising two-note chime
-   (E5 → B5, sine). Wrong = a low falling buzz (220 → 140 Hz square through
-   a lowpass so it reads as "no" without being harsh). Each note gets its
-   own gain envelope (fast attack, exponential decay) so there are no
-   clicks; nodes stop themselves, so nothing needs tracking. */
 function playFeedback(ctx, ok) {
   const t0 = ctx.currentTime + 0.01;
   const out = ctx.createGain();
@@ -102,16 +73,12 @@ const INTRO = {
   html: "Each cable is built for one kind of signal: a tiny mic signal, line level, amplifier current, digital data, or light. <strong>Drag a plug into a socket</strong>, or tap a cable and then a socket. Get it right and that cable's light at the top turns green.",
 };
 
-/* A hanging cable: horizontal exits at both ends, sag grows with span. */
 function wirePath(a, b) {
   const dx = Math.max(30, Math.abs(b.x - a.x) * 0.45);
   const sag = 14 + Math.hypot(b.x - a.x, b.y - a.y) * 0.1;
   return `M${a.x},${a.y} C${a.x + dx},${a.y + sag} ${b.x - dx},${b.y + sag} ${b.x},${b.y}`;
 }
 
-/* Restart a one-shot CSS animation class on an element (wrong-socket shake,
-   reveal pulse, nudge, LED blink) without remounting it — remounting would
-   drop keyboard focus. */
 function flash(el, cls, ms) {
   if (!el) return;
   el.classList.remove(cls);
@@ -137,14 +104,14 @@ function Wire({ a, b, className = "" }) {
 
 function CableMatchLab({ onInteract }) {
   const [armed, setArmed] = useState(null);
-  const [links, setLinks] = useState({}); // cableId -> portId
-  const [order, setOrder] = useState([]); // cableIds in connection order
+  const [links, setLinks] = useState({});
+  const [order, setOrder] = useState([]);
   const [attempts, setAttempts] = useState(0);
   const [misses, setMisses] = useState({});
   const [fb, setFb] = useState(INTRO);
   const [justLinked, setJustLinked] = useState(null);
-  const [geo, setGeo] = useState({}); // cableId -> {a, b} wire endpoints
-  const [drag, setDrag] = useState(null); // {id, a, p, over}
+  const [geo, setGeo] = useState({});
+  const [drag, setDrag] = useState(null);
 
   const boardRef = useRef(null);
   const anchorRefs = useRef({});
@@ -160,7 +127,6 @@ function CableMatchLab({ onInteract }) {
   const n = order.length;
   const complete = n === CABLES.length;
 
-  /* ---------- geometry ---------- */
   const srcPt = useCallback((id) => {
     const r = anchorRefs.current[id].getBoundingClientRect();
     const b = boardRef.current.getBoundingClientRect();
@@ -199,7 +165,6 @@ function CableMatchLab({ onInteract }) {
     return () => clearTimeout(t);
   }, [justLinked]);
 
-  /* ---------- feedback ---------- */
   const showFact = useCallback((id, again, pid) => {
     const c = byId[id];
     const alt = c.correct.filter((x) => x !== pid).map((x) => portById[x].name);
@@ -211,7 +176,6 @@ function CableMatchLab({ onInteract }) {
     });
   }, []);
 
-  /* ---------- interaction ---------- */
   const arm = useCallback(
     (id) => {
       if (links[id]) {
@@ -244,7 +208,6 @@ function CableMatchLab({ onInteract }) {
       try {
         playFeedback(getCtx(), ok);
       } catch {
-        /* no Web Audio — the lights and message still give feedback */
       }
       if (ok) {
         setLinks((l) => ({ ...l, [id]: pid }));
@@ -292,7 +255,6 @@ function CableMatchLab({ onInteract }) {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  /* drag a plug across the gap */
   const onPlugDown = (e, id) => {
     if (links[id]) return;
     dragRef.current = { id, x0: e.clientX, y0: e.clientY, moved: false, over: null };
@@ -332,10 +294,8 @@ function CableMatchLab({ onInteract }) {
     setFb(INTRO);
   };
 
-  /* ---------- render ---------- */
   return (
     <section className={`lab cml${armed ? " arming" : ""}`} aria-label="Cable and connector match">
-      {/* status strip — one light per cable: red = not connected, green = connected */}
       <div className="cml-status">
         <div className="cml-score" aria-live="polite">
           <b>{n}</b>/ {CABLES.length} connected

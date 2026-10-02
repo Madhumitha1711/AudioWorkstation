@@ -1,28 +1,9 @@
-import { ENSEMBLES, PAIRS, SOURCES, SPOT_TARGETS, pairsFor } from "../shared/MicLab/micLabData";
+import { ENSEMBLES, SOURCES, SPOT_TARGETS, pairsFor } from "../shared/MicLab/micLabData";
 
-// Content for "mic-placement-guide-lab" (Ch.7 "Microphone Techniques and
-// Stereo Recording") — the interactive 3D placement lab. One tab per
-// placement technique, in the chapter's order:
-//
-//   Close Miking         vocal / VO, guitar, solo ethnic instrument —
-//                        5 / 15 / 30 cm on-axis or 45° off-axis (floor spots)
-//   Spot Miking          one spot mic on any player within an ensemble,
-//                        under the main pair (floor spots on each player)
-//   Distant / Room       1 / 2 / 3 m and the room corner (floor spots)
-//   Stereo Miking        AB, XY, MS, ORTF, Blumlein, Overheads (drums),
-//                        Decca Tree and Outriggers (ensemble)
-//   Multi Miking         snare top & bottom, kick in & out, guitar amp
-//                        close on-axis / off-axis + room (mic toggles)
-//
-// The 3D stage is the shared MicStage3D (../shared/MicLab). Audio: every
-// combination has a clip slot under public/audio/mic-placement/<clipId>.wav;
-// missing files show ClipPlayer's "Audio coming soon" placeholder.
+export { ENSEMBLES, SPOT_TARGETS, pairsFor };
 
-export { ENSEMBLES, PAIRS, SPOT_TARGETS, pairsFor };
+const clipPath = (id) => `/audio/mic-placement/${id}.wav`;
 
-export const clipPath = (id) => `/audio/mic-placement/${id}.wav`;
-
-// ---------------------------------------------------------------- tabs
 export const TABS = [
   {
     id: "close",
@@ -101,7 +82,6 @@ export const TABS = [
   },
 ];
 
-// ---------------------------------------------------------------- Close
 export const CLOSE_SOURCES = [
   { id: "voice", label: "Vocal / VO" },
   { id: "guitar", label: "Guitar" },
@@ -115,7 +95,6 @@ export const CLOSE_SPOTS = [
 ];
 export const CLOSE_BEST = { voice: "c15", guitar: "c30", solo: "c30" };
 
-// ---------------------------------------------------------------- Distant
 export const DISTANT_SOURCES = SOURCES;
 export const DISTANT_SPOTS = [
   { id: "d1", label: "1 m", m: 1, note: "1 m: some room, still fairly direct — near the critical distance in a small room." },
@@ -124,10 +103,8 @@ export const DISTANT_SPOTS = [
   { id: "corner", label: "Room corner", short: "Corner", corner: true, note: "High in a room corner, facing away: almost all reverb — blend it under the close mics." },
 ];
 
-// ---------------------------------------------------------------- Stereo
 export const STEREO_SOURCES = SOURCES;
 
-// ---------------------------------------------------------------- Multi
 export const MULTI = [
   {
     id: "snare",
@@ -160,7 +137,6 @@ export const MULTI = [
   },
 ];
 
-// ---------------------------------------------------------------- clip ids
 const subsets = (arr) => arr.reduce((acc, x) => acc.concat(acc.map((s) => [...s, x])), [[]]).filter((s) => s.length);
 export const multiClipId = (target, mics) => `multi-${target}-${[...mics].sort().join("-") || "none"}`;
 export const CLIPS = [

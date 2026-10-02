@@ -1,11 +1,9 @@
 import { FREQS, SCALE_AGES, median } from "./hearingAgeModel";
 
-
 const W = 680;
 const H = 340;
 const PAD = { l: 52, r: 96, t: 24, b: 40 };
 const BANDS = [
-  // [from dB, to dB, label, tone] — WHO grade bands
   [null, 20, "Normal", "green"],
   [20, 35, "Mild", "blue"],
   [35, 50, "Moderate", "amber"],
@@ -64,7 +62,6 @@ function Axes({ x, y, yMin, yMax, bandLabels }) {
     </g>
   );
 }
-
 
 export function Audiogram({ r, hear }) {
   const yMin = -10;

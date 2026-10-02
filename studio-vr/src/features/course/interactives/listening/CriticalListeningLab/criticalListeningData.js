@@ -1,5 +1,3 @@
-
-
 const DIR = "/audio/critical-listening";
 const pair = (base) => ({ clean: `${base}-clean.wav`, problem: `${base}-problem.wav` });
 
@@ -114,7 +112,6 @@ export const PROBLEMS = [
 ];
 
 export const PROBLEM_BY_ID = Object.fromEntries(PROBLEMS.map((p) => [p.id, p]));
-
 
 const MIXES = {
   intermediate: [

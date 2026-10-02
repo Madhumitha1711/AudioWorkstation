@@ -1,16 +1,3 @@
-/* MicSelectionLab — "Pick the mic for the job". Built from the shared lab
-   pieces so it reads like ActiveSpeakerLab / WhyAmplificationLab:
-     - lead + section subheads (same sizes as .actl-lead / .actl-subhead)
-     - the four questions are shared Accordion steps (components/Accordion)
-     - the recommendation is a grid of shared FlipCards (components/FlipCard):
-       best pick full width, the other four 2 × 2, one column when narrow
-     - A/B player, "How is the pick made?" reveal, KeyPoints
-   Colour roles: brand --accent = best pick (FlipCard / Accordion default),
-   amber = good alternatives + trade-offs, --text-dimmer = weaker fit,
-   --danger = not practical. Each has a deeper light-theme value. Narrow
-   layouts use container queries so they follow the course column, not
-   the viewport. */
-
 .msl {
   --msl-amber: #e8934a;
   --msl-amber-rgb: 232, 147, 74;
@@ -27,8 +14,6 @@
 .msl *,
 .msl *::before,
 .msl *::after { box-sizing: border-box; }
-
-/* ---------- lead + subheads ---------- */
 .msl-lead {
   margin: 0 0 4px;
   font-size: var(--fs-lg);
@@ -41,8 +26,6 @@
   font-weight: 600;
   color: var(--text);
 }
-
-/* ---------- question steps (Accordion) ---------- */
 .msl-q-hint {
   margin: 0 0 10px;
   font-size: var(--fs-md);
@@ -65,16 +48,12 @@
   text-transform: uppercase;
   opacity: 0.75;
 }
-
-/* ---------- recommendation cards (FlipCard) ---------- */
 .msl-cards {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
 .msl-card--best { grid-column: 1 / -1; }
-
-/* Card accent follows its rank role; surface comes from FlipCard. */
 .msl-card--alt { --flip-accent: var(--msl-amber); }
 .msl-card--weak { --flip-accent: var(--text-dimmer); }
 .msl-card--no { --flip-accent: var(--danger); }
@@ -84,8 +63,6 @@
     linear-gradient(180deg, rgba(var(--brand-accent-rgb), 0.08), transparent 75%),
     var(--flip-bg);
 }
-
-/* Right padding clears FlipCard's corner flip icon. */
 .msl-face {
   flex: 1;
   padding: 18px 48px 18px 18px;
@@ -120,8 +97,6 @@
   font-size: var(--fs-md);
   color: var(--text-dim);
 }
-
-/* mic "screens" (micLabs.css .mic-portrait) */
 .mic-portrait.msl-portrait {
   flex: none;
   margin: 0;
@@ -131,8 +106,6 @@
 .mic-portrait.msl-portrait--lg svg { height: 96px; }
 .mic-portrait.msl-portrait--sm { width: 56px; height: 72px; }
 .mic-portrait.msl-portrait--sm svg { height: 54px; }
-
-/* best pick front */
 .msl-best-front {
   display: flex;
   align-items: flex-start;
@@ -149,8 +122,6 @@
   color: var(--text-dimmer);
 }
 .msl-spec b { color: var(--text); font-weight: 600; }
-
-/* runner front */
 .msl-runner-front {
   display: flex;
   align-items: center;
@@ -162,8 +133,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-/* fit meter */
 .msl-fit {
   display: grid;
   grid-template-columns: auto 1fr 40px;
@@ -197,8 +166,6 @@
   font-variant-numeric: tabular-nums;
 }
 .msl-fit--win .msl-pct { color: var(--text); }
-
-/* backs */
 .msl-back .msl-kicker { margin-bottom: 10px; }
 .msl-reasons { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .msl-reasons li {
@@ -244,8 +211,6 @@
   color: var(--text-dim);
 }
 .msl-examples b { color: var(--text); font-weight: 600; }
-
-/* ---------- player ---------- */
 .msl-player {
   display: flex;
   align-items: center;
@@ -256,12 +221,8 @@
   border: 1px dashed var(--border);
   background: var(--msl-well);
 }
-
-/* ---------- scoring reveal ---------- */
 .msl-how { margin-top: 24px; }
 .msl-how .ui-acc__content { color: var(--text-dim); }
-
-/* ---------- narrow course column ---------- */
 @container (max-width: 620px) {
   .msl-cards { grid-template-columns: minmax(0, 1fr); }
 }

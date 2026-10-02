@@ -1,43 +1,4 @@
-// Course content for the "Start Course" screen. The full 25-chapter Audio
-// Engineering syllabus lives here as one flat, chapter-numbered TOPICS list,
-// grouped into the 7 curriculum MODULES below for the sidebar. Each ready
-// topic has: narrated video lessons, a knowledge-check assessment, and a
-// hands-on interactive practice section. Only "Speakers" (ch. 13) and "DAW
-// Workstation" (ch. 16) are fully built out for now — every other chapter is
-// stubbed as locked/"coming soon" (ready: false) and will be filled in with
-// real course content over time. Stubbing a chapter doesn't stop it from
-// appearing, grouped and in order, in the course sidebar right now.
-//
-// Two fields tie a chapter back to the VR tour:
-//   - `hotspotId` — the real marker id in features/tour/data/roomsData.js this chapter
-//     is anchored to (a Control Room gear marker or a Recording Room mic
-//     marker), or null for chapters that don't anchor to a physical hotspot
-//     ("briefing" chapters — pure classroom content, e.g. mastering theory).
-//   - `room` — which room that hotspot lives in ("Control Room" /
-//     "Recording Room"), or null to match a null hotspotId.
-// Several chapters legitimately cover ground that maps to a piece of gear
-// that ALREADY has its own primary chapter (e.g. chapter 9, Signal Flow,
-// doesn't get a new hotspot — it shares the existing Patch Bay hotspot with
-// chapter 8). For a hotspot to actually open its info panel + "Start course"
-// link when clicked in the VR tour, one chapter's `id` must exactly match
-// that hotspot's marker id (see the `TOPICS.find(t => t.id === ...)` lookup
-// in PanoramaTour.jsx) — that's the "anchor" chapter for the hotspot.
-// Chapters that only share a hotspot use a distinct `id` of their own and
-// are reachable from the course sidebar, not by clicking the marker
-// directly; "Back to the studio" from one of them still walks the camera to
-// the shared hotspot via `hotspotId` (see CoursePage.jsx's goToStudio).
-export const MODULES = [
-  { id: "foundations", title: "Foundations" },
-  { id: "room-acoustics", title: "Room & Acoustics" },
-  { id: "capture-signal-path", title: "Capture & Signal Path" },
-  { id: "monitoring", title: "Monitoring" },
-  { id: "digital-domain", title: "The Digital Domain" },
-  { id: "mixing-processing", title: "Mixing & Processing" },
-  { id: "finishing", title: "Finishing & Professional Practice" },
-];
-
 export const TOPICS = [
-  // ---- Foundations (ch. 1-4) — no hotspot; scene-setting classroom content ----
   {
     id: "what-is-sound",
     number: 1,
@@ -58,10 +19,6 @@ export const TOPICS = [
     title: "The Studio: Recording Room and Control Room",
     intro:
       "Two rooms, one signal — the recording room captures the performance, the control room shapes it, and everything in this course happens somewhere between them.",
-    // "studio-rooms-lab" (interactives/foundations/StudioRoomsLab) —
-    // Recording Room / Control Room tabs. Like studio-types below, it only
-    // takes effect once this topic is `ready: true` or the kind is
-    // referenced from this chapter's interactive block in studio-cms.
     interactive: { id: "the-studio-interactive", title: "Recording Room & Control Room", kind: "studio-rooms-lab" },
     ready: false,
   },
@@ -74,12 +31,6 @@ export const TOPICS = [
     title: "Types of Studios and Audio Workspaces",
     intro:
       "Not every studio looks like this one — home rigs, podcast booths, broadcast suites, and mastering rooms all trade the same fundamentals for different priorities.",
-    // This chapter's interactive lab already exists — "studio-types-lab"
-    // (interactives/foundations/StudioTypesLab, ported from
-    // design/studio-types-tabs.html). The interactive below is the mapping;
-    // it only takes effect once this topic is `ready: true` (buildStepList
-    // skips non-ready topics) or the same kind is referenced from this
-    // chapter's interactive block in studio-cms.
     interactive: { id: "studio-types-interactive", title: "Explore Studio Types", kind: "studio-types-lab" },
     ready: false,
   },
@@ -92,22 +43,10 @@ export const TOPICS = [
     title: "Listening Skills, Hearing Health, and Critical Listening",
     intro:
       "Your ears are the actual instrument — critical listening is a trainable skill, and protecting it is what lets you keep training it for decades.",
-    // This chapter's interactive lab already exists — "critical-listening-lab"
-    // (interactives/listening/CriticalListeningLab, ported from
-    // design/critical-listening-lab-1.html). Same as studio-types above: the
-    // mapping only takes effect once this topic is `ready: true` or the same
-    // kind is referenced from this chapter's interactive block in studio-cms.
-    // The chapter's Hearing Health subchapter has its own lab too —
-    // "hearing-age-lab" (interactives/listening/HearingAgeLab, ported from
-    // design/hearing-health-age.html). A topic only carries one
-    // `interactive` here, so that one is mapped by referencing its kind
-    // from the Hearing Health lesson's interactive Section block in
-    // studio-cms (swap the kind below to preview it locally).
     interactive: { id: "listening-skills-interactive", title: "Spot the Problem", kind: "critical-listening-lab" },
     ready: false,
   },
 
-  // ---- Room & Acoustics (ch. 5) ----
   {
     id: "diffuser-panel",
     number: 5,
@@ -116,21 +55,10 @@ export const TOPICS = [
     hotspotId: "diffuser-panel",
     title: "Studio Acoustics and Room Treatment",
     intro: "Not every acoustic problem should be absorbed away — diffusion is what keeps a treated room sounding alive.",
-    // This chapter's two interactive labs already exist —
-    // "studio-acoustics-lab" (interactives/acoustics/StudioAcousticsLab,
-    // ported from design/studio-acoustics-rooms.html) and
-    // "room-treatment-lab" (interactives/acoustics/RoomTreatmentLab, ported
-    // from design/room-treatment.html). Same as studio-types above: the
-    // mapping only takes effect once this topic is `ready: true` or the
-    // kind is referenced from this chapter's interactive blocks in
-    // studio-cms. A topic only carries one `interactive` here, so the Room
-    // Treatment lab is mapped from its own lesson's interactive Section
-    // block in studio-cms (swap the kind below to preview it locally).
     interactive: { id: "diffuser-panel-interactive", title: "Same Source, Different Rooms", kind: "studio-acoustics-lab" },
     ready: false,
   },
 
-  // ---- Capture & Signal Path (ch. 6-12) ----
   {
     id: "mic-stand",
     number: 6,
@@ -140,14 +68,6 @@ export const TOPICS = [
     title: "Microphones: Types, Characteristics, Selection, and Placement",
     intro:
       "A microphone is a translator, not a recorder — it converts air pressure into voltage its own way, and picking the right one is half the battle before you ever touch a fader.",
-    // Interactive labs for this chapter's Type/Polar Pattern/Selection
-    // subchapters already exist (see InteractiveSection.jsx's
-    // "mic-type-lab" / "mic-polar-pattern-lab" / "mic-selection-lab",
-    // ported from design/mic-types-chapter.html — "mic-selection-lab" is
-    // the "Pick the mic for the job" lab from design/mic-selection-lab.html).
-    // Mic placement is covered by Ch.7's "mic-placement-guide-lab". This
-    // topic stays `ready: false` until its lessons/blocks are authored in studio-cms,
-    // same as the "What Is Sound?" chapter above.
     ready: false,
   },
   {
@@ -159,14 +79,6 @@ export const TOPICS = [
     title: "Microphone Techniques and Stereo Recording",
     intro:
       "The same mic in a different spot is a different instrument — technique and placement do as much work as the microphone itself, especially once you're capturing in stereo.",
-    // This chapter's two labs (referenced from their lessons' interactive
-    // Section blocks in studio-cms), both with an embedded 3D room:
-    // "mic-technique-guide-lab" (a Mono / Stereo / Ensemble refresher) and
-    // "mic-placement-guide-lab" (interactive 3D placement: Close / Spot /
-    // Distant-Room / Stereo / Multi Miking), both in
-    // interactives/mic-techniques/ — this topic stays `ready: false`
-    // until its lessons/blocks are authored in
-    // studio-cms, same as chapter 6's mic-stand topic above.
     ready: false,
   },
   {
@@ -177,13 +89,6 @@ export const TOPICS = [
     hotspotId: "patch-bay",
     title: "Connectors, Cables, and Studio Wiring",
     intro: "One panel, every connection in the room — the patch bay is what makes a complex studio fast to reconfigure.",
-    // This chapter's interactive labs already exist — "analog-connectors-lab"
-    // + "digital-connectors-lab" (interactives/wiring/ConnectorsLab),
-    // "analog-cables-lab" + "digital-cables-lab" (interactives/wiring/CablesLab),
-    // plus the "cable-match-lab" quiz (interactives/wiring/CableMatchLab). A
-    // topic only carries one `interactive` here, so the others are mapped from their own lesson's
-    // interactive Section block in studio-cms (swap the kind below to
-    // preview it locally). Takes effect once this topic is `ready: true`.
     interactive: { id: "wiring-connectors-interactive", title: "Know Your Connectors", kind: "analog-connectors-lab" },
     ready: false,
   },
@@ -207,24 +112,6 @@ export const TOPICS = [
     title: "Preamps, Channel Strips, Mixers, and Input Routing",
     intro:
       "Before anything reaches the console, it passes through a preamp — the first, and one of the most character-defining, stages in the chain.",
-    // Second lab for this chapter: "amplification-lab"
-    // (interactives/preamps/AmplificationLab) — gain + live spectrum on a
-    // provided recording. A topic only carries one `interactive` here, so
-    // it is mapped by referencing its kind from its lesson's interactive
-    // Section block in studio-cms. Same for the third lab,
-    // "amp-passive-speaker-lab" (interactives/preamps/AmpPassiveSpeakerLab):
-    // NS10 + amp and CLA-10 + CLA-200 pairings.
-    // Fourth lab: "active-speaker-lab" (interactives/preamps/ActiveSpeakerLab):
-    // built-in amps, soffit mains with rack amps, Genelec / Neumann / Yamaha / Kali.
-    // Fifth lab: "subwoofer-lab" (interactives/preamps/SubwooferLab): subwoofer
-    // basics, Subwoofer + LFE (bass management), pro audio and home theatre subs.
-    // Mixer labs: "what-is-mixer-lab" (interactives/preamps/WhatIsMixerLab):
-    // what a mixer does + kitchen analogy (single screen); and
-    // "mixer-types-lab" (interactives/preamps/MixerTypesLab): categorise by
-    // architecture, application and circuit design (inline / split).
-    // Outboard Gear: "preamp-channel-strip-lab"
-    // (interactives/preamps/PreampChannelStripLab): outboard mic preamps,
-    // channel strips, classic preamp and strip examples (tabbed).
     interactive: { id: "preamp-rack-interactive", title: "Why Amplification?", kind: "why-amplification-lab" },
     ready: false,
   },
@@ -237,9 +124,6 @@ export const TOPICS = [
     title: "Audio Interfaces, Converters, I/O, and MIDI",
     intro:
       "The audio interface is the bridge between the analog and digital worlds — and its quality sets a hard ceiling on everything recorded through it.",
-    // "what-is-interface-lab" (interactives/interfaces/WhatIsInterfaceLab):
-    // what an interface does + translator analogy (single screen, like
-    // WhatIsMixerLab).
     interactive: { id: "sound-card-interactive", title: "What Is an Interface?", kind: "what-is-interface-lab" },
     ready: false,
   },
@@ -252,13 +136,10 @@ export const TOPICS = [
     title: "Computers, Power, and Studio Configuration",
     intro:
       "The most important piece of gear in the room might be the computer running it — storage, drivers, and clean power are what keep a session from falling apart mid-take.",
-    // "life-before-daw-lab" (interactives/computers/LifeBeforeDawLab):
-    // recording / editing / processing / routing before the DAW, then → now.
     interactive: { id: "computers-power-interactive", title: "Life Before the DAW", kind: "life-before-daw-lab" },
     ready: false,
   },
 
-  // ---- Monitoring (ch. 13-15, plus a bonus companion) ----
   {
     id: "speaker",
     number: 13,
@@ -269,9 +150,6 @@ export const TOPICS = [
     intro:
       "Studio monitors are the lens you mix through — everything you learn here is about trusting what you hear.",
     ready: true,
-    // Real photogrammetry scan of the room's actual speaker — rendered as a
-    // rotatable 3D preview on this topic's lessons (see GearModelViewer).
-    // `kind` is the procedural-placeholder fallback if the scan is missing.
     model: { kind: "speaker", url: "/model/speaker.glb" },
     lessons: [
       {
@@ -317,12 +195,6 @@ export const TOPICS = [
         ],
       },
     ],
-    // These 5 questions power two places: the in-course "Knowledge Check"
-    // step (AssessmentSection.jsx, all 5 shown together) AND the optional
-    // "Test your knowledge" quiz offered from this hotspot's gear-info panel
-    // in the VR tour, one question at a time (see HotspotKnowledgeCheck,
-    // exported from features/tour/components/HotspotPrecheck, wired up in
-    // PanoramaTour.jsx). Same bank, same score either way.
     assessment: {
       id: "speaker-assessment",
       title: "Knowledge Check",
@@ -397,10 +269,6 @@ export const TOPICS = [
     interactive: { id: "speaker-interactive", title: "Try It Yourself", kind: "speaker-lab" },
   },
 
-  // Bonus companion, not one of the official 25 chapters — a Control Room
-  // hotspot that extends chapter 13's monitoring topic (bass management),
-  // kept in the sidebar right after Speakers since that's where it's most
-  // relevant. No chapter `number`, so it doesn't get a "Ch N" badge.
   {
     id: "lf-emitter",
     module: "monitoring",
@@ -433,7 +301,6 @@ export const TOPICS = [
     ready: false,
   },
 
-  // ---- The Digital Domain (ch. 16-19) ----
   {
     id: "daw-screens",
     number: 16,
@@ -582,7 +449,6 @@ export const TOPICS = [
     ready: false,
   },
 
-  // ---- Mixing & Processing (ch. 20-22) ----
   {
     id: "mixing-fundamentals",
     number: 20,
@@ -617,7 +483,6 @@ export const TOPICS = [
     ready: false,
   },
 
-  // ---- Finishing & Professional Practice (ch. 23-25) — no hotspot ----
   {
     id: "mastering",
     number: 23,
@@ -653,17 +518,6 @@ export const TOPICS = [
   },
 ];
 
-// Flattens every ready topic's lessons + assessment + interactive step into
-// one ordered list so the course can support linear "Previous / Next"
-// navigation across the whole curriculum, not just within a topic.
-//
-// `hasLab(kind)` (optional) says whether a lab is actually registered for a
-// chapter-level `interactive.kind`. A chapter whose CMS `interactive` field
-// still names a lab that no longer exists (e.g. the old "3D Recording
-// Space" mic rooms, kinds "mic-placement-lab" / "mic-technique-lab") would
-// otherwise become an empty sidebar step, so it's skipped. CoursePage
-// passes it in from the lab registry — kept out of this file so the tour,
-// which also imports courseData, doesn't pull in every lab's code.
 export function buildStepList(topics, hasLab = () => true) {
   const steps = [];
   topics.forEach((topic) => {
@@ -691,8 +545,6 @@ export function buildStepList(topics, hasLab = () => true) {
   return steps;
 }
 
-// First step belonging to a given topic, or null if the topic doesn't
-// exist / isn't ready yet (no steps were built for it).
 export function firstStepIdForTopic(steps, topicId) {
   const step = steps.find((s) => s.topicId === topicId);
   return step ? step.id : null;

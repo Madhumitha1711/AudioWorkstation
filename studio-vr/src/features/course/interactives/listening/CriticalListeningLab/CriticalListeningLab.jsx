@@ -4,7 +4,7 @@ import "./CriticalListeningLab.css";
 import { Tabs, TabPanel } from "../../../../../components/Tabs";
 import { createListeningEngine } from "./criticalListeningAudio";
 import { CATS, LEVELS, PROBLEMS, PROBLEM_BY_ID as P, shuffledClips } from "./criticalListeningData";
-
+import { useInteractOnce } from "../../shared/useInteractOnce";
 
 const TABS = Object.entries(LEVELS).map(([id, L]) => ({ id, label: L.label }));
 const WORDS = ["zero", "one", "two", "three", "four"];
@@ -32,8 +32,6 @@ function MissingNote({ clip }) {
   );
 }
 
-// One level's round of clips. Mounted with key={level}, so switching tabs
-// starts that level fresh.
 function Round({ level, engine, onInteract }) {
   const L = LEVELS[level];
   const [queue, setQueue] = useState(() => shuffledClips(level));
@@ -43,7 +41,7 @@ function Round({ level, engine, onInteract }) {
   const [side, setSideState] = useState("B");
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [missing, setMissing] = useState(() => new Set()); // clip ids with no recordings yet
+  const [missing, setMissing] = useState(() => new Set());
 
   const rootRef = useRef(null);
   const nextBtnRef = useRef(null);
@@ -53,7 +51,6 @@ function Round({ level, engine, onInteract }) {
   const need = clip.problems.length;
   const solved = found.size === need;
 
-  // Stop (and invalidate any pending load) when this round unmounts.
   useEffect(() => () => {
     playTokenRef.current++;
     engine.stop();
@@ -62,7 +59,6 @@ function Round({ level, engine, onInteract }) {
   useEffect(() => {
     if (solved) nextBtnRef.current?.focus({ preventScroll: true });
   }, [solved]);
-
 
   async function play(c = clip) {
     const token = ++playTokenRef.current;
@@ -102,7 +98,6 @@ function Round({ level, engine, onInteract }) {
     setSideState(s);
   }
 
-  // ---------- picking ----------
   function pick(id) {
     if (solved || found.has(id) || wrong.has(id)) return;
     onInteract();
@@ -113,7 +108,6 @@ function Round({ level, engine, onInteract }) {
     const f = new Set(found).add(id);
     setFound(f);
     if (f.size === need) {
-      // Every problem found: switch to the clean take.
       setSide("A");
       if (!playing && !loading) play();
     }
@@ -155,7 +149,6 @@ function Round({ level, engine, onInteract }) {
 
   return (
     <div ref={rootRef} className="cll-round" onKeyDown={onKeyDown}>
-      {/* =========== player =========== */}
       <div className={`cll-panel cll-player${solved ? " solved" : ""}`}>
         <div className="cll-q-top">
           <span className="cll-q-num">
@@ -174,7 +167,6 @@ function Round({ level, engine, onInteract }) {
             </div>
             <div className="cll-slots" aria-label={`${found.size} of ${need} found`}>
               {clip.problems.map((id, i) => {
-                // Slots fill in the order the problems were found.
                 const fid = [...found][i];
                 return (
                   <span key={i} className={`cll-slot${fid ? " found" : ""}`}>
@@ -217,7 +209,6 @@ function Round({ level, engine, onInteract }) {
         )}
       </div>
 
-      {/* =========== problem list =========== */}
       <div className="cll-question">
         <h3>What&apos;s wrong with this clip?</h3>
         <p>
@@ -285,19 +276,9 @@ function Round({ level, engine, onInteract }) {
 function CriticalListeningLab({ onInteract }) {
   const [engine] = useState(createListeningEngine);
   const [level, setLevel] = useState("beginner");
-  const firedRef = useRef(false);
-  const onInteractRef = useRef(onInteract);
-  useEffect(() => {
-    onInteractRef.current = onInteract;
-  }, [onInteract]);
+  const interacted = useInteractOnce(onInteract);
 
   useEffect(() => () => engine.close(), [engine]);
-
-  function interacted() {
-    if (firedRef.current) return;
-    firedRef.current = true;
-    onInteractRef.current?.();
-  }
 
   return (
     <div className="lab cll">

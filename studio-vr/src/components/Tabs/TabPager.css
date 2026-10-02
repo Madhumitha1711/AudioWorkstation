@@ -1,12 +1,3 @@
-/* Prev / Next pager — companion to the Tabs standard. Same tokens as the
-   tab bar (--tabs-accent → --brand-accent, --tabs-text…, --tabs-line) so it
-   reads as part of the same control, and the position count mirrors the
-   bar's "N/M explored" count. Re-skin only via those tokens.
-
-   Deliberately compact: one row, fixed --pager-h height (30px), so it is
-   the same slim bar in every interactive and never eats vertical space.
-   Override the height only via --pager-h, never per-lab padding. */
-
 .ui-pager {
   --pager-h: 30px;
   display: flex;
@@ -69,9 +60,6 @@
   outline: 2px solid var(--tabs-accent, var(--brand-accent));
   outline-offset: 2px;
 }
-
-/* Crossing into the previous/next course section (see StepNavContext):
-   accent-tinted so it reads as "leaving this lab", not just another tab. */
 .ui-pager__btn--section {
   border-color: color-mix(in srgb, var(--tabs-accent, var(--brand-accent)) 40%, var(--border-soft));
   background: color-mix(in srgb, var(--tabs-accent, var(--brand-accent)) 8%, var(--panel));
@@ -107,8 +95,6 @@
   .ui-pager__btn {
     padding: 0 10px;
   }
-
-  /* Phones: direction only — the tab bar above already names the steps. */
   .ui-pager__name {
     display: none;
   }

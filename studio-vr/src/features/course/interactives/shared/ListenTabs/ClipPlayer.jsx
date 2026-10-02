@@ -1,10 +1,5 @@
 import { useEffect, useRef } from "react";
 
-// One clip's player row: play/stop, a progress track (click to seek), time,
-// and an optional A/B button that swaps to a reference clip at the same
-// position. Until the recording exists it renders a dashed "Audio coming
-// soon" placeholder. Playback state comes from useClipAudio (../useClipAudio).
-
 const PlayIcon = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
     <path d="M7 4.5v15l13-7.5z" />
@@ -20,11 +15,6 @@ function fmt(s) {
   return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 }
 
-/**
- * id      clip id (a key of audio.status)
- * label   accessible name ("Play <label>")
- * compare optional { id, label, short } — A/B reference clip
- */
 function ClipPlayer({ id, label, audio, compare }) {
   const status = audio.status[id];
   const ready = status === "ready";

@@ -1,34 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./FlipCard.css";
 
-// FlipCard — a card with a front and a back face that turns over in 3D when
-// clicked (or Enter / Space when focused). Generic: it owns only the flip
-// (perspective, rotation, lift, focus ring, reduced-motion fallback) and the
-// surface (border / radius / panel background); the caller supplies both
-// faces as children via `front` and `back`.
-//
-//   <FlipCard
-//     front={<><img … /><h4>Genelec 8340A</h4></>}
-//     back={<dl>…</dl>}
-//     label="Genelec 8340A"          // accessible name for the toggle
-//   />
-//
-// Sizing: both faces share one grid cell, so the card is always as tall as
-// its taller face — no fixed height, nothing clipped, and cards in a CSS
-// grid row stay level. Faces are flex columns; let a front image grow
-// (`flex: 1`) to fill any spare height.
-//
-// State: uncontrolled by default (`defaultFlipped`); pass `flipped` +
-// `onFlip(next)` to control it (e.g. "only one card open at a time").
-//
-// Accessibility: the card is a toggle button (role="button", aria-pressed).
-// The hidden face is `inert` + aria-hidden so screen readers and Tab only
-// reach what's visible. Don't put links/buttons inside a face — a click
-// anywhere on the card flips it.
-//
-// Re-skin via tokens on `className` (don't restyle .ui-flip__* rules):
-//   --flip-radius, --flip-bg, --flip-border, --flip-accent, --flip-duration
-
 const FlipIcon = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
     <path d="M3 12a9 9 0 0 1 15.5-6.2L21 8" />
@@ -50,14 +22,7 @@ export function FlipCard({
   ...rest
 }) {
   const [flippedState, setFlippedState] = useState(defaultFlipped);
-  // Count of user flips — drives data-turn so the lift animation replays
-  // on every turn but not on mount (or when a controlled parent flips it).
   const [turns, setTurns] = useState(0);
-  // `turning`: true from the click until the rotation's transitionend —
-  // keeps the 3D layer promoted (will-change) for the whole turn.
-  // `tiltOff`: after a click the hover tilt stays off until the pointer
-  // leaves, so the card lands flat at 0° / 180° instead of settling into a
-  // 4° hover tilt that reads as the card hanging there, bigger and frozen.
   const [turning, setTurning] = useState(false);
   const [tiltOff, setTiltOff] = useState(false);
   const fallbackRef = useRef(0);
@@ -71,17 +36,11 @@ export function FlipCard({
     setTurns((n) => n + 1);
     setTurning(true);
     setTiltOff(true);
-    // Safety net if transitionend never fires (reduced motion, tab hidden).
     clearTimeout(fallbackRef.current);
     fallbackRef.current = setTimeout(() => setTurning(false), 1200);
     onFlip?.(next);
   }, [flipped, controlled, onFlip]);
 
-  // A double-click (or a quick trackpad double-tap) fires two clicks: the
-  // second reversed the turn a few degrees in, so the card twitched and sat
-  // there looking frozen. Only the first click of a multi-click counts
-  // (e.detail is the click count); a deliberate second click later — even
-  // mid-turn — still turns it back. Same for a held Enter/Space auto-repeat.
   const onClick = (e) => {
     if (e.detail > 1) return;
     toggle();
@@ -140,5 +99,3 @@ export function FlipCard({
     </div>
   );
 }
-
-export default FlipCard;

@@ -7,11 +7,6 @@
   --text: #ffffff;
   --text-dim: rgba(255, 255, 255, 0.65);
   --text-dimmer: rgba(255, 255, 255, 0.45);
-  /* --accent/--accent2/--accent-ink read the generic brand palette
-     (src/theme/palettes.js) instead of hardcoding this page's green, so a
-     palette switch (see PaletteContext.jsx) re-skins the landing page too.
-     They already track light/dark theme via PaletteContext, which is why
-     the light-theme override below no longer redeclares them. */
   --accent: var(--brand-accent);
   --accent2: var(--brand-accent-2);
   --accent-ink: var(--brand-accent-ink);
@@ -600,11 +595,6 @@
       grid-template-columns: 1fr;
     }
   }
-
-  /* ---------- Phones (≤600px) ----------
-     The header used to wrap every label onto two lines ("Studio / VR",
-     "Sign / in") and push the palette/theme buttons off-screen; the hero
-     CTAs, stats and cards were sized for desktop gutters. */
   @media (max-width: 600px) {
     .btn-primary,
     .btn-secondary,
@@ -630,8 +620,6 @@
         padding: 8px 14px;
       }
     }
-    /* "Curriculum" is the first section below the hero anyway, and the
-       greeting duplicates what the Enter/Log off buttons already imply. */
     .land-nav-curriculum,
     .land-greeting {
       display: none;
@@ -686,18 +674,11 @@
       grid-template-columns: 1fr;
     }
   }
-
-  /* Very narrow phones: logo mark only, so Sign in / Sign up / palette /
-     theme still fit on one line. */
   @media (max-width: 370px) {
     .brand-name {
       display: none;
     }
   }
-
-  /* Scroll-triggered reveal: elements start faded/lowered, JS adds
-     .in-view via IntersectionObserver the first time they enter the
-     viewport. transition-delay is set per-element inline for stagger. */
   .reveal {
     opacity: 0;
     transform: translateY(22px);
@@ -751,11 +732,6 @@
     transform: none;
   }
 }
-
-/* ── Light theme ──────────────────────────────────────────────────────────
-   Overrides the design tokens .svr-landing defines at the top of this file,
-   plus the handful of rules below that hardcode a dark-mode color instead
-   of reading a variable. */
 :root[data-theme='light'] .svr-landing {
   --bg: #f6f8f6;
   --panel: rgba(var(--ink-tint-rgb), 0.045);
@@ -773,25 +749,12 @@
   .topic-card .lock {
     background: rgba(var(--ink-tint-rgb), 0.06);
   }
-
-  /* The hero's blurred panorama backdrop was darkened (brightness 0.28)
-     for white text — lighten it instead and let the headline/lede/stats
-     fall through to the normal (now dark) text tokens above, same as the
-     rest of the page, instead of forcing them white on a black band.
-     The overlay needs to be much more opaque than a first pass suggests:
-     a hazy, colorful photo sitting directly behind dark headline text
-     reads as muddy and low-contrast, where the dark theme's near-opaque
-     black scrim gave text a clean, striking backdrop. Mirror that here
-     with a near-opaque light scrim instead of a translucent tint. */
   .hero::before {
     filter: blur(28px) brightness(1.3) saturate(0.6);
   }
   .hero::after {
     background: radial-gradient(ellipse at 30% 30%, rgba(var(--page-tint-rgb), 0.75) 0%, rgba(var(--page-tint-rgb), 0.97) 78%);
   }
-
-  /* btn-secondary's border was tuned for a dark backdrop; on light bg it
-     nearly vanishes. Give it real contrast and a subtle fill. */
   .btn-secondary {
     background: rgba(var(--ink-tint-rgb), 0.035);
     border-color: rgba(var(--ink-tint-rgb), 0.22);
@@ -804,8 +767,6 @@
     background: rgba(var(--ink-tint-rgb), 0.06);
     color: var(--text);
   }
-  /* The video placeholder stays on a solid black letterbox in both themes,
-     so its caption text stays light to match. */
   .video-modal-body .center-note p {
     color: rgba(255, 255, 255, 0.75);
   }

@@ -1,24 +1,3 @@
-/* Shared styles for the "Microphones" chapter's interactive labs
-   (MicTypeLab — MicPortrait art only, MicPolarPatternLab,
-   and MicSelectionLab, which reuses .mic-portrait for its pick and keeps
-   its own styles in MicSelectionLab/MicSelectionLab.css).
-   Reuses labs.css's .lab / .lab-toggle-row / .lab-play-btn / .sound-lab-*
-   chrome wherever it already fits (see labs.css) — this file only adds the
-   mic-specific pieces the mockup (design/mic-types-chapter.html) needed
-   that don't already exist: the polar compass diagram (MicPolarPatternLab's
-   ListenTabs image slot) and its position readout.
-   Panel/border/text colors use the app's real theme tokens so these adapt
-   to light/dark mode. The two "instrument screens" (.mic-portrait and
-   .mic-polar-wrap) and everything drawn on them (rings, compass labels,
-   mic silhouettes, polar lobe, position dots) read from the --mic-screen-*
-   / --mic-* tokens defined just below — dark values equal the original
-   hardcoded colors, and the light-theme block at the bottom of this file
-   swaps them for the same "graph paper" screen (#e7eae1) the sound labs'
-   scopes and EQ graph use, instead of leaving a dark rectangle on a light
-   page. */
-
-/* Screen tokens — set on the two screen containers so every SVG inside
-   inherits them. */
 .mic-portrait,
 .mic-polar-wrap {
   --mic-screen-bg: #0e0e11;
@@ -31,9 +10,6 @@
   --mic-lobe-fill: rgba(84, 214, 224, 0.16);
   --mic-spot-off: rgb(58, 58, 66);
 }
-
-/* MicPortrait silhouette parts (see MicPortrait.jsx) — the accent outline
-   itself comes from the `color` prop; these are the neutral tones. */
 .mic-art-body {
   fill: var(--mic-body-fill);
 }
@@ -59,12 +35,6 @@
   height: 100px;
   width: auto;
 }
-
-
-/* --- Polar pattern compass ---
-   Type scale across this file was bumped ~1.5-2px (copy now matches
-   labs.css's 14px .lab-intro) after light-mode review found the chips,
-   blurbs and compass labels too small to read comfortably. */
 .mic-polar-wrap {
   background: var(--mic-screen-bg);
   border: 1px solid var(--border-soft);
@@ -74,8 +44,6 @@
   align-items: center;
   justify-content: center;
 }
-/* In MicPolarPatternLab the wrap is the ListenTabs image slot (16:9); the
-   square diagram is centred at the slot's full height. */
 .ltb-media--custom .mic-polar-wrap { border-radius: 12px; padding: 12px; }
 .ltb-media--custom .mic-polar-wrap svg { width: auto; height: 100%; max-width: 100%; }
 .mic-polar-spot:focus { outline: none; }
@@ -120,8 +88,6 @@
   opacity: 0.85;
 }
 .mic-polar-spot {
-  /* --mic-spot-mix (0–100%) is set inline per dot from its gain — see
-     spotMix() in MicPolarDiagram.jsx. */
   fill: color-mix(in srgb, var(--mic-lobe) var(--mic-spot-mix, 0%), var(--mic-spot-off));
   stroke: var(--mic-screen-bg);
   stroke-width: 2;
@@ -176,12 +142,6 @@
   color: var(--text-dim);
   font-size: 13.5px;
 }
-/* ── Light theme ─────────────────────────────────────────────────────────
-   Screen tokens: graph-paper background (== LIGHT_SCOPE_BG in
-   soundLabShared.js), ink-tinted rings, and a deepened teal lobe that
-   keeps ~4:1 against the screen (the dark theme's bright #54d6e0 drops
-   to ~1.4:1 there). Mic silhouettes become light-grey bodies with darker
-   detail lines, mirroring SweetSpotLab's light --sslab-room-cabinet tones. */
 :root[data-theme='light'] .svr-course .lab {
   .mic-portrait,
   .mic-polar-wrap {

@@ -17,8 +17,6 @@
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
-/* Brand */
-
 .shell-brand {
   display: inline-flex;
   align-items: center;
@@ -58,8 +56,6 @@
   white-space: nowrap;
 }
 
-/* Right side */
-
 .shell-header-right {
   display: flex;
   align-items: center;
@@ -79,8 +75,6 @@
   letter-spacing: 0.01em;
   white-space: nowrap;
 }
-
-/* Section nav */
 
 .shell-nav {
   display: flex;
@@ -127,8 +121,6 @@
   background: var(--shell-gradient-accent);
 }
 
-/* Round icon buttons: log-off, theme toggle */
-
 .shell-icon-btn {
   display: inline-flex;
   align-items: center;
@@ -154,20 +146,12 @@
   transform: translateY(0);
 }
 
-/* Focus states */
-
 .shell-brand:focus-visible,
 .shell-nav-link:focus-visible,
 .shell-icon-btn:focus-visible {
   outline: 2px solid var(--shell-text-dim);
   outline-offset: 2px;
 }
-
-/* Small screens: drop the wordmark and greeting first, then let the nav
-   labels shrink to icons-only so the bar never wraps. */
-
-/* Tablets: the full bar (brand + greeting + labelled nav + log off +
-   palette pill + theme) needs ~900px, so drop the greeting there too. */
 @media (max-width: 900px) {
   .shell-greeting {
     display: none;
@@ -183,7 +167,6 @@
 }
 
 @media (max-width: 560px) {
-
   .svr-shell-header {
     padding: 0 12px;
     gap: 8px;

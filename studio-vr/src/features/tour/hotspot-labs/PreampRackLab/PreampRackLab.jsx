@@ -1,136 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Tabs, useTabTransition } from "../../../../components/Tabs";
-import "../shared/speakerListeningLab.css";
+import { LabShell } from "../shared/LabShell";
 import "./PreampRackLab.css";
-import { PlayIcon, PauseIcon, LevelMeter, AhaBox, AudioNote } from "../shared/listeningLabShared";
-import { quickHelpHoverProps } from "../../help/helpHover";
+import { AhaBox, LineIcon, PlayBar, SegControl } from "../shared/listeningLabShared";
+import { useLoopPlayer } from "../shared/useLoopPlayer";
 
-// Preamp Rack hotspot's "Preamp Rack Lab" — same treatment as the Speakers
-// hotspot's Listening Lab (see SpeakerListeningLab.jsx): replaces the
-// generic "Test your knowledge" quiz for the preamp-rack gear panel only
-// (see PanoramaTour.jsx, which renders this instead of
-// HotspotKnowledgeCheck whenever activeGear.id === "preamp-rack"). Ported
-// from design/preamp-rack-lab.html, restructured from that mockup's
-// scroll-with-progress-dots layout into two navigable tabs — one per
-// experiment — same as MixingConsoleLab.jsx/SoundCardLab.jsx.
-//
-// Reuses the exact same docked .svr-tour-gear-panel.llab-panel-shell shell,
-// width, tab bar, and take-away chip/overlay interaction as
-// SpeakerListeningLab (see listeningLabShared.jsx and speakerListeningLab.css
-// for the shared pieces) so this reads as the same "Listening Lab" family,
-// just with different content inside.
-//
-// AUDIO IS UI-ONLY FOR NOW — see SpeakerListeningLab.jsx's own comment for
-// why: every module wires up a real <audio> element pointed at a
-// `public/audio/listening-lab/...` path that doesn't exist yet, play()
-// failures are swallowed, and the "playing" look is driven by React state
-// rather than real playback events.
-function PreampRackLab({
-  open,
-  onClose,
-  onBackToOverview,
-  onStartCourse,
-  // Reports whatever's currently hovered/focused in this lab up to
-  // PanoramaTour's Quick Help popup (help mode) — see helpHover.js and
-  // QuickHelpPanel.jsx. Called with a short description on hover/focus
-  // and `null` on leave/blur.
-  onQuickHelp,
-}) {
-  const [activeTab, setActiveTab] = useState(0);
-  // Standard tab-panel motion (components/Tabs) on the body, which is
-  // also the scroll container — see useTabTransition.
-  const bodyRef = useRef(null);
-  useTabTransition(bodyRef, activeTab, activeTab);
-
-  // Every visit starts back on experiment one — a fresh "before the lesson"
-  // primer each time it's opened, not a resumable session.
-  useEffect(() => {
-    if (open) setActiveTab(0);
-  }, [open]);
-
-  if (!open) return null;
-
-  const tab = TABS[activeTab];
-
+export default function PreampRackLab(props) {
   return (
-    <div className="svr-tour-gear-panel llab-panel-shell">
-      <div className="svr-tour-gear-panel__head">
-        <span className="svr-tour-gear-badge llab-badge" aria-hidden="true">
-          🎙️
-        </span>
-        <div className="svr-tour-gear-panel__titles">
-          <div className="svr-tour-gear-panel__title">Preamp Rack Lab</div>
-          <div className="svr-tour-gear-panel__kicker">
-            {tab.label} · {activeTab + 1} of {TABS.length}
-          </div>
-        </div>
-        <button
-          onClick={onClose}
-          className="svr-tour-gear-panel__close"
-          aria-label="Close Preamp Rack Lab"
-          type="button"
-          {...quickHelpHoverProps(onQuickHelp, "Close this lab and go back to the panel.")}
-        >
-          ×
-        </button>
-      </div>
-
-      <Tabs
-        className="llab-tabs"
-        tabClassName="llab-tab"
-        variant="segmented"
-        size="sm"
-        fill
-        items={TABS.map((t) => ({ id: t.id, title: t.label, n: t.n, short: t.short }))}
-        value={tab.id}
-        onChange={(_, i) => setActiveTab(i)}
-        ariaLabel="Preamp Rack Lab experiments"
-        idPrefix="llab"
-        renderTab={(t) => (
-          <>
-            <span className="llab-tab__n mono">{t.n}</span>
-            <span className="llab-tab__label">{t.short}</span>
-          </>
-        )}
-      />
-
-      <div
-        ref={bodyRef}
-        className="svr-tour-gear-panel__body"
-        role="tabpanel"
-        id={`prlab-panel-${tab.id}`}
-        aria-labelledby={`prlab-tab-${tab.id}`}
-        // Remounting the module on tab switch (via key) stops its audio
-        // automatically — see SpeakerListeningLab.jsx's identical comment.
-        key={tab.id}
-      >
-        {activeTab === 0 && <TelescopeModule />}
-        {activeTab === 1 && <LensModule />}
-      </div>
-
-      <div className="svr-tour-gear-panel__footer">
-        <div className="svr-tour-gear-panel__footer-row">
-          <button
-            type="button"
-            className="svr-tour-btn svr-tour-btn-secondary"
-            onClick={onBackToOverview}
-            {...quickHelpHoverProps(onQuickHelp, "Go back to the choose-how-to-start overview.")}
-          >
-            ← Back
-          </button>
-          {onStartCourse && (
-            <button
-              type="button"
-              className="svr-tour-btn svr-tour-btn-primary"
-              onClick={onStartCourse}
-              {...quickHelpHoverProps(onQuickHelp, "Jump straight into the full lesson for this topic.")}
-            >
-              Start course →
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+    <LabShell
+      {...props}
+      icon="🎙️"
+      title="Preamp Rack Lab"
+      tabs={TABS}
+      modules={[TelescopeModule, LensModule]}
+    />
   );
 }
 
@@ -139,64 +21,58 @@ const TABS = [
   { id: "lens", n: "02", label: "Preamp Character", short: "Character" },
 ];
 
-// ============================================================
-// Icons
-// ============================================================
 function LowIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <circle cx="11" cy="11" r="7" />
-      <line x1="21" y1="21" x2="16.5" y2="16.5" />
-    </svg>
+    <LineIcon>
+    <circle cx="11" cy="11" r="7" />
+    <line x1="21" y1="21" x2="16.5" y2="16.5" />
+    </LineIcon>
   );
 }
 function SweetIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <circle cx="11" cy="11" r="7" />
-      <line x1="21" y1="21" x2="16.5" y2="16.5" />
-      <path d="M8 11h6M11 8v6" />
-    </svg>
+    <LineIcon>
+    <circle cx="11" cy="11" r="7" />
+    <line x1="21" y1="21" x2="16.5" y2="16.5" />
+    <path d="M8 11h6M11 8v6" />
+    </LineIcon>
   );
 }
 function HighIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <circle cx="11" cy="11" r="7" />
-      <line x1="21" y1="21" x2="16.5" y2="16.5" />
-      <path d="M7 8l8 6M15 8l-8 6" />
-    </svg>
+    <LineIcon>
+    <circle cx="11" cy="11" r="7" />
+    <line x1="21" y1="21" x2="16.5" y2="16.5" />
+    <path d="M7 8l8 6M15 8l-8 6" />
+    </LineIcon>
   );
 }
 function TransparentIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-    </svg>
+    <LineIcon>
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    </LineIcon>
   );
 }
 function TubeStyleIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <rect x="4" y="4" width="16" height="16" rx="1.5" />
-      <ellipse cx="12" cy="10" rx="3" ry="4" />
-      <line x1="12" y1="14" x2="12" y2="18" />
-    </svg>
+    <LineIcon>
+    <rect x="4" y="4" width="16" height="16" rx="1.5" />
+    <ellipse cx="12" cy="10" rx="3" ry="4" />
+    <line x1="12" y1="14" x2="12" y2="18" />
+    </LineIcon>
   );
 }
 function TransformerIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <circle cx="8" cy="8" r="3" />
-      <circle cx="16" cy="16" r="3" />
-      <path d="M10.5 9.5l3 3" />
-    </svg>
+    <LineIcon>
+    <circle cx="8" cy="8" r="3" />
+    <circle cx="16" cy="16" r="3" />
+    <path d="M10.5 9.5l3 3" />
+    </LineIcon>
   );
 }
 
-// ============================================================
-// MODULE 1 — The Sound Telescope (gain staging)
-// ============================================================
 const AUDIO_SOURCES_1 = {
   low: "/audio/listening-lab/telescope-low.mp3",
   sweet: "/audio/listening-lab/telescope-sweet.mp3",
@@ -231,9 +107,6 @@ const SEG_1 = [
   { key: "high", label: "Too High", Icon: HighIcon },
 ];
 
-// A faint noise field behind the "too low" trace — regenerated only when
-// this module first renders "low" mode, not on every render, so the dots
-// don't visibly jitter each time React re-renders for an unrelated reason.
 function useNoiseDots(active) {
   return useMemo(() => {
     if (!active) return [];
@@ -318,19 +191,7 @@ function TelescopeModule() {
       </p>
 
       <div className="llab-card">
-        <div className="llab-seg" role="group" aria-label="Choose a gain setting">
-          {SEG_1.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              type="button"
-              className={"llab-seg__btn" + (mode === key ? " active" : "")}
-              onClick={() => selectMode(key)}
-            >
-              <Icon />
-              {label}
-            </button>
-          ))}
-        </div>
+        <SegControl options={SEG_1} value={mode} onSelect={selectMode} label="Choose a gain setting" />
 
         <div className="prlab-scope-wrap">
           <div className="prlab-scope-frame">
@@ -374,18 +235,7 @@ function TelescopeModule() {
           </div>
         </div>
 
-        <div className="llab-playbar">
-          <button
-            className="llab-play"
-            onClick={togglePlay}
-            type="button"
-            aria-label={playing ? "Pause" : "Play"}
-          >
-            {playing ? <PauseIcon /> : <PlayIcon />}
-          </button>
-          <LevelMeter playing={playing} />
-        </div>
-        {/* <AudioNote>telescope-low/sweet/high.mp3</AudioNote> */}
+        <PlayBar playing={playing} onToggle={togglePlay} />
 
         <AhaBox show={revealed}>
           Microphones output tiny, weak signals (mic level). A preamp's
@@ -397,9 +247,6 @@ function TelescopeModule() {
   );
 }
 
-// ============================================================
-// MODULE 2 — The Camera Lens Filter (preamp character)
-// ============================================================
 const AUDIO_SOURCES_2 = {
   transparent: "/audio/listening-lab/lens-transparent.mp3",
   tube: "/audio/listening-lab/lens-tube.mp3",
@@ -447,43 +294,7 @@ const SEG_2 = [
 const HARMONIC_NAMES = ["FUND", "2ND", "3RD", "4TH", "5TH"];
 
 function LensModule() {
-  const [mode, setMode] = useState("transparent");
-  const [playing, setPlaying] = useState(false);
-  const [revealed, setRevealed] = useState(false);
-  const audioRef = useRef(null);
-
-  useEffect(() => {
-    const audio = new Audio();
-    audio.loop = true;
-    audio.preload = "auto";
-    audio.src = AUDIO_SOURCES_2.transparent;
-    audioRef.current = audio;
-    return () => audio.pause();
-  }, []);
-
-  const selectMode = (m) => {
-    setMode(m);
-    setRevealed(true);
-    setPlaying(true);
-    const audio = audioRef.current;
-    if (audio) {
-      audio.src = AUDIO_SOURCES_2[m];
-      audio.play().catch(() => {});
-    }
-  };
-
-  const togglePlay = () => {
-    setRevealed(true);
-    const audio = audioRef.current;
-    setPlaying((prev) => {
-      const next = !prev;
-      if (audio) {
-        if (next) audio.play().catch(() => {});
-        else audio.pause();
-      }
-      return next;
-    });
-  };
+  const { mode, playing, revealed, selectMode, togglePlay } = useLoopPlayer(AUDIO_SOURCES_2, "transparent");
 
   const m = LENS_MODES[mode];
 
@@ -496,19 +307,7 @@ function LensModule() {
       </p>
 
       <div className="llab-card">
-        <div className="llab-seg" role="group" aria-label="Choose a preamp style">
-          {SEG_2.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              type="button"
-              className={"llab-seg__btn" + (mode === key ? " active" : "")}
-              onClick={() => selectMode(key)}
-            >
-              <Icon />
-              {label}
-            </button>
-          ))}
-        </div>
+        <SegControl options={SEG_2} value={mode} onSelect={selectMode} label="Choose a preamp style" />
 
         <div className="prlab-lens-frame" style={{ background: m.tint }}>
           <svg className="llab-curve__shape" viewBox="0 0 640 120" preserveAspectRatio="none">
@@ -549,18 +348,7 @@ function LensModule() {
           </div>
         </div>
 
-        <div className="llab-playbar">
-          <button
-            className="llab-play"
-            onClick={togglePlay}
-            type="button"
-            aria-label={playing ? "Pause" : "Play"}
-          >
-            {playing ? <PauseIcon /> : <PlayIcon />}
-          </button>
-          <LevelMeter playing={playing} />
-        </div>
-        {/* <AudioNote>lens-transparent/tube/transformer.mp3</AudioNote> */}
+        <PlayBar playing={playing} onToggle={togglePlay} />
 
         <AhaBox show={revealed}>
           Preamps don't just make sounds louder — different preamps act
@@ -571,5 +359,3 @@ function LensModule() {
     </div>
   );
 }
-
-export default PreampRackLab;

@@ -1,16 +1,8 @@
 import { fmtTime } from "../lib/format";
-import { TRACK_CHAIN_SCOPE, DEMO_CLIPS } from "../lib/constants";
+import { DEMO_CLIPS } from "../lib/constants";
 import { TrackIcon } from "./icons";
-import { InsertRack } from "./InsertRack";
-import { SendRack } from "./SendRack";
+import { TrackInsertRack, TrackSendRack } from "./TrackRacks";
 
-// Left-hand tracklist column — one row per track (channel-strip head +
-// upload/record/demo/solo/mute/download/remove buttons + inline Inserts/
-// Sends racks), plus the trailing "+ Add Track" row. Scroll-synced with the
-// Arrangement pane on the right (see onTracklistScroll/rowSlotHeights in
-// DawWorkstationScreen.jsx — trackRowRefs is populated here so that effect
-// can measure each row's real height). `chainActions`/`sendActions` bundle
-// the InsertRack/SendRack wiring functions shared with MixerView/EditorDock.
 export function TrackList({
   tracklistRef,
   onTracklistScroll,
@@ -240,41 +232,11 @@ export function TrackList({
             <div className="track-row__racks">
               <div className="track-row__rack-row">
                 <div className="track-row__rack-label mono">INS</div>
-                <InsertRack
-                  dense
-                  fixedSlots={5}
-                  chain={track.chain}
-                  onAddPlugin={(def) => chainActions.addOrSelectPlugin(track.id, TRACK_CHAIN_SCOPE, def)}
-                  onOpenSlot={(key) => chainActions.setActiveEditor({ trackId: track.id, regionId: TRACK_CHAIN_SCOPE, key })}
-                  onToggleBypass={(key) => chainActions.toggleBypass(track.id, TRACK_CHAIN_SCOPE, key)}
-                  onMove={(key, dir) => chainActions.movePlugin(track.id, TRACK_CHAIN_SCOPE, key, dir)}
-                  onRemove={(key) => chainActions.removePlugin(track.id, TRACK_CHAIN_SCOPE, key)}
-                  onReorder={(fromKey, toKey) => chainActions.reorderPlugin(track.id, TRACK_CHAIN_SCOPE, fromKey, toKey)}
-                  draggingKey={chainActions.draggingKey}
-                  setDraggingKey={chainActions.setDraggingKey}
-                />
+                <TrackInsertRack dense fixedSlots={5} track={track} chainActions={chainActions} />
               </div>
               <div className="track-row__rack-row">
                 <div className="track-row__rack-label mono">SEND</div>
-                <SendRack
-                  dense
-                  fixedSlots={5}
-                  sends={track.sends || []}
-                  auxOptions={tracks
-                    .filter((t) => t.kind === "aux" && t.id !== track.id && !(t.sends || []).some((s) => s.busId === track.id))
-                    .map((t) => ({ id: t.id, name: t.name, color: t.color }))}
-                  onAddSend={(busId) => sendActions.addSend(track.id, busId)}
-                  onCreateAux={(name) => sendActions.createAux({ kind: "aux", name })}
-                  onRemoveSend={(sendId) => sendActions.removeSend(track.id, sendId)}
-                  onUpdateSend={(sendId, patch) => sendActions.updateSend(track.id, sendId, patch)}
-                  onSetPrePost={(sendId, prePost) => sendActions.setSendPrePost(track.id, sendId, prePost)}
-                  trackId={track.id}
-                  trackName={track.name}
-                  trackPan={track.pan ?? 0}
-                  trackSolo={!!track.solo}
-                  onToggleTrackSolo={() => toggleTrackSolo(track.id)}
-                  getSendMeter={(sendId) => sendActions.getSendMeterLevel(track.id, sendId)}
-                />
+                <TrackSendRack dense fixedSlots={5} track={track} tracks={tracks} sendActions={sendActions} toggleTrackSolo={toggleTrackSolo} />
               </div>
             </div>
           </div>

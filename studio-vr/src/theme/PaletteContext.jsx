@@ -2,20 +2,6 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useTheme } from "./ThemeContext";
 import { PALETTES, DEFAULT_PALETTE_ID, getPalette, hexToRgbTriplet } from "./palettes";
 
-// Drives the app-wide "brand accent" CSS variables (--brand-accent,
-// --brand-accent-2, --brand-glow, --brand-accent-ink, and their *-rgb
-// triplets for building translucent colors) from the single palette table
-// in palettes.js. Every page/component CSS file reads those variables
-// instead of hardcoding the green - see the comment at the top of
-// palettes.js.
-//
-// TEMPORARY: palette switcher - this whole palette-switching feature (this
-// file, palettes.js, PaletteSwitcher.jsx, and the <PaletteSwitcher /> drop-ins
-// in Header.jsx / LandingPage.jsx / PaymentPage.jsx) exists so different
-// color palettes can be test-driven live in the nav bar. Once a final
-// palette is chosen, this can collapse back down to a single hardcoded
-// palette (or stay, if the switcher turns out to be worth keeping) - search
-// the repo for "TEMPORARY: palette switcher" to find every piece.
 const STORAGE_KEY = "svr-palette";
 const PaletteContext = createContext(null);
 

@@ -1,26 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-/**
- * Clip playback for the "listen tabs" labs (acoustics StudioAcousticsLab /
- * RoomTreatmentLab, microphones MicTypeLab). One <audio> element per clip,
- * pointed at that item's `src` (a recording under public/audio/…). No
- * processing — the recordings are played as-is.
- *
- * Each item's status is "loading" → "ready" (metadata loaded) or "missing"
- * (no src, or the file failed to load — Vite's SPA fallback serves
- * index.html for missing files, which also lands here). Missing items show
- * ClipPlayer's "Audio coming soon" placeholder.
- *
- * Only one clip plays at a time. play(id, { keepPosition: true }) starts
- * `id` at the current clip's position, so A/B switching is a direct
- * comparison rather than a restart. Progress is a getter (getProgress) so
- * players can animate with rAF without re-rendering the lab every frame.
- */
 export function useClipAudio({ items, onFirstPlay }) {
   const [status, setStatus] = useState(() =>
     Object.fromEntries(items.map((it) => [it.id, it.src ? "loading" : "missing"])),
   );
-  const [playing, setPlaying] = useState(null); // { id, fromCompare }
+  const [playing, setPlaying] = useState(null);
   const audiosRef = useRef({});
   const currentRef = useRef(null);
   const itemsRef = useRef(items);
@@ -66,11 +50,6 @@ export function useClipAudio({ items, onFirstPlay }) {
     setPlaying(null);
   }, []);
 
-  /**
-   * opts.at: 0..1 start position; opts.keepPosition: continue from the
-   * current clip's position (A/B); opts.fromCompare: the card whose A/B button asked
-   * for this clip, so that card keeps showing the playhead.
-   */
   const play = useCallback((id, opts = {}) => {
     const a = audiosRef.current[id];
     if (!a || !Number.isFinite(a.duration)) return;

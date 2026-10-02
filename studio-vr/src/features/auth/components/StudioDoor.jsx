@@ -1,13 +1,5 @@
 import { useEffect, useRef } from "react";
 
-// On narrow screens (<=820px, same breakpoint as AuthPage.css) the door
-// stacks ABOVE the form, so by the time someone taps "Unlock door" /
-// "Request access" they've usually scrolled down to the button and the
-// door is off-screen — they'd miss the scan → unlock → swing-open
-// sequence entirely. When verification starts, scroll the page's own
-// scroll container (.svr-auth) back to the top so the door (and the
-// "Door's unlocked" welcome overlay, which covers that same top area)
-// is in view for the whole animation.
 const STACKED_QUERY = "(max-width: 820px)";
 
 function StudioDoor({ phase, sublabel }) {
@@ -30,11 +22,6 @@ function StudioDoor({ phase, sublabel }) {
       <div className="jamb" />
       <div className={`door-opening${inFocus ? " clear" : ""}`}>
         <div className="interior" />
-        {/* Same equalizer-bar wave as the landing page hero (.eq-decor),
-            scaled down and living behind the glass. It's its own layer
-            (not nested in .interior) so it can carry a lighter blur that
-            sharpens into a real waveform on unlock, instead of washing
-            out under the interior's heavier ambient-glow blur. */}
         <div className="door-eq">
           {Array.from({ length: 14 }).map((_, i) => (
             <span key={i} style={{ "--i": i }} />

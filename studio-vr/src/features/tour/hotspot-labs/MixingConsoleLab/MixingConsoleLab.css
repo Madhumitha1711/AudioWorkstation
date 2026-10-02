@@ -1,19 +1,4 @@
 @import "../shared/hardwareTokens.css";
-
-/* Styles for MixingConsoleLab.jsx — ported from
-   design/mixing-console-lab.html. Reuses the shared `.llab-*` base (panel
-   shell width/height, tabs, card, seg toggle, playbar, take-away chip/pop,
-   audio note) from speakerListeningLab.css — see that file's own header
-   comment, which built those classes as a reusable "Listening Lab" system
-   rather than something speaker-specific, and listeningLabShared.jsx for the
-   matching PlayIcon/PauseIcon/LevelMeter/AhaBox/AudioNote components. Only
-   the two visuals unique to this lab — the ingredient level bars (module 1)
-   and the stereo highway/cars (module 2) — get their own `mclab-` prefixed
-   rules below, scaled down from the original mockup's 760px layout to fit
-   the ~352px docked panel.
-*/
-
-/* ---------- module 1 — ingredient level bars ("The Audio Kitchen") ---------- */
 .mclab-kitchen-box {
   margin-top: 12px;
   background: rgba(0, 0, 0, 0.22);
@@ -85,14 +70,8 @@
   letter-spacing: 0.02em;
   line-height: 1.5;
 }
-
-/* ---------- module 2 — stereo highway/cars ("The Sound Highway") ---------- */
 .mclab-highway {
   position: relative;
-  /* 100px (not the tighter 74px this was first ported at) so cars in the
-     bottom lane (y: 75-80%) have room for their label below them instead of
-     it getting sliced off by overflow:hidden — see mixing-console-lab.html's
-     original 100px mockup height, which this was scaled down from. */
   height: 100px;
   margin-bottom: 12px;
   background: rgba(0, 0, 0, 0.22);
@@ -139,20 +118,11 @@
   font-size: 7px;
   color: var(--llab-text-muted);
   white-space: nowrap;
-  /* Cars that share (or nearly share) a lane — e.g. vocal/drums/bass all at
-     x:50% in the "Two Lanes" preset, or the deliberately piled-up cars in
-     "Gridlock" — can still land close enough that a neighboring dot sits
-     right where this label is. A solid backdrop keeps the tag legible
-     instead of the dot swallowing the text. */
   padding: 1px 3px;
   border-radius: 3px;
   background: rgba(14, 14, 17, 0.78);
   pointer-events: none;
 }
-/* Cars parked in the bottom lane (y ~70-80%) sit close enough to the
-   highway's lower edge that a label below them would run past the box and
-   get sliced off by overflow:hidden. Flip those labels to sit above the dot
-   instead — see the `isLowLane` check in SoundHighwayModule. */
 .mclab-car--label-above::after {
   top: auto;
   bottom: 13px;

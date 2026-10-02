@@ -10,24 +10,10 @@ import {
 } from "../../api/discussions";
 import "./DiscussionPage.css";
 
-// Main Bus / Talkback — app-wide standard Tabs (underline).
 const CHANNEL_TABS = [
   { id: "main", label: "Main Bus" },
   { id: "talkback", label: "Talkback" },
 ];
-
-// Ported from design/soundcraft-discussion.html — a two-channel Q&A board
-// for the current station: "Main Bus" (visible to the whole lesson) and
-// "Talkback" (a private line to the instructor). Originally shipped with
-// hardcoded seed data and no persistence; now backed by studio-backend's
-// /discussions API (see src/api/discussions.js) — threads/replies are
-// real rows, "Talkback" is actually private (enforced server-side, not
-// just hidden in the UI), an instructor (admin) reply auto-marks a thread
-// "answered", and a student can delete their own question or reply (an
-// instructor can delete any, for moderation — see DiscussionsService.remove
-// / removeReply on the backend). Deletions are confirmed with an in-theme
-// modal (ConfirmDialog) rather than the browser's native window.confirm,
-// which can't be styled and looks jarring against the rest of the page.
 
 function initialsOf(name) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -36,8 +22,6 @@ function initialsOf(name) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-// Turns a backend ISO timestamp into the same kind of relative label the
-// original mocked seed data used ("2 hours ago", "Yesterday", ...).
 function formatRelativeTime(iso) {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return "";
@@ -70,11 +54,6 @@ function PrivateIcon() {
   );
 }
 
-// Replaces window.confirm for both "delete this question" and "delete this
-// reply" — same dialog, different copy. Clicking the dimmed backdrop
-// cancels (same as the Cancel button); the confirm button is disabled
-// while the delete request for it is in flight so a second click can't
-// double-fire.
 function ConfirmDialog({ title, body, confirmLabel, pending, onCancel, onConfirm }) {
   return (
     <div className="disc-modal-overlay" onClick={onCancel}>
@@ -213,17 +192,12 @@ function ThreadCard({
 }
 
 function DiscussionPage() {
-  // Author display name for "my" threads/replies now comes from the
-  // backend (isMine + authorName on each thread/reply — see
-  // discussion.mapper.ts), so the session's studentName isn't needed here
-  // beyond identifying which student is signed in via the token below.
   const token = useSelector((state) => state.session.token);
 
-  const [channel, setChannel] = useState("main"); // 'main' | 'talkback'
-  // Standard tab-panel motion (components/Tabs) when switching channel.
+  const [channel, setChannel] = useState("main");
   const feedRef = useRef(null);
   useTabTransition(feedRef, channel, CHANNEL_TABS.findIndex((t) => t.id === channel));
-  const [route, setRoute] = useState("main"); // composer's routing switch
+  const [route, setRoute] = useState("main");
   const [mainThreads, setMainThreads] = useState([]);
   const [talkbackThreads, setTalkbackThreads] = useState([]);
   const [draft, setDraft] = useState("");
@@ -232,22 +206,13 @@ function DiscussionPage() {
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
 
-  // Which thread (if any) has its inline reply box open, keyed by thread
-  // id, plus a per-thread draft so switching tabs or replying to a
-  // different thread doesn't clobber an in-progress reply elsewhere.
   const [openReplyId, setOpenReplyId] = useState(null);
   const [replyDrafts, setReplyDrafts] = useState({});
   const [sendingReplyId, setSendingReplyId] = useState(null);
 
-  // Which thread/reply is mid-delete, so its button can show a disabled
-  // "Deleting…" state instead of letting a second click double-fire.
   const [deletingThreadId, setDeletingThreadId] = useState(null);
   const [deletingReplyId, setDeletingReplyId] = useState(null);
 
-  // The delete confirmation modal's pending target — null when closed,
-  // otherwise { kind: 'thread', thread } or { kind: 'reply', thread, replyId }.
-  // Clicking a card's delete action opens this instead of deleting right
-  // away; the actual API call only runs once the modal is confirmed.
   const [pendingDelete, setPendingDelete] = useState(null);
 
   const isTalkback = channel === "talkback";
@@ -260,9 +225,6 @@ function DiscussionPage() {
         ? deletingReplyId === pendingDelete.replyId
         : false;
 
-  // Both channels are fetched up front (not just the active tab) so the
-  // "· N" counts on both tabs are accurate before the student ever clicks
-  // over to Talkback.
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
@@ -290,10 +252,6 @@ function DiscussionPage() {
     };
   }, [token]);
 
-  // Escape dismisses the confirm modal, same as clicking Cancel or the
-  // dimmed backdrop — but not while the delete it's confirming is still in
-  // flight, so the request can't be abandoned mid-air from the UI's point
-  // of view (the server-side delete still runs either way).
   useEffect(() => {
     if (!pendingDelete) return;
     const onKeyDown = (e) => {
@@ -305,8 +263,6 @@ function DiscussionPage() {
 
   const selectChannel = (next) => {
     setChannel(next);
-    // Keep the composer's routing switch in sync with the tab you're
-    // viewing, same as the original mockup.
     setRoute(next);
   };
 
@@ -366,8 +322,6 @@ function DiscussionPage() {
     }
   };
 
-  // Opens the confirm modal rather than deleting immediately — see
-  // pendingDelete above.
   const requestDeleteThread = (thread) => setPendingDelete({ kind: "thread", thread });
   const requestDeleteReply = (thread, replyId) =>
     setPendingDelete({ kind: "reply", thread, replyId });
@@ -409,7 +363,7 @@ function DiscussionPage() {
   };
 
   const cancelPendingDelete = () => {
-    if (isPendingDeleteInFlight) return; // let the in-flight request finish first
+    if (isPendingDeleteInFlight) return;
     setPendingDelete(null);
   };
 

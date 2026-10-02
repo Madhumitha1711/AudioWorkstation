@@ -40,8 +40,6 @@ function App() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-          {/* Member-only area — see RequireAuth.jsx. Matches the "studio
-              nav" bucket of routes in Header.jsx (STUDIO_NAV_PATHS). */}
           <Route
             path="/course"
             element={

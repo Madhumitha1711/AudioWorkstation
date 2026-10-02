@@ -1,90 +1,91 @@
-/* "Amplifier + Passive Speaker" — single screen, no tabs. Mirrors the
-   BriefingTabs / WhyAmplificationLab look (lead, labelled sections,
-   16:9 media well with a dashed placeholder) so it reads as part of the
-   same family. The two example pairings are shared FlipCards
-   (components/FlipCard), styled like ActiveSpeakerLab's: photo + one-line
-   title on the front, lead + facts on the back. Side by side, stacked
-   under 760px. Colours come from theme
-   tokens so light/dark both work. */
-.apsl {
-  --apsl-accent: #e8934a;
-  --apsl-well: rgba(0, 0, 0, 0.25);
+.exl {
+  --exl-accent: #e8934a;
+  --exl-well: rgba(0, 0, 0, 0.25);
 }
 
-:root[data-theme='light'] .apsl {
-  --apsl-accent: #c96f24;
-  --apsl-well: rgba(var(--ink-tint-rgb), 0.05);
+:root[data-theme='light'] .exl {
+  --exl-accent: #c96f24;
+  --exl-well: rgba(var(--ink-tint-rgb), 0.05);
 }
 
-.apsl,
-.apsl *,
-.apsl *::before,
-.apsl *::after {
+.exl,
+.exl *,
+.exl *::before,
+.exl *::after {
   box-sizing: border-box;
 }
+.exl .ui-tabpanel-clip {
+  overflow-clip-margin: 24px;
+}
 
-/* ── intro ── */
-.apsl-lead {
+.exl-panel {
+  padding-top: 18px;
+}
+.exl-lead {
   font-size: var(--fs-lg);
   line-height: 1.6;
   color: var(--text-dim);
   margin: 0 0 4px;
 }
 
-.apsl-facts {
+.exl-facts {
   margin: 0;
 }
 
-.apsl-fact dt {
+.exl-fact dt {
   margin-top: 20px;
   font-size: var(--fs-sm);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--apsl-accent);
+  color: var(--exl-accent);
 }
 
-.apsl-fact dd {
+.exl-fact dd {
   margin: 6px 0 0;
   font-size: var(--fs-body);
   line-height: 1.6;
   color: var(--text);
 }
 
-.apsl-subhead {
+.exl-subhead {
   margin: 32px 0 14px;
   font-size: var(--fs-xl);
   font-weight: 600;
   color: var(--text);
 }
-
-/* ── example cards ── */
-.apsl-examples {
+.exl-examples {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
   margin-bottom: 8px;
 }
 
-/* Surface (border, radius, panel) comes from FlipCard; only its accent is
-   tuned to the lab's orange. */
-.apsl-card {
-  --flip-accent: var(--apsl-accent);
+.exl-card {
+  --flip-accent: var(--exl-accent);
 }
 
-/* Front: the photo grows to fill whatever height the (taller) back face
-   gives the card, never shorter than 16:9. */
-.apsl-media {
+.exl-media {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
   aspect-ratio: 16 / 9;
   width: 100%;
   overflow: hidden;
-  background: var(--apsl-well);
+  background: var(--exl-well);
+}
+.exl-media--hero {
+  flex: none;
+  margin-bottom: 18px;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
 }
 
-.apsl-media img {
+.exl-media--hero .exl-ph {
+  border-bottom: none;
+}
+
+.exl-media img {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -93,7 +94,7 @@
   display: block;
 }
 
-.apsl-ph {
+.exl-ph {
   position: absolute;
   inset: 0;
   display: flex;
@@ -105,10 +106,10 @@
   text-align: center;
   border-bottom: 1.5px dashed var(--border);
   background:
-    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--apsl-accent) 8%, transparent), transparent 70%);
+    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--exl-accent) 8%, transparent), transparent 70%);
 }
 
-.apsl-ph-icon {
+.exl-ph-icon {
   width: 32px;
   height: 32px;
   fill: none;
@@ -119,7 +120,7 @@
   opacity: 0.8;
 }
 
-.apsl-ph-label {
+.exl-ph-label {
   font-size: var(--fs-xs);
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -127,7 +128,7 @@
   color: var(--text-dimmer);
 }
 
-.apsl-ph-path {
+.exl-ph-path {
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   color: var(--text-dimmer);
@@ -135,13 +136,12 @@
   word-break: break-all;
 }
 
-/* Front: the single line under the photo. */
-.apsl-card-front {
+.exl-card-front {
   padding: 14px 18px;
   border-top: 1px solid var(--border-soft);
 }
 
-.apsl-card-title {
+.exl-card-title {
   margin: 0;
   font-size: var(--fs-xl);
   font-weight: 600;
@@ -151,39 +151,59 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-/* Back: details. Right padding clears FlipCard's corner icon. */
-.apsl-card-body {
+.exl-card-body {
   padding: 18px 48px 20px 20px;
 }
 
-.apsl-card-kicker {
+.exl-card-kicker {
   margin: 0 0 8px;
   font-size: var(--fs-sm);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--apsl-accent);
+  color: var(--exl-accent);
 }
 
-.apsl-card-lead {
+.exl-card-lead {
   margin: 0;
   font-size: var(--fs-body);
   line-height: 1.6;
   color: var(--text-dim);
 }
 
-.apsl-card-facts .apsl-fact dt {
+.exl-card-facts .exl-fact dt {
   margin-top: 16px;
   font-size: var(--fs-xs);
 }
 
-.apsl-card-facts .apsl-fact dd {
+.exl-card-facts .exl-fact dd {
   font-size: var(--fs-sm);
+}
+.exl-card--wide {
+  grid-column: 1 / -1;
+}
+
+.exl-card--wide .exl-media {
+  aspect-ratio: 3 / 1;
+}
+
+.exl-card--wide .exl-card-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 24px;
 }
 
 @media (max-width: 760px) {
-  .apsl-examples {
+  .exl-examples {
     grid-template-columns: 1fr;
   }
+
+  .exl-card--wide .exl-media {
+    aspect-ratio: 16 / 9;
+  }
+
+  .exl-card--wide .exl-card-facts {
+    display: block;
+  }
+
 }

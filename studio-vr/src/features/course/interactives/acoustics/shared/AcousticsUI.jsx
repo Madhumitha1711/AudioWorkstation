@@ -9,7 +9,6 @@ export function SetupBar({ keptSame }) {
   );
 }
 
-
 export function RoomTabs({ items, audio, compareFor, ariaLabel, idPrefix }) {
   const [active, setActive] = useState(items[0].id);
 

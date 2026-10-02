@@ -1,8 +1,3 @@
-/* Key points — global, shares the Tabs standard's tokens (see
-   components/Tabs/Tabs.css): hairline = --tabs-line, accent = --tabs-accent
-   → --brand-accent, bullet = the same accent. Points
-   ease in with the tab motion curve when the panel changes. */
-
 .ui-keypoints {
   margin-top: 24px;
 }
@@ -53,8 +48,6 @@
   animation: ui-kp-in var(--motion-panel-duration, 440ms) var(--motion-ease-out, ease) both;
   animation-delay: calc(var(--kp-i, 0) * 50ms);
 }
-
-/* plain accent bullet, vertically centred on the first line of text */
 .ui-keypoints__bullet {
   flex: none;
   width: 6px;

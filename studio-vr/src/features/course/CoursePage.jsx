@@ -12,13 +12,8 @@ import "./CoursePage.css";
 
 const STEP_TAG = { assessment: "Quiz", interactive: "Lab" };
 
-// Keep in sync with the drawer media query at the bottom of CoursePage.css.
 const MOBILE_QUERY = "(max-width: 960px)";
 
-// Every real VR-tour hotspot (Control Room + Recording Room gear markers),
-// flattened so a chapter's `hotspotId` can be resolved back to the actual
-// in-scene marker name instead of borrowing a course chapter's own (often
-// longer, syllabus-style) title.
 const ALL_HOTSPOTS = ROOMS.flatMap((room) => room.markers ?? []);
 function hotspotName(hotspotId, fallbackTitle) {
   return ALL_HOTSPOTS.find((m) => m.id === hotspotId)?.title ?? fallbackTitle;
@@ -45,30 +40,10 @@ function CoursePage() {
   const location = useLocation();
   const { topics, loading, error, refetch } = useCourseTopics();
 
-  // If a hotspot in the VR tour requested a specific topic (via "Start
-  // course"), it's passed as route state — open straight to it; otherwise
-  // fall back to the first step. Read once, at mount: revisiting this page
-  // later shouldn't keep reopening a stale request.
   const pendingTopicId = useMemo(() => location.state?.topicId ?? null, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Topics now arrive asynchronously from studio-backend instead of being
-  // available synchronously from a hardcoded import, so the step list and
-  // the initial active step can't be computed at mount the way they used
-  // to be. This derives STEPS whenever topics load/change, and the effect
-  // below picks an initial step the first time real topics show up.
-  // Only chapter labs that are actually registered become steps — a CMS
-  // chapter still pointing at a removed lab kind is skipped (see buildStepList).
   const STEPS = useMemo(() => (topics ? buildStepList(topics, (kind) => Boolean(LABS[kind])) : []), [topics]);
 
-  // Sidebar module groups (Foundations, Monitoring, ...) used to come from
-  // a hardcoded MODULES import in courseData.js. They now come from each
-  // chapter's own `module`/`moduleTitle`/`moduleOrder` fields, which
-  // studio-backend fills in from Strapi's Main Topic relation (see
-  // studio-backend/src/courses/course.mapper.ts and studio-cms's
-  // STRAPI_SCHEMA_NOTES.md) — so renaming/reordering/adding a Main Topic in
-  // the CMS shows up here without a frontend deploy. Only modules that
-  // actually have a chapter appear, in the same order MODULES.filter(...)
-  // used to produce.
   const moduleList = useMemo(() => {
     const byId = new Map();
     (topics ?? []).forEach((t) => {
@@ -84,29 +59,12 @@ function CoursePage() {
 
   const [hasInitialized, setHasInitialized] = useState(false);
 
-  // Which topic/module accordion(s) are expanded in the sidebar, and which
-  // step is active. All three used to be computable synchronously from the
-  // (formerly hardcoded) TOPICS/STEPS at mount. Now that topics arrive
-  // asynchronously from studio-backend's `/courses` endpoint, none of this
-  // is known until the first real STEPS list shows up — so these start
-  // empty/null and get set together, once, by the effect below the first
-  // time STEPS is non-empty.
   const [openTopics, setOpenTopics] = useState(() => new Set());
   const [openModules, setOpenModules] = useState(() => new Set());
   const [activeStepId, setActiveStepId] = useState(null);
   const [completed, setCompleted] = useState(() => new Set());
-  // Whether the course-outline sidebar is collapsed to a slim rail — lets
-  // a student reclaim the width for wide interactive labs/panorama panels
-  // without losing their place (toggling back out doesn't disturb
-  // openTopics/openModules/activeStepId at all).
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Mobile drawer. At <=960px (same breakpoint as CoursePage.css) the
-  // outline stops being a column and becomes an off-canvas drawer that
-  // slides in over the lesson from the left, opened by the "Course
-  // contents" bar at the top of .course-main. The desktop collapse-to-rail
-  // state is ignored there (a drawer is either open or closed), so
-  // `collapsed` below is what the sidebar markup actually reads.
   const [isMobile, setIsMobile] = useState(
     () => typeof window !== "undefined" && !!window.matchMedia?.(MOBILE_QUERY).matches
   );
@@ -121,7 +79,6 @@ function CoursePage() {
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, []);
-  // Escape closes the open drawer.
   useEffect(() => {
     if (!drawerOpen) return undefined;
     const onKey = (e) => e.key === "Escape" && setDrawerOpen(false);
@@ -155,19 +112,6 @@ function CoursePage() {
   const topicPct = stepsInTopic.length ? Math.round((doneInTopic / stepsInTopic.length) * 100) : 0;
   const overallPct = STEPS.length ? Math.round((completed.size / STEPS.length) * 100) : 0;
 
-  // Studio is where students actually land (LoginPage routes straight to
-  // /studio) — this page is the notebook they get sent to from there, so
-  // every way back hands PanoramaTour the hotspot that got them here. It
-  // reads that as location.state.focusHotspotId and walks the camera
-  // straight to it (powering the rig up on the way if it isn't already) —
-  // see PanoramaTour's focus-hotspot effect. Several chapters share one
-  // physical hotspot (e.g. "Signal Flow" shares the Patch Bay marker with
-  // "Connectors, Cables, and Studio Wiring"), so this reads `hotspotId`
-  // rather than the chapter's own `id` — see the field comment atop
-  // course/data/courseData.js. A handful of "briefing" chapters have no hotspot
-  // at all (hotspotId: null); PanoramaTour's focus effect already no-ops
-  // gracefully when handed a null/missing target, so this still just lands
-  // the student back in whichever room they left, unfocused.
   const goToStudio = (hotspotId = activeTopic?.hotspotId) =>
     navigate("/studio", { state: { focusHotspotId: hotspotId } });
 
@@ -211,11 +155,6 @@ function CoursePage() {
     if (s) selectStep(s.id, s.topicId);
   };
 
-  // One pair of Prev/Next buttons, not two. Labs with tabs render a
-  // TabPager; through StepNavContext it continues into the previous/next
-  // section at either end of its tabs and registers itself here, and while
-  // one is mounted the bottom Previous/Next below is hidden (it would just
-  // duplicate it). Steps without a pager keep the bottom buttons.
   const [pagerCount, setPagerCount] = useState(0);
   const registerPager = useCallback(() => {
     setPagerCount((n) => n + 1);
@@ -268,10 +207,6 @@ function CoursePage() {
     );
   }
 
-  // Bottom-of-step navigation, shared by every step kind: "Back to the
-  // studio" on the left (moved here from the removed topbar), Previous/
-  // Next on the right. Previous/Next name the step they go to (lesson, lab
-  // or quiz title), like TabPager names the neighbouring tab.
   const lessonNav = (
     <div className="lesson-actions">
       <button type="button" className="btn-secondary studio-back-btn" onClick={() => goToStudio()}>
@@ -304,24 +239,14 @@ function CoursePage() {
 
   return (
     <div className="svr-course">
-      {/* There used to be a .course-topbar here (brand mark, "module /
-          topic" crumb, course title, overall progress bar, and "← Back to
-          the studio") — it cost a full row of vertical space above every
-          lesson. Its pieces moved: overall progress now sits at the top of
-          the sidebar (.sidebar-progress), "Back to the studio" joins
-          Previous/Next at the bottom of each step (lessonNav below), and
-          the module name moved into .topic-eyebrow. */}
       <div
         className={`course-layout${collapsed ? " sidebar-collapsed" : ""}${drawerOpen ? " drawer-open" : ""}`}
       >
-        {/* Mobile only (hidden by CSS above 960px): dims the lesson behind
-            the open drawer; tapping it closes the drawer. */}
         <div className="sidebar-backdrop" onClick={() => setDrawerOpen(false)} aria-hidden="true" />
         <aside
           id="course-outline"
           className={`course-sidebar${collapsed ? " collapsed" : ""}`}
           aria-label="Course contents"
-          // Closed drawer is off-screen — keep its buttons out of the tab order.
           inert={isMobile && !drawerOpen}
         >
           <div className="sidebar-toggle-row">
@@ -349,8 +274,6 @@ function CoursePage() {
               </button>
             )}
           </div>
-          {/* Overall course progress (moved here from the old topbar). The
-              collapsed rail only has room for the percentage. */}
           {collapsed ? (
             <div
               className="sidebar-progress-mini"
@@ -452,19 +375,6 @@ function CoursePage() {
                               <span className={`lesson-check${completed.has(step.id) ? " done" : ""}`}>
                                 {completed.has(step.id) ? "✓" : ""}
                               </span>
-                              {/* Every step kind but "interactive" has a
-                                  required title (Section.title, and
-                                  AssessmentSection.title defaults itself
-                                  to "Knowledge Check" — see
-                                  course.mapper.ts's mapAssessment), so
-                                  this fallback only ever actually applies
-                                  to a topic's own standalone Lab step
-                                  (Chapter.interactive) whose title an
-                                  editor left blank in studio-cms — that
-                                  step still needs *a* clickable label in
-                                  this list even when it renders no
-                                  heading of its own in the content pane
-                                  (see InteractiveSection.jsx). */}
                               <span className="lname">{step.data.title || "Untitled activity"}</span>
                               {STEP_TAG[step.kind] && <span className="ltag">{STEP_TAG[step.kind]}</span>}
                             </button>
@@ -481,8 +391,6 @@ function CoursePage() {
 
         <StepNavContext.Provider value={stepNav}>
         <main className="course-main">
-          {/* Mobile only (hidden by CSS above 960px): sticky bar that opens
-              the outline drawer. */}
           <button
             type="button"
             className="drawer-trigger"
@@ -496,20 +404,6 @@ function CoursePage() {
           </button>
           {activeTopic && activeStep && (
             <div className="course-content">
-              {/* (History: the old topbar's .course-crumb used to show
-                  "{module} / {topic title}" for this exact topic, and
-                  .topic-heading right below repeats the topic title again
-                  as a big page heading — so this line used to just be a
-                  third restatement of the same "module / topic" pair,
-                  right at the top of the scroll area where it read as
-                  extra clutter rather than orientation. It only carries
-                  content the crumb doesn't: the chapter's syllabus number.
-                  With the topbar gone, it now also carries the module
-                  name — "Foundations · Chapter 2" — and still disappears
-                  entirely when there's neither.) */}
-              {/* Eyebrow on the left, this chapter's section progress as a
-                  compact readout in the top-right corner — it used to be
-                  its own full-width row under the intro. */}
               <div className="topic-top-row">
                 {activeTopic.moduleTitle || activeTopic.number ? (
                   <div className="topic-eyebrow">
@@ -547,11 +441,6 @@ function CoursePage() {
                   </div>
                   <h2 className="lesson-title">{activeStep.data.title}</h2>
 
-                  {/* The section's CMS-configurable, ordered mix of video /
-                      image+text / interactive / custom-embed content — see
-                      SectionBlocks.jsx and studio-cms's STRAPI_SCHEMA_NOTES.md
-                      "Section `blocks` dynamic zone". Replaces what used to be
-                      a fixed VideoPlayer + paragraphs layout here. */}
                   <SectionBlocks
                     blocks={activeStep.data.blocks}
                     fallbackDuration={activeStep.data.duration}

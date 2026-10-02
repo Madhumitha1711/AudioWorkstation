@@ -1,1 +1,1 @@
-export { default, FlipCard } from "./FlipCard";
+export { FlipCard } from "./FlipCard";

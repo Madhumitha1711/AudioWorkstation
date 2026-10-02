@@ -1,15 +1,4 @@
-// Shared data/helpers for the studio hotspots device list, used by
-// StudioHotspotsPanel.jsx (the always-on left-docked nav rail that also
-// drives the Control Room's power-up sequence). Kept separate so that file
-// stays focused on the panel itself.
-
-// SIGNAL_ORDER mirrors the 7-device chain from the original design (patch
-// bay -> ... -> speaker). LF Emitter isn't part of that original mock but is
-// a real hotspot in roomsData.js, so it's slotted in just before the
-// speakers (both are transducers that should power on last). Any future
-// hotspot not listed here still shows up, appended at the end, instead of
-// silently disappearing from the panel.
-export const SIGNAL_ORDER = [
+const SIGNAL_ORDER = [
   "patch-bay",
   "preamp-rack",
   "sound-card",
@@ -31,18 +20,10 @@ export const ICONS = {
   speaker: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="2" width="14" height="20" rx="1.5"/><circle cx="12" cy="8" r="2.5"/><circle cx="12" cy="16" r="4"/></svg>`,
 };
 
-// Builds the ordered device list for a room: known signal-chain hotspots
-// first (per SIGNAL_ORDER), then anything else the room defines, so the
-// panel never silently drops a real hotspot just because it's new.
 export function buildDeviceList(room) {
   if (!room) return [];
   const byId = new Map([
     ...(room.markers || []).map((m) => [m.id, { ...m, kind: "gear" }]),
-    // `secondaryEntry` markers (see roomsData.js) are extra in-scene click
-    // points onto a device that already has a primary entry here — e.g. a
-    // second DAW hotspot at desk height alongside the one by the monitors.
-    // They stay out of this list so the panel never shows the same real
-    // device twice.
     ...(room.interactiveMarkers || [])
       .filter((m) => !m.secondaryEntry)
       .map((m) => [m.id, { ...m, kind: "interactive" }]),
@@ -55,8 +36,6 @@ export function buildDeviceList(room) {
       byId.delete(key);
     }
   });
-  // Anything left over (not part of the known chain) is appended in
-  // whatever order roomsData.js defined it.
   byId.forEach((device) => ordered.push(device));
   return ordered;
 }

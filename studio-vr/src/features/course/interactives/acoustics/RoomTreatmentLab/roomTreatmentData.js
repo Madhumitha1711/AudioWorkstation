@@ -72,7 +72,6 @@ export const STEPS = [
   },
 ];
 
-
 export const OVERFOAM = {
   id: "overfoam",
   points: [

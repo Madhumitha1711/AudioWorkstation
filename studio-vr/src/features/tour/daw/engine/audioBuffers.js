@@ -1,10 +1,4 @@
-// ═══════════════════════════════════════════════════════════════════════════
-// DAW Workstation — synthetic fallback buffer + waveform peak computation
-// ═══════════════════════════════════════════════════════════════════════════
-
-// ── Synthetic fallback (used only if a real demo clip above fails to load
-// — e.g. offline — so the DAW isn't left completely broken) ───────────────
-export function normAndFade(buf, peakTarget = 0.3) {
+function normAndFade(buf, peakTarget = 0.3) {
   const L = buf.getChannelData(0);
   const R = buf.getChannelData(1);
   let peak = 0;

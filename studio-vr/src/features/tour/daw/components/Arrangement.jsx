@@ -1,11 +1,5 @@
 import { clamp, fmtTime, fmtRulerMark } from "../lib/format";
 
-// Right-hand pane: the time ruler, each track's waveform/clip lane (with its
-// portions and the in-progress draft region), and the draggable playhead.
-// Scroll-synced with TrackList on the left (see onArrangementScroll/
-// rowSlotHeights in DawWorkstationScreen.jsx). Every drag gesture
-// (move a clip, draw/select a portion, scrub the playhead) is one of that
-// container's own handlers, passed straight through.
 export function Arrangement({
   arrangementRef,
   onArrangementScroll,

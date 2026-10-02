@@ -1,10 +1,3 @@
-// Content for "analog-connectors-lab" + "digital-connectors-lab" (Ch.8
-// "Connectors, Cables, and Studio Wiring"). `family` decides which lab a
-// section belongs to (ConnectorsLab.jsx filters on it); inside a lab:
-// categories (row-1 tabs) → connectors (row-2 tabs) → detail panel
-// (../../shared/GroupedBriefing).
-// `points` are the short takeaways shown in the global KeyPoints list.
-
 export const SECTIONS = [
   {
     n: "01",
@@ -262,13 +255,8 @@ export const SECTIONS = [
   },
 ];
 
-// Photos are served from public/ — drop a 16:9 JPG per connector at
-// public/connectors/<id>.jpg. Until a file exists the lab shows the
-// connector's icon and the expected path.
 export const connectorImagePath = (id) => `/connectors/${id}.jpg`;
 
-// 24×24 stroke icon bodies (inner SVG markup), keyed by connector id — used
-// in the item tabs and as the image placeholder.
 const jack = (rings) =>
   '<rect x="2" y="8" width="7" height="8" rx="1.5"/><path d="M9 10.5h10a1.5 1.5 0 0 1 0 3H9z"/>' +
   rings.map((x) => `<line x1="${x}" y1="10.5" x2="${x}" y2="13.5"/>`).join("");

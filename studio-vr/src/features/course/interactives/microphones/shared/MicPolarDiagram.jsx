@@ -1,8 +1,5 @@
 import { POLAR_POSITIONS, polarGainOf, polarLobePoints } from "./micLabShared";
 
-// Compass/lobe diagram for MicPolarPatternLab: the pattern's pickup
-// shape around a fixed mic, plus the 8 source positions as dots.
-
 const CX = 160;
 const CY = 160;
 const SPOT_R = 130;
@@ -13,19 +10,11 @@ function spotXY(deg) {
   return { x: CX + SPOT_R * Math.sin(rad), y: CY - SPOT_R * Math.cos(rad) };
 }
 
-// Dot fill = the pattern's gain at that spot, blended from the "dead"
-// spot tone (0 = null) to the lobe color (1 = on-axis). Done with CSS
-// color-mix() against theme tokens (--mic-spot-off / --mic-lobe in
-// micLabs.css) instead of interpolating fixed RGB values in JS, so the
-// dots re-tint with the light/dark theme without a re-render. The dark
-// tokens equal the old hardcoded endpoints, so dark mode is unchanged.
 function spotMix(gain) {
   const t = Math.max(0, Math.min(1, gain));
   return `${Math.round(t * 100)}%`;
 }
 
-// The 8 fixed source positions are clickable, keyboard-focusable dots,
-// with a connector line from the mic to the selected one.
 function MicPolarDiagram({ pattern, angle = 0, onSelectAngle }) {
   const lobePoints = polarLobePoints(pattern, CX, CY, LOBE_MAX_R);
   const lobeD = lobePoints.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x},${y}`).join(" ") + " Z";

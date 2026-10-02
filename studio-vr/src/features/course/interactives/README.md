@@ -24,6 +24,16 @@ interactives/
                          #   below) + ClipPlayer — acoustics labs, MicTypeLab,
                          #   MicPolarPatternLab
     soundLabShared.js    #   oscilloscope drawing, palettes, freq/note math
+    useInteractOnce.js   #   useInteractOnce(onInteract) → fire-once callback;
+                         #   useInteractOnView(ref, onInteract, threshold)
+    LabParts.jsx         #   LabImage (img + "coming soon" placeholder), Facts (dl list),
+                         #   ExampleCard (FlipCard: image + title / lead + facts)
+    ExampleLab/          #   ExampleLab (one screen: lead, facts, example flip cards) and
+                         #   TopicTabsLab (tabs of the same) — ActiveSpeakerLab,
+                         #   AmpPassiveSpeakerLab, SubwooferLab, PreampChannelStripLab are
+                         #   thin data wrappers around these
+    AnalogyConceptLab/   #   hero image + facts + "think of a …" flip-card analogy —
+                         #   WhatIsMixerLab, WhatIsInterfaceLab are thin data wrappers
   foundations/           # Foundations briefings (Ch.2 "The Studio", Ch.3 "Types of Studios")
     StudioComponentsLab/ #   "Key Elements of the Recording Space" — two labs, 8 components each:
                          #   control-room-components-lab / recording-room-components-lab,
@@ -131,7 +141,8 @@ interactives/
                          #   not); A/B player, "How is the pick made?" reveal, key points
                          #   (micSelectionData.js)
   mic-techniques/        # Ch.7 "Microphone Techniques and Stereo Recording"
-    shared/MicLab/       #   shared by the two guide labs below: MicStage3D (three.js 3D room
+    shared/MicLab/       #   shared by the two guide labs below: MicGuideFrame (tabs + 3D stage +
+                         #   listen card + description), MicStage3D (three.js 3D room
                          #   + public/3D assets/ models, driven by a `view` prop; floor
                          #   hotspots), MicLabControls (Choices with fit dots, Toggles,
                          #   Slider, Note), micLab.css (tokens, layout), micLabData.js
@@ -143,8 +154,6 @@ interactives/
                          #   Spot / Distant-Room (floor hotspots), Stereo (XY, ORTF, AB, MS,
                          #   Blumlein, Overheads, Decca Tree, Outriggers), Multi Miking
                          #   (snare, kick, amp). Recordings: public/audio/mic-placement/<clipId>.wav
-  daw/
-    DawCompingLab/       # not yet registered in registry.js
 ```
 
 ## Conventions
@@ -164,7 +173,8 @@ interactives/
   `KeyPoints` list (`points: []` on each item) and puts a `TabPager`
   (prev / next) under the panel — see CLAUDE.md "Key points + Prev/Next".
 - Labs receive `{ onInteract }` from InteractiveSection and call it when
-  the student has meaningfully engaged (marks the step done).
+  the student has meaningfully engaged (marks the step done) — use
+  `useInteractOnce` / `useInteractOnView` from `shared/useInteractOnce.js`.
 
 ## Adding a lab
 

@@ -1,18 +1,3 @@
-// Content for "mixer-types-lab" ("How Do You Categorise Mixers?", Ch.10).
-// Shape consumed by ../../shared/GroupedBriefing (the ConnectorsLab /
-// CablesLab layout): category tabs (row 1) → mixer-type tabs (row 2) →
-// image + description + key points.
-//
-//   Architecture   → Analog / Digital / Hybrid
-//   Application    → Live / Studio / Broadcast / Project studio
-//   Circuit design → Split / Inline
-//
-// `points` are the short takeaways shown in the global KeyPoints list.
-//
-// Photos aren't added yet — drop them in at public/mixer-types/<id>.jpg and
-// they appear automatically; until then the frame shows the item's icon
-// and the expected path.
-
 export const mixerTypesImagePath = (id) => `/mixer-types/${id}.jpg`;
 
 export const SECTIONS = [
@@ -181,7 +166,6 @@ export const SECTIONS = [
   },
 ];
 
-// 24×24 stroke icons (shown on the item tabs and in the photo placeholder).
 export const ICONS = {
   analog:
     '<path d="M2 12c2-6 4-6 6 0s4 6 6 0 4-6 6 0"/><path d="M21 12h1"/>',

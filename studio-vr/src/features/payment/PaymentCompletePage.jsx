@@ -5,22 +5,16 @@ import { markPaid } from "../../store/sessionSlice";
 import { verifyPayment } from "../../api/payments";
 import "./PaymentPage.css";
 
-// Stripe's Checkout success_url lands here after a redirect-based payment
-// (see StripeGateway.createOrder on the backend) — Razorpay never uses
-// this page since its modal resolves without leaving /payment. `session_id`
-// is the Checkout Session id Stripe appends to the URL itself;
-// `returnTo` is the route we asked Stripe to carry through (see
-// PaymentPage's `from`).
 function PaymentCompletePage() {
   const [searchParams] = useSearchParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const token = useSelector((state) => state.session.token);
-  const [status, setStatus] = useState("verifying"); // verifying | failed
+  const [status, setStatus] = useState("verifying");
   const ran = useRef(false);
 
   useEffect(() => {
-    if (ran.current) return; // StrictMode double-invoke guard — don't verify twice
+    if (ran.current) return;
     ran.current = true;
 
     const sessionId = searchParams.get("session_id");

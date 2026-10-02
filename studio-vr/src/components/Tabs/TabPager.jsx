@@ -2,33 +2,9 @@ import { useEffect } from "react";
 import { useStepNav } from "./StepNavContext";
 import "./TabPager.css";
 
-/**
- * Prev / Next pager that pairs with <Tabs>: walks a flat list of tab ids in
- * order, so a student can move through every tab (across nested tab rows
- * too — pass the flattened list) without reaching back up to the tab bar.
- * It calls the same `onChange` as the Tabs, so whatever the lab does on a
- * tab switch (stop audio, mark visited, fire onInteract) happens here too.
- *
- * @param {{id:string,label:any}[]} props.items   flat, ordered
- * @param {string}   props.value                   active id
- * @param {(id:string, index:number)=>void} props.onChange
- * @param {boolean}  [props.showPosition=true]     "3 / 16" between the buttons
- * @param {string}   [props.className]
- *
- * Compact single-row bar (~30px tall): "← Prev  <label>   3/16   <label>  Next →".
- * Labels truncate with an ellipsis and drop entirely on narrow screens, so
- * the pager never costs more than one slim row. Use this for every
- * prev/next control inside an interactive — don't hand-roll another.
- *
- * Section hand-off: inside a StepNavContext provider (CoursePage), the ends
- * of the tab list continue into the previous / next course section, and the
- * page hides its own Previous/Next — one pair of buttons instead of two.
- * See StepNavContext.js.
- */
 export function TabPager({ items, value, onChange, showPosition = true, className = "" }) {
   const stepNav = useStepNav();
   const register = stepNav?.register;
-  // Tell the page a pager is on screen so it drops its duplicate buttons.
   useEffect(() => (register ? register() : undefined), [register]);
 
   const index = items.findIndex((it) => it.id === value);
@@ -36,7 +12,6 @@ export function TabPager({ items, value, onChange, showPosition = true, classNam
   const next = index >= 0 && index < items.length - 1 ? items[index + 1] : null;
   const go = (it) => it && onChange(it.id, items.indexOf(it));
 
-  // At either end of the tab list, fall through to the outer section.
   const prevSection = !prev && stepNav?.prev ? stepNav.prev : null;
   const nextSection = !next && stepNav?.next ? stepNav.next : null;
 
@@ -75,5 +50,3 @@ export function TabPager({ items, value, onChange, showPosition = true, classNam
     </nav>
   );
 }
-
-export default TabPager;

@@ -1,8 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-// Single source of truth for light/dark mode across the whole app. Persisted
-// so a reload (or the next visit) keeps whatever the person last picked,
-// defaulting to dark since that's how the app originally shipped.
 const STORAGE_KEY = "svr-theme";
 const ThemeContext = createContext(null);
 

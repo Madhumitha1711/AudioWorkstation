@@ -1,12 +1,3 @@
-/* Type: global tokens only — --font-sans for every label and text,
-   --font-mono only for the numeric readouts (connected count, stats).
-   CableMatchLab — ported from design/cable-connector-sound-quiz.html.
-   Course theme tokens (--panel, --border, --text*, --accent) come from
-   .svr-course. Colour is kept minimal: one neutral cable colour, the theme
-   accent for the selected cable, and red / green for status only. The rear panel
-   uses the same course theme colours as the cable column (see the rear
-   panel block below). */
-
 .cml {
   --cml-cable: #b9bdc5;
   --cml-ok: #3ee07f;
@@ -34,8 +25,6 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
-
-/* ---------- status strip: one light per cable ---------- */
 .cml-status {
   display: flex;
   align-items: center;
@@ -129,8 +118,6 @@
 @keyframes cmlBlink {
   50% { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 0 16px 3px var(--cml-err); filter: brightness(1.35); }
 }
-
-/* ---------- board ---------- */
 .cml-body {
   padding: 18px 16px 16px;
 }
@@ -168,8 +155,6 @@
   gap: 8px;
   min-width: 0;
 }
-
-/* cable cards */
 .cml-cable {
   --tone: var(--cml-cable);
   position: relative;
@@ -192,9 +177,6 @@
     box-shadow var(--motion-medium) var(--motion-ease-out),
     transform var(--motion-fast) var(--motion-ease-out);
 }
-/* Accent bar on the row's left edge: hidden at rest, peeks in on hover
-   (half height, faint), grows to full height when the cable is selected.
-   Only transform/opacity animate. */
 .cml-cable::before {
   content: '';
   position: absolute;
@@ -221,7 +203,6 @@
 .cml-cable:not(.done):active {
   transform: scale(0.99);
 }
-/* text slides a touch toward the gap on hover / selection */
 .cml-cable-txt,
 .cml-cable-name {
   transition:
@@ -257,9 +238,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* Selected: a subtle wash of the theme primary (not a solid ring), full
-   accent bar, accent-tinted plug that gently "breathes" toward the
-   sockets to invite the drag. */
 .cml-cable.armed,
 .cml-cable.armed:hover {
   --tone: color-mix(in srgb, var(--accent) 65%, var(--cml-cable));
@@ -301,8 +279,6 @@
   30% { transform: translateX(5px); }
   60% { transform: translateX(-3px); }
 }
-
-/* plug handle (drag start) */
 .cml-plug {
   position: relative;
   flex-shrink: 0;
@@ -337,10 +313,6 @@
 .cml-cable.done .cml-plug {
   cursor: default;
 }
-/* Wire start point = the end of the plug's cable stub (svg x=12 of the
-   46-wide viewBox; the svg is right-aligned in the 52px handle → 6 + 12).
-   When the plug head hides on connect, the wire continues straight out of
-   the stub with no gap. Mobile values in the 600px block below. */
 .cml-plug-anchor {
   position: absolute;
   left: 18px;
@@ -348,10 +320,6 @@
   width: 1px;
   height: 1px;
 }
-
-/* both panels (cables + rear panel) — same surface colours as the cable column (course theme
-   tokens), so both sides of the board match in dark and light. The socket
-   wells + glyphs are themed via --cml-well-* (glyph fills read these vars). */
 .cml {
   --cml-panel-bg: var(--panel);
   --cml-panel-border: var(--border);
@@ -400,8 +368,6 @@
 }
 .cml-panel::before { top: 8px; }
 .cml-panel::after { bottom: 8px; }
-/* cable panel is the mirror image: plugs poke out of its right edge,
-   screws sit on its outer (left) edge */
 .cml-panel--cables {
   padding: 10px 0 10px 10px;
 }
@@ -505,8 +471,6 @@
 @keyframes cmlReveal {
   50% { box-shadow: inset 0 2px 5px var(--cml-well-inset), 0 0 0 2px var(--brand-accent), 0 0 18px var(--brand-accent); }
 }
-
-/* wires in the svg */
 .cml-wire-o {
   fill: none;
   stroke: var(--cml-cable-outline);
@@ -550,8 +514,6 @@
   stroke: var(--cml-cable-outline);
   stroke-width: 1;
 }
-
-/* ---------- feedback + completion ---------- */
 .cml-foot {
   display: grid;
   gap: 12px;
@@ -722,8 +684,6 @@
   text-align: center;
   margin: 4px 0 0;
 }
-
-/* ---------- responsive ---------- */
 @media (max-width: 760px) {
   .cml-leds {
     flex-basis: 100%;
@@ -745,7 +705,7 @@
   .cml-port { min-height: 50px; gap: 6px; padding-right: 8px; }
   .cml-plug { width: 34px; }
   .cml-plug svg { width: 32px; }
-  .cml-plug-anchor { left: 10px; } /* 2 + 12 × 32/46 */
+  .cml-plug-anchor { left: 10px; }
   .cml-well { width: 38px; height: 38px; margin-left: -10px; }
   .cml-well svg { width: 28px; height: 28px; }
   .cml-port-leds { display: none; }

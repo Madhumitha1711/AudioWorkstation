@@ -1,4 +1,3 @@
-
 export const SECTIONS = [
   {
     n: "01",
@@ -258,13 +257,8 @@ export const SECTIONS = [
   },
 ];
 
-// Photos are served from public/ — drop a 16:9 (or 16:10) JPG per item at
-// public/studio-components/<id>.jpg. Until a file exists the lab shows a
-// labelled icon placeholder with the expected path, same as the mockup.
 export const componentImagePath = (id) => `/studio-components/${id}.jpg`;
 
-// 24×24 stroke icon bodies (inner SVG markup), keyed by item id — used in
-// the list and as the image placeholder. Same shapes as the mockup.
 export const ICONS = {
   console:
     '<rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="9" x2="6" y2="15"/><line x1="10" y1="9" x2="10" y2="15"/><line x1="14" y1="9" x2="14" y2="15"/><line x1="18" y1="9" x2="18" y2="15"/><rect x="4.5" y="12" width="3" height="2" fill="currentColor"/><rect x="8.5" y="10" width="3" height="2" fill="currentColor"/><rect x="12.5" y="13" width="3" height="2" fill="currentColor"/><rect x="16.5" y="11" width="3" height="2" fill="currentColor"/>',

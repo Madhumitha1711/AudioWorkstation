@@ -3,15 +3,6 @@ import InteractiveSection from "../InteractiveSection";
 import { CUSTOM_EMBEDS } from "./customEmbedRegistry";
 import "./SectionBlocks.css";
 
-/**
- * Renders one "leaf" block — everything a Section's `blocks` zone can
- * actually hold in studio-cms (video / image-text / interactive / embed;
- * see studio-cms's `course.*-block` components and studio-backend's
- * course.mapper.ts `mapLeafBlock`). Used both for a block rendered
- * full-width directly in `blocks`, and for each column of a "row" block
- * (see SectionBlocks below) — a row's columns are always two of these,
- * never another row.
- */
 function renderLeafBlock(block, { fallbackDuration, sectionTitle, onInteractiveComplete }) {
   switch (block.type) {
     case "video":
@@ -110,15 +101,6 @@ function renderLeafBlock(block, { fallbackDuration, sectionTitle, onInteractiveC
   }
 }
 
-/**
- * Sound-chapter labs (ch. 1 "What Is Sound?") read better with the lab up
- * top and the lesson's explanatory text underneath, so the student plays
- * with the tone first and the paragraphs explain what they just heard.
- * Editors author those sections as image-text → interactive in studio-cms,
- * so for these kinds only, an interactive block is lifted above the run of
- * image-text blocks directly before it. Videos, rows and every other lab
- * keep the CMS order untouched.
- */
 const LAB_FIRST_KINDS = new Set([
   "frequency-lab",
   "amplitude-lab",
@@ -146,26 +128,6 @@ function orderBlocks(blocks) {
   return out;
 }
 
-/**
- * Renders a Section's ordered `blocks` array — the CMS-configurable mix of
- * lesson video, image + text, interactive activity, and custom-embed
- * content that replaces the old fixed `video`/`paragraphs` fields on a
- * lesson (see studio-cms's `course.*-block` components and
- * studio-backend's course.mapper.ts `mapLeafBlock`/`groupBlocksIntoRows`,
- * and STRAPI_SCHEMA_NOTES.md's "Section `blocks` dynamic zone" section).
- *
- * Order in `blocks` IS the display order — it mirrors however editors
- * arranged the dynamic zone in the Strapi admin (drag to reorder there),
- * so this renders the array as-is with no client-side sorting. A "row"
- * entry is the one exception to "one entry = one block": studio-backend
- * already folded two consecutive editor-authored blocks into it (see
- * groupBlocksIntoRows) whenever the first had its `layout.pairWithNext`
- * turned on in the CMS — see STRAPI_SCHEMA_NOTES.md's "Side-by-side block
- * layout" for why that grouping happens server-side rather than as its own
- * CMS block type. This just lays its `columns` out as a flex row instead
- * of rendering one full-width block. (Exception: orderBlocks above, for
- * the sound-chapter labs.)
- */
 function SectionBlocks({ blocks, fallbackDuration, sectionTitle, onInteractiveComplete }) {
   if (!blocks?.length) return null;
 

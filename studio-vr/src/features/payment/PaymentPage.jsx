@@ -11,9 +11,6 @@ import "./PaymentPage.css";
 
 const RAZORPAY_SCRIPT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
 
-// Razorpay Checkout only exposes `window.Razorpay` once its script tag has
-// loaded — this loads it on demand (once) rather than unconditionally on
-// every page, since a Stripe-configured backend never needs it at all.
 let razorpayScriptPromise = null;
 function loadRazorpayScript() {
   if (window.Razorpay) return Promise.resolve();
@@ -40,27 +37,15 @@ function PaymentPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  // Where to send the student once payment completes — set by RequireAuth
-  // when it bounced them here, or forwarded through by LoginPage/SignupPage
-  // when a freshly-authenticated-but-unpaid student lands here directly.
   const from = location.state?.from?.pathname || "/studio";
 
   useEffect(() => {
-    // No session at all — checkout needs an authenticated request to
-    // create-order/verify, so there's nothing to do here without one.
     if (!token) {
       navigate("/login", { state: { from: location.state?.from }, replace: true });
       return;
     }
-    // First visit after signup/login — nothing typed yet, so prefill from
-    // the account instead of leaving these fields blank.
     if (!email && sessionEmail) dispatch(setEmail(sessionEmail));
     if (!fullName && studentName) dispatch(setFullName(studentName));
-    // Defensive re-check against the backend rather than trusting the
-    // locally-persisted flag — covers "paid on another device/tab" or a
-    // stale localStorage entry. The real gate is still server-side
-    // (JwtAuthGuard); this just avoids showing checkout to someone who
-    // doesn't need it.
     let cancelled = false;
     getPaymentStatus(token)
       .then((status) => {
@@ -69,9 +54,6 @@ function PaymentPage() {
         if (status.hasPaid) navigate(from, { replace: true });
       })
       .catch(() => {
-        // If the check itself fails (offline, token just expired, etc.)
-        // just let them attempt checkout — worst case create-order 401s
-        // and they see a clear error instead of a silent redirect loop.
       });
     return () => {
       cancelled = true;
@@ -79,7 +61,7 @@ function PaymentPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  if (hasPaid) return null; // navigating away this render, avoid a flash of the form
+  if (hasPaid) return null;
 
   const goBack = () => navigate("/");
 
@@ -87,8 +69,6 @@ function PaymentPage() {
     e.preventDefault();
     if (busy) return;
 
-    // Payment submit is a real user gesture — the safest place to unlock
-    // the spatial audio context for the studio experience that follows.
     initAudio();
     resumeAudio();
     dispatch(setStudentName(fullName.trim() || email.split("@")[0] || "Student"));
@@ -124,8 +104,6 @@ function PaymentPage() {
             }
           },
           modal: {
-            // Razorpay's own modal was dismissed without completing —
-            // not an error, just let the student try again.
             ondismiss: () => setBusy(false),
           },
         });
@@ -134,15 +112,10 @@ function PaymentPage() {
           setBusy(false);
         });
         checkout.open();
-        return; // busy stays true until the modal's handler/ondismiss fires
+        return;
       }
 
       if (order.gateway === "stripe" && order.checkoutUrl) {
-        // Full page redirect to Stripe's hosted Checkout — the browser
-        // leaves this app entirely until Stripe sends it back to
-        // /payment/complete (see PaymentCompletePage), so there's nothing
-        // more to do here on success; only the busy/error state matters if
-        // the redirect itself fails to happen.
         window.location.href = order.checkoutUrl;
         return;
       }
@@ -168,7 +141,6 @@ function PaymentPage() {
           <span>Start course</span>
         </div>
         <div className="pay-topbar-right">
-          {/* TEMPORARY: palette switcher - see PaletteContext.jsx */}
           <PaletteSwitcher />
           <ThemeToggle className="theme-toggle-btn" />
           <span className="brand-mark">◎</span>

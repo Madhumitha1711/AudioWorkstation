@@ -10,12 +10,6 @@
   --social-bg: rgba(47, 48, 58, 0.5);
   --shadow:
     rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-
-  /* App-shell tokens: used by pieces that don't have their own scoped
-     palette (Header.jsx, LoginPage.jsx, the panorama tour's top bar). The
-     page-level surfaces (landing/course/payment) carry their own copies of
-     this same token set, scoped under .svr-landing/.svr-course/.svr-payment,
-     so they can be tuned independently — see those stylesheets. */
   --shell-bg: rgba(8, 9, 12, 0.92);
   --shell-panel: rgba(255, 255, 255, 0.04);
   --shell-panel-hover: rgba(255, 255, 255, 0.08);
@@ -25,30 +19,10 @@
   --shell-text-dim: rgba(255, 255, 255, 0.65);
   --shell-text-dimmer: rgba(255, 255, 255, 0.45);
   --shell-page-bg: radial-gradient(ellipse at center, #16181d 0%, #08090b 100%);
-  /* --shell-accent-ink / --shell-gradient-accent read the generic brand
-     palette (src/theme/palettes.js, set at runtime by PaletteContext) so
-     they automatically track both the current palette AND the current
-     light/dark theme - no separate light-theme override needed below. */
   --shell-accent-ink: var(--brand-accent-ink);
   --shell-gradient-accent: radial-gradient(circle at 32% 28%, var(--brand-accent), var(--brand-accent-2) 70%);
-
-  /* Shared neutral wash tokens: a dark ink-tinted overlay (used for
-     light-theme hover/pressed surfaces across the page-level stylesheets)
-     and a light page-tint overlay (used for light-theme backdrop blurs on
-     the same pages). Same literal value was being repeated verbatim in
-     LandingPage.css/CoursePage.css/PaymentPage.css/DiscussionPage.css/
-     AssessmentSection.css/labs.css - pulled out here once instead. */
   --ink-tint-rgb: 4, 20, 12;
   --page-tint-rgb: 246, 248, 246;
-
-  /* ---- Typography: the ONE place font families are defined ----
-     Inter for all text (body, headings, UI), Space Grotesk (with
-     tabular figures) for numeric readouts / timecodes / labels. Both are loaded once in
-     index.html. Component CSS must use var(--font-sans) / var(--font-mono)
-     (or just inherit) — never a literal family name. See CLAUDE.md,
-     "Typography". The short names below are aliases kept so existing
-     var(--sans)/var(--heading)/var(--mono)/var(--display)/var(--body)
-     usages resolve to the same two families. */
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'Space Grotesk', 'Inter', system-ui, sans-serif;
   --sans: var(--font-sans);
@@ -56,11 +30,6 @@
   --display: var(--font-sans);
   --body: var(--font-sans);
   --mono: var(--font-mono);
-
-  /* ---- Motion: shared timing for the standard Tabs component
-     (src/components/Tabs) and any other UI transition that should feel
-     the same. See CLAUDE.md, "Tabs standard". ---- */
-  /* ease-out-expo: fast start, long soft settle — reads as "smooth". */
   --motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --motion-fast: 180ms;
   --motion-medium: 260ms;
@@ -69,8 +38,6 @@
   --motion-panel-shift: 10px;
 
   font: 18px/145% var(--font-sans);
-  /* Equal-width digits so live readouts don't jitter now that the
-     numeric font is proportional rather than monospaced. */
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.18px;
   color-scheme: dark;
@@ -80,10 +47,6 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* Smooths the light/dark flip triggered by ThemeToggle so the swap reads
-     as a cross-fade rather than a hard cut. Page-level surfaces
-     (.svr-landing/.svr-course/.svr-payment/.svr-discussion) carry their own
-     matching transition on background-color/color — see those stylesheets. */
   transition: background-color 0.3s ease, color 0.3s ease;
 
   @media (max-width: 1024px) {
@@ -94,27 +57,6 @@
     transition: none;
   }
 }
-
-/* ── Type scale (global — the ONLY place font sizes are defined) ─────────
-   Use these instead of literal px: `font-size: var(--fs-sm)`. Desktop
-   values below; phones (≤600px) get the smaller set in the media query,
-   so every screen that uses the tokens shrinks together and one edit here
-   retunes the whole app. Converted so far: the course page, its section /
-   quiz / video components, shared lab CSS and the Foundations
-   labs. Other features still use literal px — move them over as they're
-   touched.
-     3xs  9 → 9     tiny tags, badges
-     2xs 10 → 9.5   micro labels
-     xs  11 → 10    uppercase eyebrows, captions
-     sm  12 → 11    meta text, small buttons
-     md  13 → 12    UI labels, buttons
-     base 14 → 13   dense body, controls
-     body 15 → 14   lesson prose
-     lg  16 → 15    lead paragraphs
-     xl  17 → 16    small headings
-     2xl 21 → 18    section headings
-     3xl 24 → 20    page headings
-     4xl 30 → 24    hero numbers */
 :root {
   --fs-3xs: 9px;
   --fs-2xs: 10px;
@@ -145,11 +87,6 @@
     --fs-4xl: 24px;
   }
 }
-
-/* Light theme: toggled at runtime via ThemeContext, which sets
-   data-theme="light" on <html> and persists the choice in localStorage.
-   Dark (above) stays the default so anyone who hasn't picked a theme yet
-   sees the app exactly as it always looked. */
 :root[data-theme='light'] {
   --text: #4b5058;
   --text-h: #0b0f0d;
@@ -176,13 +113,6 @@
   --shell-page-bg: radial-gradient(ellipse at center, #ffffff 0%, #edf1ee 100%);
 }
 
-#social .button-icon {
-  filter: invert(1) brightness(2);
-}
-:root[data-theme='light'] #social .button-icon {
-  filter: none;
-}
-
 html,
 body {
   margin: 0;
@@ -195,9 +125,6 @@ body {
   width: 100%;
   height: 100%;
 }
-
-/* Form controls don't inherit font by default — make every button/input
-   use the global family so no component has to re-declare it. */
 button,
 input,
 select,

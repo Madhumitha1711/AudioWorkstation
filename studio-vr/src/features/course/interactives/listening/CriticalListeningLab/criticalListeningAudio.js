@@ -1,4 +1,3 @@
-
 export function createListeningEngine() {
   const E = {
     ctx: null,
@@ -6,7 +5,6 @@ export function createListeningEngine() {
     side: "A", gen: 0, readyPromise: null,
     clips: new Map(),
   };
-
 
   async function ensure() {
     const gen = E.gen;
@@ -21,7 +19,6 @@ export function createListeningEngine() {
     if (E.ctx.state === "suspended") await E.ctx.resume();
     return gen === E.gen;
   }
-
 
   function loadClip(url) {
     if (!E.clips.has(url)) {
@@ -42,7 +39,6 @@ export function createListeningEngine() {
     return E.clips.get(url);
   }
 
-
   async function loadPair(clips) {
     const [a, b] = await Promise.all([loadClip(clips.clean), loadClip(clips.problem)]);
     if (!a) E.clips.delete(clips.clean);
@@ -58,7 +54,7 @@ export function createListeningEngine() {
     gB.gain.setTargetAtTime(0, t, 0.01);
     setTimeout(() => {
       [srcA, srcB].forEach((s) => {
-        try { s.stop(); } catch { /* already stopped */ }
+        try { s.stop(); } catch {  }
       });
       gA.disconnect();
       gB.disconnect();
@@ -66,7 +62,6 @@ export function createListeningEngine() {
     E.srcA = E.srcB = null;
   }
 
-  // Start a decoded pair (from loadPair) looping, sample-aligned.
   function start(pair) {
     stop();
     if (!E.ctx || !pair) return;
@@ -103,11 +98,9 @@ export function createListeningEngine() {
   function close() {
     E.gen++;
     [E.srcA, E.srcB].forEach((s) => {
-      try { s?.stop(); } catch { /* already stopped */ }
+      try { s?.stop(); } catch {  }
     });
     E.ctx?.close().catch(() => { });
-    // Decoded buffers belong to the closed context's decode but are plain
-    // data; drop them anyway so a remount starts clean.
     Object.assign(E, {
       ctx: null, readyPromise: null,
       srcA: null, srcB: null, clips: new Map(),

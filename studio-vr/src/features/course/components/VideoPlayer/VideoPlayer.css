@@ -1,6 +1,3 @@
-/* Cloudflare Stream embed for a course section's video. Sizing/border match
-   the app's other 16:9 media boxes (see .topic-model-box in CoursePage.css)
-   so a video and a 3D-model box look like the same family of component. */
 .video-player-wrap {
   margin-bottom: 8px;
 }
@@ -21,12 +18,6 @@
   height: 100%;
   border: 0;
 }
-
-/* Duration/status/captions for a *real, playable* video live in their own
-   row below the frame, never overlaid on it — Cloudflare's Stream Player
-   draws its own control bar along the bottom of the iframe, and anything of
-   ours absolutely positioned in that space would sit on top of (and block)
-   those native controls. */
 .video-player-meta {
   display: flex;
   align-items: center;
@@ -42,25 +33,6 @@
   font-weight: 600;
   color: var(--accent);
 }
-.vp-captions-link {
-  margin-left: auto;
-  font-weight: 600;
-  color: var(--text-dim);
-  text-decoration: none;
-  border: 1px solid var(--border-soft);
-  padding: 3px 10px;
-  border-radius: 999px;
-}
-.vp-captions-link:hover {
-  color: var(--text-dim);
-  border-color: var(--accent-border, var(--border-soft));
-}
-
-/* "No video uploaded yet" state — a static poster image with an overlaid
-   badge is fine here (unlike above) since there's no native player chrome
-   underneath it to collide with. Reuses the panorama still that used to be
-   the (non-functional) placeholder for every lesson, dimmed a touch more so
-   the "coming soon" badge reads clearly against it. */
 .video-player-empty {
   position: relative;
   aspect-ratio: 16 / 9;

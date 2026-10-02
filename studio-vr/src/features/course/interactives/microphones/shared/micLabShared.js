@@ -1,29 +1,5 @@
-// Shared data for the "Microphones: Types, Characteristics & Selection"
-// chapter's interactive labs (MicTypeLab, MicPolarPatternLab,
-// MicSelectionLab) — ported from
-// design/mic-types-chapter.html (chapter 6, courseData.js TOPICS[id=
-// "mic-stand"], module "capture-signal-path"). Factored out because the
-// Type lab needs the same five-transducer data set, and the Polar
-// Pattern lab needs the same pattern/position math the mockup used for
-// its lobe plot and dB readout.
-//
-// AUDIO — every "listen" panel below plays a short clip through a native
-// <audio> element at a fixed path under /public/audio/mic-types/. Real
-// recordings haven't been captured yet, so every path here is a
-// placeholder (same convention as the mockup's own AUDIO_FILES comment) —
-// drop matching files under public/audio/mic-types/ and playback starts
-// working immediately, no code changes required. Each lab shows a small
-// "clip pending" note whenever a path 404s instead of failing silently.
-
 import { COLORS, scopePalette } from "../../shared/soundLabShared";
 
-export const CYAN = "#54d6e0"; // polar-pattern lobe accent (dark theme); the diagram itself now reads it from --mic-lobe in micLabs.css, which also carries the light-theme value
-
-// Theme-resolved accent for a mic type. MIC_TYPES[].accent stores the
-// dark-theme COLORS value (bright amber/green tuned for a near-black
-// screen); on the light "graph paper" screen those wash out, so map it back
-// to its COLORS key and return that key from scopePalette(theme) instead —
-// the same deepened light hues the What-Is-Sound scopes already use.
 export function micAccent(type, theme) {
   const key = Object.keys(COLORS).find((k) => COLORS[k] === type.accent);
   return key ? scopePalette(theme).colors[key] : type.accent;
@@ -44,11 +20,6 @@ export function polarAudioPath(pattern, angleDeg, sourceId) {
   return `/audio/mic-types/polar-${pattern}-${angleDeg}-${sourceId}.mp3`;
 }
 
-// Five transducer families (the brief's dynamic/condenser/ribbon split,
-// expanded the same way the mockup expanded it: FET vs. tube condensers
-// behave differently enough — power supply, warm-up, price, character — to
-// teach separately, and a contact/piezo mic is the one family with no
-// air-pressure capsule at all).
 export const MIC_TYPES = [
   {
     id: "dynamic",
@@ -134,10 +105,6 @@ export const MIC_TYPES = [
   },
 ];
 
-// Polar patterns — gain(deg) follows the textbook polar equation for each
-// pattern (deg measured clockwise from on-axis/front), same as the
-// mockup, so the plotted lobe and the dB readout come from the same
-// formula instead of a hand-drawn approximation.
 export const POLAR_PATTERNS = {
   omni: {
     label: "Omnidirectional",
@@ -200,10 +167,6 @@ export function polarTierOf(db) {
   return { tier: "null", label: "Rejected / null" };
 }
 
-// Lobe outline plotted from the same gain formula as the dB readout (not
-// hand-drawn) by sampling r(deg) all the way around and connecting the
-// points — gives cardioid its true cusp at 180° and figure-8 its pinched,
-// fully-round lobes at 90°/270°, matching a textbook polar plot.
 export function polarLobePoints(pattern, cx, cy, maxR, steps = 96) {
   const pts = [];
   for (let i = 0; i <= steps; i++) {
@@ -214,59 +177,3 @@ export function polarLobePoints(pattern, cx, cy, maxR, steps = 96) {
   }
   return pts;
 }
-
-// Selection scenarios — which type(s)/pattern most engineers reach for
-// first on a given source, and why. Not currently wired into a lab (the
-// dedicated MicSelectionLab this once backed was removed — see
-// interactives/registry.js's mic-stand comment) — kept here in case a
-// future revision pairs a scenario picker back up with these.
-export const MIC_SCENARIOS = [
-  {
-    id: "lead-vocal",
-    title: "Lead Vocal (studio)",
-    recs: ["Condenser (FET/Tube)", "Cardioid"],
-    why: "A vocal has huge dynamic range and fine detail — breath, sibilance, vibrato — that only a sensitive, low-mass diaphragm captures fully. In a treated room, the condenser's extra handling and room sensitivity stops being a liability.",
-  },
-  {
-    id: "live-vocal",
-    title: "Live Vocal (stage)",
-    recs: ["Dynamic", "Cardioid"],
-    why: "On a loud stage, durability and rejection matter more than a few dB of extra detail — a dynamic shrugs off handling, monitor spill, and high SPL, and its tighter pattern buys more gain before feedback.",
-  },
-  {
-    id: "guitar-amp",
-    title: "Loud Guitar Amp",
-    recs: ["Dynamic", "Ribbon"],
-    why: "A cranked amp is loud and harsh up close — a dynamic handles the SPL without strain, while a ribbon's natural top-end roll-off can smooth out fizzy distortion without extra EQ.",
-  },
-  {
-    id: "acoustic-guitar",
-    title: "Acoustic Guitar",
-    recs: ["Small-diaphragm Condenser", "Cardioid/Omni"],
-    why: "Acoustic instruments live and die on transient detail and even frequency response — exactly what a light, fast condenser diaphragm is built for.",
-  },
-  {
-    id: "drum-overheads",
-    title: "Drum Overheads",
-    recs: ["Matched Condenser Pair", "Cardioid/Omni"],
-    why: "Overheads need to capture the whole kit's balance and shimmer accurately across a wide stereo image — a matched condenser pair keeps both channels tonally identical.",
-  },
-  {
-    id: "podcast",
-    title: "Podcast / Voiceover",
-    recs: ["Dynamic or Condenser", "Cardioid"],
-    why: "In an untreated room, a dynamic's tighter pattern and lower room sensitivity often sounds cleaner than a condenser; in a treated booth, a condenser's extra detail wins.",
-  },
-  {
-    id: "noisy-field",
-    title: "Noisy Environment / Field",
-    recs: ["Contact Mic", "Tight Cardioid"],
-    why: "When ambient noise can't be controlled, sensing vibration through the source itself (contact mic) beats fighting the room through the air with any air mic.",
-  },
-  {
-    id: "body-resonance",
-    title: "Instrument Body / Resonance",
-    recs: ["Contact Mic"],
-    why: "Clamped directly to a soundboard, cajon shell, or body panel, a contact mic captures resonance no air mic pointed at the same spot ever could.",
-  },
-];

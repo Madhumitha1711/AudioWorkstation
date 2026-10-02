@@ -4,7 +4,6 @@ import { useClipAudio } from "../../shared/useClipAudio";
 import { RoomTabs, SetupBar } from "../shared/AcousticsUI";
 import { KEPT_SAME, ROOMS } from "./studioAcousticsData";
 
-
 function StudioAcousticsLab({ onInteract }) {
   const audio = useClipAudio({ items: ROOMS, onFirstPlay: onInteract });
   const reference = ROOMS[0];

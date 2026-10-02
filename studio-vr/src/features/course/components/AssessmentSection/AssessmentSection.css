@@ -102,9 +102,6 @@
   background: rgba(var(--brand-accent-rgb), 0.1);
   color: var(--text);
 }
-
-/* Small play glyph; swaps to a "playing" bar pair via the .playing state
-   rather than pulling in an icon font/library for one glyph. */
 .assess-audio-icon {
   flex-shrink: 0;
   width: 0;
@@ -206,15 +203,7 @@
 .assess-actions {
   margin-top: 28px;
 }
-
-/* ── Light theme ─────────────────────────────────────────────────────────
-   .assess-feedback text colors are pastel green/red tuned for a dark
-   background — too washed out on white, so they get darker equivalents
-   here instead of just inheriting the variable swap. */
 :root[data-theme='light'] .svr-course .assess {
-  /* Pastel green/red text (rgba(var(--brand-accent-rgb)/--danger-rgb), 0.9)
-     is tuned for a dark background and washes out on white, so light
-     mode gets its own darker solid inks here instead. */
   --success-ink: #0e7a45;
   --danger-ink: #c23a3a;
 

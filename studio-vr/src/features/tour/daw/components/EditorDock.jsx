@@ -3,7 +3,6 @@ import { useRef } from "react";
 import { Tabs, useTabTransition } from "../../../../components/Tabs";
 import { InsertRack } from "./InsertRack";
 
-// Outer / This-portion scope tabs — app-wide standard Tabs (segmented).
 const DOCK_SCOPE_TABS = [
   {
     id: "track",
@@ -18,14 +17,6 @@ const DOCK_SCOPE_TABS = [
   },
 ];
 
-// Dock: signal chain for the selected CLIP PORTION only. A track's own
-// whole-track Inserts/Sends are edited inline in its tracklist row (see
-// TrackList) — this bottom panel only mounts once a portion of a clip is
-// selected, and the Outer/This-portion tabs flip between that portion's own
-// private outer chain and its own chain (both scoped ONLY to that portion —
-// see playFrom in DawWorkstationScreen.jsx). Sends have no per-portion
-// equivalent (a whole-track property, same as volume/pan), so there's no
-// Sends rack down here.
 export function EditorDock({
   selectedRegionObj,
   selectedRegionTrack,
@@ -39,7 +30,6 @@ export function EditorDock({
   dockRegionId,
   chainActions,
 }) {
-  // Standard tab-panel motion when flipping Outer / This portion.
   const racksRef = useRef(null);
   useTabTransition(racksRef, dockScope, DOCK_SCOPE_TABS.findIndex((t) => t.id === dockScope));
   if (!selectedRegionObj) return null;

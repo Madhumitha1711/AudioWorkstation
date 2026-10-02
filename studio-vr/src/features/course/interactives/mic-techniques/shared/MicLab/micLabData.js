@@ -1,9 +1,3 @@
-// Shared vocabulary for the Ch.7 mic labs — MicTechniqueGuideLab (the
-// refresher: which technique suits which source) and MicPlacementGuideLab
-// (the interactive placement lab). Sources, stereo pairs, ensemble types
-// and mic layers are named the same way in both, and MicStage3D draws
-// them by these ids.
-
 export const TIERS = {
   best: "Best choice",
   good: "Good fit",
@@ -19,8 +13,6 @@ export const SOURCES = [
   { id: "ensemble", label: "Ensemble" },
 ];
 
-// Stereo techniques. `for` limits a technique to the sources it is used on
-// (drum overheads only over a kit; Decca Tree / outriggers only for a group).
 export const PAIRS = [
   {
     id: "xy",
@@ -104,8 +96,6 @@ export const ENSEMBLES = [
   },
 ];
 
-// Players / sections a spot mic can be put on, per ensemble (ids match
-// MicStage3D's spot positions).
 export const SPOT_TARGETS = {
   band: [
     { id: "vocal", label: "Vocal" },

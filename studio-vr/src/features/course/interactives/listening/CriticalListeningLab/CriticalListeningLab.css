@@ -54,7 +54,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-
   .cll *,
   .cll *::before,
   .cll *::after {
@@ -67,8 +66,6 @@
   --tabs-line: var(--border-soft);
   margin-bottom: 20px;
 }
-
-/* ---------- panel ---------- */
 .cll-panel {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -81,8 +78,6 @@
     padding: 16px;
   }
 }
-
-/* ---------- player (top) ---------- */
 .cll-player {
   transition: border-color 0.2s;
 }
@@ -280,9 +275,6 @@
     transform: translateY(6px);
   }
 }
-
-/* "Recording coming soon" — shown under the player when a clip's
-   recordings aren't in public/audio/critical-listening/ yet. */
 .cll-missing {
   margin: 10px 0 0;
   font-size: 12.5px;
@@ -295,8 +287,6 @@
   font-size: 11.5px;
   color: var(--text);
 }
-
-/* ---------- problem list (below) ---------- */
 .cll-question {
   margin: 26px 0 6px;
 }
@@ -360,9 +350,6 @@
   border-radius: 10px;
   transition: border-color 0.15s, background 0.15s, opacity 0.2s;
 }
-
-/* Hover on an option still in play: a light theme-primary (--brand-accent)
-   border + tint, and the tick box and name pick up the same colour. */
 .cll-prob:not(.found):not(.wrong):not(.dim):hover {
   border-color: var(--brand-accent);
   background: rgba(var(--brand-accent-rgb), 0.06);

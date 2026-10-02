@@ -1,25 +1,6 @@
 import { useState } from "react";
 import { quickHelpHoverProps } from "../../help/helpHover";
 
-// NOTE: this file is still named HotspotPrecheck.jsx even though the export
-// below is HotspotKnowledgeCheck — it started life as a single-question
-// "guess before we tell you" precheck shown the instant a hotspot was
-// selected. It's since grown into a 5-question, fully optional "Test your
-// knowledge" quiz launched from the gear panel's "choose how to start" view
-// instead (see PanoramaTour.jsx's `quizActive` state), so the old name no
-// longer fits. Renaming the file was left for a follow-up pass so this
-// change stays focused on behavior rather than a file move.
-//
-// Reuses the SAME question bank as the in-course "Knowledge Check"
-// (courseData.js topic.assessment.questions / AssessmentSection.jsx), just
-// walked through one question at a time instead of all five on one page, to
-// fit this floating panel's compact width — and restyled to match the
-// panel's chrome instead of the full CoursePage layout.
-//
-// This is deliberately never a gate: the panel that launches this always
-// offers "Start course" directly without it, and this panel offers
-// "Skip questions" at every step plus a full results recap with its own
-// "Start course" button once all 5 are answered.
 function HotspotKnowledgeCheck({
   gear,
   questions,
@@ -27,10 +8,6 @@ function HotspotKnowledgeCheck({
   onBackToOverview,
   onStartCourse,
   onClose,
-  // Reports whatever's currently hovered/focused in this quiz up to
-  // PanoramaTour's Quick Help popup (help mode) — see helpHover.js and
-  // QuickHelpPanel.jsx. Called with a short description on hover/focus and
-  // `null` on leave/blur.
   onQuickHelp,
 }) {
   const [step, setStep] = useState(0);
@@ -166,10 +143,6 @@ function HotspotKnowledgeCheck({
       <div className="svr-tour-precheck-progress">
         {questions.map((q, i) => {
           const r = responses[i];
-          // Answered segments reflect whether that question was actually
-          // answered correctly or not, rather than just "filled" — a wrong
-          // answer should read as a red line here, not the same green as a
-          // right one.
           const answerState = r.submitted ? (r.selected === q.correctIndex ? " correct" : " incorrect") : "";
           return (
             <span

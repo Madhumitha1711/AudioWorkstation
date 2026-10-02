@@ -1,9 +1,3 @@
-/* Accordion — global. Same look as the original WhyAmplificationLab reveal:
-   a bordered, rounded well; the border picks up the accent while open; a
-   round tinted marker, bold title, optional dim summary on the right, and
-   a chevron that turns 180°. Body height eases 0fr → 1fr on the Tabs
-   panel timing (--motion-panel-duration, --motion-ease-out). */
-
 .ui-acc {
   --acc-accent: var(--brand-accent, var(--accent));
   --acc-well: rgba(0, 0, 0, 0.25);
@@ -121,8 +115,6 @@
   overflow: hidden;
   min-height: 0;
 }
-
-/* Body text lines up under the title (marker 26px + 12px gap + 16px pad). */
 .ui-acc__content {
   padding: 0 16px 16px 54px;
   font-size: var(--fs-body);

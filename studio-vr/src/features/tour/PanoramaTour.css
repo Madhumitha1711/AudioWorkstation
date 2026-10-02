@@ -1,18 +1,3 @@
-/* Styles for PanoramaTour (see PanoramaTour.jsx). Injected globally so the
-   plain-HTML marker content (rendered by the markers plugin outside of
-   React) can use these classes/keyframes, plus every other floating piece
-   of tour chrome (toolbar, hint chip, gear panel, loading state). Built on
-   the app's own --shell-* tokens (see index.css) so this screen follows the
-   light/dark theme toggle instead of hardcoding its own black. */
-
-/* Fixed marker-category colors (hotspot "legend" colors: info/warning/
-   danger dots, plus the always-dark ink text drawn on top of them). These
-   are intentionally NOT wired to the brand palette (src/theme/palettes.js)
-   - a category legend shouldn't reshuffle when someone test-drives a
-   different site palette, the same way a map's blue-for-water doesn't
-   change with the site theme. The green "default" hotspot marker further
-   down *does* use var(--brand-accent) etc. instead of these, because it's
-   literally the site's brand color, not a category color. */
 :root {
   --marker-ink: #0a0a0a;
   --marker-blue: #9fd3ff;
@@ -36,10 +21,6 @@
   --marker-red-alt: #f66;
 }
 
-/* The virtual-tour plugin's own floating 3D doorway arrows are hidden —
-   they drift across the screen as the camera turns. Doorways are instead
-   rendered as regular hotspot markers (.hotspot-marker--door below),
-   fixed at a specific yaw/pitch just like the gear hotspots. */
 .psv-virtual-tour-link {
   display: none !important;
 }
@@ -48,12 +29,6 @@
   position: relative;
   width: 100%;
   height: 100%;
-  /* The markers plugin only auto-applies cursor:pointer to markers that
-     use its own tooltip/content options (see .psv-marker--has-tooltip
-     and --has-content in @photo-sphere-viewer/markers-plugin/index.css);
-     these hotspots render their own html instead, so none of the
-     gear/door/interactive markers picked that up for free — set it
-     explicitly here so every hotspot reads as clickable on hover. */
   cursor: pointer;
 }
 
@@ -87,10 +62,6 @@
   animation: hotspot-breathe 2.2s ease-in-out infinite;
   transition: transform 0.15s ease, filter 0.15s ease;
 }
-
-/* Hover: scale + brighten the badge and speed up its pulse rings, on top
-   of the pointer cursor above, so a hotspot visibly "wakes up" under the
-   cursor before it's even clicked. */
 .hotspot-marker:hover .hotspot-marker__dot {
   transform: scale(1.15);
   filter: brightness(1.12);
@@ -99,13 +70,6 @@
 .hotspot-marker:hover .hotspot-marker__ring {
   animation-duration: 1.3s;
 }
-
-/* Selected: applied via JS (see setSelectedMarkerEl/clearSelectedMarkerEl
-   in PanoramaTour's render body) to whichever hotspot's panel is
-   currently open — a one-shot "pop" plus a faster, brighter breathing
-   glow so the active hotspot stays visually distinct from the rest while
-   its panel is up, independent of the color-specific badge styling
-   (gear/interactive green, door blue). */
 .svr-hotspot-selected {
   animation: hotspot-select-pop 0.35s ease-out;
 }
@@ -132,7 +96,6 @@
 }
 
 @keyframes hotspot-breathe {
-
   0%,
   100% {
     transform: scale(1);
@@ -144,7 +107,6 @@
 }
 
 @keyframes hotspot-breathe-selected {
-
   0%,
   100% {
     transform: scale(1.08);
@@ -168,10 +130,6 @@
     transform: scale(1);
   }
 }
-
-/* Door hotspots: same pulsing-badge shape as gear hotspots, in blue with
-   a door icon instead of a number, so they read as "go to another room"
-   at a glance. */
 .hotspot-marker__ring--door {
   border-color: rgba(var(--marker-blue-rgb), 0.85);
 }
@@ -183,10 +141,6 @@
     0 0 10px rgba(var(--marker-blue-glow-rgb), 0.75),
     inset 0 0 5px rgba(255, 255, 255, 0.5);
 }
-
-/* Volume-control hotspots (roomsData.js volumeControls): same
-   pulsing-badge shape again, in amber with a speaker icon, so they read
-   as "adjust audio" rather than "gear info" or "go to another room". */
 .hotspot-marker__ring--volume {
   border-color: rgba(var(--marker-amber-rgb), 0.85);
 }
@@ -198,13 +152,6 @@
     0 0 10px rgba(var(--marker-amber-rgb), 0.75),
     inset 0 0 5px rgba(255, 255, 255, 0.5);
 }
-
-/* Interactive-module hotspots (roomsData.js interactiveMarkers, e.g. the
-   daw-desk hotspot that opens the live DawWorkstationScreen): orange, so a
-   hotspot that opens a live functional module reads as visually distinct
-   from the green numbered gear badges (info panel), blue doors (go to
-   another room), and amber volume controls (adjust audio) at a glance. See
-   interactiveMarkerHtml's `variant` param in PanoramaTour.jsx. */
 .hotspot-marker__ring--interactive {
   border-color: rgba(var(--marker-orange-rgb), 0.85);
 }
@@ -215,8 +162,6 @@
     0 0 10px rgba(var(--marker-orange-rgb), 0.75),
     inset 0 0 5px rgba(255, 255, 255, 0.5);
 }
-
-/* ---------- Shared chrome (glass) ---------- */
 .svr-tour-icon-btn {
   width: 32px;
   height: 32px;
@@ -241,8 +186,6 @@
   background: var(--shell-panel);
   border-color: var(--shell-border);
 }
-
-/* ---------- Top toolbar: room name + progress dots + audio ---------- */
 .svr-tour-toolbar {
   position: absolute;
   top: 16px;
@@ -259,16 +202,6 @@
   box-shadow: var(--shadow);
   max-width: calc(100vw - 32px);
   font-family: var(--font-sans);
-  /* Photo Sphere Viewer's own hotspot markers (.psv-marker--normal) render
-     at z-index: 30 with no stacking context isolating them from the rest of
-     the page (.psv-container never sets its own z-index), so anything here
-     under ~30 can get painted underneath a marker whose current screen
-     position happens to land inside this panel's box. Every floating panel
-     in this file (toolbar/hint-chip/gear-panel/volume-panel, plus the
-     precheck panel which reuses .svr-tour-gear-panel) is bumped to 60 for
-     that reason — comfortably above the highest marker-related z-index
-     (30) without reaching into the viewer's own navbar/notification layers
-     (90+), which this UI never needs to sit above anyway. */
   z-index: 60;
 }
 
@@ -288,18 +221,6 @@
   white-space: nowrap;
   padding: 0 4px;
 }
-
-/* Segmented room switcher — replaces the old unlabeled svr-tour-room-dot
-   (6px circles, easy to miss and gave no clue what clicking one did). Each
-   segment is a full text button naming its room, so both the current room
-   and the click target are obvious at a glance instead of relying on a
-   tiny highlighted dot.
-
-   Follows the site-wide theme: reads the live --shell-panel-hover/
-   --shell-border/--shell-text-dimmer/--shell-text-dim tokens from
-   :root[data-theme] (index.css) instead of pinning its own fixed dark
-   literals, so the pill (and its "Recording Room" label, which was
-   rendering white-on-white) stays legible in light mode too. */
 .svr-tour-room-toggle {
   display: flex;
   align-items: center;
@@ -343,10 +264,6 @@
   margin: 4px 0;
   background: var(--shell-border-soft);
 }
-
-/* ---------- Binaural toggle: a labeled, colored pill instead of a
-   same-shaped icon button with only a subtle shading difference, so
-   on/off reads at a glance. */
 .svr-tour-binaural-btn {
   display: flex;
   align-items: center;
@@ -393,11 +310,6 @@
   background: var(--shell-panel-hover);
   color: var(--shell-text-dim);
 }
-
-/* ---------- Collapsible hint chip ---------- */
-/* Anchored bottom-right rather than bottom-left so it doesn't sit under the
-   left-docked StudioHotspotsPanel (see StudioHotspotsPanel.css), which
-   spans the full height of the left 30% of the screen. */
 .svr-tour-hint-chip {
   position: absolute;
   bottom: 16px;
@@ -435,46 +347,14 @@
 
 .svr-tour-hint-placement {
   margin-top: 4px;
-  /* Same brand-accent green as .svr-quick-help's border (see the comment
-     there) so both "dev mode is on" indicators track the chosen palette
-     together. */
   color: var(--brand-accent);
 }
-
-/* ---------- Gear info panel ---------- */
 .svr-tour-gear-panel {
   position: absolute;
   top: 74px;
   right: 16px;
   width: 320px;
   max-width: calc(100vw - 32px);
-  /* Sized against the *positioned ancestor's* own height (the root
-     `<div style={{height:"100%"}}>` PanoramaTour renders into — see
-     PanoramaTour.jsx's return statement), not against 100vh. That root div
-     already sits below the app's 60px Header (see App.jsx/Header.css) and
-     is exactly as tall as the room view, so `calc(100vh - Npx)` was quietly
-     assuming the panel's own container was the full browser window — on a
-     short window the panel's max-height came out taller than the room view
-     actually had room for below `top: 74px`, and since html/body/#root are
-     all `overflow: hidden` (see index.css) that overflow wasn't just
-     scrollable, it was genuinely unreachable (the footer's Back/Start
-     course buttons rendered off the bottom edge with no way to get to
-     them). `calc(100% - ...)` tracks the real available height instead —
-     it shrinks automatically on short windows (the panel's own
-     `overflow-y: auto` body, below, scrolls its content so the header/tabs/
-     footer stay put and visible) and keeps working even if the Header's
-     height or this panel's `top` offset ever changes, without needing a
-     second constant kept in sync here.
-
-     The 130px reserve is `top` (74px) + Photo Sphere Viewer's own bottom
-     navbar (zoom/caption/fullscreen — see the `navbar:` option passed to
-     `new Viewer(...)` in PanoramaTour.jsx) + a 16px gap. That navbar is a
-     PSV-owned absolutely-positioned bar pinned to the *same* container's
-     bottom edge at a fixed 40px height and z-index 90 — above this panel's
-     z-index 60 (see the z-index comment on .svr-tour-toolbar below) — so
-     without reserving its height here too, a tall panel's footer buttons
-     would sit right under it, half-covered and unclickable, exactly like
-     the viewport-overflow bug above just 40px higher up. */
   max-height: calc(100% - 130px);
   background: var(--shell-bg);
   border: 1px solid var(--shell-border);
@@ -573,16 +453,6 @@
   color: var(--shell-text-dimmer);
   margin: 16px 0 8px;
 }
-
-/* ---------- "Choose how to start" body (PanoramaTour.jsx's activeGear
-   panel, quiz-inactive view) ------
-   Used to be a description + "what you'll learn" checklist, trimmed down to
-   just two big equally-weighted choices ("Test your knowledge"/the gear's
-   own lab, and "Start course") so the decision wasn't buried under copy.
-   .svr-tour-choice-intro below brings back one line of that — the topic's
-   existing TOPICS[].intro tagline — just above the two cards, so a visitor
-   still gets a one-line "what this teaches" before picking, without
-   reintroducing the fuller checklist this section deliberately dropped. */
 .svr-tour-choice-body {
   display: flex;
   flex-direction: column;
@@ -653,11 +523,6 @@
   line-height: 1.4;
   color: var(--shell-text-dimmer);
 }
-
-/* "Test your knowledge" — the optional detour. Quieter dashed treatment so
-   it reads as inviting-but-optional next to the solid "Start course" card
-   below, same intent as the old svr-tour-btn-quiz footer button this
-   replaced. */
 .svr-tour-choice-card--quiz {
   background: rgba(var(--brand-glow-rgb), 0.06);
   border: 1px dashed rgba(var(--brand-glow-rgb), 0.35);
@@ -671,9 +536,6 @@
 .svr-tour-choice-card--quiz .svr-tour-choice-card-icon {
   background: rgba(var(--brand-glow-rgb), 0.14);
 }
-
-/* "Start course" — the direct/default path, solid green to match
-   svr-tour-btn-primary's weight elsewhere in this file. */
 .svr-tour-choice-card--course {
   background: var(--brand-glow);
   border: 1px solid transparent;
@@ -704,11 +566,6 @@
   padding: 12px 16px 14px;
   border-top: 1px solid var(--shell-border-soft);
 }
-
-/* Wraps a row of buttons within the footer (e.g. the knowledge-check
-   results screen's "Back" / "Start course" pair below) — the footer itself
-   stacks rows top to bottom, each row lays its own buttons out side by
-   side. */
 .svr-tour-gear-panel__footer-row {
   display: flex;
   gap: 8px;
@@ -749,20 +606,6 @@
   opacity: 0.45;
   cursor: default;
 }
-
-/* ---------- Hotspot "Test your knowledge" quiz (HotspotKnowledgeCheck,
-   exported from features/tour/components/HotspotPrecheck — see the note at the top of
-   that file) ------
-   Reuses the .svr-tour-gear-panel shell (same head/body/footer/close).
-   Launched from the "choose how to start" body above rather than gating
-   it — that view always opens first and always offers "Start course"
-   directly, with no read-only content in between. Walks through
-   courseData.js's topic.assessment.questions (the same 5-question bank
-   AssessmentSection.jsx shows all at once inside the actual course) one
-   question per screen, with a segmented progress row up top and a
-   "Skip questions" escape hatch in the footer at every step. Loosely
-   mirrors AssessmentSection.css's choose/submit states, restyled to fit
-   the compact floating panel. */
 .svr-tour-precheck-progress {
   display: flex;
   gap: 4px;
@@ -965,113 +808,6 @@
   background: rgba(var(--marker-danger-rgb), 0.1);
   color: var(--marker-danger-soft);
 }
-
-/* ---------- Volume-control panel (roomsData.js volumeControls) ------
-   Same floating-glass treatment as the gear panel, but compact — just a
-   description, a mute button, and a slider, no course footer. */
-.svr-tour-volume-panel {
-  position: absolute;
-  top: 74px;
-  right: 16px;
-  width: 300px;
-  max-width: calc(100vw - 32px);
-  background: var(--shell-bg);
-  border: 1px solid var(--shell-border);
-  border-radius: 14px;
-  backdrop-filter: blur(14px);
-  box-shadow: var(--shadow);
-  font-family: var(--font-sans);
-  color: var(--shell-text);
-  animation: svr-tour-slide-in 0.2s ease-out;
-  z-index: 60;
-}
-
-.svr-tour-volume-panel__head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 16px 12px;
-  border-bottom: 1px solid var(--shell-border-soft);
-}
-
-.svr-tour-volume-panel__icon {
-  font-size: var(--fs-body);
-  flex-shrink: 0;
-}
-
-.svr-tour-volume-panel__title {
-  flex: 1;
-  min-width: 0;
-  font-size: var(--fs-base);
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.svr-tour-volume-panel__body {
-  padding: 14px 16px 16px;
-}
-
-.svr-tour-volume-panel__desc {
-  font-size: var(--fs-sm);
-  line-height: 1.55;
-  color: var(--shell-text-dim);
-  margin-bottom: 14px;
-}
-
-.svr-tour-volume-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.svr-tour-volume-slider {
-  flex: 1;
-  -webkit-appearance: none;
-  appearance: none;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--shell-border);
-  outline: none;
-  cursor: pointer;
-}
-
-.svr-tour-volume-slider:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.svr-tour-volume-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: var(--marker-warning);
-  box-shadow: 0 0 6px rgba(var(--marker-warning-rgb), 0.65);
-  cursor: pointer;
-  border: 2px solid var(--marker-dark);
-}
-
-.svr-tour-volume-slider::-moz-range-thumb {
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: var(--marker-warning);
-  box-shadow: 0 0 6px rgba(var(--marker-warning-rgb), 0.65);
-  cursor: pointer;
-  border: 2px solid var(--marker-dark);
-}
-
-.svr-tour-volume-val {
-  min-width: 44px;
-  text-align: right;
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  color: var(--shell-text-dim);
-  flex-shrink: 0;
-}
-
-/* ---------- Loading / error state ---------- */
 .svr-tour-loading {
   position: absolute;
   inset: 0;
@@ -1107,52 +843,20 @@
 .svr-tour-error-text {
   color: var(--marker-red-alt);
 }
-
-/* Gates the whole scene — the panorama viewer (drag-to-look, scroll-to-zoom)
-   plus every marker and panel it can open — behind the Studio's power-up
-   panel (StudioHotspotsPanel), which is
-   deliberately rendered as a sibling *outside* .svr-tour-lockable so it
-   stays usable while everything else here is locked. See the onPoweredChange
-   wiring in PanoramaTour.jsx. */
 .svr-tour-lockable {
   position: relative;
   width: 100%;
   height: 100%;
-  /* Smoothly desaturate/dim in and out rather than snapping, so powering up
-     reads as the rig visibly coming back to life instead of a hard cut. */
   transition: filter 0.5s ease;
 }
 
 .svr-tour-locked {
   filter: grayscale(1) brightness(0.5) contrast(0.95);
-  /* Blocks clicks, drags, and wheel/scroll input on everything inside,
-     including the photo-sphere-viewer's own internal drag-to-look and
-     scroll-to-zoom handlers — pointer-events: none on an ancestor removes
-     its entire subtree from hit-testing unless a descendant explicitly
-     opts back in. One thing does: the markers plugin's own stylesheet
-     (@photo-sphere-viewer/markers-plugin/index.css) sets `.psv-markers
-     { pointer-events: none }` on the markers layer but then `.psv-marker
-     { pointer-events: auto }` on every individual marker, specifically so
-     markers stay clickable while the layer they sit in doesn't intercept
-     drag-to-look. That's exactly right when the scene is unlocked, but it
-     also meant hotspots stayed clickable while powered down — see the
-     override just below. */
   pointer-events: none;
 }
-
-/* Wins over the markers plugin's own `.psv-marker { pointer-events: auto }`
-   (see the comment above) by being more specific, so hotspots actually go
-   unclickable while the rig is powered down instead of just looking that
-   way. */
 .svr-tour-locked .psv-marker {
   pointer-events: none;
 }
-
-/* Small pill telling the visitor why the scene is dimmed and where to go
-   fix that — sits outside .svr-tour-lockable (see PanoramaTour.jsx) so it
-   stays fully legible instead of getting grayscaled along with everything
-   it's explaining. Bottom-center, out of the way of the toolbar/hint chip
-   (top) and the docked panel (left). */
 .svr-tour-locked-banner {
   position: absolute;
   left: 50%;
@@ -1172,41 +876,14 @@
   color: var(--marker-dark-2);
   max-width: calc(100vw - 32px);
   text-align: center;
-  /* A button now — tapping it opens the power-up panel (the mobile drawer
-     starts closed; see StudioHotspotsPanel's openRequest). */
   cursor: pointer;
   font-weight: 600;
-  /* Same reasoning as the floating panels above (see the z-index: 60 note
-     near .svr-tour-toolbar) — comfortably above Photo Sphere Viewer's own
-     marker layer. */
   z-index: 60;
 }
 .svr-tour-locked-banner__mobile {
   display: none;
 }
-
-/* ======================================================================
-   Mobile / small screens
-   ======================================================================
-   ≤960px: the hotspots panel becomes a drawer (StudioHotspotsPanel.css),
-   so the banner's copy switches to "tap to open" and the scene gets the
-   full width.
-   ≤600px (phones): every floating piece is re-laid out for a narrow,
-   touch-only screen —
-     • toolbar: pinned across the top with 12px gutters, audio label
-       dropped to its 🎧 icon, tighter room buttons; scrolls sideways
-       rather than overflowing if it still doesn't fit.
-     • gear/lab panels (.svr-tour-gear-panel — the choice panel, the quiz
-       and every hotspot lab share it) and the volume panel: bottom sheets
-       spanning the width instead of a 320–352px card pinned top-right,
-       kept clear of Photo Sphere Viewer's 40px navbar.
-     • the "P for placement mode" hint chip: hidden — it's a keyboard-only
-       dev aid with nothing to do on a phone.
-     • locked banner: lifted above the PSV navbar. */
 @media (max-width: 960px) {
-  /* The banner sits outside .svr-tour-lockable, so it would float over the
-     open drawer; the drawer's backdrop is a preceding sibling only while
-     it's open, so hide the banner then. */
   .svr-hotspot-backdrop ~ .svr-tour-locked-banner {
     display: none;
   }
@@ -1262,16 +939,13 @@
   }
 
   .svr-tour-gear-panel,
-  .svr-tour-gear-panel.llab-panel-shell,
-  .svr-tour-volume-panel {
+  .svr-tour-gear-panel.llab-panel-shell {
     top: auto;
     left: 8px;
     right: 8px;
     bottom: 48px;
     width: auto;
     max-width: none;
-    /* Top edge stays below the drawer's "☰ Rig" handle (top 72px + 56px
-       tall — StudioHotspotsPanel.css) so the two never overlap. */
     max-height: calc(100% - 190px);
     border-radius: 16px;
   }

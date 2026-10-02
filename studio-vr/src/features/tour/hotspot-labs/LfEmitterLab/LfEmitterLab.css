@@ -1,16 +1,4 @@
 @import "../shared/hardwareTokens.css";
-
-/* Styles for LfEmitterLab.jsx — ported from design/lf-emitter-lab.html.
-   Reuses the shared `.llab-*` base (panel shell width/height, tabs, card,
-   seg toggle, trigger row, take-away chip/pop, audio note) from
-   speakerListeningLab.css — see that file's own header comment. Only the
-   two visuals unique to this lab — the 8-bin spectrum + chest-rumble
-   indicator (module 1) and the source→obstacle→listener wave diagram
-   (module 2) — get their own `lfelab-` prefixed rules below, scaled down
-   from the original mockup's 760px layout to fit the ~352px docked panel.
-*/
-
-/* ---------- module 1 — feeling the thunder (spectrum + chest rumble) ---------- */
 .lfelab-spectrum-box {
   margin-top: 14px;
   background: rgba(0, 0, 0, 0.22);
@@ -145,8 +133,6 @@
   letter-spacing: 0.02em;
   line-height: 1.45;
 }
-
-/* ---------- module 2 — the ripple tank (wavelength) ---------- */
 .lfelab-wave-box {
   margin-top: 14px;
   background: rgba(0, 0, 0, 0.22);

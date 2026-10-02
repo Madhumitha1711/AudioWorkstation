@@ -1,14 +1,3 @@
-/* Scoped styles for the ported Faust chapter labs (Equalizer, Compressor,
-   Reverb, etc.) and their shared widgets (Knob, Fader, FaustPanel).
-   Everything below is namespaced under .chapter-lab so it can't leak into
-   the rest of the app (landing page, course chrome, payment/login) the way
-   an unscoped global stylesheet would. */
-
-
-/* Fonts: loaded once globally (index.html) — see --font-sans/--font-mono in src/index.css. */
-
-/* ── Design tokens ────────────────────────────────────────────────────────── */
-
 .chapter-lab {
   color: var(--text);
   font-family: var(--font-sans);
@@ -65,24 +54,8 @@
   --knob-shadow-rgb: 18, 20, 15;
   --strip-navy:    #2E2E40;
   --strip-wood:    #5C2E1A;
-
-  /* Fonts: --mono / --display / --body are NOT redefined here any more —
-     they are global aliases of --font-mono / --font-sans (src/index.css). */
 }
-
-/* ── Light theme ──────────────────────────────────────────────────────────
-   Flips the rack chassis (console/panel/surface/border/text) to a light
-   palette. --black stays dark in both themes — every rule that uses it is
-   an oscilloscope/meter/graph "screen", and those read as lit displays
-   (like real hardware, or any DAW's light-mode metering) rather than page
-   background, so they intentionally don't follow the rest of the flip. */
 :root[data-theme='light'] .chapter-lab {
-  /* Elevation now reads bottom-to-top as console (recessed) → panel (shell)
-     → surface (raised — inputs, inactive tab fills), each step lighter, the
-     same direction as the dark palette. --border/--border-bright are kept
-     a clear ~15-25% darker than --surface so tabs/inputs/dividers actually
-     read as bordered chips instead of blending into the panel — the first
-     pass here was too close in lightness across the board and washed out. */
   --console:      #e7eae1;
   --panel:        #f0f2eb;
   --surface:      #f9faf6;
@@ -92,10 +65,6 @@
   --text:         #12140f;
   --text-dim:     #565b52;
   --text-faint:   #838a7c;
-
-  /* The module accent colors are pastel/neon tones tuned to glow on a dark
-     rack — as text or borders on the new light chassis they're too low
-     contrast, so each gets a deeper, more saturated equivalent here. */
   --amber:  #ad6a12;
   --amber-rgb: 173, 106, 18;
   --amber-bright: #ad6a12;
@@ -110,14 +79,6 @@
   --purple-rgb: 124, 58, 237;
   --sat:    #c2521f;
   --teal:   #0f9488;
-
-  /* The -dim/-glow translucent variants were originally left at their dark-
-     theme opacity, on the assumption a faint tint still reads over a light
-     panel — in practice an active plugin tile or "is-on" chip (background:
-     var(--*-dim)) washes out almost to invisible over the new light
-     --surface/--panel, so each gets bumped to a stronger tint built from
-     its (already-darkened) light accent above instead of the neon dark-mode
-     hex, so selected/active states stay legible on the light chassis. */
   --amber-dim:  rgba(173, 106, 18, 0.24);
   --amber-glow: rgba(173, 106, 18, 0.5);
   --green-dim:  rgba(15, 157, 88, 0.22);
@@ -132,19 +93,7 @@
   --sat-glow:   rgba(194, 82, 31, 0.45);
   --teal-dim:   rgba(15, 148, 136, 0.22);
   --teal-glow:  rgba(15, 148, 136, 0.45);
-
-  /* Physical control knobs: a light brushed-metal gradient instead of the
-     dark plastic/metal one (same call as the shared Knob.jsx component and
-     Equalizer.jsx's own local Knob) — matches a light-mode DAW's knurled
-     aluminum knobs rather than leaving them as black discs on a light rack. */
   .big-knob { background: radial-gradient(circle at 35% 35%, var(--knob-cream-1), var(--knob-cream-2)); box-shadow: 0 2px 6px rgba(var(--knob-shadow-rgb),0.18), inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -3px 5px rgba(var(--knob-shadow-rgb),0.08); }
-  .sat-knob { background: radial-gradient(circle at 35% 35%, var(--knob-warm-1), var(--knob-warm-2)); box-shadow: 0 2px 6px rgba(var(--knob-shadow-rgb),0.18), inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -3px 5px rgba(var(--knob-shadow-rgb),0.08); }
-  .pan-knob { background: radial-gradient(circle at 35% 35%, var(--knob-cream-1), var(--knob-cool-2)); }
-
-  /* .btn-primary pairs a near-black label with a bright amber fill — keep
-     that fill at full brightness even though --amber itself was darkened
-     above for text/border contrast elsewhere, so the dark label stays
-     legible on it. */
   .btn-primary {
     background: var(--amber);
   }
@@ -152,31 +101,6 @@
     background: var(--amber-bright);
   }
 }
-
-/* ── Reset ────────────────────────────────────────────────────────────────── */
-
-/* ── App shell ────────────────────────────────────────────────────────────── */
-
-/* ── Site header ──────────────────────────────────────────────────────────── */
-
-/* ── Top tab bar (chapter switcher) ──────────────────────────────────────── */
-
-/* ── Chapter divider ──────────────────────────────────────────────────────── */
-
-/* ── Screen wrapper ───────────────────────────────────────────────────────── */
-
-/* ════════════════════════════════════════════════════════════════════
-   CHAPTER 1 — WAVEFORM BUILDER
-════════════════════════════════════════════════════════════════════ */
-
-.chapter-lab .waveform-lab {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-/* Top bar */
 
 .chapter-lab .lab-topbar {
   background: var(--console);
@@ -223,14 +147,6 @@
 
 @keyframes chapterLabPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-/* Body layout */
-
-.chapter-lab .waveform-body { display: grid; grid-template-columns: 1fr 280px; }
-
-/* Left pane */
-
-.chapter-lab .waveform-canvas-area { padding: 1.5rem; border-right: 1px solid var(--border); }
-
 .chapter-lab .canvas-label {
   font-family: var(--font-mono);
   font-size: 0.6rem;
@@ -239,107 +155,6 @@
   margin-bottom: 0.75rem;
   text-transform: uppercase;
 }
-
-/* Oscilloscope frame */
-
-.chapter-lab .waveform-display {
-  background: var(--black);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  height: 140px;
-  position: relative;
-  overflow: hidden;
-  margin-bottom: 1rem;
-}
-
-.chapter-lab .axis-label-y {
-  position: absolute;
-  left: 6px;
-  font-family: var(--font-mono);
-  font-size: 0.5rem;
-  color: var(--text-faint);
-  z-index: 1;
-  pointer-events: none;
-}
-
-.chapter-lab .axis-label-y.top { top: 6px; }
-
-.chapter-lab .axis-label-y.mid { top: 50%; transform: translateY(-50%); }
-
-.chapter-lab .axis-label-y.bot { bottom: 6px; }
-
-/* Wave type buttons */
-
-.chapter-lab .wave-type-row { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-
-.chapter-lab .wave-btn {
-  flex: 1;
-  padding: 0.5rem 0.25rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  cursor: pointer;
-  text-align: center;
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  color: var(--text-dim);
-  letter-spacing: 0.06em;
-  transition: all 0.15s;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.chapter-lab .wave-btn.active { background: var(--amber-dim); border-color: var(--amber); color: var(--amber); }
-
-.chapter-lab .wave-btn:hover:not(.active) { border-color: var(--border-bright); color: var(--text); }
-
-.chapter-lab .wave-shape { height: 20px; width: 36px; }
-
-/* Parameter sliders */
-
-.chapter-lab .param-sliders { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-
-.chapter-lab .param-group { display: flex; flex-direction: column; gap: 0.35rem; }
-
-.chapter-lab .param-label {
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  color: var(--text-dim);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.chapter-lab .param-val { color: var(--amber); }
-
-.chapter-lab .param-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 3px;
-  background: var(--border);
-  border-radius: 2px;
-  outline: none;
-  cursor: pointer;
-}
-
-.chapter-lab .param-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 12px; height: 12px;
-  border-radius: 50%;
-  background: var(--amber);
-  box-shadow: 0 0 8px var(--amber-glow);
-  cursor: pointer;
-}
-
-/* Right pane — sidebar */
-
-.chapter-lab .waveform-sidebar { padding: 1.25rem; display: flex; flex-direction: column; gap: 1.25rem; }
-
-/* VU meter */
 
 .chapter-lab .meter-block { display: flex; flex-direction: column; gap: 0.6rem; }
 
@@ -361,44 +176,6 @@
 
 .chapter-lab .vu-bar.red { background: var(--red);   box-shadow: 0 0 4px rgba(var(--red-rgb),0.4); }
 
-.chapter-lab .meter-sublabel { color: var(--text-faint); font-size: 0.5rem; font-weight: 400; }
-
-.chapter-lab .vu-legend { display: flex; gap: 0.5rem; margin-top: 0.25rem; }
-
-.chapter-lab .vu-legend-item { font-family: var(--font-mono); font-size: 0.5rem; letter-spacing: 0.04em; }
-
-.chapter-lab .vu-legend-item.green { color: var(--green); }
-
-.chapter-lab .vu-legend-item.amber { color: var(--amber); }
-
-.chapter-lab .vu-legend-item.red { color: var(--red); }
-
-/* Frequency readout */
-
-.chapter-lab .freq-readout {
-  background: var(--black);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.75rem;
-  font-family: var(--font-mono);
-}
-
-.chapter-lab .freq-big { font-size: 1.5rem; color: var(--green); font-weight: 500; letter-spacing: 0.02em; }
-
-.chapter-lab .freq-unit { font-size: 0.65rem; color: var(--text-dim); margin-left: 0.25rem; }
-
-.chapter-lab .freq-row { display: flex; justify-content: space-between; margin-top: 0.5rem; }
-
-.chapter-lab .freq-item { text-align: center; }
-
-.chapter-lab .freq-item-val { font-size: 0.75rem; color: var(--blue); }
-
-.chapter-lab .freq-item-lbl { font-size: 0.5rem; color: var(--text-faint); letter-spacing: 0.08em; text-transform: uppercase; }
-
-.chapter-lab .freq-item-sub { font-size: 0.45rem; color: var(--text-faint); opacity: 0.6; margin-top: 1px; }
-
-/* Concept callout */
-
 .chapter-lab .concept-callout {
   background: var(--green-dim);
   border: 1px solid rgba(var(--green-rgb),0.2);
@@ -410,34 +187,6 @@
 }
 
 .chapter-lab .concept-callout strong { color: var(--green); font-weight: 500; }
-
-/* Task list */
-
-.chapter-lab .task-list { display: flex; flex-direction: column; gap: 0.3rem; }
-
-.chapter-lab .task-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.78rem;
-  color: var(--text-dim);
-}
-
-.chapter-lab .task-check {
-  width: 14px; height: 14px;
-  border-radius: 3px;
-  border: 1.5px solid var(--border-bright);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  font-size: 0.5rem;
-  color: var(--green);
-}
-
-.chapter-lab .task-check.done { background: var(--green-dim); border-color: var(--green); }
-
-/* Lab footer */
 
 .chapter-lab .lab-footer {
   border-top: 1px solid var(--border);
@@ -456,21 +205,7 @@
   gap: 0.4rem;
 }
 
-.chapter-lab .hint-key {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 0.1rem 0.4rem;
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  color: var(--text-dim);
-}
-
 .chapter-lab .btn-row { display: flex; gap: 0.5rem; }
-
-/* ═══════════════════════════════════════════
-   CHAPTER 2 — EQ MATCHING LAB
-═══════════════════════════════════════════ */
 
 .chapter-lab .eq-lab {
   background: var(--panel);
@@ -488,9 +223,6 @@
   padding: 1.25rem;
   border-right: 1px solid var(--border);
 }
-
-/* Test Bench / Ear Training mode tabs — app-wide standard Tabs
-   (components/Tabs, segmented); re-skinned via tokens only. */
 .chapter-lab .eq-mode-tabs {
   --tabs-track-bg: var(--black);
   --tabs-track-border: var(--border);
@@ -500,9 +232,6 @@
   --tabs-font-size: 0.62rem;
   --tabs-letter-spacing: 0.06em;
 }
-
-/* Instrument / upload tab row — slim themed scrollbar instead of the
-   default thick OS bar when the row overflows horizontally. */
 
 .chapter-lab .eq-tabrow {
   scrollbar-width: thin;
@@ -526,8 +255,6 @@
   background: var(--text-faint);
 }
 
-/* Spectrum display */
-
 .chapter-lab .spectrum-display {
   background: var(--black);
   border: 1px solid var(--border);
@@ -537,8 +264,6 @@
   overflow: hidden;
   margin-bottom: 1rem;
 }
-
-/* Legend */
 
 .chapter-lab .legend-row {
   display: flex;
@@ -561,74 +286,12 @@
   border-radius: 1px;
 }
 
-/* EQ fader bands */
-
-.chapter-lab .eq-bands {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 0.5rem;
-  align-items: end;
-}
-
-.chapter-lab .eq-band {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.chapter-lab .eq-band-label {
-  font-family: var(--font-mono);
-  font-size: 0.5rem;
-  color: var(--text-faint);
-  text-align: center;
-  line-height: 1.4;
-}
-
-.chapter-lab .eq-fader-track {
-  width: 8px;
-  height: 80px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  position: relative;
-}
-
-.chapter-lab .eq-fader-track:hover { border-color: var(--border-bright); }
-
-.chapter-lab .eq-fader-thumb {
-  width: 18px;
-  height: 6px;
-  background: var(--blue);
-  border-radius: 2px;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  box-shadow: 0 0 6px rgba(var(--blue-rgb),0.5);
-  cursor: ns-resize;
-  transition: background 0.1s;
-}
-
-.chapter-lab .eq-fader-thumb:hover { background: var(--blue-bright); }
-
-.chapter-lab .eq-gain-val {
-  font-family: var(--font-mono);
-  font-size: 0.55rem;
-  color: var(--blue);
-  min-height: 14px;
-  text-align: center;
-}
-
-/* Sidebar */
-
 .chapter-lab .eq-sidebar {
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
-
-/* Score ring */
 
 .chapter-lab .score-ring-wrap {
   display: flex;
@@ -679,8 +342,6 @@
   letter-spacing: 0.08em;
 }
 
-/* Band accuracy rows */
-
 .chapter-lab .band-analysis { display: flex; flex-direction: column; gap: 0.35rem; }
 
 .chapter-lab .band-item {
@@ -719,8 +380,6 @@
   text-align: right;
   flex-shrink: 0;
 }
-
-/* Tip box */
 
 .chapter-lab .tip-box {
   background: var(--blue-dim);
@@ -765,8 +424,6 @@
 
 .chapter-lab .btn-primary:hover { background: var(--amber-bright); box-shadow: 0 0 16px var(--amber-glow); }
 
-/* ── Badge ────────────────────────────────────────────────────────────────── */
-
 .chapter-lab .badge {
   display: inline-flex;
   align-items: center;
@@ -782,17 +439,6 @@
   text-transform: uppercase;
 }
 
-/* ════════════════════════════════════════════════════════════════════
-   CHAPTER 4 — COMPRESSION LAB
-════════════════════════════════════════════════════════════════════ */
-
-.chapter-lab .comp-lab {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
 .chapter-lab .comp-body {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -806,8 +452,6 @@
 .chapter-lab .comp-visual {
   padding: 1.25rem;
 }
-
-/* Knob grid */
 
 .chapter-lab .knob-grid {
   display: grid;
@@ -851,8 +495,6 @@
   color: var(--purple);
 }
 
-/* Raw-value entry, shown under each knob's formatted readout */
-
 .chapter-lab .knob-num-input {
   width: 52px;
   background: var(--surface);
@@ -874,8 +516,6 @@
 
 .chapter-lab .knob-num-input[type=number] { -moz-appearance: textfield; }
 
-/* Toggle buttons */
-
 .chapter-lab .toggle-btn {
   padding: 0.35rem 0.75rem;
   border: 1px solid var(--border);
@@ -894,8 +534,6 @@
 
 .chapter-lab .toggle-btn.on { background: var(--purple-dim); border-color: var(--purple); color: var(--purple); }
 
-/* Transfer-function graph */
-
 .chapter-lab .transfer-graph {
   background: var(--black);
   border: 1px solid var(--border);
@@ -905,42 +543,6 @@
   overflow: hidden;
 }
 
-/* Before / after waveform compare (Gate/Saturation/Limiter labs) */
-
-.chapter-lab .waveform-compare {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.chapter-lab .compare-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.chapter-lab .compare-lbl {
-  font-family: var(--font-mono);
-  font-size: 0.55rem;
-  color: var(--text-faint);
-  width: 28px;
-  text-align: right;
-  letter-spacing: 0.06em;
-}
-
-.chapter-lab .mini-wave {
-  flex: 1;
-  height: 30px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-/* Live compression scope (Chapter 4) — separate, dedicated analyzer for
-   real input/output level over time (Attack/Release made visible), distinct
-   from the static transfer-function graph above it. */
-
 .chapter-lab .scope-graph {
   background: var(--black);
   border: 1px solid var(--border);
@@ -949,9 +551,6 @@
   position: relative;
   overflow: hidden;
 }
-
-/* Live GR (gain-reduction) meter — vertical bar alongside the transfer
-   graph, in the right (visual) column. */
 
 .chapter-lab .transfer-row {
   display: flex;
@@ -999,12 +598,6 @@
   background: linear-gradient(180deg, var(--green) 0%, var(--amber) 65%, var(--red) 100%);
   transition: height 0.1s ease;
 }
-
-/* Compact range slider (Chapter 4's Crossover/Sidechain/Output mini-controls)
-   — native <input type="range"> defaults to a chunky, platform-styled track
-   and a large thumb; this trims it down to a thin 3px rail with a small
-   accent-colored dot, matching the rest of the app's dark, low-chrome look.
-   --mini-range-accent lets a given slider override the thumb color. */
 
 .chapter-lab .mini-range {
   -webkit-appearance: none;
@@ -1062,260 +655,6 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--mini-range-accent, var(--purple)) 30%, transparent);
 }
 
-/* (challenge panel reuses .comp-lab, .comp-body, .comp-controls, .comp-visual) */
-
-/* ════════════════════════════════════════════════════════════════════
-   CHAPTER 7 — SATURATION LAB
-════════════════════════════════════════════════════════════════════ */
-
-.chapter-lab .sat-lab {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.chapter-lab .sat-body {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-}
-
-.chapter-lab .sat-left {
-  padding: 1.25rem;
-  border-right: 1px solid var(--border);
-}
-
-.chapter-lab .sat-right {
-  padding: 1.25rem;
-}
-
-/* Saturation type selector */
-
-.chapter-lab .sat-type-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.chapter-lab .sat-type-btn {
-  padding: 0.6rem 0.4rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.15s;
-  user-select: none;
-}
-
-.chapter-lab .sat-type-btn.active { background: var(--sat-dim); border-color: var(--sat); }
-
-.chapter-lab .sat-type-btn:hover:not(.active) { border-color: var(--border-bright); }
-
-.chapter-lab .sat-type-name { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-dim); letter-spacing: 0.04em; }
-
-.chapter-lab .sat-type-btn.active .sat-type-name { color: var(--sat); }
-
-.chapter-lab .sat-type-desc { font-family: var(--font-mono); font-size: 0.45rem; color: var(--text-faint); margin-top: 0.15rem; }
-
-/* Transfer curve canvas container */
-
-.chapter-lab .curve-display {
-  background: var(--black);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  height: 180px;
-  position: relative;
-  overflow: hidden;
-  margin-bottom: 1rem;
-}
-
-/* Input / output level meters */
-
-.chapter-lab .sat-input-output {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 1rem;
-}
-
-.chapter-lab .io-meter-block {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.chapter-lab .io-meter-label {
-  font-family: var(--font-mono);
-  font-size: 0.55rem;
-  color: var(--text-faint);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.chapter-lab .io-meter-bar {
-  height: 8px;
-  background: var(--surface);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.chapter-lab .io-meter-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 80ms ease-out;
-}
-
-/* Harmonic spectrum display */
-
-.chapter-lab .harmonics-display {
-  background: var(--black);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.75rem;
-}
-
-.chapter-lab .harmonics-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
-  height: 70px;
-  margin-bottom: 0.5rem;
-}
-
-.chapter-lab .harmonic-bar-wrap {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.3rem;
-  height: 100%;
-  justify-content: flex-end;
-}
-
-.chapter-lab .harmonic-bar {
-  width: 100%;
-  border-radius: 2px 2px 0 0;
-  transition: height 120ms ease-out;
-}
-
-.chapter-lab .harmonic-label {
-  font-family: var(--font-mono);
-  font-size: 0.5rem;
-  color: var(--text-faint);
-}
-
-/* Sat knob — uses CSS custom property for dynamic needle rotation */
-
-.chapter-lab .sat-knob {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, var(--strip-wood), var(--console));
-  border: 2px solid var(--border-bright);
-  position: relative;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
-  cursor: default;
-}
-
-.chapter-lab .sat-knob::after {
-  content: '';
-  position: absolute;
-  width: 3px;
-  height: 16px;
-  background: var(--text);
-  border-radius: 2px;
-  top: 6px;
-  left: 50%;
-  transform-origin: bottom center;
-  transform: translateX(-50%) rotate(var(--knob-rot, -135deg));
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   CHAPTER 3 — MIXING CONSOLE
-════════════════════════════════════════════════════════════════════ */
-
-.chapter-lab .mix-lab {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.chapter-lab .mix-body { padding: 1.25rem; }
-
-/* Transport bar */
-
-.chapter-lab .transport-bar {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  background: var(--console);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.75rem 1rem;
-  margin-bottom: 1.25rem;
-}
-
-.chapter-lab .transport-btns { display: flex; gap: 0.25rem; }
-
-.chapter-lab .t-btn {
-  width: 32px; height: 28px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 0.7rem;
-  color: var(--text-dim);
-  transition: all 0.15s;
-  user-select: none;
-}
-
-.chapter-lab .t-btn:hover:not(.active) { color: var(--text); border-color: var(--border-bright); }
-
-.chapter-lab .t-btn.active { background: var(--red-dim); border-color: var(--red); color: var(--red); }
-
-.chapter-lab .time-display {
-  font-family: var(--font-mono);
-  font-size: 1rem;
-  color: var(--green);
-  letter-spacing: 0.1em;
-  background: var(--black);
-  border: 1px solid var(--border);
-  padding: 0.3rem 0.75rem;
-  border-radius: 3px;
-}
-
-.chapter-lab .bpm-display {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--text-dim);
-  background: var(--black);
-  border: 1px solid var(--border);
-  padding: 0.3rem 0.6rem;
-  border-radius: 3px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-
-.chapter-lab .bpm-val { color: var(--amber); font-size: 0.9rem; }
-
-/* Channel grid: 6 tracks + 1 master */
-
-.chapter-lab .tracks-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr) 180px;
-  gap: 0.5rem;
-  align-items: end;
-}
-
-/* Channel strip */
-
 .chapter-lab .channel-strip {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1333,87 +672,6 @@
 .chapter-lab .channel-strip:hover { border-color: var(--border-bright); }
 
 .chapter-lab .channel-strip.selected { border-color: var(--blue); box-shadow: 0 0 12px rgba(var(--blue-rgb),0.15); }
-
-.chapter-lab .channel-name {
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  color: var(--text-dim);
-  letter-spacing: 0.06em;
-  text-align: center;
-  text-transform: uppercase;
-}
-
-/* Mute / Solo buttons */
-
-.chapter-lab .channel-btns { display: flex; gap: 0.25rem; }
-
-.chapter-lab .ch-btn {
-  width: 20px; height: 16px;
-  border-radius: 2px;
-  border: 1px solid var(--border);
-  background: var(--console);
-  font-family: var(--font-mono);
-  font-size: 0.45rem;
-  color: var(--text-faint);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-  user-select: none;
-}
-
-.chapter-lab .ch-btn:hover { border-color: var(--border-bright); color: var(--text-dim); }
-
-.chapter-lab .ch-btn.m-active { background: rgba(var(--red-rgb),0.2); border-color: var(--red); color: var(--red); }
-
-.chapter-lab .ch-btn.s-active { background: rgba(var(--green-rgb),0.15); border-color: var(--green); color: var(--green); }
-
-/* Pan knob */
-
-.chapter-lab .pan-knob-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.2rem;
-}
-
-.chapter-lab .pan-knob {
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, var(--border-bright), var(--console));
-  border: 1px solid var(--border-bright);
-  position: relative;
-  cursor: ew-resize;
-  transition: border-color 0.15s;
-}
-
-.chapter-lab .pan-knob:hover { border-color: var(--amber); }
-
-.chapter-lab .pan-knob:active { border-color: var(--amber); box-shadow: 0 0 8px rgba(var(--amber-rgb),0.3); cursor: grabbing; }
-
-/* Smooth rotating needle — controlled via inline transform */
-
-.chapter-lab .pan-needle {
-  position: absolute;
-  top: 4px;
-  left: 50%;
-  width: 2px;
-  height: 9px;
-  background: var(--amber);
-  border-radius: 1px 1px 0 0;
-  transform-origin: bottom center;
-  pointer-events: none;
-  box-shadow: 0 0 4px rgba(var(--amber-rgb),0.6);
-}
-
-.chapter-lab .pan-label {
-  font-family: var(--font-mono);
-  font-size: 0.5rem;
-  color: var(--text-faint);
-}
-
-/* Fader */
 
 .chapter-lab .channel-fader-track {
   width: 12px; height: 90px;
@@ -1440,96 +698,11 @@
 
 .chapter-lab .channel-fader-thumb:hover { border-color: var(--amber); }
 
-.chapter-lab .db-val {
-  font-family: var(--font-mono);
-  font-size: 0.55rem;
-  color: var(--text-faint);
-}
-
-/* Level meter (segmented LEDs) */
-
-.chapter-lab .level-meter-strip {
-  display: flex;
-  gap: 2px;
-  height: 90px;
-  align-items: flex-end;
-}
-
-.chapter-lab .level-col {
-  width: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  justify-content: flex-end;
-}
-
-.chapter-lab .level-seg {
-  height: 3px;
-  border-radius: 1px;
-}
-
-.chapter-lab .level-seg.g { background: var(--green); box-shadow: 0 0 3px rgba(var(--green-rgb),0.4); }
-
-.chapter-lab .level-seg.a { background: var(--amber); box-shadow: 0 0 3px rgba(var(--amber-rgb),0.4); }
-
-.chapter-lab .level-seg.r { background: var(--red);   box-shadow: 0 0 3px rgba(var(--red-rgb),0.4); }
-
-/* Master strip */
-
-.chapter-lab .master-strip {
-  background: var(--console);
-  border: 1px solid var(--border-bright);
-  border-radius: 6px;
-  padding: 0.75rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-}
-
 .chapter-lab .master-label {
   font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--amber);
   letter-spacing: 0.1em;
-}
-
-.chapter-lab .master-meters {
-  display: flex;
-  gap: 4px;
-  height: 90px;
-  align-items: flex-end;
-}
-
-.chapter-lab .master-col {
-  width: 14px;
-  background: var(--surface);
-  border-radius: 2px 2px 0 0;
-  overflow: hidden;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-}
-
-.chapter-lab .master-col-fill { border-radius: 0; }
-
-.chapter-lab .loudness-label {
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  color: var(--text-faint);
-  text-align: center;
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   CHAPTER 6 — REVERB DESIGNER
-════════════════════════════════════════════════════════════════════ */
-
-.chapter-lab .reverb-lab {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
 }
 
 .chapter-lab .reverb-body {
@@ -1546,8 +719,6 @@
   padding: 1.25rem;
 }
 
-/* Impulse response display */
-
 .chapter-lab .ir-display {
   background: var(--black);
   border: 1px solid var(--border);
@@ -1557,8 +728,6 @@
   overflow: hidden;
   margin-bottom: 1rem;
 }
-
-/* Room preset row */
 
 .chapter-lab .room-preset-row {
   display: grid;
@@ -1603,30 +772,12 @@
   color: var(--teal);
 }
 
-/* RT60 decay visualiser */
-
 .chapter-lab .reverb-decay-viz {
   background: var(--black);
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 1rem;
   margin-bottom: 1rem;
-}
-
-.chapter-lab .decay-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 60px;
-  margin-bottom: 0.5rem;
-}
-
-.chapter-lab .decay-bar {
-  flex: 1;
-  background: var(--teal);
-  border-radius: 1px 1px 0 0;
-  opacity: 0.9;
-  transition: height 0.4s ease;
 }
 
 .chapter-lab .decay-readout {
@@ -1639,9 +790,6 @@
 
 .chapter-lab .decay-readout strong { color: var(--teal); }
 
-/* Live reverb tail scope — real dry/wet level over time (separate from the
-   illustrative, formula-driven IR diagram above it). */
-
 .chapter-lab .reverb-scope-display {
   background: var(--black);
   border: 1px solid var(--border);
@@ -1652,25 +800,11 @@
   margin-bottom: 1rem;
 }
 
-/* 5-column knob grid for reverb (SIZE/DECAY/PRE-DELAY/DAMPING/DIFFUSION,
-   then HI-SHELF freq+gain/LO-SHELF freq+gain/WET-DRY) */
-
 .chapter-lab .reverb-knob-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 1rem;
   margin-bottom: 0.75rem;
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   CHAPTER 9 — DELAY DESIGN STUDIO (H-Delay style: mod + filter + character)
-════════════════════════════════════════════════════════════════════ */
-
-.chapter-lab .hdelay-lab {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
 }
 
 .chapter-lab .hdelay-body { display: grid; grid-template-columns: 1fr 1fr; }
@@ -1689,9 +823,6 @@
   border-bottom: 1px solid var(--border);
   margin-bottom: 0.75rem;
 }
-
-/* Delay tap visualiser — plain positioned divs (left %, height px), driven
-   live from delayTimeMs/feedback/pingPong rather than baked-in mockup values */
 
 .chapter-lab .tap-display {
   background: var(--black);
@@ -1730,10 +861,6 @@
   transition: left 0.15s ease;
 }
 
-/* Live delay echo scope — real dry/wet level over time (separate from the
-   illustrative, formula-driven tap display above it). Mirrors
-   .reverb-scope-display in Chapter 6. */
-
 .chapter-lab .hdelay-scope-display {
   background: var(--black);
   border: 1px solid var(--border);
@@ -1765,311 +892,9 @@
 
 .chapter-lab .sync-btn:hover:not(.active) { border-color: var(--border-bright); color: var(--text); }
 
-/* Knob grid variants reused across the MODULATION / FILTERS / OUTPUT
-   subsections — column count set per-instance via inline style, same
-   pattern as .reverb-knob-grid. */
-
 .chapter-lab .hdelay-knob-grid { display: grid; gap: 1rem; }
 
-/* ════════════════════════════════════════════════════════════════════
-   FAUST PANEL — generic renderer for any Faust dsp-meta.json ui tree
-════════════════════════════════════════════════════════════════════ */
-
-.chapter-lab .faust-panel { display: flex; flex-direction: column; gap: 1rem; }
-
-.chapter-lab .faust-group {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.75rem 1rem;
-  background: var(--surface);
-}
-
-.chapter-lab .faust-group-title {
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-  margin-bottom: 0.6rem;
-}
-
-.chapter-lab .faust-group-body {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 1.25rem;
-}
-
-.chapter-lab .faust-group-body.faust-group-vgroup { flex-direction: column; }
-
-.chapter-lab .faust-trigger-btn, .chapter-lab .faust-toggle-btn {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--console);
-  color: var(--text-dim);
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-}
-
-.chapter-lab .faust-trigger-btn:hover { border-color: var(--border-bright); color: var(--text); }
-
-.chapter-lab .faust-trigger-btn:active { background: var(--amber-dim); border-color: var(--amber); color: var(--amber); }
-
-.chapter-lab .faust-toggle-btn:hover { border-color: var(--border-bright); color: var(--text); }
-
-.chapter-lab .faust-toggle-btn.on { background: var(--teal-dim); border-color: var(--teal); color: var(--teal); }
-
-.chapter-lab .faust-trigger-btn:disabled, .chapter-lab .toggle-btn:disabled {
+.chapter-lab .toggle-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-.chapter-lab .faust-trigger-btn:disabled:hover { border-color: var(--border); color: var(--text-dim); }
-
-/* ════════════════════════════════════════════════════════════════════
-   CHAPTER 5 — SPATIAL AUDIO
-════════════════════════════════════════════════════════════════════ */
-
-.chapter-lab .spatial-lab {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.chapter-lab .spatial-body {
-  display: grid;
-  grid-template-columns: 300px 1fr;
-}
-
-/* Left panel */
-
-.chapter-lab .spatial-stage-wrap {
-  border-right: 1px solid var(--border);
-  padding: 1.25rem;
-}
-
-.chapter-lab .stage-display {
-  background: var(--black);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  aspect-ratio: 1;
-  position: relative;
-  overflow: hidden;
-}
-
-.chapter-lab .stage-rings {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.chapter-lab .stage-ring {
-  position: absolute;
-  border-radius: 50%;
-  border: 1px solid rgba(255,255,255,0.04);
-}
-
-.chapter-lab .listener-icon {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: 20px; height: 20px;
-  background: var(--blue-dim);
-  border: 2px solid var(--blue);
-  border-radius: 50%;
-  box-shadow: 0 0 12px rgba(var(--blue-rgb),0.4);
-  font-size: 0.6rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--blue);
-  z-index: 2;
-  pointer-events: none;
-}
-
-.chapter-lab .sound-source {
-  position: absolute;
-  width: 20px; height: 20px;
-  border-radius: 4px;
-  border: 1.5px solid;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.65rem;
-  cursor: move;
-  z-index: 3;
-  transform: translate(-50%, -50%);
-  transition: box-shadow 0.1s;
-}
-
-.chapter-lab .source-line {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform-origin: left center;
-  height: 1px;
-  opacity: 0.3;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.chapter-lab .azimuth-indicator {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 1px dashed rgba(var(--blue-rgb),0.15);
-  pointer-events: none;
-}
-
-.chapter-lab .compass-label {
-  position: absolute;
-  font-family: var(--font-mono);
-  font-size: 0.5rem;
-  color: var(--text-faint);
-  pointer-events: none;
-}
-
-.chapter-lab .compass-label.top { top: 4px; left: 50%; transform: translateX(-50%); }
-
-.chapter-lab .compass-label.bot { bottom: 4px; left: 50%; transform: translateX(-50%); }
-
-.chapter-lab .compass-label.lft { left: 4px; top: 50%; transform: translateY(-50%); }
-
-.chapter-lab .compass-label.rgt { right: 4px; top: 50%; transform: translateY(-50%); }
-
-/* Source list */
-
-.chapter-lab .sources-list {
-  margin-top: 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.chapter-lab .source-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.6rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.12s;
-}
-
-.chapter-lab .source-item:hover { border-color: var(--border-bright); }
-
-.chapter-lab .source-item.active { border-color: var(--blue); background: var(--blue-dim); }
-
-.chapter-lab .source-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
-
-.chapter-lab .source-item-name { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-dim); flex: 1; }
-
-.chapter-lab .source-item-pos { font-family: var(--font-mono); font-size: 0.6rem;  color: var(--text-faint); }
-
-/* Right panel */
-
-.chapter-lab .spatial-params {
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.chapter-lab .param-block { display: flex; flex-direction: column; gap: 0.75rem; }
-
-.chapter-lab .param-block-title {
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  color: var(--text-dim);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--border);
-}
-
-/* HRTF display */
-
-.chapter-lab .hrtf-display {
-  background: var(--black);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.75rem;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-}
-
-.chapter-lab .ear-channel { display: flex; flex-direction: column; gap: 0.35rem; }
-
-.chapter-lab .ear-label {
-  font-family: var(--font-mono);
-  font-size: 0.55rem;
-  color: var(--text-faint);
-  letter-spacing: 0.06em;
-}
-
-.chapter-lab .ear-waveform {
-  height: 36px;
-  background: var(--surface);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-/* Reverb tank */
-
-.chapter-lab .reverb-tank {
-  background: var(--black);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.75rem;
-}
-
-.chapter-lab .reverb-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.6rem;
-}
-
-.chapter-lab .reverb-param { display: flex; flex-direction: column; gap: 0.25rem; }
-
-.chapter-lab .reverb-param-label {
-  font-family: var(--font-mono);
-  font-size: 0.55rem;
-  color: var(--text-faint);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.chapter-lab .reverb-param-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 3px;
-  background: var(--border);
-  border-radius: 2px;
-  cursor: pointer;
-  outline: none;
-}
-
-.chapter-lab .reverb-param-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  background: var(--purple);
-  box-shadow: 0 0 6px rgba(var(--purple-rgb),0.5);
-  cursor: pointer;
-}
-
-.chapter-lab .reverb-param-val {
-  font-family: var(--font-mono);
-  font-size: 0.55rem;
-  color: var(--purple);
-  text-align: right;
 }

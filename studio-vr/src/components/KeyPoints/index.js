@@ -1,1 +1,1 @@
-export { default, KeyPoints } from "./KeyPoints";
+export { KeyPoints } from "./KeyPoints";

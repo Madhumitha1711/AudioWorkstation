@@ -3,20 +3,10 @@ import "../../shared/labs.css";
 import { useLabAudio } from "../../shared/useLabAudio";
 import { useTheme } from "../../../../../theme/ThemeContext";
 import { drawScope, scopePalette } from "../../shared/soundLabShared";
-
-// Ported from design/what-is-sound-chapter.html's "07 TIMBRE" panel: the
-// same 440 Hz note played back with four different oscillator waveforms
-// (sine/triangle/sawtooth/square) so harmonic content alone — nothing about
-// pitch or loudness — is what's changing. Wave icon paths are copied
-// verbatim from the mockup's inline SVGs.
+import { useInteractOnce } from "../../shared/useInteractOnce";
 
 const FIXED_FREQ = 440;
 
-// `colorKey` names a slot in soundLabShared's per-theme color palette
-// (scopePalette(theme).colors) rather than baking in a fixed hex — this
-// array is built once at module load, before any theme is known, so the
-// actual color has to be looked up per-render instead (see colorByWave
-// inside the component below).
 const VOICES = [
   {
     wave: "sine",
@@ -56,9 +46,7 @@ function TimbreLab({ onInteract }) {
   const rafRef = useRef(null);
   const scrollRef = useRef(0);
   const oscRef = useRef(null);
-  const firedRef = useRef(false);
-  const onInteractRef = useRef(onInteract);
-  onInteractRef.current = onInteract;
+  const markInteracted = useInteractOnce(onInteract);
   const { getCtx, track, stopAll } = useLabAudio();
   const { theme } = useTheme();
   const themeRef = useRef(theme);
@@ -69,12 +57,6 @@ function TimbreLab({ onInteract }) {
   const [playing, setPlaying] = useState(false);
   const waveRef = useRef(wave);
   waveRef.current = wave;
-
-  const markInteracted = () => {
-    if (firedRef.current) return;
-    firedRef.current = true;
-    onInteractRef.current?.();
-  };
 
   useEffect(() => {
     if (!playing) drawScope(canvasRef.current, { cycles: 6, amp: 0.7, color: colorByWaveMap[wave], shape: wave, theme });

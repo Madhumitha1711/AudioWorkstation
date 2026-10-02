@@ -3,20 +3,9 @@ import "../../shared/labs.css";
 import { useLabAudio } from "../../shared/useLabAudio";
 import { useTheme } from "../../../../../theme/ThemeContext";
 import { drawScope, scopePalette, sliderToFreq, visualCyclesFor } from "../../shared/soundLabShared";
+import { useInteractOnce } from "../../shared/useInteractOnce";
 
-// Ported from design/what-is-sound-chapter.html's "04 WAVELENGTH" panel.
-// λ = v / f (speed of sound in air ≈ 343 m/s) — the same log-scale
-// frequency slider as FrequencyLab, but the readout and the accompanying
-// "roughly the size of ___" comparison are about the physical length of one
-// cycle in space, not the pitch itself.
-
-const SPEED_OF_SOUND = 343; // m/s in air
-// Matches the slider's actual log-scale range (see soundLabShared's
-// sliderToFreq — shared with FrequencyLab) — the labels at each end of the
-// slider used to just say "20 Hz"/"2,000 Hz", which understated where the
-// slider's top end really lands (20,000 Hz, the top of human hearing).
-// Anchoring these to the same MIN/MAX the slider itself covers keeps the
-// printed scale honest.
+const SPEED_OF_SOUND = 343;
 const MIN_FREQ = 20;
 const MAX_FREQ = 20000;
 
@@ -41,9 +30,7 @@ function WavelengthLab({ onInteract }) {
   const rafRef = useRef(null);
   const scrollRef = useRef(0);
   const oscRef = useRef(null);
-  const firedRef = useRef(false);
-  const onInteractRef = useRef(onInteract);
-  onInteractRef.current = onInteract;
+  const markInteracted = useInteractOnce(onInteract);
   const { getCtx, track, stopAll } = useLabAudio();
   const { theme } = useTheme();
   const themeRef = useRef(theme);
@@ -55,15 +42,9 @@ function WavelengthLab({ onInteract }) {
   const sliderRef = useRef(sliderVal);
   sliderRef.current = sliderVal;
 
-  const markInteracted = () => {
-    if (firedRef.current) return;
-    firedRef.current = true;
-    onInteractRef.current?.();
-  };
-
   const freq = sliderToFreq(sliderVal);
   const lambda = SPEED_OF_SOUND / freq;
-  const period = 1000 / freq; // ms — one full cycle's duration, T = 1/f
+  const period = 1000 / freq;
 
   useEffect(() => {
     if (!playing) {

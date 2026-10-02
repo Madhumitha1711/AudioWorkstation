@@ -1,16 +1,3 @@
-/* Shared styles for the Ch.7 mic labs (MicTechniqueGuideLab,
-   MicPlacementGuideLab): colour tokens, the panel layout (3D stage |
-   card), the 3D stage's overlay chrome, and the card controls in
-   MicLabControls.jsx. Card, chips, description and player come from shared
-   ListenTabs/listenTabs.css (.ltb-*); tabs are the app-wide standard.
-
-   Tokens live on .mic-lab (each lab's root). MicStage3D reads them from
-   its own element, so they're inherited — the room's background, floor,
-   grid and walls are mixed from the course theme (--bg / --text, which
-   flip with light/dark) and tinted with the brand palette's primary; the
-   light block only deepens hues for contrast. Layer / pair colours are
-   shared between the 3D mics and the card toggles so they always match. */
-
 .mic-lab {
   --ml-screen-bg: color-mix(in srgb, var(--bg, #050507) 94%, var(--text, #fff) 6%);
   --ml-floor: color-mix(in srgb, color-mix(in srgb, var(--bg, #050507) 86%, var(--text, #fff) 14%) 90%, var(--brand-accent, #5fd9a0));
@@ -39,16 +26,12 @@
   --ml-c-room: #2f72b8;
   --ml-good: #1f9a67;
 }
-
-/* ---------- panel layout: 3D stage | card ---------- */
 .ml-row {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(260px, 1fr);
   gap: 20px;
   align-items: stretch;
 }
-
-/* ---------- 3D stage ---------- */
 .ml-stage {
   position: relative;
   min-width: 0;
@@ -111,8 +94,6 @@
   font-size: var(--fs-base);
   color: var(--text-dimmer);
 }
-
-/* ---------- card controls ---------- */
 .mic-lab .ml-cols-3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -190,8 +171,6 @@
   width: 100%;
   accent-color: var(--brand-accent);
 }
-
-/* on/off toggles — tone = layer / mic colour, same as the 3D mics */
 .ml-tone--close {
   --ml-c: var(--ml-c-close);
 }

@@ -1,9 +1,3 @@
-// ═══════════════════════════════════════════════════════════════════════════
-// DAW Workstation — live audio-graph chain wiring (WebAudio, real-time)
-// ═══════════════════════════════════════════════════════════════════════════
-// Pure(ish) graph-building helpers used by DawWorkstationScreen's playFrom()
-// to wire each track/portion's insert chain onto the live AudioContext. See
-// offlineRender.js for the equivalent used by the Download buttons.
 import {
   DEFAULTS as GATE_DEFAULTS,
   DEFAULT_SIDECHAIN as GATE_DEFAULT_SIDECHAIN,
@@ -51,13 +45,6 @@ export function wireSlotNode(ctx, inputNode, slot) {
   return slot.node;
 }
 
-// Splits a track's [0, duration) into an ordered list of non-overlapping
-// segments: gaps (`region: null`, played dry) and the track's own portions
-// (`region: <the portion object>`, played through that portion's own chain
-// — see wireLiveChain/buildOfflineChain). Portions are expected to already
-// be non-overlapping (createRegion below only ever carves a new one out of
-// a free gap), but this still sorts + clamps defensively so a malformed
-// portion can't produce a negative-length or out-of-order segment.
 export function computeSegments(track) {
   const duration = track?.buffer?.duration ?? 0;
   if (duration <= 0) return [];
@@ -68,7 +55,7 @@ export function computeSegments(track) {
   const segments = [];
   let cursor = 0;
   for (const r of regions) {
-    if (r.start < cursor) continue; // overlaps the previous portion — skip rather than double-schedule
+    if (r.start < cursor) continue;
     if (r.start > cursor) segments.push({ start: cursor, end: r.start, region: null });
     segments.push({ start: r.start, end: r.end, region: r });
     cursor = r.end;
@@ -77,46 +64,17 @@ export function computeSegments(track) {
   return segments;
 }
 
-// Resolves which chain array a `(trackId, regionId)` pair addresses:
-// `track.chain` itself (the whole-track chain) when `regionId ===
-// TRACK_CHAIN_SCOPE`, a portion's private `outerChain` when `regionId` is
-// outer-suffixed (see outerScopeId above), or that portion's own `chain`
-// otherwise. Every chain-management function below (addOrSelectPlugin,
-// removePlugin, movePlugin, reorderPlugin, toggleBypass, updateSlot) goes
-// through this pair so all three scopes are edited by the exact same code
-// path.
 export function getChainArray(track, regionId) {
   if (!track) return undefined;
   if (regionId === TRACK_CHAIN_SCOPE) return track.chain;
   if (isOuterScope(regionId)) {
     const region = track.regions.find((r) => r.id === baseRegionId(regionId));
     if (!region) return undefined;
-    // Until a portion's outer chain has been explicitly customized (see
-    // forkOuterChainIfNeeded below), its "Outer (this portion)" scope is
-    // just a read-through of the track's OWN whole-chain plugins — same
-    // slots, same order — because that's what's actually already affecting
-    // this portion (the track chain runs upstream of every portion,
-    // customized or not). This also covers the case `region.outerChain`
-    // itself is `undefined` (not `[]`) for a portion whose in-memory shape
-    // predates this field — e.g. one created under a dev-server session
-    // before the outer-chain feature landed and preserved across hot-reload
-    // — which would otherwise make every falsy-guarded read (the dock's
-    // render check, addOrSelectPlugin's early-return, etc.) treat the
-    // portion as having no outer chain at all instead of an empty one, so
-    // the dock silently rendered nothing.
     return region.outerCustomized ? region.outerChain || [] : track.chain;
   }
   return track.regions.find((r) => r.id === regionId)?.chain;
 }
 
-// Returns a new track with the chain at `regionId` replaced by `chain` —
-// the write-side counterpart of getChainArray above. Any write to an outer
-// scope also stamps `outerCustomized: true` — the moment a portion's outer
-// chain is actually written to (add/remove/reorder/bypass/param-change —
-// see forkOuterChainIfNeeded, which is what seeds `chain` with a private
-// snapshot the very first time this fires for a given portion) it stops
-// being a read-through of the track's chain and becomes this portion's own,
-// independent of the track chain and every other portion from then on.
 export function withChainArray(track, regionId, chain) {
   if (regionId === TRACK_CHAIN_SCOPE) return { ...track, chain };
   if (isOuterScope(regionId)) {
@@ -129,26 +87,15 @@ export function withChainArray(track, regionId, chain) {
   return { ...track, regions: track.regions.map((r) => (r.id === regionId ? { ...r, chain } : r)) };
 }
 
-// Disconnects every live Faust node in a chain array — used whenever a
-// chain (the track's own, or one of its portions') is torn down: track
-// removal, audio replacement, portion deletion, or closing the DAW.
 export function disconnectChainSlots(chain) {
   chain.forEach((slot) => {
     try {
       slot.node?.disconnect();
     } catch {
-      /* ok */
     }
   });
 }
 
-// Wires one portion's own ordered insert chain (in order, respecting
-// per-slot Bypass) onto `source` — the live-graph equivalent of
-// buildOfflineChain below, plus the analysers/meters every open plugin
-// editor reads from (slotRuntimeRef/meterValuesRef/eqRuntimeRef, keyed by
-// `${trackId}:${regionId}[:${slotKey}]` so two portions running the same
-// plugin type never collide). Returns the chain's tail node the caller
-// connects onward (to that track's own volume/mute gain).
 export function wireLiveChain(ctx, source, chain, trackId, regionId, refs) {
   const activeChain = chain.filter((s) => s.node && s.status === "ready");
   let chainOut = source;
@@ -160,11 +107,6 @@ export function wireLiveChain(ctx, source, chain, trackId, regionId, refs) {
     const slotOut = ctx.createGain();
     const scopeAnalyser = ctx.createAnalyser();
     scopeAnalyser.fftSize = 1024;
-    // Pre-effect tap (dry, before this slot's own bypass mix) and a
-    // post-bypass-mix tap — together these let a slot's editor (e.g.
-    // GateEditorPanel) show a real input-vs-output scope that actually
-    // reflects Bypass, same as the chapter labs' own dry/wet/final
-    // analyser trio (dryAnal / wetAnal / finalAnal).
     const inputAnalyser = ctx.createAnalyser();
     inputAnalyser.fftSize = 1024;
     const outputAnalyser = ctx.createAnalyser();
@@ -176,12 +118,6 @@ export function wireLiveChain(ctx, source, chain, trackId, regionId, refs) {
     slotIn.connect(inputAnalyser);
     bypassGain.connect(slotOut);
     let tail = wireSlotNode(ctx, slotIn, slot);
-    // The EQ slot has its own output-gain trim (a plain WebAudio GainNode,
-    // not a Faust param — see equalizerEngine's applyOutputGain) and its
-    // own higher-resolution frequency-response analysers, matching the
-    // standalone Chapter2b lab's ParamEQCurve exactly (2048 fft,
-    // ANALYSER_MIN/MAX_DB) — tapped in parallel with the generic ones
-    // every slot gets above.
     if (slot.key === "eq") {
       const eqOutputGain = ctx.createGain();
       tail.connect(eqOutputGain);
@@ -218,15 +154,7 @@ export function wireLiveChain(ctx, source, chain, trackId, regionId, refs) {
   return { chainOut, extraNodes };
 }
 
-// Any hbargraph/vbargraph item is a read-only Faust METER output (gain
-// reduction, live gain, etc.). Pulled out separately here so any plugin's
-// own *EditorPanel (via getXLevels-style host callbacks) can read its live
-// telemetry off meterValuesRef — populated below by a generic
-// node.setOutputParamHandler subscription — with no per-plugin wiring.
 export function collectMeters(items) {
-  // Some dsp-meta.json files (ParamEQ's per-band Live_Gain outputs) list the
-  // same output address twice — dedupe so the meter bank doesn't render two
-  // identical bars for one signal.
   const seen = new Set();
   const out = [];
   items
@@ -239,12 +167,6 @@ export function collectMeters(items) {
   return out;
 }
 
-// Default typed state for a freshly-added plugin slot on a portion — same
-// defaults each plugin's own standalone chapter lab starts from. Stored
-// directly on the chain slot object (per portion, per plugin) rather than
-// in one shared top-level React state, since a mix can now have the SAME
-// plugin type on several different portions (even on the same track) at
-// once, each with its own independent settings.
 export function defaultSlotExtras(key) {
   switch (key) {
     case "gate":

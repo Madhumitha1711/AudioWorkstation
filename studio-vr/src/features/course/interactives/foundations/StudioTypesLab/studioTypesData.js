@@ -88,7 +88,4 @@ export const STUDIO_TYPES = [
   },
 ];
 
-// Photos aren't shot yet — drop them in public/studio-types/<id>.jpg and
-// they appear automatically; until then the lab shows a placeholder frame
-// with this path in it (same pattern as StudioComponentsLab).
 export const studioTypeImagePath = (id) => `/studio-types/${id}.jpg`;

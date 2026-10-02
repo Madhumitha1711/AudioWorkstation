@@ -1,25 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import "./WelcomeVideoDialog.css";
 
-// Provision for a first-landing "how to use this app" walkthrough video.
-// There's no recording yet, so this ships the plumbing ahead of the actual
-// clip: drop the file in at public/videos/welcome-tour.mp4 (and, optionally,
-// a poster frame at the path below) and it starts playing automatically —
-// nothing else here needs to change. Until that file exists the <video>
-// below simply fails to load, and onError swaps in a plain "not uploaded
-// yet" placeholder instead of a broken/blank player.
 const DEFAULT_VIDEO_SRC = "/videos/welcome-tour.mp4";
-// Reuses an existing panorama still as a poster frame so the dialog never
-// looks like a blank black box before the real video (or the placeholder
-// above) has had a chance to render.
 const DEFAULT_POSTER_SRC = "/paranoma.png";
 
-// Shown once, the first time a visitor reaches the studio tour (see the
-// svr-welcome-video-seen localStorage flag in PanoramaTour.jsx), and
-// re-openable any time after via the toolbar's "🎬" button. Sized at 80% of
-// the *studio's* own width/height (its overlay covers the whole
-// PanoramaTour root, not the browser viewport — see WelcomeVideoDialog.css)
-// with the studio blurred behind it while the video plays.
 function WelcomeVideoDialog({
   open,
   onClose,
@@ -29,9 +13,6 @@ function WelcomeVideoDialog({
   const videoRef = useRef(null);
   const [videoFailed, setVideoFailed] = useState(false);
 
-  // Reset failure/playback state every time the dialog (re)opens, so a
-  // replay after closing never inherits a stale "failed to load" flag or
-  // resumes mid-clip instead of starting over.
   useEffect(() => {
     if (!open) return;
     setVideoFailed(false);
@@ -39,17 +20,10 @@ function WelcomeVideoDialog({
     if (video) {
       video.currentTime = 0;
       video.play().catch(() => {
-        // Autoplay is commonly blocked without a prior user gesture (and
-        // this fires the instant the studio loads, so there rarely is
-        // one) — that's fine, the native controls let the visitor just
-        // press play themselves instead of this erroring out.
       });
     }
   }, [open, videoSrc]);
 
-  // Escape closes the dialog, same as clicking the backdrop or the close
-  // button. The video's own native controls already handle space/arrow
-  // keys internally, so there's no keyboard trap to worry about beyond this.
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e) => {
@@ -69,10 +43,6 @@ function WelcomeVideoDialog({
   return (
     <div
       className="svr-welcome-overlay"
-      // Clicking the dimmed/blurred backdrop dismisses the dialog, same as
-      // the close button — but not clicks inside the card itself
-      // (stopPropagation below), so using the video/controls never
-      // accidentally closes it.
       onClick={handleClose}
       role="presentation"
     >

@@ -2,10 +2,6 @@ import { Tabs } from "../../../../components/Tabs";
 import { clamp, fmtTime } from "../lib/format";
 import { VIEW_TABS } from "../lib/constants";
 
-// Top transport bar: exit, Arrange/Mixer view switch, transport buttons,
-// timecode, the "previewing a portion" pill, Download Mix, and the master
-// meter. Purely presentational — every callback is one of
-// DawWorkstationScreen's own transport/track functions.
 export function TopBar({
   onClose,
   viewMode,

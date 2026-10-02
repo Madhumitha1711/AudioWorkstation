@@ -11,7 +11,6 @@
   --hha-well: rgba(0, 0, 0, 0.28);
   --hha-panel-alt: rgba(255, 255, 255, 0.045);
   --hha-solid: #0d0d10;
-  /* opaque panel colour, for chart markers */
   --hha-btn-bg: var(--hha-amber);
   --hha-btn-ink: #1b1208;
   --hha-band-op: 0.06;
@@ -31,7 +30,6 @@
   --hha-panel-alt: #ffffff;
   --hha-solid: #ffffff;
   --hha-btn-bg: #a8570f;
-  /* ≥4.5:1 with white ink */
   --hha-btn-ink: #ffffff;
   --hha-band-op: 0.075;
 }
@@ -79,7 +77,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-
   .hha *,
   .hha *::before,
   .hha *::after {
@@ -87,8 +84,6 @@
     transition-duration: 0.01ms !important;
   }
 }
-
-/* ---------- semantic tone helpers ---------- */
 .hha-tone-green {
   color: var(--hha-green);
 }
@@ -124,14 +119,10 @@
 .hha-bg-red {
   background: var(--hha-red);
 }
-
-/* Tabs: app-wide standard (components/Tabs) — only re-skinned via tokens. */
 .hha-tabs {
   --tabs-line: var(--border-soft);
   margin-bottom: 20px;
 }
-
-/* ---------- generic ---------- */
 .hha-panel {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -303,8 +294,6 @@
   color: var(--text);
   box-shadow: inset 0 0 0 1px var(--border);
 }
-
-/* ---------- stepper ---------- */
 .hha-stepper {
   display: flex;
   gap: 6px;
@@ -349,8 +338,6 @@
     display: none;
   }
 }
-
-/* ---------- setup ---------- */
 .hha-checklist {
   list-style: none;
   padding: 0;
@@ -453,8 +440,6 @@
   width: 16px;
   height: 16px;
 }
-
-/* ---------- test stages ---------- */
 .hha-ear-pill {
   display: inline-flex;
   align-items: center;
@@ -741,8 +726,6 @@
   max-width: 46ch;
   margin: 0 0 18px;
 }
-
-/* ---------- results ---------- */
 .hha-banner {
   display: flex;
   align-items: center;
@@ -1090,8 +1073,6 @@
 .hha-disclaimer b {
   color: var(--text);
 }
-
-/* ---------- charts ---------- */
 .hha-chart {
   width: 100%;
   height: auto;
@@ -1168,8 +1149,6 @@
   stroke-width: 2.2;
   stroke-linecap: round;
 }
-
-/* ---------- scale tab ---------- */
 .hha-compare {
   display: grid;
   grid-template-columns: 1fr;
@@ -1338,16 +1317,11 @@
 .hha-sources a {
   color: var(--hha-blue);
 }
-
-/* ---------- "How we calculate it" worked example ---------- */
 .hha-sub {
   display: block;
   margin-top: 8px;
   font-size: 13px;
 }
-
-/* Collapsed by default (<details>) — just a small "Example ▸ Show" pill
-   until the student opens it. */
 .hha-example {
   margin-top: 12px;
   border-radius: 10px;
@@ -1501,8 +1475,6 @@
     margin-bottom: 6px;
   }
 }
-
-/* Age validation + the inline calendar-age box on the Results banner. */
 .hha-field-error {
   min-height: 1.2em;
   font-size: 12.5px;
@@ -1524,9 +1496,6 @@
   border: 1px solid var(--border);
   border-radius: 6px;
 }
-
-/* Part 2 trace: every level tried for the current tone, so the
-   down-10 / up-5 zig-zag reads as deliberate rather than random. */
 .hha-trace {
   display: flex;
   flex-wrap: wrap;

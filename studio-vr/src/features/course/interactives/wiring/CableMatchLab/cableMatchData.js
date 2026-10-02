@@ -1,12 +1,3 @@
-// Content for "cable-match-lab" (Ch.8 "Connectors, Cables, and Studio
-// Wiring") — ported from design/cable-connector-sound-quiz.html.
-//
-// `correct` lists every socket that is a right answer (the first one is the
-// one "Show me" highlights). Connectors are reusable: XLR takes mic AND AES,
-// RCA takes unbalanced line AND S/PDIF coax. `fact` / `hint` / MISTAKES are
-// authored HTML (only <strong>/<em>) rendered with dangerouslySetInnerHTML.
-// `ch` is the short label under the cable's status light.
-
 export const CABLES = [
   { id: "mic", name: "Microphone cable", use: "Vocal mic → preamp", ch: "MIC", correct: ["xlr"],
     fact: "<strong>XLR</strong>, 3-pin, locking and balanced. A mic puts out a tiny signal, so the balanced pair cancels hum over long runs, and the latch stops it being pulled out mid-take.",
@@ -53,7 +44,6 @@ export const PORTS = [
   { id: "banana", name: "Banana", sub: "binding post · amp out" },
 ];
 
-/* Specific mistake messages ("cable>port") override the cable's generic hint. */
 export const MISTAKES = {
   "speaker>ts": "That's an <strong>instrument</strong> cable connection. Its thin, shielded conductors can't handle amplifier current, so they overheat and can damage the amp. Speakers need heavy-gauge cable.",
   "speaker>trs": "A ¼\" jack for a speaker? Some old amps used one, but a ¼\" plug can short the amp output while you're inserting it. Use a connector made for current.",
@@ -67,8 +57,6 @@ export const MISTAKES = {
   "digital>toslink": "Close. That's digital, but optical. This one connects to a <strong>computer</strong>.",
 };
 
-/* Socket-face glyphs (viewBox 0 0 40 40), themed via the --cml-well-*
-   vars in CableMatchLab.css. <text> picks up var(--font-sans) from CableMatchLab.css. */
 const dinPins = [-90, -135, -45, 180, 0]
   .map((a) => {
     const r = (a * Math.PI) / 180;

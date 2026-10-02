@@ -1,19 +1,10 @@
 import { TIERS } from "./micLabData";
 import "./micLab.css";
 
-// Card controls shared by the Ch.7 mic labs (MicTechniqueGuideLab,
-// MicPlacementGuideLab). They sit inside ListenTabs' card styles (.ltb-*),
-// so chips look and behave like every other lab's choice buttons; the
-// extras here are the fit dots + legend, on/off toggles in a layer colour,
-// and a slider.
-
-// **bold** → <b>
 export function Rich({ text }) {
   return text.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 ? <b key={i}>{part}</b> : part));
 }
 
-// A radio row of chips. `fit` (optional) = { [id]: [tier, reason] } adds a
-// coloured dot per chip (reason in the tooltip) and a legend underneath.
 export function Choices({ label, options, value, onPick, cols = 2, fit }) {
   return (
     <>
@@ -48,9 +39,6 @@ export function Choices({ label, options, value, onPick, cols = 2, fit }) {
   );
 }
 
-// On/off switches. items = [{ id, label, blurb?, tone }] where tone picks
-// the colour (close / main / spots / room — the ensemble layers — or a / b
-// / c for the multi-mic colours), matching the 3D stage.
 export function Toggles({ label, items, on, onToggle }) {
   return (
     <>

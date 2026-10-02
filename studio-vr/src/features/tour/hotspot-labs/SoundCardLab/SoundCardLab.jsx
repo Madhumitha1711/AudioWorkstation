@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Tabs, useTabTransition } from "../../../../components/Tabs";
-import "../shared/speakerListeningLab.css";
+import { LabShell } from "../shared/LabShell";
 import "./SoundCardLab.css";
-import { PlayIcon, PauseIcon, LevelMeter, AhaBox, AudioNote } from "../shared/listeningLabShared";
+import { AhaBox, LineIcon, PlayBar, SegControl } from "../shared/listeningLabShared";
+import { useLoopPlayer } from "../shared/useLoopPlayer";
 import {
   newAudioContext,
   rampGain,
@@ -12,152 +12,16 @@ import {
   createScannerNodes,
   teardownScannerNodes,
 } from "./soundCardLabSynthAudio";
-import { quickHelpHoverProps } from "../../help/helpHover";
 
-// Sound Card hotspot's "Sound Card Lab" — same treatment as the Speakers
-// hotspot's Listening Lab (see SpeakerListeningLab.jsx): replaces the
-// generic "Test your knowledge" quiz for the sound-card gear panel only
-// (see PanoramaTour.jsx, which renders this instead of
-// HotspotKnowledgeCheck whenever activeGear.id === "sound-card"). Ported
-// from design/sound-card-lab.html, restructured from that mockup's
-// scroll-with-progress-dots layout into two navigable tabs — one per
-// experiment — instead of three, since this mockup only has two modules.
-//
-// Reuses the exact same docked .svr-tour-gear-panel.llab-panel-shell shell,
-// width, tab bar, and take-away chip/overlay interaction as
-// SpeakerListeningLab (see listeningLabShared.jsx and speakerListeningLab.css
-// for the shared pieces) so this reads as the same "Listening Lab" family,
-// just with different content inside.
-//
-// UNLIKE the rest of the "Listening Lab" family (SpeakerListeningLab,
-// MixingConsoleLab, and every other panorama/*Lab.jsx) — but only for
-// MODULE 1 (the HD Document Scanner) — audio is REAL, not a UI-only
-// placeholder pointed at a missing recording. Bit-depth reduction is
-// something the Web Audio API can synthesize and process live, in-browser,
-// with no dependency on recording (and shipping) a real vocal take through
-// three different converters, so a live Web Audio graph is strictly better
-// there than a canned recording: it's the actual mechanism being taught,
-// not a stand-in for it, and it needs zero asset files. That engine
-// (SCANNER_PROFILES, the quantizer curve, the note scheduler, and graph
-// construction) lives in ./soundCardLabSynthAudio.js, not in this file; see
-// that file's header comment for why it's split out, and see ScannerModule
-// below for how this component drives it. It still swallows AudioContext
-// errors the same way the rest of the app swallows <audio> play() failures,
-// since autoplay-restricted browsers can leave a context suspended until a
-// user gesture resumes it.
-//
-// MODULE 2 (the Echo-Free Mirror) instead follows the same UI-only
-// placeholder pattern as every other Listening Lab module — a real <audio>
-// element pointed at a `public/audio/listening-lab/...` path that doesn't
-// exist yet (see SpeakerListeningLab.jsx's header comment for the full
-// rationale) — rather than trying to approximate delayed auditory feedback
-// out of oscillators. See EchoMirrorModule below.
-function SoundCardLab({
-  open,
-  onClose,
-  onBackToOverview,
-  onStartCourse,
-  // Reports whatever's currently hovered/focused in this lab up to
-  // PanoramaTour's Quick Help popup (help mode) — see helpHover.js and
-  // QuickHelpPanel.jsx. Called with a short description on hover/focus
-  // and `null` on leave/blur.
-  onQuickHelp,
-}) {
-  const [activeTab, setActiveTab] = useState(0);
-  // Standard tab-panel motion (components/Tabs) on the body, which is
-  // also the scroll container — see useTabTransition.
-  const bodyRef = useRef(null);
-  useTabTransition(bodyRef, activeTab, activeTab);
-
-  // Every visit starts back on experiment one — a fresh "before the lesson"
-  // primer each time it's opened, not a resumable session.
-  useEffect(() => {
-    if (open) setActiveTab(0);
-  }, [open]);
-
-  if (!open) return null;
-
-  const tab = TABS[activeTab];
-
+export default function SoundCardLab(props) {
   return (
-    <div className="svr-tour-gear-panel llab-panel-shell">
-      <div className="svr-tour-gear-panel__head">
-        <span className="svr-tour-gear-badge llab-badge" aria-hidden="true">
-          🔌
-        </span>
-        <div className="svr-tour-gear-panel__titles">
-          <div className="svr-tour-gear-panel__title">Sound Card Lab</div>
-          <div className="svr-tour-gear-panel__kicker">
-            {tab.label} · {activeTab + 1} of {TABS.length}
-          </div>
-        </div>
-        <button
-          onClick={onClose}
-          className="svr-tour-gear-panel__close"
-          aria-label="Close Sound Card Lab"
-          type="button"
-          {...quickHelpHoverProps(onQuickHelp, "Close this lab and go back to the panel.")}
-        >
-          ×
-        </button>
-      </div>
-
-      <Tabs
-        className="llab-tabs"
-        tabClassName="llab-tab"
-        variant="segmented"
-        size="sm"
-        fill
-        items={TABS.map((t) => ({ id: t.id, title: t.label, n: t.n, short: t.short }))}
-        value={tab.id}
-        onChange={(_, i) => setActiveTab(i)}
-        ariaLabel="Sound Card Lab experiments"
-        idPrefix="llab"
-        renderTab={(t) => (
-          <>
-            <span className="llab-tab__n mono">{t.n}</span>
-            <span className="llab-tab__label">{t.short}</span>
-          </>
-        )}
-      />
-
-      <div
-        ref={bodyRef}
-        className="svr-tour-gear-panel__body"
-        role="tabpanel"
-        id={`sclab-panel-${tab.id}`}
-        aria-labelledby={`sclab-tab-${tab.id}`}
-        // Remounting the module on tab switch (via key) stops its audio
-        // automatically — see SpeakerListeningLab.jsx's identical comment.
-        key={tab.id}
-      >
-        {activeTab === 0 && <ScannerModule />}
-        {activeTab === 1 && <EchoMirrorModule />}
-      </div>
-
-      <div className="svr-tour-gear-panel__footer">
-        <div className="svr-tour-gear-panel__footer-row">
-          <button
-            type="button"
-            className="svr-tour-btn svr-tour-btn-secondary"
-            onClick={onBackToOverview}
-            {...quickHelpHoverProps(onQuickHelp, "Go back to the choose-how-to-start overview.")}
-          >
-            ← Back
-          </button>
-          {onStartCourse && (
-            <button
-              type="button"
-              className="svr-tour-btn svr-tour-btn-primary"
-              onClick={onStartCourse}
-              {...quickHelpHoverProps(onQuickHelp, "Jump straight into the full lesson for this topic.")}
-            >
-              Start course →
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+    <LabShell
+      {...props}
+      icon="🔌"
+      title="Sound Card Lab"
+      tabs={TABS}
+      modules={[ScannerModule, EchoMirrorModule]}
+    />
   );
 }
 
@@ -166,59 +30,43 @@ const TABS = [
   { id: "echo-mirror", n: "02", label: "Latency & Monitoring", short: "Latency" },
 ];
 
-// ============================================================
-// Icons
-// ============================================================
 function ScannerPhoneIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <rect x="7" y="2" width="10" height="20" rx="2" />
-      <line x1="11" y1="18" x2="13" y2="18" />
-    </svg>
+    <LineIcon>
+    <rect x="7" y="2" width="10" height="20" rx="2" />
+    <line x1="11" y1="18" x2="13" y2="18" />
+    </LineIcon>
   );
 }
 function LaptopIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <rect x="3" y="4" width="18" height="12" rx="1.5" />
-      <path d="M2 19h20l-2-3H4z" />
-    </svg>
+    <LineIcon>
+    <rect x="3" y="4" width="18" height="12" rx="1.5" />
+    <path d="M2 19h20l-2-3H4z" />
+    </LineIcon>
   );
 }
-// Same shape as the "sound-card" glyph in hotspotDevices.js's ICONS map —
-// kept as its own local component (rather than importing/parsing that raw
-// SVG string) so it can take a stroke color from CSS like every other icon
-// here, reused for both "Studio Sound Card" (module 1) and "Studio
-// Interface" (module 2) since they're the same physical device.
 function SoundCardIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <rect x="4" y="4" width="16" height="16" rx="1" />
-      <rect x="9" y="9" width="6" height="6" />
-      <line x1="9" y1="2" x2="9" y2="4" />
-      <line x1="15" y1="2" x2="15" y2="4" />
-      <line x1="9" y1="20" x2="9" y2="22" />
-      <line x1="15" y1="20" x2="15" y2="22" />
-    </svg>
+    <LineIcon>
+    <rect x="4" y="4" width="16" height="16" rx="1" />
+    <rect x="9" y="9" width="6" height="6" />
+    <line x1="9" y1="2" x2="9" y2="4" />
+    <line x1="15" y1="2" x2="15" y2="4" />
+    <line x1="9" y1="20" x2="9" y2="22" />
+    <line x1="15" y1="20" x2="15" y2="22" />
+    </LineIcon>
   );
 }
 function JackIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 3v6M12 15v6" />
-    </svg>
+    <LineIcon>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 3v6M12 15v6" />
+    </LineIcon>
   );
 }
 
-// ============================================================
-// MODULE 1 — The HD Document Scanner (resolution & conversion)
-// ============================================================
-// The actual tune/bit-crusher engine (SCANNER_PROFILES, the quantizer
-// curve, the note scheduler, and graph construction) lives in
-// ./soundCardLabSynthAudio.js — this module just drives it: builds the
-// nodes once per mount, lets the user pick a converter or play/pause, and
-// renders the curve/caption that goes with whichever converter is active.
 const CURVES = {
   phone: {
     d: "M0,60 L80,60 L80,20 L160,20 L160,60 L240,60 L240,100 L320,100 L320,60 L400,60 L400,20 L480,20 L480,60 L560,60 L560,100 L640,100",
@@ -252,14 +100,6 @@ function ScannerModule() {
   const audioCtxRef = useRef(null);
   const nodesRef = useRef(null);
 
-  // Builds the tune -> quantizer -> lowpass -> master graph once (via
-  // createScannerNodes, in ./soundCardLabSynthAudio.js) and leaves it
-  // running for the module's whole lifetime; play/pause just ramps
-  // masterGain and starts/stops the note scheduler (see
-  // togglePlay/selectMode) instead of start()/stop()-ing the oscillators
-  // themselves — an OscillatorNode can only ever be started once, so
-  // restarting it per play-press isn't an option the way it is with
-  // <audio>.play()/.pause().
   useEffect(() => {
     const ctx = newAudioContext();
     const nodes = createScannerNodes(ctx);
@@ -268,15 +108,10 @@ function ScannerModule() {
 
     return () => {
       teardownScannerNodes(nodes);
-      ctx.close().catch(() => { });
+      ctx.close().catch(() => {});
     };
   }, []);
 
-  // Choosing a converter always starts it playing — same "switch stations,
-  // keep listening" behavior as SpeakerListeningLab's SpeakerTestModule.
-  // startScannerTune is idempotent, so this doesn't restart the tune from
-  // the top if it's already looping — it just leaves it running while the
-  // converter (and therefore the crunch) underneath it changes.
   const selectMode = (m) => {
     setMode(m);
     setRevealed(true);
@@ -284,7 +119,7 @@ function ScannerModule() {
     const ctx = audioCtxRef.current;
     const nodes = nodesRef.current;
     if (ctx && nodes) {
-      ctx.resume().catch(() => { });
+      ctx.resume().catch(() => {});
       applyScannerProfile(nodes, ctx, m);
       rampGain(nodes.masterGain, ctx, 0.9);
       startScannerTune(ctx, nodes);
@@ -298,7 +133,7 @@ function ScannerModule() {
     setPlaying((prev) => {
       const next = !prev;
       if (ctx && nodes) {
-        ctx.resume().catch(() => { });
+        ctx.resume().catch(() => {});
         rampGain(nodes.masterGain, ctx, next ? 0.9 : 0);
         if (next) startScannerTune(ctx, nodes);
         else stopScannerTune(nodes);
@@ -320,19 +155,7 @@ function ScannerModule() {
       </p>
 
       <div className="llab-card">
-        <div className="llab-seg" role="group" aria-label="Choose a converter">
-          {SEG_1.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              type="button"
-              className={"llab-seg__btn" + (mode === key ? " active" : "")}
-              onClick={() => selectMode(key)}
-            >
-              <Icon />
-              {label}
-            </button>
-          ))}
-        </div>
+        <SegControl options={SEG_1} value={mode} onSelect={selectMode} label="Choose a converter" />
 
         <div className="llab-curve">
           <div className="llab-curve__label">
@@ -345,17 +168,7 @@ function ScannerModule() {
           <div className="llab-curve__caption">{curve.caption}</div>
         </div>
 
-        <div className="llab-playbar">
-          <button
-            className="llab-play"
-            onClick={togglePlay}
-            type="button"
-            aria-label={playing ? "Pause" : "Play"}
-          >
-            {playing ? <PauseIcon /> : <PlayIcon />}
-          </button>
-          <LevelMeter playing={playing} />
-        </div>
+        <PlayBar playing={playing} onToggle={togglePlay} />
 
         <AhaBox show={revealed}>
           A sound card is a high-definition translator — it converts
@@ -369,21 +182,8 @@ function ScannerModule() {
   );
 }
 
-// ============================================================
-// MODULE 2 — The Echo-Free Mirror (latency & real-time monitoring)
-// ============================================================
-// AUDIO IS UI-ONLY HERE, same pattern as every module in SpeakerListeningLab
-// and MixingConsoleLab (see SpeakerListeningLab.jsx's header comment for the
-// full rationale): a real <audio> element pointed at a
-// `public/audio/listening-lab/...` path that doesn't exist yet, play()
-// failures swallowed, and the "playing" look driven by React state rather
-// than real playback events. MODES below is just display data (the ms
-// readout and status chip next to whichever placeholder clip is selected),
-// not a live delay parameter — there's no Web Audio graph in this module.
 const MAX_MS = 220;
 const BAR_COUNT = 18;
-// Same wobbly-waveform look as the original mockup's generated bars, just a
-// shorter run to fit the narrower docked panel.
 const BAR_HEIGHTS = Array.from(
   { length: BAR_COUNT },
   (_, i) => 4 + Math.abs(Math.sin(i * 0.7)) * 12 + (i % 5 === 0 ? 3 : 0),
@@ -402,46 +202,7 @@ const SEG_2 = [
 ];
 
 function EchoMirrorModule() {
-  const [mode, setMode] = useState("jack");
-  const [playing, setPlaying] = useState(false);
-  const [revealed, setRevealed] = useState(false);
-  const audioRef = useRef(null);
-
-  useEffect(() => {
-    const audio = new Audio();
-    audio.loop = true;
-    audio.preload = "auto";
-    audio.src = AUDIO_SOURCES_2.jack;
-    audioRef.current = audio;
-    return () => audio.pause();
-  }, []);
-
-  // Choosing a monitoring path always starts it playing — same "switch
-  // stations, keep listening" behavior as SpeakerListeningLab's
-  // SpeakerTestModule and ScannerModule above.
-  const selectMode = (m) => {
-    setMode(m);
-    setRevealed(true);
-    setPlaying(true);
-    const audio = audioRef.current;
-    if (audio) {
-      audio.src = AUDIO_SOURCES_2[m];
-      audio.play().catch(() => { });
-    }
-  };
-
-  const togglePlay = () => {
-    setRevealed(true);
-    const audio = audioRef.current;
-    setPlaying((prev) => {
-      const next = !prev;
-      if (audio) {
-        if (next) audio.play().catch(() => { });
-        else audio.pause();
-      }
-      return next;
-    });
-  };
+  const { mode, playing, revealed, selectMode, togglePlay } = useLoopPlayer(AUDIO_SOURCES_2, "jack");
 
   const { ms, status, title } = MODES[mode];
   const maxShiftPx = 40;
@@ -460,19 +221,7 @@ function EchoMirrorModule() {
       </p>
 
       <div className="llab-card">
-        <div className="llab-seg" role="group" aria-label="Choose a monitoring path">
-          {SEG_2.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              type="button"
-              className={"llab-seg__btn" + (mode === key ? " active" : "")}
-              onClick={() => selectMode(key)}
-            >
-              <Icon />
-              {label}
-            </button>
-          ))}
-        </div>
+        <SegControl options={SEG_2} value={mode} onSelect={selectMode} label="Choose a monitoring path" />
 
         <div className="sclab-echo-stage">
           <div className="sclab-echo-row">
@@ -505,18 +254,7 @@ function EchoMirrorModule() {
           <div className={"sclab-delay-status " + status}>{title}</div>
         </div>
 
-        <div className="llab-playbar">
-          <button
-            className="llab-play"
-            onClick={togglePlay}
-            type="button"
-            aria-label={playing ? "Pause" : "Play"}
-          >
-            {playing ? <PauseIcon /> : <PlayIcon />}
-          </button>
-          <LevelMeter playing={playing} />
-        </div>
-        {/* <AudioNote>sound-card-jack/interface.mp3</AudioNote> */}
+        <PlayBar playing={playing} onToggle={togglePlay} />
 
         <AhaBox show={revealed}>
           A studio audio interface processes sound at ultra-fast speeds —
@@ -529,5 +267,3 @@ function EchoMirrorModule() {
     </div>
   );
 }
-
-export default SoundCardLab;

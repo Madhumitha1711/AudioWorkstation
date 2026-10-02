@@ -7,19 +7,10 @@
   --text: #ffffff;
   --text-dim: rgba(255, 255, 255, 0.65);
   --text-dimmer: rgba(255, 255, 255, 0.45);
-  /* See the matching comment in LandingPage.css: these three now read the
-     generic brand palette (src/theme/palettes.js) instead of a hardcoded
-     green, and already track light/dark theme via PaletteContext. */
   --accent: var(--brand-accent);
   --accent2: var(--brand-accent-2);
   --accent-ink: var(--brand-accent-ink);
   --gradient-accent: radial-gradient(circle at 32% 28%, var(--accent), var(--accent2) 70%);
-
-  /* Semantic status colors for assessment feedback (AssessmentSection.css)
-     and lab results (course/interactives/shared/labs.css) - fixed red/amber regardless of
-     the chosen brand palette, the same way a real UI's error/warning colors
-     don't change with a theme switch. "Good/correct" states reuse --accent
-     above instead of a separate token. */
   --danger: #ff6b6b;
   --danger-rgb: 255, 107, 107;
   --danger-soft: #ff8080;
@@ -30,25 +21,8 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  /* Positioning context for the course page's absolutely positioned
-     pieces (e.g. the mobile sidebar drawer), so they resolve against this
-     panel rather than the whole viewport (which would also cover the app
-     shell header rendered above this page — see App.jsx). */
   position: relative;
-  /* .course-layout owns the scrolling (above 960px its two columns scroll
-     independently via flex + min-height: 0; below it .course-main scrolls
-     and the sidebar is an off-canvas drawer — see the media query at the
-     bottom of this file), so this container itself never scrolls. Either way, this avoids the old bug where the
-     sidebar's own scroll height was calculated from 100vh without knowing
-     about the shell header rendered above this page (see App.jsx), which
-     silently pushed its last few chapters past the bottom of the browser
-     window with no way to reach them — sizing off this flex layout instead
-     of the viewport means it can't get that wrong again. */
   overflow-y: hidden;
-  /* Safety net: nothing on this page should ever be able to push it wider
-     than the viewport (see .course-main's min-width fix below for the
-     actual root cause) — this just guarantees a rogue element can't shift
-     the sidebar out of view instead of wrapping/scrolling. */
   overflow-x: hidden;
   background: var(--bg);
   color: var(--text);
@@ -139,47 +113,21 @@
   .course-layout {
     display: grid;
     grid-template-columns: 360px 1fr;
-    /* Definite height (the full height of the flex column above — there
-       is no topbar anymore), so the single implicit row fills it and the sidebar/
-       main columns below can each scroll within their own share of it. */
     flex: 1;
     min-height: 0;
     overflow: hidden;
     transition: grid-template-columns 0.2s ease;
   }
-  /* Collapsed sidebar — a slim rail wide enough for just the expand
-     button, handing its 300px back to .course-main. Toggled from
-     CoursePage's sidebarCollapsed state; doesn't touch openTopics/
-     openModules/activeStepId, so expanding it again picks up right where
-     the outline was left. */
   .course-layout.sidebar-collapsed {
     grid-template-columns: 56px 1fr;
   }
-
-  /* Sidebar text runs 1px above the shared type scale (calc on the
-     tokens, so it still shrinks with the scale on phones). */
   .course-sidebar {
     border-right: 1px solid var(--border-soft);
     padding: 20px 0;
     box-sizing: border-box;
-    /* .course-layout has a definite height (see above), so this can just
-       fill its grid cell and scroll internally — no more guessing at
-       100vh minus every ancestor's height (topbar, the global shell header
-       this page doesn't even know about) to size it, which is what let the
-       last few chapters end up rendered past the bottom of the browser
-       window with no way to scroll to them. */
     height: 100%;
     overflow-y: auto;
-    /* Without this, setting overflow-y here makes the browser treat
-       overflow-x as "auto" too (per spec, a non-"visible" overflow-y forces
-       the other axis out of "visible"), which was enabling a stray
-       horizontal scrollbar even though nothing here actually needs one now
-       that row text wraps normally. Pin it closed explicitly. */
     overflow-x: hidden;
-    /* Grid items default to min-width: auto (shrink-to-fit their content's
-       intrinsic width), which can silently override the 360px track and
-       force the whole grid — and the page — wider than the viewport. This
-       lets it actually shrink to the track width instead. */
     min-width: 0;
   }
 
@@ -189,7 +137,6 @@
     justify-content: space-between;
     padding: 0 22px 14px;
   }
-  /* Overall course progress — moved here from the removed topbar. */
   .sidebar-progress {
     margin: 0 22px 18px;
     padding: 12px 14px;
@@ -215,8 +162,6 @@
     font-size: calc(var(--fs-md) + 1px);
     letter-spacing: 0;
   }
-  /* Shared with the chapter progress in the main panel — bump only the
-     sidebar copy, in step with the rest of the outline above. */
   .sidebar-progress .progress-label {
     font-size: calc(var(--fs-xs) + 1px);
   }
@@ -261,20 +206,6 @@
     background: var(--panel-hover);
     color: var(--text);
   }
-
-  .sidebar-section-label {
-    padding: 8px 22px;
-    font-size: calc(var(--fs-2xs) + 1px);
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-dimmer);
-  }
-
-  /* Module accordion — one level up from the topic accordion below. Only
-     modules with at least one topic in TOPICS ever render (see CoursePage's
-     filter), so this never shows an empty group for a module that doesn't
-     have any authored chapters yet. */
   .module-block {
     border-bottom: 1px solid var(--border-soft);
     padding-bottom: 2px;
@@ -303,14 +234,6 @@
   .module-head:hover {
     color: var(--text-dim);
   }
-  .module-head .chev {
-    transition: transform 0.2s ease;
-    font-size: calc(var(--fs-3xs) + 1px);
-    flex-shrink: 0;
-  }
-  .module-head.open .chev {
-    transform: rotate(90deg);
-  }
   .module-head .mname {
     flex: 1;
   }
@@ -325,11 +248,6 @@
   .module-topics {
     display: none;
     flex-direction: column;
-    /* Small step-in from the module header's own left edge (22px, same as
-       .module-head's padding) so a module's chapters read as nested
-       underneath it rather than sitting flush with it — the same kind of
-       indent .lesson-list below already uses to nest lessons under a
-       chapter, just a smaller step for this shallower level of nesting. */
     padding-left: 10px;
   }
   .module-topics.open {
@@ -371,16 +289,6 @@
   .topic-head.locked:hover {
     color: var(--text-dimmer);
   }
-
-  .topic-head .chev {
-    transition: transform 0.2s ease;
-    font-size: calc(var(--fs-3xs) + 1px);
-    color: var(--text-dimmer);
-    flex-shrink: 0;
-  }
-  .topic-head.open .chev {
-    transform: rotate(90deg);
-  }
   .topic-head .tname-col {
     flex: 1;
     display: flex;
@@ -403,16 +311,6 @@
     font-size: calc(var(--fs-2xs) + 1px);
     color: var(--text-dimmer);
     font-weight: 600;
-  }
-  .topic-head .tsoon {
-    font-size: calc(var(--fs-3xs) + 1px);
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--text-dimmer);
-    background: rgba(255, 255, 255, 0.06);
-    padding: 3px 8px;
-    border-radius: 999px;
   }
 
   .lesson-list {
@@ -477,11 +375,6 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
-  /* Interactive (Lab) steps read in the theme primary so the hands-on
-     activities stand out in the outline. --accent is the palette's
-     light/dark-aware primary, so this follows palette + theme switches.
-     Set on .lname/.ltag (not the button) so the hover/active and
-     light-theme `color: var(--text)` rules don't wash it back out. */
   .lesson-item.interactive .lname,
   .lesson-item.interactive .ltag {
     color: var(--accent);
@@ -500,22 +393,10 @@
   .course-main {
     padding: 36px 48px 90px;
     box-sizing: border-box;
-    /* Scrolls independently of the sidebar now — see .course-layout and
-       .course-sidebar above. */
     height: 100%;
     overflow-y: auto;
-    /* Same fix as .course-sidebar: without this, this column's min-width
-       defaults to its content's intrinsic width instead of the 1fr track,
-       so it can force the grid wider than the viewport. */
     min-width: 0;
   }
-
-  /* A single capped, centered column for every section of a lesson —
-     heading, media row, prose, actions, CTA all share the same left/right
-     edges instead of each picking its own width (which is what made the
-     page look unaligned, with prose stuck at a fraction of the width the
-     media row used). Centering it also spreads the leftover space evenly
-     on wide screens instead of dumping it all on the right. */
   .course-content {
     max-width: 960px;
     margin: 0 auto;
@@ -533,10 +414,6 @@
     color: var(--text);
     font-size: var(--fs-4xl);
     font-weight: 800;
-    /* Own line-height: the root's `font: 18px/145%` resolves to a fixed
-       ~26px that every element inherits, which is shorter than this 30px
-       text — with overflow: hidden (for the ellipsis) that clipped the
-       descenders (p, y, g, commas). */
     line-height: 1.3;
     margin: 0 0 10px;
     letter-spacing: -0.01em;
@@ -565,12 +442,8 @@
     font-size: var(--fs-base);
     line-height: 1.7;
     color: var(--text-dim);
-    /* was 8px + the old progress row's 30px below it */
     margin: 0 0 28px;
   }
-  /* Eyebrow + compact chapter progress share one line (progress pinned
-     right via margin-left: auto, so it stays right even when a chapter
-     has no eyebrow). */
   .topic-top-row {
     display: flex;
     align-items: center;
@@ -591,9 +464,6 @@
     width: 72px;
     height: 5px;
   }
-
-  /* Shared duration/label pill — used by VideoPlayer's "coming soon"
-     placeholder and its metadata row. */
   .vtag {
     position: absolute;
     left: 16px;
@@ -677,7 +547,6 @@
     max-width: 320px;
     white-space: nowrap;
   }
-  /* Destination step's title next to the direction — muted, truncated. */
   .arrow-name {
     min-width: 0;
     overflow: hidden;
@@ -696,10 +565,6 @@
     opacity: 0.35;
     cursor: default;
   }
-  /* Phones: the three buttons used to wrap unevenly (Back to the studio
-     on one line, Previous/Next pushed right on the next). Stack them into
-     a tidy block instead — Back to the studio full width, then Previous
-     and Next sharing the row below equally, all the same height. */
   @media (max-width: 600px) {
     .lesson-actions {
       display: grid;
@@ -719,7 +584,6 @@
       padding: 12px 16px;
       font-size: var(--fs-md);
     }
-    /* Too narrow for names in two half-width buttons — direction only. */
     .arrow-name {
       display: none;
     }
@@ -748,21 +612,12 @@
     margin-top: 8px;
     padding: 11px 22px;
   }
-
-  /* Drawer pieces — only shown below 960px (see the media query). */
   .sidebar-backdrop,
   .drawer-trigger {
     display: none;
   }
 
   @media (max-width: 960px) {
-    /* Below this width the outline becomes an off-canvas drawer: the
-       lesson (.course-main) takes the full width and keeps scrolling on
-       its own, and .course-sidebar slides in over it from the left,
-       positioned against .svr-course (position: relative, above) so it
-       sits below the app shell header instead of covering it. Opened by
-       the sticky .drawer-trigger bar, closed by the ✕, the backdrop,
-       Escape, or picking a lesson (CoursePage's drawerOpen state). */
     .course-layout,
     .course-layout.sidebar-collapsed {
       grid-template-columns: 1fr;
@@ -807,9 +662,6 @@
     .course-main {
       padding: 0 22px 70px;
     }
-    /* Sticky "Course contents" bar at the top of the lesson — the
-       drawer's handle. Bleeds to the column edges (negative margins undo
-       .course-main's side padding) so it reads as a toolbar. */
     .drawer-trigger {
       position: sticky;
       top: 0;
@@ -848,8 +700,6 @@
     }
   }
 }
-
-/* ── Light theme ─────────────────────────────────────────────────────────── */
 :root[data-theme='light'] .svr-course {
   --bg: #f6f8f6;
   --panel: rgba(var(--ink-tint-rgb), 0.04);
@@ -871,8 +721,5 @@
   .lesson-item.active,
   .arrow-btn:hover:not(:disabled) {
     color: var(--text);
-  }
-  .tsoon {
-    background: rgba(var(--ink-tint-rgb), 0.06);
   }
 }

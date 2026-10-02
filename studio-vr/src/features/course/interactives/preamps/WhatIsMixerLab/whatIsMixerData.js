@@ -1,15 +1,3 @@
-// "What Is a Mixer?" — content for WhatIsMixerLab.
-//
-// One screen, no tabs: hero image, lead, what a mixer does, then the
-// kitchen analogy: one row per step (picture beside the paragraph, like
-// WhyAmplificationLab), joined by hand-drawn arrows, each pairing a
-// kitchen job with its mixer job; key points last. Each row's picture is
-// a FlipCard: kitchen photo on the front, studio equivalent on the back.
-//
-// Pictures: public/mixer/<id>.jpg (hero: mixer.jpg; kitchen rows: front
-// kitchen-<step>.jpg, back studio-<step>.jpg via `studioImage`). Until a file exists that slot shows a placeholder with
-// the expected path.
-
 export const mixerImagePath = (id) => `/mixer/${id}.jpg`;
 
 export const MIXER_CONCEPT = {
@@ -31,36 +19,36 @@ export const MIXER_CONCEPT = {
     {
       id: "kitchen-ingredients",
       studioImage: "studio-ingredients",
-      kitchen: "Ingredients",
-      mixer: "Inputs",
+      from: "Ingredients",
+      to: "Inputs",
       text: "Vegetables, spices, rice and stock arrive at the kitchen door, each in its own crate. Microphones, guitars, keyboards and playback arrive at the mixer the same way, each on its own input.",
     },
     {
       id: "kitchen-prep",
       studioImage: "studio-prep",
-      kitchen: "Prep station",
-      mixer: "Channel strip",
+      from: "Prep station",
+      to: "Channel strip",
       text: "Every ingredient is washed, trimmed and seasoned on its own board before it goes near the pot. Every input gets its own channel strip with gain, EQ and dynamics so it is ready before it is combined.",
     },
     {
       id: "kitchen-recipe",
       studioImage: "studio-recipe",
-      kitchen: "Quantities",
-      mixer: "Faders & pan",
+      from: "Quantities",
+      to: "Faders & pan",
       text: "Too much chilli and you taste nothing else; too little salt and the dish is flat. Faders set how much of each source goes into the mix, and pan sets where on the plate it sits, left to right.",
     },
     {
       id: "kitchen-pot",
       studioImage: "studio-pot",
-      kitchen: "The pot",
-      mixer: "Mix bus",
+      from: "The pot",
+      to: "Mix bus",
       text: "Everything goes into one pot and becomes a single dish. The mix bus is that pot: every channel is summed into it, and from then on it is one signal, the mix.",
     },
     {
       id: "kitchen-pass",
       studioImage: "studio-pass",
-      kitchen: "Tasting & serving",
-      mixer: "Aux & outputs",
+      from: "Tasting & serving",
+      to: "Aux & outputs",
       text: "The head chef tastes a spoonful, the waiter takes plates to the tables. Aux sends give the singer a headphone mix or feed the reverb, and the master output serves the finished mix to the speakers and recorder.",
     },
   ],

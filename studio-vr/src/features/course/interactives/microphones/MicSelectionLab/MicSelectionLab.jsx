@@ -25,37 +25,7 @@ import {
   selectionAudioPath,
   sourceById,
 } from "./micSelectionData";
-
-// "Pick the mic for the job" — chapter 6 (courseData.js TOPICS[id=
-// "mic-stand"], Selection subchapter). Originally ported from
-// design/mic-selection-lab.html; restyled to the shared lab system:
-//
-//   1. The four questions an engineer asks (source, loudness, room, desired
-//      sound) are shared Accordion steps (components/Accordion), one open
-//      at a time. Each closed row shows its current answer on the right, and
-//      picking an answer opens the next question — so the student walks
-//      through them in order but can reopen any step to change it.
-//   2. The recommendation is a set of shared FlipCards (components/FlipCard),
-//      the same card ActiveSpeakerLab / WhatIsMixerLab use:
-//        - Best pick (full width): front = mic "screen" + name + specs + fit
-//          meter; back = "Why this mic" (top factors, each tagged with the
-//          factor it comes from, one honest trade-off) + classic examples.
-//        - The other four (2 × 2, in rank order): front = rank, mic, status
-//          and fit meter; back = "Why not" (each family's biggest weakness
-//          for this job, de-duplicated so every card teaches something new)
-//          + what it *would* bring to this source.
-//      Cards keep their flip state while answers change (keyed by mic id;
-//      the best-pick card is one card whose content swaps), so a student can
-//      leave the "why" side up and watch the reasons move as they tweak.
-//   3. "Hear the difference" A/B player, a "How is the pick made?" reveal
-//      Accordion, then the global KeyPoints.
-//
-// Scoring is unchanged (scoreMic in micSelectionData.js).
-//
-// Audio: plays public/audio/mic-selection/<mic>-<source>.mp3 for the top
-// three practical picks (or any practical mic picked from the chips). Files
-// don't exist yet → "Clip pending" hint, same as MicTypeLab. onInteract
-// fires on the first answer change, card flip, reveal or play.
+import { useInteractOnce } from "../../shared/useInteractOnce";
 
 const MIC_BY_ID = Object.fromEntries(MIC_TYPES.map((t) => [t.id, t]));
 const OPTIONS = { source: SEL_SOURCES, level: LEVELS, room: ROOMS, goal: GOALS };
@@ -89,17 +59,7 @@ function MicSelectionLab({ onInteract }) {
   const [playing, setPlaying] = useState(false);
   const [clipMissing, setClipMissing] = useState(false);
   const audioRef = useRef(null);
-  const firedRef = useRef(false);
-  const onInteractRef = useRef(onInteract);
-  useEffect(() => {
-    onInteractRef.current = onInteract;
-  }, [onInteract]);
-
-  const markInteracted = () => {
-    if (firedRef.current) return;
-    firedRef.current = true;
-    onInteractRef.current?.();
-  };
+  const markInteracted = useInteractOnce(onInteract);
 
   const src = sourceById(answers.source);
   const srcLower = src.label.toLowerCase();
@@ -116,8 +76,6 @@ function MicSelectionLab({ onInteract }) {
   if (win.id === "condenser-fet" && answers.source === "overheads") pickName += " — small-diaphragm pair";
   else if (win.id === "condenser-fet" && answers.source === "acoustic") pickName += " — small-diaphragm";
 
-  // Why this mic: the source note first, then the strongest positive factors,
-  // then its biggest weakness as an honest trade-off.
   const why = [];
   if (src.note[win.id]) why.push({ tag: FACTOR_TAG.fit, text: src.note[win.id] });
   win.parts
@@ -136,10 +94,6 @@ function MicSelectionLab({ onInteract }) {
       COPY[key].neg
     );
 
-  // Why not the others — biggest weakness per mic, skipping a reason already
-  // shown for another mic so the cards don't repeat each other. `showsNote`
-  // marks texts that already include the source note, so the card back
-  // doesn't print it twice.
   const usedKeys = new Set();
   const runners = results.slice(1).map((r, i) => {
     const base = { ...r, rank: i + 2, status: rankStatus(i + 1, r.fit) };
@@ -153,13 +107,10 @@ function MicSelectionLab({ onInteract }) {
     return { ...base, showsNote: worst.key === "fit", text: weakText(worst.key, r.id) };
   });
 
-  // A/B options: top three practical mics (+ one picked from the chips).
   const topPractical = results.filter((r) => r.fit > 0).slice(0, 3).map((r) => r.id);
   const heard = hearId && results.find((r) => r.id === hearId && r.fit > 0) ? hearId : topPractical[0];
   const abOptions = topPractical.includes(heard) ? topPractical : [...topPractical, heard];
 
-  // Reload the clip when the heard mic or source changes, keeping playback
-  // going across the switch (same behaviour as MicTypeLab).
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -180,7 +131,6 @@ function MicSelectionLab({ onInteract }) {
       if (key === "level") setLevelAuto(false);
       setAnswers((a) => ({ ...a, [key]: value }));
     }
-    // Step on to the next question (the last one stays open).
     const i = QUESTIONS.findIndex((q) => q.id === key);
     if (i < QUESTIONS.length - 1) setOpenQ(QUESTIONS[i + 1].id);
   }
@@ -213,7 +163,6 @@ function MicSelectionLab({ onInteract }) {
         why one wins and what sinks the others.
       </p>
 
-      {/* ---------- questions ---------- */}
       <h4 className="msl-subhead">Describe the recording</h4>
       <Accordion value={openQ} onChange={setOpenQ} className="msl-steps">
         {QUESTIONS.map((q) => (
@@ -244,7 +193,6 @@ function MicSelectionLab({ onInteract }) {
         ))}
       </Accordion>
 
-      {/* ---------- recommendation ---------- */}
       <h4 className="msl-subhead">Recommendation</h4>
       <div className="msl-cards" aria-live="polite">
         <FlipCard
@@ -338,7 +286,6 @@ function MicSelectionLab({ onInteract }) {
         })}
       </div>
 
-      {/* ---------- listen ---------- */}
       <h4 className="msl-subhead">Hear the difference</h4>
       <div className="msl-player">
         <button type="button" className={`lab-play-btn${playing ? " playing" : ""}`} onClick={togglePlay}>

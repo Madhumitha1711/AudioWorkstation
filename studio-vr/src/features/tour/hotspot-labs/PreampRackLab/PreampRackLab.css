@@ -1,17 +1,4 @@
 @import "../shared/hardwareTokens.css";
-
-/* Styles for PreampRackLab.jsx — ported from design/preamp-rack-lab.html.
-   Reuses the shared `.llab-*` base (panel shell width/height, tabs, card,
-   seg toggle, curve visual, playbar, take-away chip/pop, audio note) from
-   speakerListeningLab.css — see that file's own header comment. Only the
-   two visuals unique to this lab — the circular gain "telescope" (module 1)
-   and the harmonic content bars (module 2) — get their own `prlab-` prefixed
-   rules below, scaled down from the original mockup's 760px layout to fit
-   the ~352px docked panel. Module 2's waveform reuses .llab-curve__shape
-   directly (just with its own tint wrapper, .prlab-lens-frame).
-*/
-
-/* ---------- module 1 — the sound telescope (gain staging) ---------- */
 .prlab-scope-wrap {
   margin-top: 14px;
   display: flex;
@@ -111,8 +98,6 @@
   border-radius: 6px;
   transition: left 0.35s ease, background 0.35s ease;
 }
-
-/* ---------- module 2 — the camera lens filter (preamp character) ---------- */
 .prlab-lens-frame {
   position: relative;
   margin-top: 14px;

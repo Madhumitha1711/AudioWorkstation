@@ -1,17 +1,3 @@
-// "Active Speaker" — content for ActiveSpeakerLab.
-//
-// Single screen, no tabs: intro + how an active speaker works (including
-// why soffit-mounted mains keep their amps in a separate rack), then each
-// example as an image + description card, then key points. Spec figures
-// are the manufacturers' published numbers (Genelec 8340A / 1234A,
-// Neumann KH 120 II, Yamaha HS8, Kali Audio LP-6 V2).
-//
-// `wide: true` makes a card span the full row — used for the soffit-mounted
-// main monitor, which is a different class of system from the nearfields.
-//
-// Photos aren't added yet — drop them in at public/active-speaker/<id>.jpg
-// and they appear automatically; until then each card shows a placeholder.
-
 export const activeSpeakerImagePath = (id) => `/active-speaker/${id}.jpg`;
 
 export const ACTIVE_SPEAKER = {

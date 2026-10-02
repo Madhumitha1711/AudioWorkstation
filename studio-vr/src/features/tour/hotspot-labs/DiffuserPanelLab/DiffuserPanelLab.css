@@ -1,17 +1,5 @@
 @import "../shared/hardwareTokens.css";
 
-/* Styles for DiffuserPanelLab.jsx — ported from
-   design/diffuser-panel-lab.html. Reuses the shared `.llab-*` base (panel
-   shell width/height, tabs, card, seg toggle, decay bars, trigger row,
-   auto-repeat toggle, take-away chip/pop, audio note) from
-   speakerListeningLab.css — see that file's own header comment. Module 2
-   needs no new rules at all — it reuses .llab-decay/.llab-trigger-row/
-   .llab-auto-toggle as-is, same as the original mockup's second module was
-   already just a bars + trigger + checkbox layout. Only module 1's
-   source→wall→listener scatter diagram is unique to this lab, scaled down
-   from the original mockup's 760px layout to fit the ~352px docked panel.
-*/
-
 .dflab-scatter-box {
   margin-top: 14px;
   background: rgba(0, 0, 0, 0.22);

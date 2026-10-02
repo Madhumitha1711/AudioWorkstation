@@ -7,38 +7,7 @@ import { useLabAudio } from "../../shared/useLabAudio";
 import "../../shared/labs.css";
 import "./AmplificationLab.css";
 import { AMPLIFICATION as LAB } from "./amplificationData";
-
-// "Amplification / Amplifier" — interactive amplifier on top (gain control,
-// in/out meters, live spectrum), description + key points below.
-//
-// No synthetic audio: the lab only ever amplifies the provided recording
-// (LAB.sample.src). If that file isn't there yet (Vite's SPA fallback
-// serves index.html for missing files, so a text/html response counts as
-// missing too), Play stays available: each press re-tries the fetch, so a
-// file dropped in later starts playing without a reload, and the status
-// card says "No sample loaded" if it still isn't there.
-//
-// Audio graph (all in series, so every analyser is pulled by the
-// destination and keeps updating in every browser):
-//
-//   BufferSource(loop) → inAn → gain → preAn → clipper → outAn → monitor → out
-//
-//   inAn    — what goes INTO the amplifier: IN meter + blue spectrum line.
-//   gain    — the amplifier itself (0…+60 dB, or unity when "Original").
-//   preAn   — the amplified signal before the ceiling. Web Audio is
-//             floating point and wouldn't clip on its own, so this is what
-//             tells us how far past 0 dBFS the student has pushed it (the
-//             OUT meter reads it, including the red "over" region).
-//   clipper — a 2-point WaveShaper curve [-1, 1]: identity inside ±1 and,
-//             because WaveShaper clamps its input to the curve's ends,
-//             a hard ceiling at 0 dBFS outside it. This is the real
-//             converter/rail clipping the lesson talks about: it is audible,
-//             and the new harmonics it creates show up in the spectrum.
-//   outAn   — what comes OUT: green spectrum (post-clip, so distortion
-//             products are visible).
-//   monitor — fixed listening trim so a fully clipped signal isn't
-//             painfully loud. It sits after every measurement point, so
-//             it never affects what the meters/spectrum show.
+import { useInteractOnce } from "../../shared/useInteractOnce";
 
 const METER_MIN = -60;
 const METER_MAX = 6;
@@ -47,12 +16,10 @@ const SPEC_F_MAX = 20000;
 const SPEC_DB_MIN = -120;
 const SPEC_DB_MAX = 0;
 const MONITOR_TRIM = 0.5;
-const RELEASE_DB_PER_S = 24; // meter fall-back speed
-const HOLD_S = 1.5; // peak-hold tick
-const CLIP_LATCH_S = 1.2; // clip LED stays lit this long
+const RELEASE_DB_PER_S = 24;
+const HOLD_S = 1.5;
+const CLIP_LATCH_S = 1.2;
 
-// Output-level zones (peak dBFS, OUT meter's held value). The target band
-// (-18 … -6 dBFS) is also drawn on both meters.
 const ZONES = [
   { id: "silent", below: -60, label: "No signal", tone: "dim" },
   { id: "weak", below: -30, label: "Too weak, add gain", tone: "warn" },
@@ -80,15 +47,11 @@ function fmtRatio(db) {
   return `×${Math.round(r).toLocaleString("en-US")}`;
 }
 
-// Meter position (0..100 %) for a dBFS value.
 function pct(db) {
   const v = Math.min(METER_MAX, Math.max(METER_MIN, db));
   return ((v - METER_MIN) / (METER_MAX - METER_MIN)) * 100;
 }
 
-// LED-style hard-stop gradient: target colour up to -6, warn up to 0,
-// clip above. Same string for both meters, applied to a full-width layer
-// that's revealed with clip-path, so colours stay fixed to the scale.
 const METER_GRADIENT = `linear-gradient(90deg, var(--amp-good) 0 ${pct(TARGET_HIGH)}%, var(--amp-warn) ${pct(
   TARGET_HIGH,
 )}% ${pct(0)}%, var(--amp-clip) ${pct(0)}%)`;
@@ -109,7 +72,6 @@ function peakOf(buf) {
   return p;
 }
 
-/** Fast-attack / slow-release meter value with a peak-hold tick. */
 function stepMeter(m, peakDb, now, dt) {
   m.disp = peakDb >= m.disp ? peakDb : Math.max(peakDb, m.disp - RELEASE_DB_PER_S * dt);
   if (peakDb >= m.hold || now - m.holdT > HOLD_S) {
@@ -118,8 +80,6 @@ function stepMeter(m, peakDb, now, dt) {
   }
 }
 const freshMeter = () => ({ disp: -Infinity, hold: -Infinity, holdT: 0 });
-
-// ---- spectrum canvas -------------------------------------------------------
 
 const FREQ_GRID = [50, 100, 200, 500, 1000, 2000, 5000, 10000];
 const DB_GRID = [-100, -80, -60, -40, -20];
@@ -137,14 +97,6 @@ function fitCanvas(canvas) {
   return { ctx, w, h };
 }
 
-/**
- * Log-frequency spectrum (20 Hz – 20 kHz) on a dBFS scale. `inData` /
- * `outData` are AnalyserNode.getFloatFrequencyData() arrays (or null when
- * idle). For each pixel column we take the loudest bin it covers, so
- * narrow peaks (and clipping harmonics) don't vanish between columns at
- * the high end, and interpolate at the low end where one bin spans many
- * pixels.
- */
 function drawSpectrum(canvas, { inData, outData, sampleRate, theme, outTone, message }) {
   if (!canvas || !canvas.clientWidth) return;
   const { ctx, w, h } = fitCanvas(canvas);
@@ -161,7 +113,6 @@ function drawSpectrum(canvas, { inData, outData, sampleRate, theme, outTone, mes
   ctx.fillStyle = pal.bg;
   ctx.fillRect(0, 0, w, h);
 
-  // grid
   ctx.strokeStyle = pal.grid;
   ctx.lineWidth = 1;
   ctx.globalAlpha = 0.6;
@@ -257,8 +208,6 @@ function drawSpectrum(canvas, { inData, outData, sampleRate, theme, outTone, mes
   }
 }
 
-// ---- component -------------------------------------------------------------
-
 function AmplificationLab({ onInteract }) {
   const { theme } = useTheme();
   const themeRef = useRef(theme);
@@ -267,14 +216,14 @@ function AmplificationLab({ onInteract }) {
   }, [theme]);
 
   const { getCtx } = useLabAudio();
-  const [status, setStatus] = useState("loading"); // loading | ready | missing
+  const [status, setStatus] = useState("loading");
   const [playing, setPlaying] = useState(false);
   const [gainDb, setGainDb] = useState(LAB.gain.initial);
   const [amplified, setAmplified] = useState(true);
   const [zone, setZone] = useState(null);
 
-  const rawRef = useRef(null); // fetched ArrayBuffer
-  const bufferRef = useRef(null); // decoded AudioBuffer
+  const rawRef = useRef(null);
+  const bufferRef = useRef(null);
   const graphRef = useRef(null);
   const srcRef = useRef(null);
   const rafRef = useRef(0);
@@ -284,7 +233,6 @@ function AmplificationLab({ onInteract }) {
   const metersRef = useRef({ in: freshMeter(), out: freshMeter(), clipUntil: 0, lastT: 0, lastText: 0 });
   const effGainRef = useRef(0);
 
-  // DOM refs updated straight from the rAF loop (no re-render per frame).
   const inFillRef = useRef(null);
   const inHoldRef = useRef(null);
   const inValRef = useRef(null);
@@ -293,22 +241,11 @@ function AmplificationLab({ onInteract }) {
   const outValRef = useRef(null);
   const clipLedRef = useRef(null);
 
-  const firedRef = useRef(false);
-  const onInteractRef = useRef(onInteract);
-  useEffect(() => {
-    onInteractRef.current = onInteract;
-  }, [onInteract]);
-  const markInteracted = () => {
-    if (firedRef.current) return;
-    firedRef.current = true;
-    onInteractRef.current?.();
-  };
+  const markInteracted = useInteractOnce(onInteract);
 
   const effectiveGain = amplified ? gainDb : 0;
   effGainRef.current = effectiveGain;
 
-  // Fetch the provided recording (decoded lazily on first play, once an
-  // AudioContext exists under a user gesture).
   const aliveRef = useRef(true);
   function loadSample() {
     return fetch(LAB.sample.src)
@@ -337,14 +274,12 @@ function AmplificationLab({ onInteract }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Live gain changes while playing (short ramp → no zipper noise).
   useEffect(() => {
     const g = graphRef.current;
     if (!g) return;
     g.gain.gain.setTargetAtTime(dbToLin(effectiveGain), g.ctx.currentTime, 0.03);
   }, [effectiveGain]);
 
-  // Idle spectrum frame (and on theme change / status change).
   const idleMessage =
     status === "loading" ? "Loading sample…" : "Press play to see the spectrum";
   const idleMessageRef = useRef(idleMessage);
@@ -354,7 +289,6 @@ function AmplificationLab({ onInteract }) {
     drawSpectrum(canvasRef.current, { theme, message: idleMessage, sampleRate: 48000 });
   }, [playing, idleMessage, theme]);
 
-  // Keep the idle frame crisp when the layout width changes.
   useEffect(() => {
     const el = canvasRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
@@ -439,7 +373,6 @@ function AmplificationLab({ onInteract }) {
     setMeter(outFillRef.current, outHoldRef.current, M.out);
     clipLedRef.current?.classList.toggle("on", clipping);
 
-    // Numbers change ~8×/s so they're readable.
     if (now - M.lastText > 0.12) {
       M.lastText = now;
       if (inValRef.current) inValRef.current.textContent = fmtDb(M.in.hold);
@@ -459,8 +392,6 @@ function AmplificationLab({ onInteract }) {
       outData: d.outFreq,
       sampleRate: g.ctx.sampleRate,
       theme: themeRef.current,
-      // Spectrum colour only warns when the output is hot or clipping
-      // (a weak signal is still drawn in the normal "good" colour).
       outTone: z.id === "clip" ? "danger" : z.id === "hot" ? "warn" : "good",
     });
     rafRef.current = requestAnimationFrame(tick);
@@ -468,10 +399,9 @@ function AmplificationLab({ onInteract }) {
 
   async function start() {
     markInteracted();
-    // Create/resume the context inside the click (user gesture) before any await.
     const ctx = getCtx();
     if (!rawRef.current && !bufferRef.current && !(await loadSample())) return;
-    if (srcRef.current) return; // double click while loading
+    if (srcRef.current) return;
     if (!bufferRef.current) {
       try {
         bufferRef.current = await ctx.decodeAudioData(rawRef.current.slice(0));
@@ -500,7 +430,6 @@ function AmplificationLab({ onInteract }) {
       try {
         src.stop();
       } catch {
-        /* already stopped */
       }
       src.disconnect();
     }
@@ -510,22 +439,18 @@ function AmplificationLab({ onInteract }) {
     resetMeters();
   }
 
-  // Stop the source on unmount (useLabAudio closes the context itself).
   useEffect(
     () => () => {
       try {
         srcRef.current?.stop();
       } catch {
-        /* already stopped */
       }
     },
     [],
   );
 
-
   return (
     <div className="lab amp">
-      {/* ── Interactive amplifier ───────────────────────────────────── */}
       <section className="amp-rig" aria-label="Amplifier">
         <div className="amp-head">
           <div className="sound-lab-panel-head amp-head-title">
@@ -673,7 +598,6 @@ function AmplificationLab({ onInteract }) {
         <p className="lab-hint amp-hint">Start with your volume low. Push the gain past 0 dBFS to hear clipping and watch new harmonics appear.</p>
       </section>
 
-      {/* ── Description + key points ────────────────────────────────── */}
       <h3 className="amp-title">{LAB.title}</h3>
       <p className="amp-lead">{LAB.lead}</p>
       <dl className="amp-sections">

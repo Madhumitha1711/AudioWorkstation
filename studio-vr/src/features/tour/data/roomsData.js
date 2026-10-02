@@ -1,47 +1,3 @@
-// Data-only definition of the studio tour: which panorama belongs to each
-// room, how rooms connect to each other (doorway arrows), and which pieces
-// of gear have a learning hotspot.
-//
-// Currently there's a single real room. Add more rooms to this array later
-// (each with its own `panorama` and `links` back and forth) to rebuild a
-// multi-room tour — the component already supports it.
-//
-// Each marker's `course` object is a placeholder for the real lesson content
-// that should load when a student selects that hotspot (currently just
-// rendered as a summary + objectives list in the side panel). Swap in real
-// course/lesson data or wire `courseId` up to your LMS once that's ready.
-//
-// yaw / pitch values (in degrees) below are measured against the actual
-// photo using placement mode ("P" in the running app). To add more:
-//   1. Run the app.
-//   2. Press "P" to turn on hotspot placement mode (see the on-screen hint).
-//   3. Click exactly on the spot (gear, doorway) you want a hotspot on.
-//   4. The yaw/pitch of that exact click is printed to the console and
-//      shown on screen — copy those numbers into a new entry below.
-//
-// Each `links[]` entry's `yaw`/`pitch` place the door hotspot within the
-// *current* room's photo — where it appears on screen, nothing else. The
-// separate `arrivalYaw`/`arrivalPitch` on that same entry is the camera
-// direction the viewer lands facing once that door is clicked, inside the
-// *destination* room's photo (see onNodeChanged() in PanoramaTour.jsx, which
-// snaps to it right as the new node loads). These are independent because
-// the two panoramas don't share a coordinate frame — "105.7 yaw" in the
-// studio room's photo has no relation to any angle in the recording room's
-// photo.
-//
-// To make a doorway feel like actually walking in (the door you just came
-// through ends up behind you, out of frame), set arrivalYaw to the
-// *destination* room's own door-yaw for the link back, plus/minus 180°. E.g.
-// the recording room's door back to the studio sits at yaw 285.7 in its own
-// photo (below), so the studio's link *into* the recording room uses
-// arrivalYaw 105.7 (285.7 - 180, wrapped to 0-360).
-//
-// Each marker's `audio` field is the recorded narration clip that plays,
-// spatialized to that hotspot's direction, when it's selected — the path
-// must match a real file in public/audio/ exactly. Any common web audio
-// format works (mp3, m4a, ogg, wav). If a file is missing, that hotspot
-// just silently skips narration.
-
 export const ROOMS = [
   {
     id: "studio-room",
@@ -52,12 +8,6 @@ export const ROOMS = [
         nodeId: "recording-room",
         yaw: 255.4,
         pitch: 4.7,
-        // Where the camera lands, looking into the recording room, once
-        // this door is clicked — independent of the yaw/pitch above, which
-        // only places the door hotspot within *this* room's photo.
-        // Intentionally overridden from the usual "door behind you" framing
-        // (which would be 105.7/-16.8) so the student instead arrives facing
-        // the recording room's screen.
         arrivalYaw: 33.2,
         arrivalPitch: -3.9,
       },
@@ -69,9 +19,6 @@ export const ROOMS = [
         pitch: -2.9,
         title: "Speakers",
         audio: "/audio/speaker.mp3",
-        // The rotatable 3D scan preview for this piece of gear now lives on
-        // the matching lesson page instead (see TOPICS[0].model in
-        // course/data/courseData.js) — the hotspot panel stays text + audio only.
         description:
           "A two-way nearfield/midfield monitor: a dome tweeter handles high frequencies while the larger woofer below covers mids and bass. The slots on either side of the tweeter are bass reflex ports — they vent air pressure from behind the woofer to extend low-frequency output without needing a larger sealed cabinet.",
         course: {
@@ -192,17 +139,6 @@ export const ROOMS = [
           ],
         },
       },
-      // 8th gear hotspot — up at the monitors themselves (same spot the DAW
-      // hotspot originally used before it briefly moved to a purely
-      // interactive marker). Behaves exactly like every hotspot above: a
-      // numbered badge (8, since it's declared last in this array) that
-      // opens the standard svr-tour-gear-panel with description + course/quiz
-      // choice. `course.id: "daw-screens"` matches the existing ready-to-go
-      // topic in course/data/courseData.js (full lessons + a 5-question
-      // "daw-assessment" quiz), so "Test your knowledge" and "Start course"
-      // both work already, same as any other numbered hotspot. The separate
-      // `daw-desk` interactive marker below is what actually opens the live
-      // DawWorkstationScreen — this one is read-only info, on purpose.
       {
         id: "daw-screens",
         yaw: 62.2,
@@ -221,28 +157,7 @@ export const ROOMS = [
         },
       },
     ],
-    // Functional processing hotspots — distinct from the descriptive `markers`
-    // above: instead of opening a read-only info panel, these open a live
-    // full-screen module wired to real Faust WASM DSPs that actually process
-    // an uploaded (or built-in demo) audio file. Rendered in PanoramaTour.jsx
-    // with an icon marker instead of a numbered badge so they read as
-    // "interactive module" at a glance rather than "read more about this
-    // gear". The DAW hotspot (see features/tour/daw/DawWorkstationScreen.jsx) opens a
-    // full-screen "walked up to the desk" DAW UI with a single track, a
-    // draggable selection, and a chainable insert rack built from
-    // public/faust/{ParamEQ,compressor,limiter,Gate,deesser,delay,reverb} —
-    // its processed output plays back through the two real studio monitor
-    // positions (see STUDIO_SPEAKERS in audio/spatialAudioEngine.js) for a
-    // genuine binaural "sitting between the speakers" feel that pans as you
-    // look around, instead of playing dead-center.
     interactiveMarkers: [
-      // Desk/keyboard-height entry point — separate from the "daw-screens"
-      // numbered gear hotspot above (same monitors, but that one just opens
-      // an info panel). This is the one that actually opens the live DAW UI.
-      // Kept its own `icon` (keyboard, not the default screen glyph) since
-      // it's the only interactive marker left here, but the override still
-      // reads correctly either way (see interactiveMarkerHtml in
-      // PanoramaTour.jsx).
       {
         id: "daw-desk",
         type: "daw",
@@ -250,12 +165,6 @@ export const ROOMS = [
         pitch: 4.1,
         title: "DAW Workstation",
         icon: "⌨️",
-        // Kept out of the left-docked StudioHotspotsPanel device list /
-        // power-up panel (see buildDeviceList in hotspotDevices.js) — the
-        // numbered "daw-screens" gear hotspot above is what represents this
-        // spot in that list (and in SIGNAL_ORDER's signal chain); this is
-        // just an extra way to reach the live module from the scene, not a
-        // second real device to power up.
         secondaryEntry: true,
       },
     ],
@@ -269,21 +178,10 @@ export const ROOMS = [
         nodeId: "studio-room",
         yaw: 285.7,
         pitch: 0.6,
-        // Where the camera lands, looking into the studio room, once this
-        // door is clicked. Set to the exact opposite (+180°) of the studio
-        // room's own door yaw (255.4, see that room's links[] above) so the
-        // door the student just walked through is directly behind them on
-        // arrival.
         arrivalYaw: 75.4,
         arrivalPitch: -7.6,
       },
     ],
-    // Two overhead boom mics flanking the drum kit, facing the stone
-    // feature wall — chosen as a natural stereo pair. Coordinates measured
-    // the same way as every Control Room marker (center-origin yaw, wrapped
-    // ±180°) and verified against public/recording.png. `mic-stand` anchors
-    // chapter 6 (Microphones), `stereo-overheads` anchors chapter 7 (Mic
-    // Techniques and Stereo Recording) — see course/data/courseData.js.
     markers: [
       {
         id: "mic-stand",

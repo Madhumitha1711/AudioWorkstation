@@ -1,34 +1,23 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Tabs, TabPanel, TabPager } from "../../../../../components/Tabs";
 import { KeyPoints } from "../../../../../components/KeyPoints";
 import "../labs.css";
 import "./briefingTabs.css";
-
-// Single-row image-over-description tabs: tab bar → image → title / lead /
-// labelled facts → KeyPoints → Prev/Next pager. Shared across chapters —
-// Foundations' StudioRoomsLab + StudioTypesLab. (Moved here from
-// foundations/shared/ so other chapters can use it.) Items: [{ id, tab, title, lead?, image?, facts?:
-// [{ label, text }], points? }].
+import { useInteractOnce } from "../useInteractOnce";
+import { Facts } from "../LabParts";
 
 function BriefingTabs({ items, ariaLabel, idPrefix, onInteract, className = "" }) {
   const [active, setActive] = useState(items[0].id);
   const [loaded, setLoaded] = useState(() => new Set());
   const [failed, setFailed] = useState(() => new Set());
-  const firedRef = useRef(false);
-  const onInteractRef = useRef(onInteract);
-  useEffect(() => {
-    onInteractRef.current = onInteract;
-  }, [onInteract]);
+  const markInteracted = useInteractOnce(onInteract);
 
   const index = Math.max(0, items.findIndex((t) => t.id === active));
   const item = items[index];
 
   function onChange(id) {
     setActive(id);
-    if (!firedRef.current) {
-      firedRef.current = true;
-      onInteractRef.current?.();
-    }
+    markInteracted();
   }
 
   const imgLoaded = loaded.has(item.id);
@@ -72,14 +61,7 @@ function BriefingTabs({ items, ariaLabel, idPrefix, onInteract, className = "" }
         <h3 className="brt-title">{item.title}</h3>
         {item.lead && <p className="brt-lead">{item.lead}</p>}
         {item.facts?.length > 0 && (
-          <dl className="brt-facts">
-            {item.facts.map((f) => (
-              <div key={f.label} className="brt-fact">
-                <dt>{f.label}</dt>
-                <dd>{f.text}</dd>
-              </div>
-            ))}
-          </dl>
+          <Facts prefix="brt" items={item.facts} />
         )}
         <KeyPoints key={item.id} points={item.points} />
       </TabPanel>

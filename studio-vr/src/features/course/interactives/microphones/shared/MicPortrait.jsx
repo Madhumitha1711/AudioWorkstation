@@ -1,12 +1,3 @@
-// Pulled out of MicTypeLab.jsx so the same five-transducer silhouette can
-// be reused by any mic lab that needs it — MicTypeLab's image placeholder
-// and MicSelectionLab's pick both render one of these.
-//
-// Body/detail/stand tones come from CSS classes (mic-art-*, micLabs.css)
-// rather than hardcoded fills, so the silhouette follows the light/dark
-// "screen" behind it; `color` (the accent outline) should already be the
-// theme-resolved accent — see micAccent() in micLabShared.js.
-
 function MicPortrait({ shape, color }) {
   const common = { fill: "none", stroke: color, strokeWidth: 2 };
   switch (shape) {
@@ -47,7 +38,7 @@ function MicPortrait({ shape, color }) {
           <path d="M10 82 h40" className="mic-art-stand" />
         </svg>
       );
-    default: // "dynamic"
+    default:
       return (
         <svg viewBox="0 0 60 100" {...common}>
           <rect x="18" y="8" width="24" height="46" rx="12" className="mic-art-body" />

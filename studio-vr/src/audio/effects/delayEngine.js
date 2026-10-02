@@ -1,19 +1,6 @@
-// Shared, non-component Delay logic: tempo-sync helpers, Faust param
-// defaults/addresses, the pushFaustParams helper that writes typed params
-// onto a live Faust delay node, and a small analyser-peak reader.
-//
-// Split out from features/gear-studio/Delay.jsx (which exports the DelayEditorPanel/Delay
-// *components*) so that file only exports components — keeps Vite Fast
-// Refresh working there — and gives any other host (e.g. the DAW
-// workstation's insert-chain popup, src/features/tour/daw/DawWorkstationScreen) a plain
-// module to import this from without pulling in component-only concerns.
-// Same split as ./gateEngine for the Noise Gate.
-
 export const BPM = 120;
 export const DEFAULT_SYNC = '1/8';
 
-// Tempo-synced note value → ms, at BPM. FREE has no fixed value (the knob
-// drives delayTimeMs directly instead).
 export function syncDivisionMs(div, bpm) {
   const quarter = 60000 / bpm;
   switch (div) {
@@ -25,11 +12,6 @@ export function syncDivisionMs(div, bpm) {
   }
 }
 
-// Defaults — mirror the `init` values in public/faust/delay/dsp-meta.json
-// (Delay Time 250ms == the 1/8 note at 120 BPM, Feedback 42%, Analog 2,
-// Mod Depth 28%, Mod Rate 0.6Hz, Hipass 220Hz, Lopass 6.5kHz, Dry/Wet 28%,
-// Output +1dB). Ping Pong has no `init` in the patch (Faust checkboxes
-// default to 0) but the lab defaults it on to showcase the stereo bounce.
 export const DEFAULTS = {
   delayTimeMs: syncDivisionMs(DEFAULT_SYNC, BPM),
   feedback: 42,
@@ -43,8 +25,7 @@ export const DEFAULTS = {
   output: 1,
 };
 
-// Faust addresses, from public/faust/delay/dsp-meta.json's `ui` tree.
-export const ADDR = {
+const ADDR = {
   delayTime: '/DELAY_DESIGN_STUDIO/Delay_Time',
   feedback: '/DELAY_DESIGN_STUDIO/Feedback',
   analog: '/DELAY_DESIGN_STUDIO/Analog_Saturation',
@@ -57,10 +38,6 @@ export const ADDR = {
   output: '/DELAY_DESIGN_STUDIO/Output',
 };
 
-// Every unit here already matches the Faust patch's own range (ms, %, Hz,
-// dB, 0-10) — no external rescaling needed, only the checkbox → 0/1. The
-// delay patch mixes its own dry/wet internally (Dry_Wet param), so there's
-// no separate host-level bypass crossfade the way the gate/de-esser need.
 export function pushFaustParams(node, p) {
   node.setParamValue(ADDR.delayTime, p.delayTimeMs);
   node.setParamValue(ADDR.feedback, p.feedback);
@@ -76,11 +53,6 @@ export function pushFaustParams(node, p) {
 
 export const METER_FLOOR_DB = -70;
 
-// Reads one analyser's current block-peak level, as a LINEAR amplitude (0..1)
-// rather than dB — shared by the standalone lab's own VU meter / level
-// reading and any host (e.g. the DAW workstation) driving DelayEditorPanel
-// from its own analysers. Callers that want dB convert with
-// `peak > 1e-6 ? 20 * Math.log10(peak) : METER_FLOOR_DB`.
 export function analyserPeakLinear(analyser) {
   if (!analyser) return null;
   const buf = new Float32Array(analyser.fftSize);

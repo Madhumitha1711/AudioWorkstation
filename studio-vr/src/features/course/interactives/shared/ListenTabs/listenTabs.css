@@ -1,10 +1,3 @@
-/* ListenTabs + ClipPlayer — shared by the acoustics labs and MicTypeLab.
-   Chrome uses the course theme tokens on .svr-course (--panel, --border,
-   --text-dim…) so light/dark follows ThemeContext. The one extra colour is
-   --ltb-accent (player: playing state, progress, A/B), amber with a darker
-   light-theme value for contrast on white. Tabs are the app-wide standard
-   and are not restyled here. Type: global --font-sans, inherited. */
-
 .ltb {
   --ltb-accent: #e8934a;
   --ltb-accent-rgb: 232, 147, 74;
@@ -21,8 +14,6 @@
 .ltb *::before,
 .ltb *::after { box-sizing: border-box; }
 :where(.ltb) button { font: inherit; color: inherit; }
-
-/* ---------- panel: image | listen card, then description ---------- */
 .ltb-panel { padding-top: 24px; }
 .ltb-row {
   display: grid;
@@ -39,7 +30,6 @@
   overflow: hidden;
   background: var(--ltb-well);
 }
-/* renderMedia: the lab's own visual fills the slot. */
 .ltb-media--custom > * { position: absolute; inset: 0; }
 .ltb-media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 .ltb-ph {
@@ -66,7 +56,7 @@
 }
 .ltb-ph-art { display: flex; height: 45%; min-height: 60px; margin-bottom: 4px; }
 .ltb-ph-art svg { height: 100%; width: auto; }
-.ltb-ph-label {
+.ltb-ph-label, .ltb-listen-label {
   font-size: var(--fs-sm);
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -84,16 +74,7 @@
   background: var(--panel);
   border: 1px solid var(--border-soft);
 }
-.ltb-listen-label {
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-dimmer);
-}
 .ltb-listen-hint { margin: 8px 0 16px; font-size: var(--fs-base); line-height: 1.55; color: var(--text-dim); }
-/* Choice buttons inside a Listen card (e.g. which source to hear). Selected
-   uses the theme primary (--brand-accent), like every selection control. */
 .ltb-choices {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -131,8 +112,6 @@
 }
 .ltb .ltb-choice:focus-visible { outline-color: var(--brand-accent); }
 .ltb-listen-note { margin: 10px 0 0; font-size: var(--fs-md); line-height: 1.5; color: var(--text-dimmer); }
-/* Player sits at the bottom of the card; A/B drops to its own full-width
-   row so play / track / time keep their room in the narrow card. */
 .ltb-listen .clip-player { margin-top: auto; flex-wrap: wrap; }
 .ltb-listen .clip-ab { flex: 1 0 100%; padding: 8px 10px; }
 
@@ -147,8 +126,6 @@
 }
 .ltb-desc p { margin: 10px 0 0; font-size: var(--fs-body); line-height: 1.7; color: var(--text-dim); max-width: 760px; }
 .ltb-desc p b { color: var(--text); font-weight: 600; }
-
-/* ---------- ClipPlayer ---------- */
 .clip-player {
   display: flex;
   align-items: center;
@@ -210,9 +187,6 @@
 .clip-ab span { font-weight: 400; opacity: 0.8; }
 .clip-ab:hover { color: var(--text); border-color: var(--ltb-accent); }
 .clip-ab.is-on { color: var(--ltb-accent); border-color: var(--ltb-accent); background: rgba(var(--ltb-accent-rgb), 0.1); }
-
-/* Player / card controls keep an accent focus ring; tabs keep theirs, and
-   SVG parts (e.g. the polar diagram's dots) style their own focus. */
 .ltb :focus-visible:not(.ui-tabs__tab):not(.ui-tabpanel):not(svg *) { outline: 2px solid var(--ltb-accent); outline-offset: 2px; }
 
 @media (max-width: 760px) {

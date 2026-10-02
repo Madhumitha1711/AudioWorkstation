@@ -1,9 +1,3 @@
-// ═══════════════════════════════════════════════════════════════════════════
-// DAW Workstation — small inline SVG icon components
-// ═══════════════════════════════════════════════════════════════════════════
-// Plugin icons (used by InsertRack chips/picker) and track-type icons (used
-// by the tracklist/mixer swatches and the New Track dialog's icon picker).
-
 const PLUGIN_ICON_PATHS = {
   gate: [{ d: "M4 4v16M20 4v16M4 12h6M14 12h6", cap: "round" }],
   deess: [

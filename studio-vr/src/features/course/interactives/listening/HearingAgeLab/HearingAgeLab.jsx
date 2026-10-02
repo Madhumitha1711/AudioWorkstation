@@ -30,8 +30,6 @@ import {
   zoneFor,
 } from "./hearingAgeModel";
 
-
-
 const TABS = [
   ["test", "01 · Take the test"],
   ["results", "02 · Results"],
@@ -148,19 +146,14 @@ export default function HearingAgeLab({ onInteract }) {
   const [step, setStep] = useState(0);
   const [toneOn, setToneOn] = useState(false);
 
-  // ---- setup ----
   const [checks, setChecks] = useState([false, false, false]);
   const [ageInput, setAgeInput] = useState("32");
   const [sex, setSex] = useState("m");
 
-  // The in-progress test, kept in a ref so the audio callbacks (RAF loop,
-  // timeouts) always see the latest values without stale closures.
   const testRef = useRef({ age: 32, sex: "m", ceil: {}, thr: { R: {}, L: {} } });
-  const [results, setResults] = useState(null); // null until a test is completed
+  const [results, setResults] = useState(null);
   const [history, setHistory] = useState(loadHistory);
 
-  // One place for every pending timeout, so tab switches / unmount can
-  // cancel scheduled beeps in one go.
   const timersRef = useRef([]);
   const later = (fn, ms) => {
     const id = setTimeout(() => {
@@ -173,7 +166,6 @@ export default function HearingAgeLab({ onInteract }) {
     timersRef.current.forEach(clearTimeout);
     timersRef.current = [];
   };
-
 
   function tone({ freq, gain = 0.08, pan = 0, dur = 1, ramp = 0.03 }) {
     markInteract();
@@ -193,12 +185,11 @@ export default function HearingAgeLab({ onInteract }) {
     o.stop(t + dur + 0.02);
   }
 
-  /* ================= Part 1: high-frequency sweep ================= */
   const sweepRef = useRef({ ear: "R", osc: null, gain: null, t0: 0, raf: 0, running: false });
   const [sweepEar, setSweepEar] = useState("R");
   const [sweepRunning, setSweepRunning] = useState(false);
   const [sweepFreq, setSweepFreq] = useState(SWEEP.lo);
-  const [sweepRightDone, setSweepRightDone] = useState(null); // right-ear ceiling, once measured
+  const [sweepRightDone, setSweepRightDone] = useState(null);
 
   function startSweep() {
     markInteract();
@@ -210,8 +201,6 @@ export default function HearingAgeLab({ onInteract }) {
     p.pan.value = s.ear === "R" ? 1 : -1;
     o.connect(g).connect(p).connect(c.destination);
     const t = c.currentTime;
-    // Exponential frequency ramp = equal time per octave, matching the
-    // log-scaled progress bar below.
     o.frequency.setValueAtTime(SWEEP.lo, t);
     o.frequency.exponentialRampToValueAtTime(SWEEP.hi, t + SWEEP.dur);
     g.gain.setValueAtTime(0, t);
@@ -232,8 +221,6 @@ export default function HearingAgeLab({ onInteract }) {
     loop();
   }
 
-  /* Silence the sweep. `record` = the student pressed (or it reached the
-     top) — store the ceiling and advance; otherwise it was interrupted. */
   function silenceSweep() {
     const s = sweepRef.current;
     if (!s.running) return null;
@@ -244,7 +231,6 @@ export default function HearingAgeLab({ onInteract }) {
     try {
       s.osc.stop(c.currentTime + 0.1);
     } catch {
-      /* already stopped */
     }
     cancelAnimationFrame(s.raf);
     s.running = false;
@@ -279,8 +265,6 @@ export default function HearingAgeLab({ onInteract }) {
     }
   }
 
-  // ================= Part 2: threshold staircase ==================
-
   const MAX_TRIALS = 14;
   const thrRef = useRef(null);
   const [thrView, setThrView] = useState({ i: 0, busy: true, live: false, waiting: false, L: 40, msg: null, path: [] });
@@ -299,7 +283,7 @@ export default function HearingAgeLab({ onInteract }) {
     const pan = thrEar(t.i) === "R" ? 1 : -1;
     const f = thrFreq(t.i);
     clearTimers();
-    t.live = true; // a trial is on screen — answers now count
+    t.live = true;
     setThrView({ i: t.i, busy: true, live: true, waiting: false, L: t.L, msg, path: t.path });
     setToneOn(true);
     needsReplayRef.current = true;
@@ -319,7 +303,7 @@ export default function HearingAgeLab({ onInteract }) {
   function answer(heard) {
     const t = thrRef.current;
     if (!t || !t.live) return;
-    if (!heard && thrView.busy) return; // "Nothing" only after all 3 beeps
+    if (!heard && thrView.busy) return;
     silenceTrial();
     t.n++;
     const was = t.L;
@@ -354,7 +338,7 @@ export default function HearingAgeLab({ onInteract }) {
   function queueTrial(msg, base = 1000) {
     const t = thrRef.current;
     t.live = false;
-    needsReplayRef.current = true; // leaving the tab mid-pause replays on return
+    needsReplayRef.current = true;
     setThrView({ i: t.i, busy: true, live: false, waiting: true, L: t.L, msg, path: t.path });
     later(() => presentTrial(msg), base + Math.random() * 800);
   }
@@ -370,7 +354,7 @@ export default function HearingAgeLab({ onInteract }) {
       finishTest();
       return;
     }
-    Object.assign(t, freshTrialState()); // live=false until the next trial starts
+    Object.assign(t, freshTrialState());
     const msg = {
       tone: "green",
       text: `✓ ${f / 1000} kHz: your quietest level is ${L} dB. Next: ${thrFreq(t.i) / 1000} kHz${t.i === THR_FREQS.length ? " in your left ear" : ""}`,
@@ -390,7 +374,6 @@ export default function HearingAgeLab({ onInteract }) {
     goStep(3);
   }
 
-  /* ================= flow ================= */
   function goStep(n) {
     setStep(n);
     if (n === 1) resetSweep();
@@ -398,14 +381,10 @@ export default function HearingAgeLab({ onInteract }) {
   }
   function startTest() {
     const age = parseAge(ageInput);
-    if (age == null) return; // Start is disabled; the field shows why
+    if (age == null) return;
     testRef.current = { age, sex, ceil: {}, thr: { R: {}, L: {} } };
     goStep(1);
   }
-  /* Age / comparison group changed (setup form or the Results banner).
-     They don't affect the measurements, only what they're compared with,
-     so an existing result is re-scored straight away instead of showing
-     the age that was typed before the test. */
   function updateProfile(nextAgeInput, nextSex) {
     setAgeInput(nextAgeInput);
     setSex(nextSex);
@@ -421,7 +400,6 @@ export default function HearingAgeLab({ onInteract }) {
     goStep(0);
   }
 
-  /* Stop whatever is sounding without recording anything. */
   function abortAudio() {
     clearTimers();
     if (sweepRef.current.running) {
@@ -432,8 +410,6 @@ export default function HearingAgeLab({ onInteract }) {
     setToneOn(false);
   }
 
-  // Audio stops when leaving the test tab; an interrupted threshold trial
-  // is replayed when the student comes back.
   const stepRef = useRef(step);
   stepRef.current = step;
   useEffect(() => {
@@ -466,7 +442,6 @@ export default function HearingAgeLab({ onInteract }) {
     }
   }
 
-  /* ================= scale tab ================= */
   const [scaleSex, setScaleSex] = useState("m");
   const [playingTone, setPlayingTone] = useState(null);
   function tryTone(f) {
@@ -475,7 +450,6 @@ export default function HearingAgeLab({ onInteract }) {
     later(() => setPlayingTone((p) => (p === f ? null : p)), 1500);
   }
 
-  /* ================= derived ================= */
   const res = useMemo(() => (results ? computeResults(results) : null), [results]);
   const allChecked = checks.every(Boolean);
   const ageOk = parseAge(ageInput) != null;
@@ -494,11 +468,8 @@ export default function HearingAgeLab({ onInteract }) {
         idPrefix="hha"
       />
 
-      {/* One animated container; the three sections stay mounted (hidden)
-          so test progress survives switching tabs. */}
       <TabPanel value={tab} index={TAB_ITEMS.findIndex((t) => t.id === tab)} role="presentation" tabIndex={-1}>
 
-        {/* ============================ TEST ============================ */}
         <section role="tabpanel" id="hha-panel-test" aria-labelledby="hha-tab-test" hidden={tab !== "test"}>
           <div className="hha-stepper">
             {STEPS.map((s, i) => (
@@ -707,7 +678,6 @@ export default function HearingAgeLab({ onInteract }) {
           )}
         </section>
 
-        {/* ============================ RESULTS ============================ */}
         <section role="tabpanel" id="hha-panel-results" aria-labelledby="hha-tab-results" hidden={tab !== "results"}>
           {results ? (
             <ResultsView r={results} res={res} history={history} onRetake={retake} onAge={(v) => updateProfile(v, results.sex)} />
@@ -725,7 +695,6 @@ export default function HearingAgeLab({ onInteract }) {
           )}
         </section>
 
-        {/* ============================ SCALE ============================ */}
         <section role="tabpanel" id="hha-panel-scale" aria-labelledby="hha-tab-scale" hidden={tab !== "scale"}>
           <div className="hha-panel">
             <p className="hha-label">The idea</p>
@@ -819,19 +788,12 @@ export default function HearingAgeLab({ onInteract }) {
   );
 }
 
-/* ----------------------------------------------------------------
-   "How we calculate it" — the whole hearing-age calculation walked through
-   with one worked example (a 32-year-old man's right ear). Every number is
-   computed live from hearingAgeModel.js (median / earAge / ALPHA), so the
-   explanation can never drift from the maths the lab actually runs.
----------------------------------------------------------------- */
 const EX = {
   age: 32,
   sex: "m",
-  // Right-ear thresholds from the beep test (3 kHz = average of 2k & 4k, rounded)
   thr: { 1000: 5, 2000: 5, 3000: 13, 4000: 20, 6000: 15, 8000: 10 },
-  ceil: 15000, // highest tone heard in the sweep
-  leftEarAge: 38, // the other ear, calculated the same way
+  ceil: 15000,
+  leftEarAge: 38,
 };
 const FIT_FREQS = [1000, 2000, 3000, 4000, 6000, 8000];
 const kHz = (f) => `${f / 1000}k`;
@@ -840,7 +802,7 @@ const r2 = (x) => (Math.round(x * 100) / 100).toFixed(2);
 const exScore = (age) => FIT_FREQS.reduce((sum, f) => sum + (Math.max(EX.thr[f], 0) - median(f, age, EX.sex)) ** 2, 0);
 
 function HowWeCalculate() {
-  const ex = earAge(EX.thr, EX.ceil, EX.sex); // { fit, ceilAge, age }
+  const ex = earAge(EX.thr, EX.ceil, EX.sex);
   const fit = ex.fit;
   const overall = Math.min(ex.age, EX.leftEarAge);
   const delta = overall - EX.age;
@@ -856,7 +818,6 @@ function HowWeCalculate() {
       </p>
 
       <ol className="hha-steps">
-        {/* ---- Step 1 ---- */}
         <li>
           <div>
             <b>Find the quietest sound you can hear at each pitch.</b>{" "}
@@ -899,7 +860,6 @@ function HowWeCalculate() {
           </div>
         </li>
 
-        {/* ---- Step 2 ---- */}
         <li>
           <div>
             <b>Work out what's typical at every age.</b>{" "}
@@ -948,7 +908,6 @@ function HowWeCalculate() {
           </div>
         </li>
 
-        {/* ---- Step 3 ---- */}
         <li>
           <div>
             <b>Find the age that matches you best.</b>{" "}
@@ -1026,7 +985,6 @@ function HowWeCalculate() {
           </div>
         </li>
 
-        {/* ---- Step 4 ---- */}
         <li>
           <div>
             <b>Turn your highest tone into an age.</b>{" "}
@@ -1051,7 +1009,6 @@ function HowWeCalculate() {
           </div>
         </li>
 
-        {/* ---- Step 5 ---- */}
         <li>
           <div>
             <b>Blend the two, then pick your better ear.</b>{" "}
@@ -1101,22 +1058,17 @@ function HowWeCalculate() {
   );
 }
 
-/* ---------------------------------------------------------------- */
 function ResultsView({ r, res, history, onRetake, onAge }) {
   const { ears, hear, delta, zone, insights } = res;
-  // Text being typed into the banner's age box (null = show r.age). Only a
-  // valid age is applied, so half-typed values never re-score the result.
   const [ageDraft, setAgeDraft] = useState(null);
   const Z = ZONES[zone];
   const tone = Z.tone;
 
-  // Ruler spans ages 15–85.
   const pos = (a) => Math.max(0, Math.min(100, ((a - 15) / 70) * 100));
   const pc = pos(r.age);
   const ph = pos(hear);
   const labelsCollide = Math.abs(pc - ph) < 9;
 
-  // Trend: the student's real saved results, oldest → newest.
   const trend = history.slice(-6).map((h, i, arr) => [
     i === arr.length - 1 ? "Now" : new Date(h.date).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
     h.hear,

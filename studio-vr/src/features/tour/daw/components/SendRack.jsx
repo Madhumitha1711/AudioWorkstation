@@ -5,21 +5,8 @@ import { SEND_FADER_DB_TICKS, SEND_FADER_HEIGHT, VOLUME_FADER_SPEC, PAN_KNOB_SPE
 import { TrackIcon } from "./icons";
 import { Fader } from "../../../../components/controls/Fader";
 import { Knob } from "../../../../components/controls/Knob";
+import { useDismiss } from "../lib/useDismiss";
 
-// ── Sends rack — one row per Aux this track is currently routed to, plus a
-// trailing "+ Send" that opens a picker of the mix's own Aux tracks (see
-// addEmptyTrack's `kind: "aux"`) to route a new send at. Clicking an
-// existing send's row opens a small floating fader window — level, pan, a
-// PRE/POST tap toggle and Mute — the same "click a chip, get a focused
-// popup" pattern InsertRack's own "+ Insert" picker uses, and for the same
-// reason: portaled to <body> so it isn't clipped by the dock's/Mixer
-// strip's own short, scrolling panels. Unlike InsertRack's chain, sends
-// have no meaningful order (each is an independent path to a different
-// bus), so there's no drag-to-reorder here. Purely presentational, same as
-// InsertRack: every callback is one of DawWorkstationScreen's own
-// send-management functions (addSend/removeSend/updateSend/
-// setSendPrePost), pre-bound by the caller to whichever trackId it's
-// rendering for.
 export function SendRack({
   sends,
   auxOptions,
@@ -27,23 +14,10 @@ export function SendRack({
   onRemoveSend,
   onUpdateSend,
   onSetPrePost,
-  // Creates a brand-new Aux Bus track (same as the New Track dialog's own
-  // "Aux Bus" option, given an optional name) and returns its id, so the
-  // bus picker below can offer "+ New Aux Bus" right alongside the existing
-  // ones instead of making you back out, add the track separately, then
-  // reopen this same picker.
   onCreateAux,
   compact = false,
-  // Same "always N lettered rows" layout InsertRack's own `fixedSlots` gives
-  // the Arrange tracklist row — see that prop's own comment. Every empty row
-  // opens the exact same bus picker; which one you click only changes where
-  // it renders from.
   fixedSlots,
   dense = false,
-  // The rest are all about the send-window popup's own "TRACK"/meter
-  // section — the owning track's own identity/pan/solo, not anything about
-  // an individual send, so they're plain values/callbacks from whichever
-  // track row is rendering this rack, same as onAddSend et al.
   trackId,
   trackName,
   trackPan = 0,
@@ -53,14 +27,10 @@ export function SendRack({
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerPos, setPickerPos] = useState(null);
-  const addBtnRef = useRef(null); // the single trigger — non-fixedSlots layout
-  const addBtnRefs = useRef(new Map()); // empty-row index -> button — fixedSlots layout
+  const addBtnRef = useRef(null);
+  const addBtnRefs = useRef(new Map());
   const pickerRef = useRef(null);
 
-  // "+ New Aux Bus" swaps for a small inline name field instead of creating
-  // the bus the instant you click it, so it doesn't just land as "Aux 7" —
-  // see the picker's own render below. Reset alongside the picker itself
-  // (closePicker) so it never reopens mid-way through a half-typed name.
   const [creatingAux, setCreatingAux] = useState(false);
   const [newAuxName, setNewAuxName] = useState("");
 
@@ -69,10 +39,6 @@ export function SendRack({
   const slotRefs = useRef(new Map());
   const windowRef = useRef(null);
 
-  // Send-window level meter — polled only while a window is actually open
-  // (see getSendMeter/getSendMeterLevel), same coarse-interval treatment
-  // the Mixer view's own per-track meters use rather than a tighter rAF
-  // loop, since a send fader's meter doesn't need to be that precise.
   const [sendMeterLevel, setSendMeterLevel] = useState(0);
   useEffect(() => {
     if (!openSendId || !getSendMeter) {
@@ -84,9 +50,6 @@ export function SendRack({
   }, [openSendId, getSendMeter]);
 
   const openSend = sends.find((s) => s.id === openSendId) || null;
-  // If the send this popup was pointed at disappears (its Aux got removed,
-  // or the send itself was taken off this track), close instead of pointing
-  // at nothing.
   useEffect(() => {
     if (openSendId && !openSend) {
       setOpenSendId(null);
@@ -138,55 +101,9 @@ export function SendRack({
     setOpenPos(null);
   }, []);
 
-  // Close on outside click/tap, Escape, or scroll/resize — same reasoning
-  // (and same shape) as InsertRack's own picker-dismissal effect.
-  useEffect(() => {
-    if (!pickerOpen) return;
-    const onPointerDown = (e) => {
-      if (pickerRef.current?.contains(e.target)) return;
-      if (addBtnRef.current?.contains(e.target)) return;
-      for (const btn of addBtnRefs.current.values()) {
-        if (btn?.contains(e.target)) return;
-      }
-      closePicker();
-    };
-    const onKeyDown = (e) => {
-      if (e.key === "Escape") closePicker();
-    };
-    const onScrollOrResize = () => closePicker();
-    document.addEventListener("pointerdown", onPointerDown, true);
-    document.addEventListener("keydown", onKeyDown, true);
-    window.addEventListener("scroll", onScrollOrResize, true);
-    window.addEventListener("resize", onScrollOrResize);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown, true);
-      document.removeEventListener("keydown", onKeyDown, true);
-      window.removeEventListener("scroll", onScrollOrResize, true);
-      window.removeEventListener("resize", onScrollOrResize);
-    };
-  }, [pickerOpen, closePicker]);
+  useDismiss(pickerOpen, (t) => [pickerRef.current, addBtnRef.current, ...addBtnRefs.current.values()].some((el) => el?.contains(t)), closePicker);
 
-  useEffect(() => {
-    if (!openSendId) return;
-    const onPointerDown = (e) => {
-      if (windowRef.current?.contains(e.target) || slotRefs.current.get(openSendId)?.contains(e.target)) return;
-      closeSendWindow();
-    };
-    const onKeyDown = (e) => {
-      if (e.key === "Escape") closeSendWindow();
-    };
-    const onScrollOrResize = () => closeSendWindow();
-    document.addEventListener("pointerdown", onPointerDown, true);
-    document.addEventListener("keydown", onKeyDown, true);
-    window.addEventListener("scroll", onScrollOrResize, true);
-    window.addEventListener("resize", onScrollOrResize);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown, true);
-      document.removeEventListener("keydown", onKeyDown, true);
-      window.removeEventListener("scroll", onScrollOrResize, true);
-      window.removeEventListener("resize", onScrollOrResize);
-    };
-  }, [openSendId, closeSendWindow]);
+  useDismiss(openSendId, (t) => [windowRef.current, slotRefs.current.get(openSendId)].some((el) => el?.contains(t)), closeSendWindow);
 
   const routedBusIds = useMemo(() => new Set(sends.map((s) => s.busId)), [sends]);
   const availableAux = auxOptions.filter((a) => !routedBusIds.has(a.id));
@@ -280,10 +197,6 @@ export function SendRack({
                         if (newBusId) onAddSend(newBusId);
                         closePicker();
                       } else if (e.key === "Escape") {
-                        // Cancel just the name step, back to the "+ New Aux
-                        // Bus" button — stopPropagation so the picker's own
-                        // document-level Escape listener (which closes the
-                        // whole picker) doesn't also fire off this same key.
                         e.stopPropagation();
                         setCreatingAux(false);
                         setNewAuxName("");
@@ -360,12 +273,6 @@ export function SendRack({
               </button>
             </div>
 
-            {/* PRE / FMP — Pro Tools' own send-window toggle row (SAFE was
-                dropped from here: this build has no automation-write pass
-                for it to actually guard, so it would only ever be a
-                cosmetic flag). Both remaining toggles are fully wired —
-                tap point, and pan source, respectively — see
-                playFrom/setTrackPan/updateSend. */}
             <div className="send-window__toggles">
               <button
                 type="button"
@@ -434,11 +341,6 @@ export function SendRack({
               M
             </button>
 
-            {/* TRACK — the owning channel's own identity + Solo, so you can
-                audition just this send's source while the window's open,
-                same as Pro Tools' own send window shows. Wired to the exact
-                same toggleTrackSolo every channel strip/tracklist row
-                already uses. */}
             <div className="send-window__section mono">TRACK</div>
             <div className="send-window__track">
               <span className="send-window__track-name" title={trackName}>
@@ -454,14 +356,6 @@ export function SendRack({
               </button>
             </div>
 
-            {/* AUTO was dropped from here — this build has no automation
-                record/playback engine to switch modes on, so it would only
-                ever be a cosmetic dropdown. */}
-
-            {/* The dense (Arrange tracklist) layout hides each slot's own
-                inline "×" to save width — this is the only remove affordance
-                in that case, so it's always here rather than only in dense
-                mode, for one consistent place to look for it. */}
             <button
               type="button"
               className="send-window__remove"

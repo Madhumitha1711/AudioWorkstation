@@ -1,11 +1,3 @@
-// "Amplification / Amplifier" lab — content + the recording it plays.
-//
-// The lab never generates audio: it only amplifies the recording at
-// `sample.src`. That file isn't produced yet — drop it in at this path
-// (ideally a quiet, mic-level take so there is something to bring up) and
-// the lab picks it up automatically. Play/Stop is always shown; until the
-// file exists, pressing Play just reports "No sample loaded".
-
 export const AMPLIFICATION = {
   title: "Amplification & the Amplifier",
   lead: "Enhancing a signal to its correct level so it can be used further in the process is called amplification. The device that does it is called an amplifier.",
@@ -15,8 +7,6 @@ export const AMPLIFICATION = {
     label: "Raw mic signal",
   },
 
-  // Gain control range (dB). 0 dB = unity (no change). +60 dB is about the
-  // most a typical mic preamp offers.
   gain: { min: 0, max: 60, step: 0.5, initial: 0 },
 
   sections: [

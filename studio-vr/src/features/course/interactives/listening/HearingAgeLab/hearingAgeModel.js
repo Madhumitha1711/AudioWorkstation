@@ -1,4 +1,3 @@
-
 export const ALPHA = {
   m: { 250: 0.003, 500: 0.0035, 1000: 0.004, 2000: 0.007, 3000: 0.0115, 4000: 0.016, 6000: 0.018, 8000: 0.022 },
   f: { 250: 0.003, 500: 0.0035, 1000: 0.004, 2000: 0.006, 3000: 0.0075, 4000: 0.009, 6000: 0.012, 8000: 0.015 },
@@ -7,7 +6,6 @@ ALPHA.x = Object.fromEntries(Object.keys(ALPHA.m).map((k) => [k, (ALPHA.m[k] + A
 
 export const FREQS = [250, 500, 1000, 2000, 3000, 4000, 6000, 8000];
 export const median = (f, age, sex) => (age <= 18 ? 0 : ALPHA[sex][f] * (age - 18) ** 2);
-
 
 const CEIL = [[12, 20000], [18, 18500], [25, 17000], [30, 16000], [40, 14500], [50, 12500], [60, 10500], [70, 9000], [85, 7500]];
 export function ceilForAge(a) {
@@ -28,9 +26,6 @@ export function ageForCeil(f) {
   return CEIL.at(-1)[0];
 }
 
-/* Fit: brute-force the age (18–90, ¼-year steps) minimising squared error
-   at 1–8 kHz. Negative thresholds are clamped to 0 — the model has no
-   notion of "better than a median 18-year-old". */
 function fitAge(thr, sex) {
   const fs = [1000, 2000, 3000, 4000, 6000, 8000].filter((f) => thr[f] != null);
   let best = 18;
@@ -53,22 +48,17 @@ export function earAge(thr, ceil, sex) {
   return { fit, ceilAge, age: Math.round(0.7 * fit + 0.3 * ceilAge) };
 }
 
-/* Noise notch: a dip at 3–6 kHz that recovers at 8 kHz — the classic
-   signature of loud-sound exposure rather than ageing. */
-export function notch(thr) {
+function notch(thr) {
   const peak = Math.max(...[3000, 4000, 6000].map((f) => thr[f] ?? -99));
   const low = Math.min(thr[1000] ?? 99, thr[2000] ?? 99);
   return thr[8000] != null && peak - low >= 10 && peak - thr[8000] >= 10;
 }
 
-/* Pure-tone average over 0.5/1/2/4 kHz (the WHO grading frequencies). */
 export const pta = (t) => {
   const v = [500, 1000, 2000, 4000].map((f) => t[f]).filter((x) => x != null);
   return v.reduce((a, b) => a + b, 0) / v.length;
 };
 
-/* Result zones: delta = hearing age − calendar age. `tone` is the lab's
-   semantic color key (--hha-<tone>). */
 export const zoneFor = (d) => (d <= -3 ? 0 : d <= 5 ? 1 : d <= 10 ? 2 : 3);
 export const ZONES = [
   { tone: "green", label: "Younger", range: "3+ yrs below", title: "Your ears are younger than you", text: "Your hearing is better than most people your age. Keep protecting it — it's a real advantage when mixing." },
@@ -79,25 +69,15 @@ export const ZONES = [
 
 export const SEX_LABEL = { m: "men", f: "women", x: "everyone" };
 
-/* Test parameters. */
-export const SWEEP = { lo: 8000, hi: 20000, dur: 14 }; // Part 1: log sweep 8→20 kHz over 14 s
+export const SWEEP = { lo: 8000, hi: 20000, dur: 14 };
 export const sweepFreqAt = (t) => SWEEP.lo * (SWEEP.hi / SWEEP.lo) ** Math.min(t / SWEEP.dur, 1);
 export const SWEEP_TICKS = ["8k", "10k", "12k", "14k", "16k", "18k", "20k"];
-export const THR_FREQS = [1000, 2000, 4000, 6000, 8000]; // Part 2, per ear (right first)
-/* Relative level (0–90 "dB") → linear gain. 70 dB ≈ 0.25 peak, so the
-   loudest staircase step stays well under full scale. */
+export const THR_FREQS = [1000, 2000, 4000, 6000, 8000];
 export const levelGain = (L) => 0.25 * 10 ** ((L - 70) / 20);
 
-/* Scale tab. */
 export const SCALE_AGES = [20, 30, 40, 50, 60, 70, 80];
 export const TRY_TONES = [8000, 10000, 12000, 14000, 15000, 16000, 17000, 18000, 19000];
 
-/* ------------------------------------------------------------------
-   Saved history — real past results, so "Hearing age over time" shows
-   the student's own trend instead of the mockup's illustrative bars.
-   Per-browser only (same localStorage pattern as ThemeContext's
-   svr-theme); every access is guarded because storage can be blocked.
------------------------------------------------------------------- */
 const HISTORY_KEY = "svr-hearing-age-history";
 export function loadHistory() {
   try {
@@ -112,29 +92,21 @@ export function saveHistoryEntry(entry) {
   try {
     window.localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
   } catch {
-    /* storage unavailable — history just won't persist */
   }
   return next;
 }
 
-/* A result's calendar age / comparison group can be corrected after the
-   test (they don't change the measurements, only what they're compared
-   with) — keep the saved trend entry for that test in step. */
 export function updateHistoryEntry(date, patch) {
   const next = loadHistory().map((h) => (h.date === date ? { ...h, ...patch } : h));
   try {
     window.localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
   } catch {
-    /* storage unavailable */
   }
   return next;
 }
 
-/* Calendar age from the setup field: whole years 18–90, else null. No
-   silent clamping — a clamped age (e.g. 16 → 18) is exactly the "my
-   calendar age doesn't match what I entered" bug. */
-export const AGE_MIN = 18;
-export const AGE_MAX = 90;
+const AGE_MIN = 18;
+const AGE_MAX = 90;
 export function parseAge(str) {
   const v = String(str).trim();
   if (!/^\d{1,3}$/.test(v)) return null;
@@ -142,11 +114,10 @@ export function parseAge(str) {
   return a >= AGE_MIN && a <= AGE_MAX ? a : null;
 }
 
-/* Everything the Results tab shows, derived from one result object. */
 export function computeResults(r) {
   const { sex } = r;
   const ears = { R: earAge(r.thr.R, r.ceil.R, sex), L: earAge(r.thr.L, r.ceil.L, sex) };
-  const hear = Math.min(ears.R.age, ears.L.age); // better ear
+  const hear = Math.min(ears.R.age, ears.L.age);
   const delta = hear - r.age;
   const zone = zoneFor(delta);
   const asym = Math.abs(pta(r.thr.R) - pta(r.thr.L));

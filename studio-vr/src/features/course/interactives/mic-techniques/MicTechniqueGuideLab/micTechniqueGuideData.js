@@ -1,21 +1,9 @@
 import { ENSEMBLES, PAIRS, SOURCES } from "../shared/MicLab/micLabData";
 
-// Content for "mic-technique-guide-lab" (Ch.7 "Microphone Techniques and
-// Stereo Recording") — a short refresher on which technique suits which
-// source, in teaching order: Mono → Stereo → Ensemble. Each tab has one
-// choice (the source / ensemble); the 3D stage then shows the mic(s) at the
-// one standard position for it. Moving mics around is the job of the
-// Microphone Placement lab (MicPlacementGuideLab).
-//
-// Audio: one clip per source per tab under
-// public/audio/mic-techniques/<clipId>.wav. Missing files show ClipPlayer's
-// "Audio coming soon" placeholder.
-
 export { SOURCES, ENSEMBLES };
 
-export const clipPath = (id) => `/audio/mic-techniques/${id}.wav`;
+const clipPath = (id) => `/audio/mic-techniques/${id}.wav`;
 
-// ---------------------------------------------------------------- tabs
 export const TABS = [
   {
     id: "mono",
@@ -65,8 +53,6 @@ export const TABS = [
   },
 ];
 
-// ---------------------------------------------------------------- the fixed set-ups
-// Mono: the one usual distance per source (metres in front of it).
 export const MONO_FIXED = {
   voice: { m: 0.2, label: "20 cm" },
   guitar: { m: 0.25, label: "25 cm" },
@@ -75,7 +61,6 @@ export const MONO_FIXED = {
   ensemble: { m: 3, label: "3 m" },
 };
 
-// Stereo: the pair usually used on each source.
 export const STEREO_FIXED = {
   voice: "xy",
   guitar: "xy",
@@ -85,7 +70,6 @@ export const STEREO_FIXED = {
 };
 export const pairById = (id) => PAIRS.find((p) => p.id === id);
 
-// ---------------------------------------------------------------- clip ids
 export const CLIPS = [
   ...SOURCES.map((s) => `mono-${s.id}`),
   ...SOURCES.map((s) => `stereo-${s.id}`),

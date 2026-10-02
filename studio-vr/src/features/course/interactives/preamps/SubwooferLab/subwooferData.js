@@ -1,24 +1,3 @@
-// "Subwoofer" — content for SubwooferLab.
-//
-// Four tabs, in teaching order:
-//   1. Subwoofer        — what a sub is, why it's a separate box, sealed vs
-//                         ported, controls and placement.
-//   2. Subwoofer + LFE  — the speaker vs the ".1" channel: LFE, +10 dB
-//                         in-band gain, bass management.
-//   3. Pro audio        — studio subs: Genelec 7360A, Neumann KH 750 DSP,
-//                         Yamaha HS8S, Genelec 7382A (2 + 2 grid).
-//   4. Home theatre     — consumer subs driven by an AV receiver: SVS
-//                         SB-1000 Pro, KEF KC62, Klipsch R-120SW and a
-//                         5.1 / 7.1.4 layout card (2 + 2 grid).
-//
-// Each tab: optional top image (`image` id → public/subwoofer/<id>.jpg;
-// Subwoofer and Subwoofer + LFE), lead, labelled facts, optional example FlipCards
-// (photo on the front; { id, title, wide?, lead, facts }), key points.
-// Spec figures are the manufacturers' published numbers.
-//
-// Photos aren't added yet — drop them in at public/subwoofer/<id>.jpg and
-// they appear automatically; until then each shows a placeholder.
-
 export const subwooferImagePath = (id) => `/subwoofer/${id}.jpg`;
 
 export const SUBWOOFER_TABS = [

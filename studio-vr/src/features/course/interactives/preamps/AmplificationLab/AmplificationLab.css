@@ -1,15 +1,4 @@
-/* "Amplification / Amplifier" lab — interactive amplifier (spectrum,
-   in/out meters, gain control) on top, description + key points below.
-   Reuses the shared sound-lab chrome from ../../shared/labs.css
-   (.sound-lab-frame, .sound-lab-panel-head, .lab-slider, .lab-play-btn,
-   .lab-toggle); everything here is layout plus the meters. Colours come
-   from theme tokens so light/dark both work — the canvas "screen" colours
-   come from soundLabShared.js scopePalette(), matched below for the
-   meter tracks. */
-
 .amp {
-  /* Section-label accent — same orange as the other labs' headings
-     (BriefingTabs --brt-accent, WhyAmplificationLab --wal-accent). */
   --amp-accent: #e8934a;
   --amp-good: #5fd9a0;
   --amp-warn: #e8934a;
@@ -42,8 +31,6 @@
   background: var(--panel);
   padding: 18px 20px 16px;
 }
-
-/* ── head + legend ── */
 .amp-head {
   display: flex;
   align-items: center;
@@ -86,8 +73,6 @@
   background: color-mix(in srgb, var(--amp-clip) 35%, transparent);
   border-top-color: var(--amp-clip);
 }
-
-/* ── spectrum ── */
 .amp-frame {
   position: relative;
   padding: 6px;
@@ -109,8 +94,6 @@
   color: var(--text-dimmer);
   pointer-events: none;
 }
-
-/* ── meters ── */
 .amp-meters {
   display: flex;
   flex-direction: column;
@@ -138,7 +121,6 @@
   overflow: hidden;
   box-shadow: inset 0 0 0 1px var(--amp-track-line);
 }
-/* The target band (-18 … -6 dBFS) — a faint outline behind the bar. */
 .amp-meter-target {
   position: absolute;
   top: 0;
@@ -205,8 +187,6 @@
 .amp-meter-scale span:last-child {
   transform: translateX(-100%);
 }
-
-/* ── gain + status ── */
 .amp-controls {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 240px;
@@ -308,8 +288,6 @@
 .amp-hint {
   margin-bottom: 0;
 }
-
-/* ── description ── */
 .amp-title {
   font-size: var(--fs-3xl);
   font-weight: 600;

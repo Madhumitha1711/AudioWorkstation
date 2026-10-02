@@ -1,40 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import "./SweetSpotLab.css";
-
-// Faithful port of design/sweet-spot-lab-ui.html's 2D top-down "stage +
-// sidebar" screen. The mockup's separate 3D overlay (a full three.js scene
-// gated behind an "Enter 3D Lab" button) has been dropped entirely — this
-// screen *is* the lab now, not a preview of one.
-//
-// State stays in the same SVG-pixel space the design used (ROOM/SPK_Y/
-// METERS_PER_PX below), only converting to real meters where the design
-// itself did: display labels, and — new here — the positions that drive
-// an actual Web Audio HRTF panner graph. The mockup's 2D screen was
-// visual-only (no real sound, just decorative "sound ring" pulses); a
-// play/stop control and the demo-tone/upload engine from earlier work has
-// been carried over so the lab still teaches by ear, not just by eye.
+import { useInteractOnce } from "../../shared/useInteractOnce";
 
 const ROOM = { x: 30, y: 20, w: 740, h: 420 };
 const SPK_Y = 90;
 const METERS_PER_PX = 0.012;
 const CENTER_X = ROOM.x + ROOM.w / 2;
-// Room graphic accents (speaker rings, dashed guides, sweet spot glow,
-// legend swatches, the image-position meter fill) used to be fixed pastel
-// hex values, unconditionally in both themes — tuned to glow against a
-// permanently-dark room. Once the room started following the theme toggle,
-// those same pastel tones read as washed-out/low-contrast against the
-// lighter room background. Reading var(--sslab-amber)/var(--sslab-green)
-// instead reuses the deepened light-theme values already defined for this
-// component's text/borders (see the light-theme block in SweetSpotLab.css)
-// while keeping dark mode pixel-identical (the dark values there match
-// these old constants exactly).
 
 const DEFAULT_STATE = { halfWidth: 150, toeDeg: 12, listenerX: CENTER_X, listenerY: 300 };
 
-// One full swell-and-fade per side in the demo tones, alternating in
-// stereo mode. A flat, continuous drone is one of the hardest signals to
-// localize — low frequencies rely almost entirely on interaural timing
-// cues, which need some kind of onset/envelope for the ear to lock onto.
 const DEMO_PULSE_PERIOD_SEC = 1.8;
 const RING_INTERVAL_MS = 850;
 
@@ -42,10 +16,6 @@ function dist(x1, y1, x2, y2) {
   return Math.hypot(x2 - x1, y2 - y1);
 }
 
-// Same simplified aim-cone geometry as the design's buildCone(): angleDeg
-// 90 points straight "down" the room toward the listener, spreadDeg is the
-// cone's total angular width, length is in SVG px. Returns just the path
-// `d` string; the design's version returned a whole <path> tag.
 function buildConePath(cx, cy, angleDeg, spreadDeg, length) {
   const a1 = ((angleDeg - spreadDeg / 2) * Math.PI) / 180;
   const a2 = ((angleDeg + spreadDeg / 2) * Math.PI) / 180;
@@ -66,10 +36,6 @@ function setPannerPos(panner, x, y, z) {
   }
 }
 
-// Which way the speaker itself is "facing" (its cone/dispersion axis), as
-// opposed to setPannerPos above, which is just where it sits. Paired with
-// coneInnerAngle/coneOuterAngle/coneOuterGain (see ensureAudioGraph) so
-// toe-in actually does something acoustically, not just visually.
 function setPannerOrientation(panner, x, y, z) {
   if (panner.orientationX) {
     panner.orientationX.value = x;
@@ -80,10 +46,6 @@ function setPannerOrientation(panner, x, y, z) {
   }
 }
 
-// A slowly swelling tone (a sine LFO gating a GainNode) instead of a flat
-// drone. phaseOffsetSec staggers when this side's gate LFO starts; two
-// tones started exactly half a period apart swell in strict alternation,
-// which is what makes stereo mode's "which side is that on" obvious.
 function createPulsingTone(ctx, freq, phaseOffsetSec) {
   const osc = ctx.createOscillator();
   osc.type = "sine";
@@ -117,7 +79,6 @@ function createPulsingTone(ctx, freq, phaseOffsetSec) {
         try {
           node.stop();
         } catch {
-          /* already stopped */
         }
       });
       gate.disconnect();
@@ -130,10 +91,8 @@ let ringIdSeq = 0;
 function SweetSpotLab({ onInteract }) {
   const svgRef = useRef(null);
   const fileInputRef = useRef(null);
-  const dragRef = useRef(null); // 'listener' | 'speakerL' | 'speakerR' | null
-  const firedRef = useRef(false);
-  const onInteractRef = useRef(onInteract);
-  onInteractRef.current = onInteract;
+  const dragRef = useRef(null);
+  const markInteracted = useInteractOnce(onInteract);
   const audioApiRef = useRef({});
 
   const [halfWidth, setHalfWidth] = useState(DEFAULT_STATE.halfWidth);
@@ -151,13 +110,6 @@ function SweetSpotLab({ onInteract }) {
   const [decoding, setDecoding] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
-  const markInteracted = () => {
-    if (firedRef.current) return;
-    firedRef.current = true;
-    onInteractRef.current?.();
-  };
-
-  // ---- derived geometry + readouts (pure, recomputed every render) ----
   const lx = CENTER_X - halfWidth;
   const rx = CENTER_X + halfWidth;
   const dL = dist(listenerX, listenerY, lx, SPK_Y);
@@ -190,7 +142,6 @@ function SweetSpotLab({ onInteract }) {
   const spread = Math.max(50, halfWidth * 0.65);
   const sweetCy = SPK_Y + halfWidth * 1.05;
 
-  // ---- dragging (listener + either speaker, matching the design) ----
   function pointFromEvent(e) {
     const svg = svgRef.current;
     const rect = svg.getBoundingClientRect();
@@ -246,10 +197,6 @@ function SweetSpotLab({ onInteract }) {
     markInteracted();
   };
 
-  // ---- ambient sound-ring pulses, only while actually playing (the
-  // design animates these unconditionally since its 2D screen never makes
-  // real sound; tying them to audioOn here keeps what you see honest
-  // about what you'd actually hear) ----
   useEffect(() => {
     if (!audioOn) return undefined;
     const spawn = () => {
@@ -265,7 +212,6 @@ function SweetSpotLab({ onInteract }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audioOn, monoOn, lx, rx]);
 
-  // ---- real Web Audio graph ----
   const ensureAudioGraph = () => {
     const a = audioApiRef.current;
     if (a.ctx) return a;
@@ -279,22 +225,10 @@ function SweetSpotLab({ onInteract }) {
     const pannerR = ctx.createPanner();
     [pannerL, pannerR].forEach((p) => {
       p.panningModel = "HRTF";
-      // refDistance ~= the closest practical listening position in this
-      // room (see the listener drag clamp below), so standing right up
-      // at the sweet spot reads as full, undamped level — and a much
-      // steeper rolloffFactor than a "realistic" value (which, over the
-      // room's actual size, produced only a ~7dB near-vs-far difference —
-      // audible on paper but small enough to get lost under the demo
-      // tone's own pulsing volume swings). This tuning gets that up
-      // to a clearly perceptible ~15-17dB swing across the room instead.
       p.distanceModel = "inverse";
       p.refDistance = 2;
       p.maxDistance = 10;
       p.rolloffFactor = 5;
-      // Real monitors beam energy forward rather than radiating equally
-      // in every direction. PannerNode defaults coneInnerAngle/
-      // coneOuterAngle to 360° each (no directivity at all), so these
-      // have to be set explicitly for toe-in to do anything acoustically.
       p.coneInnerAngle = 12;
       p.coneOuterAngle = 70;
       p.coneOuterGain = 0.3;
@@ -327,10 +261,6 @@ function SweetSpotLab({ onInteract }) {
     setPannerOrientation(a.pannerL, Math.sin(toeRad), 0, Math.cos(toeRad));
     setPannerOrientation(a.pannerR, Math.sin(-toeRad), 0, Math.cos(-toeRad));
 
-    // Listener orientation tracks the actual direction toward the speaker
-    // midpoint rather than a fixed forward vector, so azimuth stays exact
-    // at every listening position instead of just "close enough" near
-    // dead center.
     const toOriginX = -listenerWorldX;
     const toOriginZ = -listenerWorldZ;
     const len = Math.hypot(toOriginX, toOriginZ) || 1;
@@ -359,11 +289,6 @@ function SweetSpotLab({ onInteract }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [halfWidth, toeDeg, listenerX, listenerY]);
 
-  // Uploaded audio plays through an AudioBufferSourceNode instead of the
-  // two oscillators. In stereo mode with a multi-channel file, a
-  // ChannelSplitter sends the real left/right channels to the left/right
-  // panner; in mono mode (or a mono file), the source fans out to both
-  // gain nodes, which Web Audio downmixes automatically.
   const startUploadedSource = (a) => {
     const bufSrc = a.ctx.createBufferSource();
     bufSrc.buffer = uploadedBuffer;
@@ -418,7 +343,6 @@ function SweetSpotLab({ onInteract }) {
       try {
         a.bufSrc.stop();
       } catch {
-        /* already stopped */
       }
       a.bufSrc.disconnect();
       a.bufSrc = null;
@@ -430,10 +354,6 @@ function SweetSpotLab({ onInteract }) {
     setAudioOn(false);
   };
 
-  // Switching source/mono mid-playback needs the underlying nodes rebuilt
-  // (a splitter vs. a plain fan-out is a different graph, and an
-  // oscillator can't turn into a buffer source in place), so restart in
-  // place whenever the current selection changes while playing.
   const audioOnRef = useRef(audioOn);
   audioOnRef.current = audioOn;
   useEffect(() => {
@@ -446,9 +366,6 @@ function SweetSpotLab({ onInteract }) {
 
   useEffect(() => {
     return () => {
-      // audioApiRef holds plain mutable audio-node data (not a DOM ref),
-      // and is intentionally read fresh here to pick up whatever
-      // startAudio()/stopAudio() most recently stored on it.
       // eslint-disable-next-line react-hooks/exhaustive-deps
       const a = audioApiRef.current;
       a.demoL?.stop();
@@ -457,7 +374,6 @@ function SweetSpotLab({ onInteract }) {
         try {
           a.bufSrc.stop();
         } catch {
-          /* already stopped */
         }
       }
       if (a.ctx) a.ctx.close().catch(() => {});
@@ -489,11 +405,6 @@ function SweetSpotLab({ onInteract }) {
     }
   };
 
-  // A pure hardware/OS sanity check, separate from the 3D... now 2D
-  // panners above: two beeps routed straight to raw output channels 0 and
-  // 1 via a ChannelMergerNode, bypassing PannerNode/HRTF/listener position
-  // entirely. If the first beep isn't in your left ear and the second
-  // isn't in your right, the swap is in your headphones or OS, not here.
   const testLeftRight = () => {
     const a = ensureAudioGraph();
     if (a.ctx.state === "suspended") a.ctx.resume();
@@ -518,13 +429,11 @@ function SweetSpotLab({ onInteract }) {
         g.disconnect();
       };
     };
-    beep(0, now + 0.05); // raw output channel 0 = left
-    beep(1, now + 0.55); // raw output channel 1 = right
+    beep(0, now + 0.05);
+    beep(1, now + 0.55);
     setTimeout(() => merger.disconnect(), 1200);
   };
 
-  // Spacebar toggles play/stop, same as the other labs in this course —
-  // guarded so it doesn't fire while typing/focused in a form control.
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.code !== "Space") return;

@@ -1,25 +1,3 @@
-// "Preamps / Channel Strips" (Outboard Gear) — content for PreampChannelStripLab.
-//
-// Four tabs, in teaching order:
-//   1. Mic preamp       — what an outboard mic preamp does, its controls,
-//                         clean vs coloured, rack and 500-series formats,
-//                         and how it patches into an interface.
-//   2. Channel strip    — preamp + EQ + dynamics in one box: stage order,
-//                         tracking vs mixing use, committing to tape.
-//   3. Classic preamps  — Neve 1073, API 512c, Universal Audio 2-610,
-//                         Grace Design m101 (2 + 2 grid).
-//   4. Channel strips   — Avalon VT-737sp, Universal Audio 6176, Rupert Neve
-//                         Designs Shelford Channel, 500-series "build your
-//                         own strip" (2 + 2 grid).
-//
-// Each tab: optional top image (`image` id → public/outboard-preamps/<id>.jpg;
-// Mic preamp and Channel strip), lead, labelled facts, optional example
-// FlipCards (photo on the front; { id, title, wide?, lead, facts }), key points.
-// Spec figures are the manufacturers' published numbers.
-//
-// Photos aren't added yet — drop them in at public/outboard-preamps/<id>.jpg
-// and they appear automatically; until then each shows a placeholder.
-
 export const preampStripImagePath = (id) => `/outboard-preamps/${id}.jpg`;
 
 export const PREAMP_STRIP_TABS = [

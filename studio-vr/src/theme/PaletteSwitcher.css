@@ -1,8 +1,3 @@
-/* TEMPORARY: styling for the palette-testing switcher - see the comment in
-   PaletteContext.jsx. Deliberately minimal/neutral so it drops into any
-   header (shell, landing, payment) without fighting that header's own
-   button chrome, the same way ThemeToggle.css stays animation-only. */
-
 .svr-palette-switcher {
   display: inline-flex;
   align-items: center;
@@ -33,13 +28,6 @@
   cursor: pointer;
   padding-right: 2px;
 }
-
-/* Focus ring lives on the pill wrapper, not the <select> itself - a plain
-   outline on the select renders as a harsh rectangular box that doesn't
-   follow the pill's rounded corners, and read as a stark "white border"
-   in the dark header since it was using currentColor (the header's light
-   text color). box-shadow follows border-radius, and the brand accent
-   keeps the ring on-theme instead of plain white. */
 .svr-palette-switcher select:focus-visible {
   outline: none;
 }
@@ -47,10 +35,6 @@
 .svr-palette-switcher:focus-within {
   box-shadow: 0 0 0 2px var(--brand-accent, currentColor);
 }
-
-/* Tablets and phones: collapse the pill to just its colour swatch. The <select> stays
-   in place as an invisible layer over the whole pill, so tapping the
-   swatch still opens the native picker. */
 @media (max-width: 900px) {
   .svr-palette-switcher {
     position: relative;

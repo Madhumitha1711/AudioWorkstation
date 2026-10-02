@@ -1,12 +1,6 @@
 import { TRACK_COLORS } from "../lib/constants";
 import { TrackIcon, TRACK_ICON_KEYS } from "./icons";
 
-// "New Track" dialog — Logic-style: pick a name, color and source icon
-// before the track is created (see openAddTrackDialog/confirmAddTrack in
-// DawWorkstationScreen.jsx). Upload/demo still happen from the track row
-// afterwards, same as they always did. Purely presentational/controlled —
-// `draft`/`setDraft` own the in-progress values, `nextTrackNumber` is only
-// needed to pick a sensible default name when the Audio/Aux toggle flips.
 export function AddTrackDialog({ open, onClose, draft, setDraft, nextTrackNumber, onConfirm }) {
   if (!open) return null;
   return (

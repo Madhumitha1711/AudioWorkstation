@@ -1,10 +1,6 @@
 import GroupedBriefing from "../../shared/GroupedBriefing";
 import { ICONS, SECTIONS, cableImagePath } from "./cablesData";
 
-// Ch.8 cable briefings — two separate labs, one per family in cablesData.js.
-// Layout lives in ../../shared/GroupedBriefing.
-//   "analog-cables-lab"  Mic & Instrument / Line Level / Speaker
-//   "digital-cables-lab" Digital Audio / Control
 const ANALOG = SECTIONS.filter((s) => s.family === "Analog");
 const DIGITAL = SECTIONS.filter((s) => s.family === "Digital");
 

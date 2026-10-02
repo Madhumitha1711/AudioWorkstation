@@ -1,10 +1,8 @@
-import { useEffect, useRef, useState } from "react";
-import { Tabs, TabPanel, TabPager } from "../../../../../components/Tabs";
-import { KeyPoints } from "../../../../../components/KeyPoints";
+import { useState } from "react";
 import "../../shared/labs.css";
 import { ClipPlayer } from "../../shared/ListenTabs";
 import { useClipAudio } from "../../shared/useClipAudio";
-import { Choices, MicStage3D, Note, Rich, Slider, Toggles } from "../shared/MicLab";
+import { Choices, Note, Slider, Toggles, MicGuideFrame } from "../shared/MicLab";
 import {
   CLIPS,
   CLOSE_BEST,
@@ -20,29 +18,8 @@ import {
   multiClipId,
   pairsFor,
 } from "./micPlacementGuideData";
+import { useInteractOnce } from "../../shared/useInteractOnce";
 
-// "Microphone Placement" (Ch.7) — the interactive 3D placement lab. One
-// tab per placement technique: Close / Spot / Distant-Room / Stereo /
-// Multi Miking. Each panel:
-//
-//     [ 3D stage (shared MicStage3D) ] [ card: controls + note + player ]
-//     title, explanation, KeyPoints
-//     TabPager
-//
-// Close, Spot and Distant put clickable spots on the floor of the 3D room:
-// clicking one moves the mic there and selects the same button in the
-// card (onHotspot → the same update as the buttons). Stereo picks a
-// technique from the card (MS adds a Side-level slider); Multi switches
-// each mic on the source on and off. The camera is framed per tab and
-// never moves when a position is picked.
-//
-// Playback: every combination is a useClipAudio item (clipPath →
-// public/audio/mic-placement/). Changing anything while a clip plays
-// carries on at the same point in the new clip, or stops if that clip
-// doesn't exist yet. MS width is a mix decision, so it shares one clip.
-// onInteract fires on the student's first play or change.
-
-const ITEMS = TABS.map((t) => ({ id: t.id, label: t.tab }));
 const TAB = Object.fromEntries(TABS.map((t) => [t.id, t]));
 const byId = (list, id) => list.find((x) => x.id === id);
 
@@ -55,17 +32,7 @@ function MicPlacementGuideLab({ onInteract }) {
     stereo: { source: "drums", pair: "xy", side: 0.6 },
     multi: { target: "snare", mics: { snare: ["top", "bottom"], kick: ["in", "out"], amp: ["on", "off", "room"] } },
   });
-  const firedRef = useRef(false);
-  const onInteractRef = useRef(onInteract);
-  useEffect(() => {
-    onInteractRef.current = onInteract;
-  }, [onInteract]);
-
-  const markInteracted = () => {
-    if (firedRef.current) return;
-    firedRef.current = true;
-    onInteractRef.current?.();
-  };
+  const markInteracted = useInteractOnce(onInteract);
 
   const audio = useClipAudio({ items: CLIPS, onFirstPlay: markInteracted });
 
@@ -77,7 +44,6 @@ function MicPlacementGuideLab({ onInteract }) {
     return multiClipId(st.multi.target, st.multi.mics[st.multi.target]);
   };
 
-  // Apply a change, keeping playback going at the same spot when possible.
   function update(patch) {
     markInteracted();
     const next = { ...s, ...patch };
@@ -90,7 +56,6 @@ function MicPlacementGuideLab({ onInteract }) {
   }
   const patchTab = (tab, p) => update({ [tab]: { ...s[tab], ...p } });
 
-  // floor hotspots in the 3D stage → same updates as the buttons
   function onHotspot(type, id) {
     if (type === "spot" && (s.tab === "close" || s.tab === "distant")) patchTab(s.tab, { spot: id });
     if (type === "target" && s.tab === "spot") patchTab("spot", { target: id });
@@ -108,7 +73,6 @@ function MicPlacementGuideLab({ onInteract }) {
     return { kind: "multi", target: s.multi.target, mics: s.multi.mics[s.multi.target] };
   }
 
-  // ---------------------------------------------------------- controls
   function renderCard(tab) {
     let controls;
     let label;
@@ -203,29 +167,16 @@ function MicPlacementGuideLab({ onInteract }) {
     );
   }
 
-  const index = TABS.findIndex((t) => t.id === s.tab);
-  const tab = TABS[index];
-
   return (
-    <div className="lab ltb mic-lab">
-      <Tabs items={ITEMS} value={s.tab} onChange={(id) => update({ tab: id })} ariaLabel="Microphone placement" idPrefix="mpg-tab" />
-      <TabPanel idPrefix="mpg-tab" value={tab.id} index={index} innerClassName="ltb-panel">
-        <div className="ml-row">
-          <MicStage3D view={viewOf(tab.id)} onHotspot={onHotspot} />
-          <div className="ltb-listen">{renderCard(tab.id)}</div>
-        </div>
-        <div className="ltb-desc">
-          <h3>{tab.title}</h3>
-          {tab.body.map((p, i) => (
-            <p key={i}>
-              <Rich text={p} />
-            </p>
-          ))}
-          <KeyPoints key={tab.id} points={tab.points} />
-        </div>
-      </TabPanel>
-      <TabPager items={ITEMS} value={tab.id} onChange={(id) => update({ tab: id })} />
-    </div>
+    <MicGuideFrame
+      tabs={TABS}
+      value={s.tab}
+      onChange={(id) => update({ tab: id })}
+      ariaLabel="Microphone placement"
+      idPrefix="mpg-tab"
+      stageProps={{ view: viewOf(s.tab), onHotspot }}
+      renderCard={renderCard}
+    />
   );
 }
 

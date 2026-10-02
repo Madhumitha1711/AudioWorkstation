@@ -9,16 +9,12 @@ import { PaletteProvider } from './theme/PaletteContext'
 import './index.css'
 import App from './App.jsx'
 
-// See GoogleAuthButton.jsx: this stays empty (rather than crashing) until
-// VITE_GOOGLE_CLIENT_ID is set in .env, at which point Google Sign-In lights
-// up on the login/signup pages without any other code changes.
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <Provider store={store}>
       <ThemeProvider>
-        {/* TEMPORARY: palette switcher - see PaletteContext.jsx */}
         <PaletteProvider>
           <GoogleOAuthProvider clientId={googleClientId}>
             <BrowserRouter>

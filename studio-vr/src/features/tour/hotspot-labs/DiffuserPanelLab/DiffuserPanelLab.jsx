@@ -1,136 +1,18 @@
-import { useEffect, useRef, useState } from "react";
-import { Tabs, useTabTransition } from "../../../../components/Tabs";
-import "../shared/speakerListeningLab.css";
+import { useState } from "react";
+import { LabShell } from "../shared/LabShell";
 import "./DiffuserPanelLab.css";
-import { PlayIcon, PauseIcon, LevelMeter, AhaBox, AudioNote } from "../shared/listeningLabShared";
-import { quickHelpHoverProps } from "../../help/helpHover";
+import { AhaBox, LineIcon, PlayBar, SegControl } from "../shared/listeningLabShared";
+import { useLoopPlayer, useRepeatPlayer } from "../shared/useLoopPlayer";
 
-// Diffuser Panel hotspot's "Diffuser Panel Lab" — same treatment as the
-// Speakers hotspot's Listening Lab (see SpeakerListeningLab.jsx): replaces
-// the generic "Test your knowledge" quiz for the diffuser-panel gear panel
-// only (see PanoramaTour.jsx, which renders this instead of
-// HotspotKnowledgeCheck whenever activeGear.id === "diffuser-panel").
-// Ported from design/diffuser-panel-lab.html, restructured from that
-// mockup's scroll-with-progress-dots layout into two navigable tabs — one
-// per experiment — same as MixingConsoleLab.jsx/SoundCardLab.jsx.
-//
-// Reuses the exact same docked .svr-tour-gear-panel.llab-panel-shell shell,
-// width, tab bar, and take-away chip/overlay interaction as
-// SpeakerListeningLab (see listeningLabShared.jsx and speakerListeningLab.css
-// for the shared pieces) so this reads as the same "Listening Lab" family,
-// just with different content inside.
-//
-// AUDIO IS UI-ONLY FOR NOW — see SpeakerListeningLab.jsx's own comment for
-// why: every module wires up a real <audio> element pointed at a
-// `public/audio/listening-lab/...` path that doesn't exist yet, play()
-// failures are swallowed, and the "playing" look is driven by React state
-// rather than real playback events.
-function DiffuserPanelLab({
-  open,
-  onClose,
-  onBackToOverview,
-  onStartCourse,
-  // Reports whatever's currently hovered/focused in this lab up to
-  // PanoramaTour's Quick Help popup (help mode) — see helpHover.js and
-  // QuickHelpPanel.jsx. Called with a short description on hover/focus
-  // and `null` on leave/blur.
-  onQuickHelp,
-}) {
-  const [activeTab, setActiveTab] = useState(0);
-  // Standard tab-panel motion (components/Tabs) on the body, which is
-  // also the scroll container — see useTabTransition.
-  const bodyRef = useRef(null);
-  useTabTransition(bodyRef, activeTab, activeTab);
-
-  // Every visit starts back on experiment one — a fresh "before the lesson"
-  // primer each time it's opened, not a resumable session.
-  useEffect(() => {
-    if (open) setActiveTab(0);
-  }, [open]);
-
-  if (!open) return null;
-
-  const tab = TABS[activeTab];
-
+export default function DiffuserPanelLab(props) {
   return (
-    <div className="svr-tour-gear-panel llab-panel-shell">
-      <div className="svr-tour-gear-panel__head">
-        <span className="svr-tour-gear-badge llab-badge" aria-hidden="true">
-          🪩
-        </span>
-        <div className="svr-tour-gear-panel__titles">
-          <div className="svr-tour-gear-panel__title">Diffuser Panel Lab</div>
-          <div className="svr-tour-gear-panel__kicker">
-            {tab.label} · {activeTab + 1} of {TABS.length}
-          </div>
-        </div>
-        <button
-          onClick={onClose}
-          className="svr-tour-gear-panel__close"
-          aria-label="Close Diffuser Panel Lab"
-          type="button"
-          {...quickHelpHoverProps(onQuickHelp, "Close this lab and go back to the panel.")}
-        >
-          ×
-        </button>
-      </div>
-
-      <Tabs
-        className="llab-tabs"
-        tabClassName="llab-tab"
-        variant="segmented"
-        size="sm"
-        fill
-        items={TABS.map((t) => ({ id: t.id, title: t.label, n: t.n, short: t.short }))}
-        value={tab.id}
-        onChange={(_, i) => setActiveTab(i)}
-        ariaLabel="Diffuser Panel Lab experiments"
-        idPrefix="llab"
-        renderTab={(t) => (
-          <>
-            <span className="llab-tab__n mono">{t.n}</span>
-            <span className="llab-tab__label">{t.short}</span>
-          </>
-        )}
-      />
-
-      <div
-        ref={bodyRef}
-        className="svr-tour-gear-panel__body"
-        role="tabpanel"
-        id={`dflab-panel-${tab.id}`}
-        aria-labelledby={`dflab-tab-${tab.id}`}
-        // Remounting the module on tab switch (via key) stops its audio
-        // automatically — see SpeakerListeningLab.jsx's identical comment.
-        key={tab.id}
-      >
-        {activeTab === 0 && <DiscoBallModule />}
-        {activeTab === 1 && <WaveBreakerModule />}
-      </div>
-
-      <div className="svr-tour-gear-panel__footer">
-        <div className="svr-tour-gear-panel__footer-row">
-          <button
-            type="button"
-            className="svr-tour-btn svr-tour-btn-secondary"
-            onClick={onBackToOverview}
-            {...quickHelpHoverProps(onQuickHelp, "Go back to the choose-how-to-start overview.")}
-          >
-            ← Back
-          </button>
-          {onStartCourse && (
-            <button
-              type="button"
-              className="svr-tour-btn svr-tour-btn-primary"
-              onClick={onStartCourse}
-              {...quickHelpHoverProps(onQuickHelp, "Jump straight into the full lesson for this topic.")}
-            >
-              Start course →
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+    <LabShell
+      {...props}
+      icon="🪩"
+      title="Diffuser Panel Lab"
+      tabs={TABS}
+      modules={[DiscoBallModule, WaveBreakerModule]}
+    />
   );
 }
 
@@ -139,49 +21,43 @@ const TABS = [
   { id: "wavebreaker", n: "02", label: "Reflection Softening", short: "Decay" },
 ];
 
-// ============================================================
-// Icons
-// ============================================================
 function FlatWallIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="18" rx="1" />
-    </svg>
+    <LineIcon>
+    <rect x="3" y="3" width="18" height="18" rx="1" />
+    </LineIcon>
   );
 }
 function DiffuserWallIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="18" rx="1" />
-      <line x1="3" y1="9" x2="21" y2="9" />
-      <line x1="3" y1="15" x2="21" y2="15" />
-      <line x1="9" y1="3" x2="9" y2="9" />
-      <line x1="15" y1="9" x2="15" y2="15" />
-      <line x1="9" y1="15" x2="9" y2="21" />
-    </svg>
+    <LineIcon>
+    <rect x="3" y="3" width="18" height="18" rx="1" />
+    <line x1="3" y1="9" x2="21" y2="9" />
+    <line x1="3" y1="15" x2="21" y2="15" />
+    <line x1="9" y1="3" x2="9" y2="9" />
+    <line x1="15" y1="9" x2="15" y2="15" />
+    <line x1="9" y1="15" x2="9" y2="21" />
+    </LineIcon>
   );
 }
 function SpeakerSourceIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <path d="M4 10v4h3l5 4V6l-5 4H4z" />
-      <path d="M16 9a4 4 0 0 1 0 6" />
-      <path d="M19 6.5a8 8 0 0 1 0 11" />
-    </svg>
+    <LineIcon>
+    <path d="M4 10v4h3l5 4V6l-5 4H4z" />
+    <path d="M16 9a4 4 0 0 1 0 6" />
+    <path d="M19 6.5a8 8 0 0 1 0 11" />
+    </LineIcon>
   );
 }
 function EarListenerIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <path d="M12 4a6 6 0 0 0-6 6c0 2 1 3 1 5a3 3 0 0 0 3 3" />
-      <path d="M12 4a6 6 0 0 1 6 6c0 4-3 4-3 8" />
-    </svg>
+    <LineIcon>
+    <path d="M12 4a6 6 0 0 0-6 6c0 2 1 3 1 5a3 3 0 0 0 3 3" />
+    <path d="M12 4a6 6 0 0 1 6 6c0 4-3 4-3 8" />
+    </LineIcon>
   );
 }
 
-// ============================================================
-// MODULE 1 — The Disco Ball Effect (echo scattering)
-// ============================================================
 const AUDIO_SOURCES_1 = {
   flat: "/audio/listening-lab/discoball-flat.mp3",
   diffuser: "/audio/listening-lab/discoball-diffuser.mp3",
@@ -211,45 +87,8 @@ const SEG_1 = [
 const WALL_BLOCK_HEIGHTS = [10, 24, 14, 27, 18, 11];
 
 function DiscoBallModule() {
-  const [mode, setMode] = useState("flat");
-  const [playing, setPlaying] = useState(false);
-  const [revealed, setRevealed] = useState(false);
   const [pulseKey, setPulseKey] = useState(0);
-  const audioRef = useRef(null);
-
-  useEffect(() => {
-    const audio = new Audio();
-    audio.loop = true;
-    audio.preload = "auto";
-    audio.src = AUDIO_SOURCES_1.flat;
-    audioRef.current = audio;
-    return () => audio.pause();
-  }, []);
-
-  const selectMode = (m) => {
-    setMode(m);
-    setRevealed(true);
-    setPlaying(true);
-    setPulseKey((k) => k + 1);
-    const audio = audioRef.current;
-    if (audio) {
-      audio.src = AUDIO_SOURCES_1[m];
-      audio.play().catch(() => {});
-    }
-  };
-
-  const togglePlay = () => {
-    setRevealed(true);
-    const audio = audioRef.current;
-    setPlaying((prev) => {
-      const next = !prev;
-      if (audio) {
-        if (next) audio.play().catch(() => {});
-        else audio.pause();
-      }
-      return next;
-    });
-  };
+  const { mode, playing, revealed, selectMode, togglePlay } = useLoopPlayer(AUDIO_SOURCES_1, "flat", () => setPulseKey((k) => k + 1));
 
   const s = SCATTER_MODES[mode];
   const isDiffuser = mode === "diffuser";
@@ -257,8 +96,6 @@ function DiscoBallModule() {
   const earX = 252;
   const topY = 33;
   const wallY = isDiffuser ? 108 : 120;
-  // Fan of secondary rays, only drawn for the diffuser case — same target
-  // points as the original mockup's positionCars-style hand-picked spread.
   const fanTargets = [
     [earX, topY],
     [95, 20],
@@ -279,19 +116,7 @@ function DiscoBallModule() {
       </p>
 
       <div className="llab-card">
-        <div className="llab-seg" role="group" aria-label="Choose a wall type">
-          {SEG_1.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              type="button"
-              className={"llab-seg__btn" + (mode === key ? " active" : "")}
-              onClick={() => selectMode(key)}
-            >
-              <Icon />
-              {label}
-            </button>
-          ))}
-        </div>
+        <SegControl options={SEG_1} value={mode} onSelect={selectMode} label="Choose a wall type" />
 
         <div className="dflab-scatter-box">
           <div className="dflab-scatter-label mono">
@@ -365,18 +190,7 @@ function DiscoBallModule() {
           </div>
         </div>
 
-        <div className="llab-playbar">
-          <button
-            className="llab-play"
-            onClick={togglePlay}
-            type="button"
-            aria-label={playing ? "Pause" : "Play"}
-          >
-            {playing ? <PauseIcon /> : <PlayIcon />}
-          </button>
-          <LevelMeter playing={playing} />
-        </div>
-        {/* <AudioNote>discoball-flat/diffuser.mp3</AudioNote> */}
+        <PlayBar playing={playing} onToggle={togglePlay} />
 
         <AhaBox show={revealed}>
           Diffusers don't destroy sound or trap it — they scatter echo
@@ -389,9 +203,6 @@ function DiscoBallModule() {
   );
 }
 
-// ============================================================
-// MODULE 2 — The Sound Wave Breaker (echo decay over time)
-// ============================================================
 const AUDIO_SOURCES_2 = {
   flat: "/audio/listening-lab/ripple-smooth.mp3",
   diffuser: "/audio/listening-lab/ripple-diffuser.mp3",
@@ -412,51 +223,12 @@ function barColor(h, i) {
 
 function WaveBreakerModule() {
   const [mode, setMode] = useState("flat");
-  const [autoRepeat, setAutoRepeat] = useState(false);
-  const [revealed, setRevealed] = useState(false);
-  const audioRef = useRef(null);
-  const autoTimerRef = useRef(null);
-
-  useEffect(() => {
-    const audio = new Audio();
-    audio.preload = "auto";
-    audio.src = AUDIO_SOURCES_2.flat;
-    audioRef.current = audio;
-    return () => {
-      audio.pause();
-      clearInterval(autoTimerRef.current);
-    };
-  }, []);
-
-  const dropStone = () => {
-    setRevealed(true);
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.currentTime = 0;
-    audio.play().catch(() => {});
-  };
-
-  const stopAuto = () => {
-    clearInterval(autoTimerRef.current);
-    autoTimerRef.current = null;
-    setAutoRepeat(false);
-    audioRef.current?.pause();
-  };
+  const { autoRepeat, revealed, audioRef, toggleAuto, play: dropStone } = useRepeatPlayer(AUDIO_SOURCES_2.flat);
 
   const selectMode = (m) => {
     setMode(m);
     const audio = audioRef.current;
     if (audio) audio.src = AUDIO_SOURCES_2[m];
-  };
-
-  const toggleAuto = () => {
-    if (autoRepeat) {
-      stopAuto();
-      return;
-    }
-    setAutoRepeat(true);
-    dropStone();
-    autoTimerRef.current = setInterval(dropStone, 2000);
   };
 
   const d = DECAY_MODES[mode];
@@ -471,19 +243,7 @@ function WaveBreakerModule() {
       </p>
 
       <div className="llab-card">
-        <div className="llab-seg" role="group" aria-label="Choose a wall surface">
-          {SEG_2.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              type="button"
-              className={"llab-seg__btn" + (mode === key ? " active" : "")}
-              onClick={() => selectMode(key)}
-            >
-              <Icon />
-              {label}
-            </button>
-          ))}
-        </div>
+        <SegControl options={SEG_2} value={mode} onSelect={selectMode} label="Choose a wall surface" />
 
         <div className="dflab-decay-label mono">
           <span>ECHO DECAY OVER TIME</span>
@@ -504,7 +264,6 @@ function WaveBreakerModule() {
             Auto-repeat every 2s
           </label>
         </div>
-        {/* <AudioNote>ripple-smooth/diffuser.mp3</AudioNote> */}
 
         <AhaBox show={revealed}>
           Diffusers keep the room's live energy while eliminating harsh,
@@ -516,5 +275,3 @@ function WaveBreakerModule() {
     </div>
   );
 }
-
-export default DiffuserPanelLab;

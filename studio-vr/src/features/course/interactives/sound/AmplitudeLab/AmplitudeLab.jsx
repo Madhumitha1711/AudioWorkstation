@@ -3,12 +3,7 @@ import "../../shared/labs.css";
 import { useLabAudio } from "../../shared/useLabAudio";
 import { useTheme } from "../../../../../theme/ThemeContext";
 import { drawScope, scopePalette } from "../../shared/soundLabShared";
-
-// Ported from design/what-is-sound-chapter.html's "03 AMPLITUDE" panel.
-// Frequency is fixed at 440 Hz on purpose (per the mockup's hint) so
-// amplitude is the only thing changing — the waveform's height moves, its
-// shape doesn't. Slider is 0..100 "linear-ish" gain, converted to dB for
-// the readout the same way the mockup does (20·log10, floored at -60 dB).
+import { useInteractOnce } from "../../shared/useInteractOnce";
 
 const FIXED_FREQ = 440;
 
@@ -25,9 +20,7 @@ function AmplitudeLab({ onInteract }) {
   const rafRef = useRef(null);
   const scrollRef = useRef(0);
   const gainNodeRef = useRef(null);
-  const firedRef = useRef(false);
-  const onInteractRef = useRef(onInteract);
-  onInteractRef.current = onInteract;
+  const markInteracted = useInteractOnce(onInteract);
   const { getCtx, track, stopAll } = useLabAudio();
   const { theme } = useTheme();
   const themeRef = useRef(theme);
@@ -39,12 +32,6 @@ function AmplitudeLab({ onInteract }) {
   const sliderRef = useRef(sliderVal);
   sliderRef.current = sliderVal;
 
-  const markInteracted = () => {
-    if (firedRef.current) return;
-    firedRef.current = true;
-    onInteractRef.current?.();
-  };
-
   const level = levelFromSlider(sliderVal);
   const db = dbFromLevel(level);
 
@@ -54,7 +41,6 @@ function AmplitudeLab({ onInteract }) {
 
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
-  // live gain while a tone is held
   useEffect(() => {
     if (playing && gainNodeRef.current) {
       gainNodeRef.current.gain.setTargetAtTime(level * 0.25, getCtx().currentTime, 0.05);

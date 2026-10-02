@@ -4,57 +4,14 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { canvasFont } from "../../../../../../theme/fonts";
 import "./micLab.css";
 
-// MicStage3D — the 3D room shared by the Ch.7 mic labs:
-// MicTechniqueGuideLab (a fixed, refresher view of each technique) and
-// MicPlacementGuideLab (the interactive placement lab). Same 6 × 4.5 × 3 m
-// room, look and orbit camera as the original 3D mic rooms, and the
-// same models from public/3D assets/ (drum kit, electric guitar, tabla,
-// snare), driven entirely by one `view` prop:
-//
-//   { kind: "single", source, spots, current, best?, hotspots?, frame }
-//       one mic on a stand. `spots` = [{ id, label, m, off?, corner? }]
-//       (m = metres in front of the source, off = degrees off-axis). With
-//       `hotspots` every spot is a clickable floor spot →
-//       onHotspot("spot", id). frame "close" = close-up camera on the
-//       source; "full" = side-on view of the whole 3 m range.
-//   { kind: "stereo", source, pair, side? }
-//       a stereo technique straight in front of the source: XY / ORTF /
-//       AB / MS / Blumlein, Overheads (drums), Decca Tree / Outriggers
-//       (ensemble). Every mic on its own straight stand, with its pickup
-//       lobe and a dashed line along its axis.
-//   { kind: "ensemble", ens, layers, ghosts?, spot? }
-//       band / chamber / choir with mic layers (close / main / spots /
-//       room). `ghosts` shows switched-off layers faintly. With `spot`
-//       (Spot Miking) only the main pair + one spot mic on that player are
-//       shown, and the other players are floor spots → onHotspot("target", id).
-//   { kind: "multi", target, mics }
-//       several mics on one source: snare top/bottom, kick in/out, guitar
-//       amp close on-axis / off-axis / room.
-//
-// Sources with no model (voice, groups of players, the amp) are simple
-// built shapes. A figure-8 mic is drawn as an upright side-address ribbon;
-// cardioid / omni as an end-address pencil mic on a clip mount.
-//
-// Structure: the Three.js scene lives
-// in refs outside React's render cycle. One effect builds the renderer /
-// room / camera once (and tears everything down); a second rebuilds only
-// the `content` group whenever `view` changes. GLB models are cached at
-// module level (16–24 MB each), so switching views never re-downloads them,
-// and a model arriving for a view that's already gone is dropped (build
-// token). The camera is framed per view (presetFor) and never moves when a
-// position / pair / layer is picked. Colours come from the --ml-* tokens
-// in micLab.css (room surfaces mixed from the course theme); the scene is
-// rebuilt when <html data-theme> or the brand palette changes.
-
 const ROOM_W = 6.0;
 const ROOM_D = 4.5;
 const ROOM_H = 3.0;
-const SRC_Z = -1.5; // where a single source stands (it faces +z, toward the camera)
+const SRC_Z = -1.5;
 
-// ---------------------------------------------------------------- models
-const MODEL_BASE = "/3D%20assets/"; // "3D assets" — space is URL-encoded
+const MODEL_BASE = "/3D%20assets/";
 const gltfLoader = new GLTFLoader();
-const modelCache = new Map(); // url -> Promise<Object3D> template (always cloned)
+const modelCache = new Map();
 
 function loadModel(file) {
   const url = MODEL_BASE + file;
@@ -69,9 +26,6 @@ function loadModel(file) {
   return modelCache.get(url);
 }
 
-// Clone a cached model, sit it on the floor, scale its largest side to
-// `size` metres. Nodes are flagged so clearing the scene never disposes the
-// cached template's shared geometry.
 function instantiate(template, size, rotY = 0) {
   const clone = template.clone(true);
   clone.traverse((n) => (n.userData.shared = true));
@@ -86,15 +40,12 @@ function instantiate(template, size, rotY = 0) {
   return wrap;
 }
 
-// Model per source (size in metres for the largest side, rotation).
 const MODELS = {
-  guitar: { file: "electric_guitar.glb", size: 1.05, rotY: 0 }, // front already faces +z (toward the mic)
+  guitar: { file: "electric_guitar.glb", size: 1.05, rotY: 0 },
   drums: { file: "drum_kit.glb", size: 1.4, rotY: 0 },
   solo: { file: "tabla_drums.glb", size: 1.4, rotY: 0 },
 };
 
-// Where each single source is "heard" from (relative to its base), and how
-// far in front of that point the body of the source extends.
 const SOURCE_AIM = {
   voice: { y: 1.55, z: 0.12, front: 0.08 },
   guitar: { y: 0.5, z: 0, front: 0.25 },
@@ -103,7 +54,6 @@ const SOURCE_AIM = {
   ensemble: { y: 1.3, z: 0.4, front: 0.3 },
 };
 
-// ---------------------------------------------------------------- helpers
 const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
 
 function zCyl(rTop, rBot, h, seg = 16) {
@@ -112,8 +62,6 @@ function zCyl(rTop, rBot, h, seg = 16) {
   return g;
 }
 
-// Polar pickup as a closed surface around +Z (lathe of r(θ) about Y, then
-// turned so Y → Z).
 function lobeGeometry(kind, scale) {
   const pts = [];
   for (let i = 0; i <= 48; i++) {
@@ -126,8 +74,6 @@ function lobeGeometry(kind, scale) {
   return geo;
 }
 
-// Text label as a sprite. sizeAttenuation is off, so `size` is a fraction
-// of the view height and labels stay readable at any zoom.
 function textSprite(text, color, { size = 0.045, weight = 600, bg = null } = {}) {
   const c = document.createElement("canvas");
   const ctx = c.getContext("2d");
@@ -157,9 +103,6 @@ function textSprite(text, color, { size = 0.045, weight = 600, bg = null } = {})
   return sprite;
 }
 
-// Text printed flat on the floor grid. `facing` is where the reader stands:
-// "side" = the Mono camera on +x (text runs along the source→mic line),
-// "front" = the Stereo / Ensemble camera on +z.
 function floorText(text, color, { height = 0.07, weight = 600, facing = "front" } = {}) {
   const c = document.createElement("canvas");
   const ctx = c.getContext("2d");
@@ -180,19 +123,14 @@ function floorText(text, color, { height = 0.07, weight = 600, facing = "front" 
     new THREE.PlaneGeometry((height * w) / 72, height),
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }),
   );
-  mesh.rotation.x = -Math.PI / 2; // lie flat, text up = -z
+  mesh.rotation.x = -Math.PI / 2;
   const g = new THREE.Group();
-  if (facing === "side") g.rotation.y = Math.PI / 2; // text runs along -z, up = -x
+  if (facing === "side") g.rotation.y = Math.PI / 2;
   g.add(mesh);
   g.position.y = 0.006;
   return g;
 }
 
-// Resolve a CSS colour token (which may be a var()/color-mix() chain, e.g.
-// the floor is mixed from the theme's --bg / --text / --brand-accent) to a
-// THREE.Color: the browser computes it on a probe element, then a 1×1
-// canvas turns whatever format it reports (rgb(), color(srgb …), …) into
-// plain RGB bytes.
 function resolveToken(el, name, fallback) {
   const probe = document.createElement("span");
   probe.style.cssText = `position:absolute;visibility:hidden;color:var(${name}, ${fallback})`;
@@ -219,7 +157,6 @@ function safeColor(str, fallback) {
   }
 }
 
-// ---------------------------------------------------------------- component
 export default function MicStage3D({ view, onHotspot }) {
   const wrapRef = useRef(null);
   const onSelectRef = useRef(onHotspot);
@@ -232,7 +169,6 @@ export default function MicStage3D({ view, onHotspot }) {
   const [loading, setLoading] = useState(0);
   const [hinted, setHinted] = useState(false);
 
-  // ---- one-time scene setup ----
   useEffect(() => {
     const wrap = wrapRef.current;
     const canvas = canvasRef.current;
@@ -278,7 +214,6 @@ export default function MicStage3D({ view, onHotspot }) {
       };
     }
 
-    // ---- room ----
     function buildRoom() {
       roomGroup.clear();
       scene.background = colors.bg;
@@ -320,12 +255,11 @@ export default function MicStage3D({ view, onHotspot }) {
       roomGroup.add(edges);
     }
 
-    // ---- materials ----
     const MIC_BODY = new THREE.MeshStandardMaterial({ color: "#7d8588", roughness: 0.32, metalness: 0.6 });
     const MIC_GRILLE = new THREE.MeshStandardMaterial({ color: "#b8bfc2", roughness: 0.5, metalness: 0.4 });
     const STAND = new THREE.MeshStandardMaterial({ color: "#6c7476", roughness: 0.4, metalness: 0.6 });
     const ghostCache = new Map();
-    const keepMats = new Set([MIC_BODY, MIC_GRILLE, STAND]); // shared — never disposed with the content
+    const keepMats = new Set([MIC_BODY, MIC_GRILLE, STAND]);
     function ghostOf(mat) {
       if (!ghostCache.has(mat)) {
         const g = mat.clone();
@@ -338,16 +272,9 @@ export default function MicStage3D({ view, onHotspot }) {
       return ghostCache.get(mat);
     }
 
-    // Floor stand for a mic whose capsule is at `pos`, aimed along `aimDir`.
-    // The pole rises under the middle of the mic body (not under the
-    // capsule tip) and holds it with a short swivel clip, so the mic sits
-    // on top of the stand like a real clip mount — no L-shaped corner.
-    //
-    // A side-address (figure-8 / ribbon) mic stands upright on the pole, so
-    // its stand comes straight up underneath the capsule.
     function standUnder(pos, aimDir, ghost = false, sideAddress = false) {
       const g = new THREE.Group();
-      const mount = sideAddress ? pos.clone() : pos.clone().sub(aimDir.clone().multiplyScalar(0.07)); // body centre
+      const mount = sideAddress ? pos.clone() : pos.clone().sub(aimDir.clone().multiplyScalar(0.07));
       const top = Math.max(mount.y - (sideAddress ? 0.105 : 0.045), 0.06);
       const mat = ghost ? ghostOf(STAND) : STAND;
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.012, top, 10), mat);
@@ -360,8 +287,6 @@ export default function MicStage3D({ view, onHotspot }) {
       return g;
     }
 
-    // A mic on a stand at `pos`, capsule aimed at `aim`. Optional polar
-    // lobe + aim line in `color`; `ghost` = switched-off layer.
     function micRig({ pos, aim, color, pattern = "cardioid", lobe = 0, ghost = false, dir = null, stand = true, line = true }) {
       const g = new THREE.Group();
       const head = new THREE.Group();
@@ -370,8 +295,6 @@ export default function MicStage3D({ view, onHotspot }) {
       else head.lookAt(aim);
       const ringMat = new THREE.MeshBasicMaterial({ color, transparent: ghost, opacity: ghost ? 0.25 : 1 });
       if (pattern === "fig8") {
-        // Figure-8 = a side-address ribbon mic: an upright flat body that
-        // hears equally from its front and back faces (both along +/-Z).
         const body = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.15, 0.03), ghost ? ghostOf(MIC_BODY) : MIC_BODY);
         const faceGeo = new THREE.BoxGeometry(0.046, 0.11, 0.004);
         const front = new THREE.Mesh(faceGeo, ghost ? ghostOf(MIC_GRILLE) : MIC_GRILLE);
@@ -382,7 +305,6 @@ export default function MicStage3D({ view, onHotspot }) {
         band.position.y = -0.06;
         head.add(body, front, back, band);
       } else {
-        // End-address pencil mic (cardioid / omni): pickup off the tip (+Z).
         const body = new THREE.Mesh(zCyl(0.018, 0.018, 0.16), ghost ? ghostOf(MIC_BODY) : MIC_BODY);
         body.position.z = -0.07;
         const grille = new THREE.Mesh(zCyl(0.026, 0.026, 0.05), ghost ? ghostOf(MIC_GRILLE) : MIC_GRILLE);
@@ -413,7 +335,6 @@ export default function MicStage3D({ view, onHotspot }) {
       return g;
     }
 
-    // Simple standing / seated figure facing +z.
     const FIG = new THREE.MeshStandardMaterial({ color: "#9aa3a8", roughness: 0.8 });
     function figure({ x = 0, z = 0, scale = 1, seated = false, rot = 0 } = {}) {
       const g = new THREE.Group();
@@ -440,7 +361,6 @@ export default function MicStage3D({ view, onHotspot }) {
       return g;
     }
 
-    // Arc of positions around (cx, cz), facing +z.
     function arc(count, radius, spreadDeg, cz) {
       const out = [];
       for (let i = 0; i < count; i++) {
@@ -456,7 +376,6 @@ export default function MicStage3D({ view, onHotspot }) {
       return s;
     }
 
-    // ---- content builders ----
     let buildToken = 0;
     let pending = 0;
     const bump = (d) => {
@@ -499,10 +418,6 @@ export default function MicStage3D({ view, onHotspot }) {
     }
 
     const cam = { target: v3(0, 1, -0.4), goalTarget: v3(0, 1, -0.4), r: 5.4, goalR: 5.4, theta: 0.6, goalTheta: 0.6, phi: 1.12, goalPhi: 1.12 };
-    // A hotspot on the floor: a ring (accent = where the mic is now, green =
-    // sweet spot) and, for spots the mic isn't on, a pulsing filled disc
-    // you click to move it there. A larger transparent disc is the click
-    // target so the spot is easy to hit from any angle.
     function floorSpot(x, z, { on, isBest = false, hotspot, hitR = 0.18, k = 1 }) {
       const ringColor = on ? colors.accent : isBest ? colors.good : colors.accent;
       const ring = new THREE.Mesh(
@@ -540,12 +455,6 @@ export default function MicStage3D({ view, onHotspot }) {
       pulsing.push(dot);
     }
 
-    // ================================================================
-    // Scene builders, one per view kind
-    // ================================================================
-
-    // Where a single-mic spot sits: `m` metres in front of the source's
-    // body along an angle `off` (degrees, 0 = on-axis), or the room corner.
     function spotPos(source, spot) {
       const aim = aimOf(source);
       if (spot.corner) return v3(-2.35, 2.0, 1.75);
@@ -556,8 +465,6 @@ export default function MicStage3D({ view, onHotspot }) {
       return v3(aim.x + Math.sin(a) * dist, y, aim.z + Math.cos(a) * dist);
     }
 
-    // single: one mic on a stand. `spots` are the positions it can take
-    // (floor hotspots when `hotspots` is on), `current` is where it is.
     function buildSingle(v, token) {
       addSource(content, v.source, token);
       const aim = aimOf(v.source);
@@ -571,8 +478,6 @@ export default function MicStage3D({ view, onHotspot }) {
           floorSpot(p.x, p.z, { on, isBest: spot.id === v.best, hotspot: { type: "spot", id: spot.id }, hitR: tight ? 0.06 : 0.18, k: tight ? (close ? 0.4 : 0.55) : 1 });
         }
         if (v.hotspots || on) {
-          // label printed on the grid beside the spot; close spots are only
-          // centimetres apart, so labels alternate rows
           const t = floorText(spot.label, on ? accentHex : colors.label, { facing: "side", height: close ? 0.045 : 0.15 });
           t.position.x = p.x + (close ? (i % 2 ? 0.2 : 0.11) : i % 2 ? 0.62 : 0.3);
           t.position.z = p.z;
@@ -583,13 +488,10 @@ export default function MicStage3D({ view, onHotspot }) {
       content.add(micRig({ pos: spotPos(v.source, cur), aim, color: colors.accent, lobe: close ? 0.16 : 0.32 }));
     }
 
-    // Stereo: the pair stands straight in front of the source, facing it.
-    // `r` = distance from the source's aim point, `y` = rig height, `ab` =
-    // AB spacing.
     const PAIR_SETUP = {
       voice: { r: 0.9, y: 1.6, ab: 0.4 },
       guitar: { r: 1.0, y: 0.85, ab: 0.5 },
-      drums: { r: 1.0, y: 1.85, ab: 0.7 }, // in front of the kit, high, angled down
+      drums: { r: 1.0, y: 1.85, ab: 0.7 },
       solo: { r: 1.2, y: 1.1, ab: 0.6 },
       ensemble: { r: 2.1, y: 2.0, ab: 0.9 },
     };
@@ -603,8 +505,6 @@ export default function MicStage3D({ view, onHotspot }) {
       content.add(l);
     };
 
-    // Mic on its own straight stand + a dashed line along its pickup axis
-    // (both ways for a figure-8).
     function axisMic({ p, dir, c, k = "cardioid", lobe = 0.32, reach = 1 }) {
       const axis = dir.clone().normalize();
       content.add(micRig({ pos: p, aim: null, dir: axis, color: c, pattern: k, lobe, stand: false, line: false }));
@@ -632,7 +532,7 @@ export default function MicStage3D({ view, onHotspot }) {
       const toward = (p, target) => target.clone().sub(p);
       const caps = [];
       switch (v.pair) {
-        case "xy": // coincident pairs sit a few cm apart so each mic has its own stand
+        case "xy":
           caps.push({ p: center.clone().sub(R(0.03)), dir: rot(45), c: A });
           caps.push({ p: center.clone().add(R(0.03)), dir: rot(-45), c: B });
           break;
@@ -649,8 +549,6 @@ export default function MicStage3D({ view, onHotspot }) {
           caps.push({ p: center.clone().add(R(0.05)), dir: right.clone(), c: B, k: "fig8", lobe: 0.12 + 0.5 * (v.side ?? 0.6) });
           break;
         case "overhead": {
-          // spaced pair high over the front of the kit, each aimed down at
-          // its side of the cymbals
           const L = center.clone().sub(R(0.45));
           const Rr = center.clone().add(R(0.45));
           caps.push({ p: L, dir: toward(L, v3(-0.35, 0.95, aim.z)), c: A });
@@ -659,7 +557,6 @@ export default function MicStage3D({ view, onHotspot }) {
         }
         case "decca":
         case "outrigger": {
-          // Decca Tree: L / R wide apart, the centre mic forward of them
           const y = 2.45;
           const Lp = v3(-0.85, y, aim.z + 2.25);
           const Rp = v3(0.85, y, aim.z + 2.25);
@@ -683,11 +580,6 @@ export default function MicStage3D({ view, onHotspot }) {
       caps.forEach((c) => axisMic({ ...c, reach }));
     }
 
-    // Ensemble set-ups. `layers` = mic layers switched on; with `ghosts`
-    // the switched-off layers stay as faint ghosts. With `spot` set (the
-    // Spot Miking view) the scene shows the main pair for context plus one
-    // spot mic on the chosen player/section, and the other players get
-    // floor hotspots.
     function ensembleSpots(ens) {
       if (ens === "band") {
         return [
@@ -731,8 +623,6 @@ export default function MicStage3D({ view, onHotspot }) {
         rig("main", v3(0.09, y, z), aim);
       };
       const spots = ensembleSpots(v.ens);
-      // spot mics: either every one as a layer, or (Spot Miking) the chosen
-      // one plus floor hotspots for the rest
       const spotLayer = () => {
         if (v.spot) {
           spots.forEach((s) => {
@@ -752,13 +642,13 @@ export default function MicStage3D({ view, onHotspot }) {
 
       if (v.ens === "band") {
         addModel(content, "drums", 0, -1.4, token);
-        addModel(content, "guitar", 1.4, -0.7, token, -Math.PI * 0.15); // angled in toward the centre
+        addModel(content, "guitar", 1.4, -0.7, token, -Math.PI * 0.15);
         addModel(content, "guitar", -1.4, -0.7, token, Math.PI * 0.15);
         const keys = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.12, 0.35), new THREE.MeshStandardMaterial({ color: "#2b2d33", roughness: 0.6 }));
         keys.position.set(-0.9, 0.85, 0.1);
         const keyLegs = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.8, 0.05), new THREE.MeshStandardMaterial({ color: "#4a4d55" }));
         keyLegs.position.set(-0.9, 0.4, 0.1);
-        content.add(keys, keyLegs, figure({ x: 0, z: 0.1 }) /* lead vocal, centre of the room */);
+        content.add(keys, keyLegs, figure({ x: 0, z: 0.1 }) );
         [
           ["Drums", 0, 1.35, -1.4],
           ["Guitar", 1.4, 1.35, -0.7],
@@ -768,8 +658,8 @@ export default function MicStage3D({ view, onHotspot }) {
         ].forEach(([t, x, y, z]) => content.add(label(t, x, y, z)));
         if (v.spot) spotLayer();
         else {
-          rig("close", v3(0, 0.45, -0.75), v3(0, 0.35, -1.2)); // kick
-          spots.forEach((s) => rig("close", s.pos, s.aim)); // snare, guitar, bass, keys, vocal
+          rig("close", v3(0, 0.45, -0.75), v3(0, 0.35, -1.2));
+          spots.forEach((s) => rig("close", s.pos, s.aim));
         }
         mainPair(1.9, 1.2, v3(0, 1.0, -0.8));
         if (!v.spot) room();
@@ -793,12 +683,8 @@ export default function MicStage3D({ view, onHotspot }) {
       }
     }
 
-    // Multi miking: two or three mics on ONE source, each its own colour,
-    // switched on/off from the card (`mics`).
     const MULTI = {
       snare: {
-        // scaled so the drum is a real 14" (~35 cm) snare: shell from
-        // ~0.67 m to the top head at ~0.8 m, centred over the stand
         model: { file: "generic_snare_drum_with_tama_stagemaster_stand.glb", size: 0.8 },
         mics: [
           { id: "top", label: "Top", pos: v3(0, 0.9, SRC_Z + 0.27), aim: v3(0, 0.8, SRC_Z + 0.1) },
@@ -808,15 +694,12 @@ export default function MicStage3D({ view, onHotspot }) {
       kick: {
         model: { file: "drum_kit.glb", size: 1.4 },
         mics: [
-          // kick front head at ~SRC_Z + 0.55, centre ~0.28 m high
           { id: "in", label: "In", pos: v3(0, 0.28, SRC_Z + 0.48), aim: v3(0, 0.28, SRC_Z + 0.15) },
           { id: "out", label: "Out", pos: v3(0, 0.28, SRC_Z + 0.95), aim: v3(0, 0.28, SRC_Z + 0.58) },
         ],
       },
       amp: {
         mics: [
-          // grille face at SRC_Z + 0.14; both close mics stand a hand-span
-          // off it and well apart, so neither looks pushed into the cabinet
           { id: "on", label: "On-axis", pos: v3(0, 0.3, SRC_Z + 0.32), aim: v3(0, 0.3, SRC_Z + 0.14) },
           { id: "off", label: "Off-axis", pos: v3(0.3, 0.3, SRC_Z + 0.28), aim: v3(0.04, 0.3, SRC_Z + 0.14) },
           { id: "room", label: "Room", pos: v3(0, 1.3, SRC_Z + 2.0), aim: v3(0, 0.35, SRC_Z + 0.15) },
@@ -859,22 +742,14 @@ export default function MicStage3D({ view, onHotspot }) {
         const c = palette[i % palette.length];
         const isOn = on.has(m.id);
         content.add(micRig({ pos: m.pos, aim: m.aim, color: c, ghost: !isOn, lobe: isOn ? 0.14 : 0, line: isOn }));
-        // labels stagger upward so neighbouring mics' names don't overlap
         if (isOn) content.add(label(m.label, m.pos.x, m.pos.y + 0.1 + i * 0.09, m.pos.z, `#${c.getHexString()}`));
       });
     }
 
-    // ================================================================
-    // Camera framing — fixed per view, keyed so picking a mic position,
-    // pair or layer never moves the camera; only a new tab (or a new
-    // source in the close-up views) re-frames.
-    // ================================================================
     function presetFor(v) {
       if (v.kind === "single") {
         if (v.frame === "close") {
           const aim = aimOf(v.source);
-          // close enough to read centimetres, far enough to keep the floor
-          // spots under the mic in view
           return { key: `single-close-${v.source}`, target: v3(0, aim.y * 0.5, aim.z + SOURCE_AIM[v.source].front + 0.15), r: 1.4 + aim.y * 1.1, angles: [1.2, 1.02] };
         }
         return { key: "single-full", target: v3(0, 0.8, 0.25), r: 6.6, angles: [1.38, 1.2] };
@@ -884,7 +759,7 @@ export default function MicStage3D({ view, onHotspot }) {
         const f = {
           snare: [v3(0, 0.65, SRC_Z + 0.15), 2.2, [0.95, 1.1]],
           kick: [v3(0, 0.45, SRC_Z + 0.55), 2.8, [1.05, 1.15]],
-          amp: [v3(0, 0.55, SRC_Z + 0.9), 3.6, [0.7, 1.1]], // three-quarter: the two close mics read apart, room mic behind
+          amp: [v3(0, 0.55, SRC_Z + 0.9), 3.6, [0.7, 1.1]],
         }[v.target];
         return { key: `multi-${v.target}`, target: f[0], r: f[1], angles: f[2] };
       }
@@ -901,7 +776,7 @@ export default function MicStage3D({ view, onHotspot }) {
     }
 
     let currentView = null;
-    const hotspots = []; // clickable floor spots — userData.hotspot = { type: "spot" | "target", id }
+    const hotspots = [];
     const pulsing = [];
     function update(v) {
       currentView = v;
@@ -922,7 +797,6 @@ export default function MicStage3D({ view, onHotspot }) {
     apiRef.current = { update };
     if (wrap.dataset.view) update(JSON.parse(wrap.dataset.view));
 
-    // Re-read theme tokens when the app theme flips.
     const mo = new MutationObserver(() => {
       readColors();
       buildRoom();
@@ -930,7 +804,6 @@ export default function MicStage3D({ view, onHotspot }) {
     });
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "style"] });
 
-    // ---- orbit camera: drag to orbit, wheel / pinch to zoom ----
     const MIN_R = 1.2;
     const MAX_R = 9;
     let drag = null;
@@ -967,7 +840,6 @@ export default function MicStage3D({ view, onHotspot }) {
       clamp();
     };
     const onUp = (e) => {
-      // a short, still press is a click — on a hotspot it moves the mic
       if (down && e.type === "pointerup" && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6 && performance.now() - down.t < 600) {
         const hs = hotspotAt(e);
         if (hs) onSelectRef.current?.(hs.type, hs.id);
@@ -978,7 +850,6 @@ export default function MicStage3D({ view, onHotspot }) {
       try {
         canvas.releasePointerCapture(e.pointerId);
       } catch {
-        /* already released */
       }
     };
     const onWheel = (e) => {
@@ -1074,7 +945,6 @@ export default function MicStage3D({ view, onHotspot }) {
     };
   }, []);
 
-  // ---- rebuild the scene content when the view changes ----
   const viewKey = JSON.stringify(view);
   useEffect(() => {
     if (wrapRef.current) wrapRef.current.dataset.view = viewKey;

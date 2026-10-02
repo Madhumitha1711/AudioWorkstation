@@ -1,17 +1,3 @@
-// "Why Amplification?" — each everyday example (conversation, TV, headlights,
-// room AC, the studio) is paired with its own picture or short clip so the
-// student can connect the idea of gain to something they've already seen.
-//
-// Every example is a short clip: the student watches it, then opens the
-// "What do you think happened?" accordion underneath to reveal `text` (the
-// explanation). Keeping the answer folded makes them guess first.
-//
-// media.type is "video" (or "image" if a clip isn't available). Drop the file
-// at public<media.src> and it appears automatically; until then that row shows
-// a placeholder frame with the expected path. `label` is never shown as a
-// heading — it's only used as the media's alt / aria-label and on the
-// placeholder. `question` is optional; it defaults to WHY_AMPLIFICATION.question.
-
 export const WHY_AMPLIFICATION = {
   title: "Why Amplification?",
   question: "What do you think happened?",

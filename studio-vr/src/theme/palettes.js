@@ -1,33 +1,3 @@
-// Generic brand-color source of truth.
-//
-// This is the ONE place that knows actual hex values for the site's brand
-// accent (logo mark, CTAs, focus glows, gradient chrome). Every CSS file
-// should reference `var(--brand-accent)` / `var(--brand-accent-2)` /
-// `var(--brand-glow)` / `var(--brand-accent-ink)` instead of hardcoding a
-// color, so that switching a palette here re-skins the whole app instantly.
-//
-// Each palette carries a `dark` and `light` variant so it plays correctly
-// with the existing light/dark ThemeContext:
-//   - accent      the bright/pastel shade - used for text, borders, thin glows
-//   - accent2     the deep/saturated shade - second gradient stop, hover fills
-//   - glow        a vivid mid-tone used specifically for box-shadow "glow" fx
-//   - ink         text color placed on top of a solid/gradient accent fill
-//
-// `ink` is chosen per palette per theme, not just flipped white/black
-// automatically: it's checked against both `accent` and `accent2` (WCAG
-// relative-luminance contrast, prioritizing accent2 since that's what solid
-// CTA fills like the "power up" button use) AND matched to how the actual
-// brand uses text on their own color. Spotify's green is bright enough that
-// dark ink reads far better in both themes (and is Spotify's own famous
-// choice); Stripe/Airbnb/Slack/Netflix/Apple's colors are all dark/saturated
-// enough that white text - their own real convention (e.g. apple.com's blue
-// "Buy" buttons) - has good contrast too, so those five stay white in both
-// themes instead of guessing per theme independently.
-//
-// NOTE: this only re-skins brand/theme chrome (header, buttons, page accents,
-// course highlights). The realistic hardware in the 3D studio labs (knobs,
-// LEDs, rack gear) intentionally does NOT read these tokens - real gear
-// doesn't change color when you pick a new site theme.
 export const PALETTES = [
   {
     id: "spotify",
@@ -79,8 +49,6 @@ export function getPalette(id) {
   return PALETTES.find((p) => p.id === id) || PALETTES.find((p) => p.id === DEFAULT_PALETTE_ID);
 }
 
-// "#7dffb8" -> "125, 255, 184", so CSS can build translucent versions with
-// rgba(var(--brand-accent-rgb), 0.35) instead of a second hardcoded literal.
 export function hexToRgbTriplet(hex) {
   const clean = hex.replace("#", "");
   const full = clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean;

@@ -1,17 +1,3 @@
-// "Life Before the DAW" — content for LifeBeforeDawLab.
-//
-// Four tabs, one per job a DAW now does in software, in signal order:
-//   1. Recording  — multitrack tape, track limits, bouncing, noise, sync to picture.
-//   2. Editing    — razor blade and splicing block, film editing, comping by bouncing.
-//   3. Processing — outboard hardware: one box per job, echo chambers/plates, recall sheets.
-//   4. Routing    — patchbay, console buses and sends, hands-on mixdown to two-track.
-//
-// Each tab: lead, labelled facts (no top image), four then → now FlipCards (2 + 2; photo of the old tool
-// on the front: public/life-before-daw/<pair id>.jpg), key points.
-//
-// Photos aren't added yet — drop them in at public/life-before-daw/<id>.jpg
-// and they appear automatically; until then each shows a placeholder.
-
 export const lifeBeforeDawImagePath = (id) => `/life-before-daw/${id}.jpg`;
 
 export const LIFE_BEFORE_DAW_TABS = [

@@ -1,7 +1,3 @@
-// ── WAV encoding + download (for offline-rendered buffers) ──────────────────
-// Shared by every chapter that lets you upload audio, run it through an
-// effect chain, and download the processed result — extracted from
-// Chapter2b's Test Bench (the first place this pattern was built).
 function clamp(v, lo, hi) {
     return Math.min(hi, Math.max(lo, v));
 }
@@ -23,7 +19,7 @@ export function audioBufferToWavBlob(buffer) {
     writeStr(8, 'WAVE');
     writeStr(12, 'fmt ');
     view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true); // PCM
+    view.setUint16(20, 1, true);
     view.setUint16(22, numChannels, true);
     view.setUint32(24, sampleRate, true);
     view.setUint32(28, sampleRate * blockAlign, true);
@@ -54,7 +50,6 @@ export function downloadBlob(blob, filename) {
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-/** Convenience: render an AudioBuffer straight to a downloaded .wav file. */
 export function downloadAudioBufferAsWav(buffer, filename) {
     downloadBlob(audioBufferToWavBlob(buffer), filename);
 }

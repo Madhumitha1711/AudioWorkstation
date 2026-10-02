@@ -1,136 +1,18 @@
-import { useEffect, useRef, useState } from "react";
-import { Tabs, useTabTransition } from "../../../../components/Tabs";
-import "../shared/speakerListeningLab.css";
+import { useState } from "react";
+import { LabShell } from "../shared/LabShell";
 import "./MixingConsoleLab.css";
-import { PlayIcon, PauseIcon, LevelMeter, AhaBox, AudioNote } from "../shared/listeningLabShared";
-import { quickHelpHoverProps } from "../../help/helpHover";
+import { AhaBox, LineIcon, PlayBar, SegControl } from "../shared/listeningLabShared";
+import { useLoopPlayer, useRepeatPlayer } from "../shared/useLoopPlayer";
 
-// Mixing Console hotspot's "Mixing Console Lab" — same treatment as the
-// Speakers hotspot's Listening Lab (see SpeakerListeningLab.jsx): replaces
-// the generic "Test your knowledge" quiz for the mixing-console gear panel
-// only (see PanoramaTour.jsx, which renders this instead of
-// HotspotKnowledgeCheck whenever activeGear.id === "mixing-console"). Ported
-// from design/mixing-console-lab.html, restructured from that mockup's
-// scroll-with-progress-dots layout into two navigable tabs — one per
-// experiment — instead of three, since this mockup only has two modules.
-//
-// Reuses the exact same docked .svr-tour-gear-panel.llab-panel-shell shell,
-// width, tab bar, and take-away chip/overlay interaction as
-// SpeakerListeningLab (see listeningLabShared.jsx and speakerListeningLab.css
-// for the shared pieces) so this reads as the same "Listening Lab" family,
-// just with different content inside.
-//
-// AUDIO IS UI-ONLY FOR NOW — see SpeakerListeningLab.jsx's own comment for
-// why: every module wires up a real <audio> element pointed at a
-// `public/audio/listening-lab/...` path that doesn't exist yet, play()
-// failures are swallowed, and the "playing" look is driven by React state
-// rather than real playback events.
-function MixingConsoleLab({
-  open,
-  onClose,
-  onBackToOverview,
-  onStartCourse,
-  // Reports whatever's currently hovered/focused in this lab up to
-  // PanoramaTour's Quick Help popup (help mode) — see helpHover.js and
-  // QuickHelpPanel.jsx. Called with a short description on hover/focus
-  // and `null` on leave/blur.
-  onQuickHelp,
-}) {
-  const [activeTab, setActiveTab] = useState(0);
-  // Standard tab-panel motion (components/Tabs) on the body, which is
-  // also the scroll container — see useTabTransition.
-  const bodyRef = useRef(null);
-  useTabTransition(bodyRef, activeTab, activeTab);
-
-  // Every visit starts back on experiment one — a fresh "before the lesson"
-  // primer each time it's opened, not a resumable session.
-  useEffect(() => {
-    if (open) setActiveTab(0);
-  }, [open]);
-
-  if (!open) return null;
-
-  const tab = TABS[activeTab];
-
+export default function MixingConsoleLab(props) {
   return (
-    <div className="svr-tour-gear-panel llab-panel-shell">
-      <div className="svr-tour-gear-panel__head">
-        <span className="svr-tour-gear-badge llab-badge" aria-hidden="true">
-          🎚️
-        </span>
-        <div className="svr-tour-gear-panel__titles">
-          <div className="svr-tour-gear-panel__title">Mixing Console Lab</div>
-          <div className="svr-tour-gear-panel__kicker">
-            {tab.label} · {activeTab + 1} of {TABS.length}
-          </div>
-        </div>
-        <button
-          onClick={onClose}
-          className="svr-tour-gear-panel__close"
-          aria-label="Close Mixing Console Lab"
-          type="button"
-          {...quickHelpHoverProps(onQuickHelp, "Close this lab and go back to the panel.")}
-        >
-          ×
-        </button>
-      </div>
-
-      <Tabs
-        className="llab-tabs"
-        tabClassName="llab-tab"
-        variant="segmented"
-        size="sm"
-        fill
-        items={TABS.map((t) => ({ id: t.id, title: t.label, n: t.n, short: t.short }))}
-        value={tab.id}
-        onChange={(_, i) => setActiveTab(i)}
-        ariaLabel="Mixing Console Lab experiments"
-        idPrefix="llab"
-        renderTab={(t) => (
-          <>
-            <span className="llab-tab__n mono">{t.n}</span>
-            <span className="llab-tab__label">{t.short}</span>
-          </>
-        )}
-      />
-
-      <div
-        ref={bodyRef}
-        className="svr-tour-gear-panel__body"
-        role="tabpanel"
-        id={`mclab-panel-${tab.id}`}
-        aria-labelledby={`mclab-tab-${tab.id}`}
-        // Remounting the module on tab switch (via key) stops its audio
-        // automatically — see SpeakerListeningLab.jsx's identical comment.
-        key={tab.id}
-      >
-        {activeTab === 0 && <AudioKitchenModule />}
-        {activeTab === 1 && <SoundHighwayModule />}
-      </div>
-
-      <div className="svr-tour-gear-panel__footer">
-        <div className="svr-tour-gear-panel__footer-row">
-          <button
-            type="button"
-            className="svr-tour-btn svr-tour-btn-secondary"
-            onClick={onBackToOverview}
-            {...quickHelpHoverProps(onQuickHelp, "Go back to the choose-how-to-start overview.")}
-          >
-            ← Back
-          </button>
-          {onStartCourse && (
-            <button
-              type="button"
-              className="svr-tour-btn svr-tour-btn-primary"
-              onClick={onStartCourse}
-              {...quickHelpHoverProps(onQuickHelp, "Jump straight into the full lesson for this topic.")}
-            >
-              Start course →
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+    <LabShell
+      {...props}
+      icon="🎚️"
+      title="Mixing Console Lab"
+      tabs={TABS}
+      modules={[AudioKitchenModule, SoundHighwayModule]}
+    />
   );
 }
 
@@ -139,32 +21,29 @@ const TABS = [
   { id: "sound-highway", n: "02", label: "Stereo Placement", short: "Panning" },
 ];
 
-// ============================================================
-// Icons
-// ============================================================
 function BowlIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <path d="M3 12h18a9 9 0 0 1-18 0z" />
-      <line x1="12" y1="3" x2="12" y2="6" />
-    </svg>
+    <LineIcon>
+    <path d="M3 12h18a9 9 0 0 1-18 0z" />
+    <line x1="12" y1="3" x2="12" y2="6" />
+    </LineIcon>
   );
 }
 function ChefHatIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <path d="M6 10a3 3 0 0 1 1.7-4.6A3 3 0 0 1 11 3a3 3 0 0 1 3.3 2.4A3 3 0 0 1 18 10c0 2-1 3-2 3H8c-1 0-2-1-2-3z" />
-      <path d="M8 21h8" />
-      <path d="M9 21v-8" />
-      <path d="M15 21v-8" />
-    </svg>
+    <LineIcon>
+    <path d="M6 10a3 3 0 0 1 1.7-4.6A3 3 0 0 1 11 3a3 3 0 0 1 3.3 2.4A3 3 0 0 1 18 10c0 2-1 3-2 3H8c-1 0-2-1-2-3z" />
+    <path d="M8 21h8" />
+    <path d="M9 21v-8" />
+    <path d="M15 21v-8" />
+    </LineIcon>
   );
 }
 function OvercookedIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <path d="M12 2c1.6 2.6-1 3.8-1 6.4a2.6 2.6 0 0 0 5.2 0c0-1.6-.8-2.4-.8-2.4 1.6.9 2.6 3.2 2.6 5A6 6 0 0 1 6 11c0-4.2 3.4-5.8 3.4-8.4.8.8 1.6 1.6 2.6-.6z" />
-    </svg>
+    <LineIcon>
+    <path d="M12 2c1.6 2.6-1 3.8-1 6.4a2.6 2.6 0 0 0 5.2 0c0-1.6-.8-2.4-.8-2.4 1.6.9 2.6 3.2 2.6 5A6 6 0 0 1 6 11c0-4.2 3.4-5.8 3.4-8.4.8.8 1.6 1.6 2.6-.6z" />
+    </LineIcon>
   );
 }
 function GridlockIcon() {
@@ -199,9 +78,6 @@ function OpenHighwayIcon() {
   );
 }
 
-// ============================================================
-// MODULE 1 — The Audio Kitchen (channel balance)
-// ============================================================
 const AUDIO_SOURCES_1 = {
   bland: "/audio/listening-lab/mixing-console-kitchen-bland.mp3",
   chefs: "/audio/listening-lab/mixing-console-kitchen-chefs.mp3",
@@ -238,45 +114,7 @@ const SEG_1 = [
 const INGREDIENTS = ["vocal", "guitar", "drums", "bass"];
 
 function AudioKitchenModule() {
-  const [mode, setMode] = useState("bland");
-  const [playing, setPlaying] = useState(false);
-  const [revealed, setRevealed] = useState(false);
-  const audioRef = useRef(null);
-
-  useEffect(() => {
-    const audio = new Audio();
-    audio.loop = true;
-    audio.preload = "auto";
-    audio.src = AUDIO_SOURCES_1.bland;
-    audioRef.current = audio;
-    return () => audio.pause();
-  }, []);
-
-  // Choosing a mix always starts it playing — same "switch stations, keep
-  // listening" behavior SpeakerListeningLab's SpeakerTestModule uses.
-  const selectMode = (m) => {
-    setMode(m);
-    setRevealed(true);
-    setPlaying(true);
-    const audio = audioRef.current;
-    if (audio) {
-      audio.src = AUDIO_SOURCES_1[m];
-      audio.play().catch(() => { });
-    }
-  };
-
-  const togglePlay = () => {
-    setRevealed(true);
-    const audio = audioRef.current;
-    setPlaying((prev) => {
-      const next = !prev;
-      if (audio) {
-        if (next) audio.play().catch(() => { });
-        else audio.pause();
-      }
-      return next;
-    });
-  };
+  const { mode, playing, revealed, selectMode, togglePlay } = useLoopPlayer(AUDIO_SOURCES_1, "bland");
 
   const mix = MIXES[mode];
 
@@ -290,19 +128,7 @@ function AudioKitchenModule() {
       </p>
 
       <div className="llab-card">
-        <div className="llab-seg" role="group" aria-label="Choose a mix">
-          {SEG_1.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              type="button"
-              className={"llab-seg__btn" + (mode === key ? " active" : "")}
-              onClick={() => selectMode(key)}
-            >
-              <Icon />
-              {label}
-            </button>
-          ))}
-        </div>
+        <SegControl options={SEG_1} value={mode} onSelect={selectMode} label="Choose a mix" />
 
         <div className="mclab-kitchen-box">
           <div className="mclab-kitchen-label">
@@ -329,18 +155,7 @@ function AudioKitchenModule() {
           <div className="mclab-kitchen-caption">{mix.caption}</div>
         </div>
 
-        <div className="llab-playbar">
-          <button
-            className="llab-play"
-            onClick={togglePlay}
-            type="button"
-            aria-label={playing ? "Pause" : "Play"}
-          >
-            {playing ? <PauseIcon /> : <PlayIcon />}
-          </button>
-          <LevelMeter playing={playing} />
-        </div>
-        {/* <AudioNote>mixing-console-kitchen-bland/chefs/overcooked.mp3</AudioNote> */}
+        <PlayBar playing={playing} onToggle={togglePlay} />
 
         <AhaBox show={revealed}>
           A channel fader isn't a "louder" knob — it's a seasoning control.
@@ -353,9 +168,6 @@ function AudioKitchenModule() {
   );
 }
 
-// ============================================================
-// MODULE 2 — The Sound Highway (stereo placement / panning)
-// ============================================================
 const AUDIO_SOURCES_2 = {
   gridlock: "/audio/listening-lab/mixing-console-highway-gridlock.mp3",
   two: "/audio/listening-lab/mixing-console-highway-two.mp3",
@@ -411,64 +223,18 @@ const CARS = [
 
 function SoundHighwayModule() {
   const [zone, setZone] = useState("gridlock");
-  const [autoRepeat, setAutoRepeat] = useState(false);
-  const [revealed, setRevealed] = useState(false);
-  const audioRef = useRef(null);
-  const autoTimerRef = useRef(null);
+  const { autoRepeat, revealed, setRevealed, audioRef, stopAuto, toggleAuto, play: playMix } = useRepeatPlayer(AUDIO_SOURCES_2.gridlock);
 
-  useEffect(() => {
-    const audio = new Audio();
-    audio.preload = "auto";
-    audio.src = AUDIO_SOURCES_2.gridlock;
-    audioRef.current = audio;
-    return () => {
-      audio.pause();
-      clearInterval(autoTimerRef.current);
-    };
-  }, []);
-
-  const playMix = () => {
-    setRevealed(true);
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.currentTime = 0;
-    audio.play().catch(() => { });
-  };
-
-  const stopAuto = () => {
-    clearInterval(autoTimerRef.current);
-    autoTimerRef.current = null;
-    setAutoRepeat(false);
-    audioRef.current?.pause();
-  };
-
-  // Selecting a stereo spread always plays the mix in it — same "pick it,
-  // hear it" behavior as module 1's segmented toggle and
-  // SpeakerListeningLab's RoomAcousticsModule.
   const selectZone = (key) => {
     setZone(key);
     const audio = audioRef.current;
     if (audio) audio.src = AUDIO_SOURCES_2[key];
     if (autoRepeat) stopAuto();
     setRevealed(true);
-    audio?.play().catch(() => { });
-  };
-
-  const toggleAuto = () => {
-    if (autoRepeat) {
-      stopAuto();
-      return;
-    }
-    setAutoRepeat(true);
-    playMix();
-    autoTimerRef.current = setInterval(playMix, 2000);
+    audio?.play().catch(() => {});
   };
 
   const current = ZONES[zone];
-  // Cars are flagged "crowded" when two or more share nearly the same lane
-  // (x position) — same collision test as the original mockup's
-  // positionCars(), just recomputed from React state instead of mutating
-  // the DOM directly.
   const crowdedKeys = new Set();
   CARS.forEach(({ key }) => {
     const [x] = current.positions[key];
@@ -493,9 +259,6 @@ function SoundHighwayModule() {
           <div className="mclab-lane l3" />
           {CARS.map(({ key, tag, color }) => {
             const [x, y] = current.positions[key];
-            // Cars parked this low would have their label run past the
-            // highway's bottom edge and get clipped by overflow:hidden —
-            // flip the label to sit above the dot instead of below it.
             const isLowLane = y >= 65;
             const className =
               "mclab-car" +
@@ -512,19 +275,7 @@ function SoundHighwayModule() {
           })}
         </div>
 
-        <div className="llab-seg" role="group" aria-label="Choose a stereo spread">
-          {SEG_2.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              type="button"
-              className={"llab-seg__btn" + (zone === key ? " active" : "")}
-              onClick={() => selectZone(key)}
-            >
-              <Icon />
-              {label}
-            </button>
-          ))}
-        </div>
+        <SegControl options={SEG_2} value={zone} onSelect={selectZone} label="Choose a stereo spread" />
 
         <div className="mclab-clash-label">
           <span>CLASH METER</span>
@@ -545,7 +296,6 @@ function SoundHighwayModule() {
             Repeat
           </label>
         </div>
-        {/* <AudioNote>mixing-console-highway-gridlock/two/open.mp3</AudioNote> */}
 
         <AhaBox show={revealed}>
           Panning isn't decoration — it's traffic control. Two instruments
@@ -557,5 +307,3 @@ function SoundHighwayModule() {
     </div>
   );
 }
-
-export default MixingConsoleLab;

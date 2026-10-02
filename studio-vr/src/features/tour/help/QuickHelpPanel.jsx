@@ -1,43 +1,9 @@
 import { useRef, useState } from "react";
 import "./QuickHelpPanel.css";
 
-// Persistent "Quick Help" popup shown for as long as help mode is on (see
-// the toolbar's help-mode toggle in PanoramaTour.jsx) — the on-demand
-// replacement for the old first-time-visitor onboarding tour (see
-// PanoramaTour.jsx's own comment on `helpModeOn`/`helpMessage`).
-//
-// Purely presentational otherwise, same spirit as the old OnboardingTour
-// card: every panel on this screen (the toolbar, the hotspot markers
-// themselves, the gear info panel, StudioHotspotsPanel, every hands-on
-// lab, the quiz) gets handed an `onQuickHelp` callback (PanoramaTour's
-// `setHelpMessage`) and calls it with a short description on hover/focus
-// and `null` on leave/blur (see helpHover.js's `quickHelpHoverProps`).
-// This component just displays whatever the latest one was.
-//
-// Unlike the old tour card, this never blocks or dims the scene, never
-// forces a sequence, and stays mounted the whole time help mode is on
-// rather than only appearing next to one specific step's target — a
-// visitor can turn it on, explore in any order, and turn it off again
-// whenever they like.
-//
-// Draggable by its header: it starts docked bottom-right (see
-// QuickHelpPanel.css), but it can end up sitting over whatever the
-// visitor is actually trying to look at or hover next, so letting them
-// drag it out of the way matters more here than it would for a fixed
-// tooltip. Position is local state — every fresh mount (i.e. every time
-// help mode is turned back on, since PanoramaTour only renders this while
-// `helpModeOn` is true) starts back at the default docked spot rather than
-// remembering the last drag.
 function QuickHelpPanel({ message }) {
   const panelRef = useRef(null);
-  // null = still at the CSS-anchored default position (bottom/right, see
-  // QuickHelpPanel.css); once set, these are explicit viewport pixel
-  // coordinates that pointermove keeps up to date while dragging.
   const [pos, setPos] = useState(null);
-  // Pointer position + the panel's own on-screen position at the moment
-  // the drag started, so every pointermove only has to add the pointer's
-  // net travel since then — not something that drifts or compounds like
-  // repeatedly reading getBoundingClientRect() mid-drag would.
   const dragOriginRef = useRef(null);
 
   const handleDragStart = (e) => {
@@ -50,11 +16,6 @@ function QuickHelpPanel({ message }) {
       panelTop: rect.top,
       panelLeft: rect.left,
     };
-    // Pointer Capture redirects every subsequent pointer event to this
-    // element until pointerup, regardless of where the cursor actually
-    // is on screen — no need for a document-level mousemove/mouseup pair
-    // (and the cleanup that would come with it) just to keep tracking the
-    // drag once the cursor leaves the header.
     e.currentTarget.setPointerCapture(e.pointerId);
   };
 
@@ -86,10 +47,6 @@ function QuickHelpPanel({ message }) {
       className="svr-quick-help"
       role="status"
       aria-live="polite"
-      // Switches from the CSS-anchored bottom/right resting spot to exact
-      // viewport coordinates the first time it's dragged; `right`/`bottom`
-      // are cleared too so they can't fight the new `left`/`top` on a
-      // browser that still honors both.
       style={pos ? { top: pos.top, left: pos.left, right: "auto", bottom: "auto" } : undefined}
     >
       <div

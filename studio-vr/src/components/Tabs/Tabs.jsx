@@ -2,25 +2,6 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import { prefersReducedMotion, tabDomIds, useTabHeightTransition, useTabTransition } from "./tabMotion";
 import "./Tabs.css";
 
-
-/**
- * @param {object}   props
- * @param {{id:string,label?:any,title?:string,disabled?:boolean,ariaLabel?:string}[]} props.items
- * @param {string}   props.value            active item id
- * @param {(id:string, index:number)=>void} props.onChange  called only when the id changes
- * @param {"underline"|"segmented"} [props.variant="underline"]
- * @param {"md"|"sm"} [props.size="md"]
- * @param {boolean}  [props.fill]           stretch tabs to share the full width equally
- * @param {string}   props.ariaLabel
- * @param {string}   [props.idPrefix]       prefix for tab/panel ids (pair with <TabPanel idPrefix>)
- * @param {(item, state:{selected:boolean,index:number})=>any} [props.renderTab]  custom button content
- * @param {any}      [props.trailing]       extra content pinned to the right end of the bar (after the count)
- * @param {boolean}  [props.markVisited=true] bold the labels of tabs not yet opened
- * @param {boolean}  [props.showCount=markVisited] show the "N/M explored" count at the end of the bar
- * @param {Iterable<string>} [props.visited] controlled set of explored ids (defaults to internal tracking)
- * @param {string}   [props.className]
- * @param {string}   [props.tabClassName]
- */
 export function Tabs({
   items,
   value,
@@ -45,7 +26,6 @@ export function Tabs({
   const [ind, setInd] = useState(null);
   const [ready, setReady] = useState(false);
   const idsKey = items.map((t) => t.id).join("|");
-
 
   const [seen, setSeen] = useState(() => new Set([value]));
   if (!visited && !seen.has(value)) setSeen(new Set(seen).add(value));
@@ -78,12 +58,10 @@ export function Tabs({
     };
   }, [measure, idsKey]);
 
-
   useEffect(() => {
     const r = requestAnimationFrame(() => setReady(true));
     return () => cancelAnimationFrame(r);
   }, []);
-
 
   useEffect(() => {
     const list = listRef.current;
@@ -181,7 +159,6 @@ export function Tabs({
   );
 }
 
-
 export function TabPanel({ idPrefix, value, index, className = "", innerClassName = "", children, ...rest }) {
   const ref = useRef(null);
   const outerRef = useRef(null);
@@ -204,5 +181,3 @@ export function TabPanel({ idPrefix, value, index, className = "", innerClassNam
     </div>
   );
 }
-
-export default Tabs;

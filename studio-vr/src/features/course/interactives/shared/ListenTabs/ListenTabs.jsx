@@ -3,34 +3,8 @@ import { Tabs, TabPanel, TabPager } from "../../../../../components/Tabs";
 import { KeyPoints } from "../../../../../components/KeyPoints";
 import "./listenTabs.css";
 
-// "Listen tabs" — the shared horizontal layout for audio labs that browse a
-// set of things one at a time (acoustics: rooms / treatment steps;
-// microphones: mic types). One standard tab per item (components/Tabs,
-// underline); each panel is
-//
-//     [ image            ] [ Listen card ]
-//     title + description underneath
-//
-// The lab supplies what goes in the Listen card (`renderListen`) and under
-// the title (`renderBody`); this component owns the tabs, panel motion,
-// image loading/placeholder and layout. Controlled: the lab keeps `value`
-// so it can decide what happens to playback on a switch.
-//
-//   items          [{ id, tab, title, image?, points? }] — `points` render
-//                  as the global KeyPoints list under the description, and a
-//                  TabPager (prev/next) sits under the panel
-//   renderListen   (item) => node   — card content (label/hint/player…)
-//   renderBody     (item) => node   — text under the title
-//   placeholderArt (item) => node   — optional art for the image
-//                                     placeholder (default: picture icon)
-//   renderMedia    (item) => node   — optional: replaces the image slot
-//                                     entirely (e.g. MicPolarPatternLab's
-//                                     interactive polar diagram)
-//
-// Type is the global --font-sans throughout (nothing here sets a family).
-
 function MediaImage({ item, placeholderArt }) {
-  const [state, setState] = useState({}); // id -> "loaded" | "failed"
+  const [state, setState] = useState({});
   const s = state[item.id];
   const mark = (v) => setState((p) => ({ ...p, [item.id]: v }));
   return (

@@ -29,23 +29,14 @@ function LandingPage() {
   const [videoOpen, setVideoOpen] = useState(false);
   const rootRef = useRef(null);
 
-  // A signed-in student still lands here (this is "/"), so the header/hero
-  // need to reflect that instead of always offering Sign in / Sign up —
-  // see RequireAuth.jsx and Header.jsx for how the rest of the app reads
-  // this same session state.
   const studentName = useSelector((state) => state.session.studentName);
   const token = useSelector((state) => state.session.token);
   const hasPaid = useSelector((state) => state.session.hasPaid);
   const isSignedIn = Boolean(token);
 
-  // Sign up now opens the studio door (a short account-creation moment)
-  // before handing off to checkout, instead of jumping straight to payment.
   const goToSignUp = () => navigate("/signup");
   const goToSignIn = () => navigate("/login");
 
-  // A signed-in student's primary CTA should pick up wherever they left
-  // off: straight into the studio if they've paid, otherwise back to
-  // checkout (mirrors RequireAuth's own redirect logic).
   const goToStudio = () => navigate(hasPaid ? "/studio" : "/payment");
 
   const handleLogOff = () => {
@@ -56,7 +47,6 @@ function LandingPage() {
     document.getElementById("curriculum")?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Fade/slide elements into view the first time they cross into the viewport.
   useEffect(() => {
     const targets = rootRef.current?.querySelectorAll(".reveal") ?? [];
     if (!targets.length) return;
@@ -107,7 +97,6 @@ function LandingPage() {
               </button>
             </>
           )}
-          {/* TEMPORARY: palette switcher - see PaletteContext.jsx */}
           <PaletteSwitcher />
           <ThemeToggle className="theme-toggle-btn" />
         </div>

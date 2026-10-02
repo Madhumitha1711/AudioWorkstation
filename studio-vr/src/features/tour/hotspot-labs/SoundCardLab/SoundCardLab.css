@@ -1,18 +1,5 @@
 @import "../shared/hardwareTokens.css";
 
-/* Styles for SoundCardLab.jsx — ported from design/sound-card-lab.html.
-   Reuses the shared `.llab-*` base (panel shell width/height, tabs, card,
-   seg toggle, playbar, curve visual, take-away chip/pop, audio note) from
-   speakerListeningLab.css — see that file's own header comment, which built
-   those classes as a reusable "Listening Lab" system rather than something
-   speaker-specific, and listeningLabShared.jsx for the matching
-   PlayIcon/PauseIcon/LevelMeter/AhaBox/AudioNote components. Module 1 (the
-   waveform curve) needs no new rules at all — it reuses .llab-curve* as-is.
-   Only module 2's echo-mirror visual (source/return bars + delay readout)
-   is unique to this lab, scaled down from the original mockup's 760px
-   layout to fit the ~352px docked panel.
-*/
-
 .sclab-echo-stage {
   position: relative;
   background: rgba(0, 0, 0, 0.22);
@@ -95,11 +82,6 @@
   color: var(--llab-green);
   border-color: var(--llab-green-dim);
   background: rgba(var(--led-green-rgb), 0.08);
-}
-.sclab-delay-status.noticeable {
-  color: var(--llab-amber);
-  border-color: var(--llab-amber-dim);
-  background: rgba(var(--led-amber-rgb), 0.08);
 }
 .sclab-delay-status.distracting {
   color: var(--led-red);

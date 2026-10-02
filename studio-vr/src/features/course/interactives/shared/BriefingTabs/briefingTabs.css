@@ -14,8 +14,6 @@
 .brt *::after {
   box-sizing: border-box;
 }
-
-/* ---------- panel ---------- */
 .brt-panel {
   padding-top: 24px;
 }

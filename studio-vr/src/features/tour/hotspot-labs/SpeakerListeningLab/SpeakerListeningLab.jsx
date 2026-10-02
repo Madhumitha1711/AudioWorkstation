@@ -1,152 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { Tabs, useTabTransition } from "../../../../components/Tabs";
-import "../shared/speakerListeningLab.css";
-import { PlayIcon, PauseIcon, LevelMeter, AhaBox, AudioNote } from "../shared/listeningLabShared";
-import { quickHelpHoverProps } from "../../help/helpHover";
+import { LabShell } from "../shared/LabShell";
+import { AhaBox, LineIcon, PlayBar, SegControl } from "../shared/listeningLabShared";
+import { useLoopPlayer, useRepeatPlayer } from "../shared/useLoopPlayer";
 
-// Speakers hotspot's "Listening Lab" — replaces the generic "Test your
-// knowledge" quiz for the speaker gear panel only (see PanoramaTour.jsx,
-// which renders this instead of HotspotKnowledgeCheck whenever
-// activeGear.id === "speaker"). Ported from design/speakek-listening-lab.html,
-// restructured from that mockup's scroll-with-progress-dots layout into
-// three navigable tabs.
-//
-// Reuses the same docked .svr-tour-gear-panel shell as the choice panel and
-// HotspotKnowledgeCheck (top-right, 320px, see PanoramaTour.css) instead of
-// taking over the full screen — this is meant to feel like the same rail
-// the visitor was already looking at, just showing a different "activity"
-// inside it, not a separate takeover surface like the DAW workstation.
-// Every module's own visuals are scaled down to fit that width.
-//
-// The transport button, level meter, and take-away chip/overlay
-// (PlayIcon/PauseIcon/LevelMeter/AhaBox/AudioNote) live in
-// ./listeningLabShared.jsx — this was the first lab built, but those bits
-// are generic and now shared with MixingConsoleLab.jsx and SoundCardLab.jsx
-// too, so every gear hotspot's lab gets identical panel height/width and
-// take-away behavior instead of three copies slowly drifting apart.
-//
-// AUDIO IS UI-ONLY FOR NOW. Every module below wires up a real <audio>
-// element pointed at a `public/audio/listening-lab/...` path (see the
-// AUDIO_SOURCES_* maps in each module), but none of those files exist yet —
-// real recordings get dropped in later. play() failures are caught and
-// swallowed everywhere (same pattern already used by the room's ambient/
-// narration audio elsewhere in this app — see spatialAudioEngine.js), and
-// the "playing" look (icon swap, pulsing level meter) is driven by React
-// state rather than real playback events, so the whole UI already reads and
-// animates correctly with silence today and needs zero changes once real
-// clips land at those paths. A small mono caption under each transport
-// spells out the exact expected filenames as a placeholder/checklist for
-// whoever adds the audio.
-function SpeakerListeningLab({
-  open,
-  onClose,
-  onBackToOverview,
-  onStartCourse,
-  // Reports whatever's currently hovered/focused in this lab up to
-  // PanoramaTour's Quick Help popup (help mode) — see helpHover.js and
-  // QuickHelpPanel.jsx. Called with a short description on hover/focus
-  // and `null` on leave/blur.
-  onQuickHelp,
-}) {
-  const [activeTab, setActiveTab] = useState(0);
-  // Standard tab-panel motion (components/Tabs) on the body, which is
-  // also the scroll container — see useTabTransition.
-  const bodyRef = useRef(null);
-  useTabTransition(bodyRef, activeTab, activeTab);
-
-  // Every visit starts back on experiment one — this is a fresh "before the
-  // lesson" primer each time it's opened, not a resumable session.
-  useEffect(() => {
-    if (open) setActiveTab(0);
-  }, [open]);
-
-  if (!open) return null;
-
-  const tab = TABS[activeTab];
-
+export default function SpeakerListeningLab(props) {
   return (
-    <div className="svr-tour-gear-panel llab-panel-shell">
-      <div className="svr-tour-gear-panel__head">
-        <span className="svr-tour-gear-badge llab-badge" aria-hidden="true">
-          🎧
-        </span>
-        <div className="svr-tour-gear-panel__titles">
-          <div className="svr-tour-gear-panel__title">Listening Lab</div>
-          <div className="svr-tour-gear-panel__kicker">
-            {tab.label} · {activeTab + 1} of {TABS.length}
-          </div>
-        </div>
-        <button
-          onClick={onClose}
-          className="svr-tour-gear-panel__close"
-          aria-label="Close Listening Lab"
-          type="button"
-          {...quickHelpHoverProps(onQuickHelp, "Close this lab and go back to the panel.")}
-        >
-          ×
-        </button>
-      </div>
-
-      <Tabs
-        className="llab-tabs"
-        tabClassName="llab-tab"
-        variant="segmented"
-        size="sm"
-        fill
-        items={TABS.map((t) => ({ id: t.id, title: t.label, n: t.n, short: t.short }))}
-        value={tab.id}
-        onChange={(_, i) => setActiveTab(i)}
-        ariaLabel="Listening Lab experiments"
-        idPrefix="llab"
-        renderTab={(t) => (
-          <>
-            <span className="llab-tab__n mono">{t.n}</span>
-            <span className="llab-tab__label">{t.short}</span>
-          </>
-        )}
-      />
-
-      <div
-        ref={bodyRef}
-        className="svr-tour-gear-panel__body"
-        role="tabpanel"
-        id={`llab-panel-${tab.id}`}
-        aria-labelledby={`llab-tab-${tab.id}`}
-        // Remounting the module on tab switch (via key) is what stops its
-        // audio automatically — each module's own cleanup effect pauses
-        // and releases its <audio> element on unmount, so there's no
-        // separate "stop the other tabs" bookkeeping needed here the way
-        // the original scrolling design required.
-        key={tab.id}
-      >
-        {activeTab === 0 && <SpeakerTestModule />}
-        {activeTab === 1 && <RoomAcousticsModule />}
-        {activeTab === 2 && <StereoImagingModule />}
-      </div>
-
-      <div className="svr-tour-gear-panel__footer">
-        <div className="svr-tour-gear-panel__footer-row">
-          <button
-            type="button"
-            className="svr-tour-btn svr-tour-btn-secondary"
-            onClick={onBackToOverview}
-            {...quickHelpHoverProps(onQuickHelp, "Go back to the choose-how-to-start overview.")}
-          >
-            ← Back
-          </button>
-          {onStartCourse && (
-            <button
-              type="button"
-              className="svr-tour-btn svr-tour-btn-primary"
-              onClick={onStartCourse}
-              {...quickHelpHoverProps(onQuickHelp, "Jump straight into the full lesson for this topic.")}
-            >
-              Start course →
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+    <LabShell
+      {...props}
+      icon="🎧"
+      title="Listening Lab"
+      tabs={TABS}
+      modules={[SpeakerTestModule, RoomAcousticsModule, StereoImagingModule]}
+    />
   );
 }
 
@@ -156,40 +21,31 @@ const TABS = [
   { id: "stereo-imaging", n: "03", label: "Stereo Imaging", short: "Stereo" },
 ];
 
-// ============================================================
-// Shared bits
-// ============================================================
-
-// PlayIcon, PauseIcon, LevelMeter, AhaBox, and AudioNote now live in
-// ./listeningLabShared.jsx (imported above) so MixingConsoleLab.jsx and
-// SoundCardLab.jsx can reuse the exact same transport button, level meter,
-// and take-away chip/overlay interaction instead of redefining them.
-
 function PhoneIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <rect x="7" y="2" width="10" height="20" rx="2" />
-      <line x1="11" y1="18" x2="13" y2="18" />
-    </svg>
+    <LineIcon>
+    <rect x="7" y="2" width="10" height="20" rx="2" />
+    <line x1="11" y1="18" x2="13" y2="18" />
+    </LineIcon>
   );
 }
 function CarIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <path d="M3 13l1.5-5A2 2 0 0 1 6.4 6.5h11.2A2 2 0 0 1 19.5 8L21 13" />
-      <rect x="2" y="13" width="20" height="5" rx="1.5" />
-      <circle cx="6.5" cy="18.5" r="1.5" />
-      <circle cx="17.5" cy="18.5" r="1.5" />
-    </svg>
+    <LineIcon>
+    <path d="M3 13l1.5-5A2 2 0 0 1 6.4 6.5h11.2A2 2 0 0 1 19.5 8L21 13" />
+    <rect x="2" y="13" width="20" height="5" rx="1.5" />
+    <circle cx="6.5" cy="18.5" r="1.5" />
+    <circle cx="17.5" cy="18.5" r="1.5" />
+    </LineIcon>
   );
 }
 function MonitorIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="14" rx="2" />
-      <line x1="8" y1="21" x2="16" y2="21" />
-      <line x1="12" y1="17" x2="12" y2="21" />
-    </svg>
+    <LineIcon>
+    <rect x="3" y="3" width="18" height="14" rx="2" />
+    <line x1="8" y1="21" x2="16" y2="21" />
+    <line x1="12" y1="17" x2="12" y2="21" />
+    </LineIcon>
   );
 }
 function BathroomIcon() {
@@ -217,9 +73,6 @@ function ClosetIcon() {
     </svg>
   );
 }
-// ============================================================
-// MODULE 1 — Speaker Test (Car Stereo vs. Kitchen Radio)
-// ============================================================
 const AUDIO_SOURCES_1 = {
   phone: "/audio/listening-lab/module1-phone.mp3",
   car: "/audio/listening-lab/module1-car.mp3",
@@ -252,45 +105,7 @@ const SEG_1 = [
 ];
 
 function SpeakerTestModule() {
-  const [mode, setMode] = useState("phone");
-  const [playing, setPlaying] = useState(false);
-  const [revealed, setRevealed] = useState(false);
-  const audioRef = useRef(null);
-
-  useEffect(() => {
-    const audio = new Audio();
-    audio.loop = true;
-    audio.preload = "auto";
-    audio.src = AUDIO_SOURCES_1.phone;
-    audioRef.current = audio;
-    return () => audio.pause();
-  }, []);
-
-  // Choosing a system always starts it playing — same "switch stations,
-  // keep listening" behavior the original design used.
-  const selectMode = (m) => {
-    setMode(m);
-    setRevealed(true);
-    setPlaying(true);
-    const audio = audioRef.current;
-    if (audio) {
-      audio.src = AUDIO_SOURCES_1[m];
-      audio.play().catch(() => { });
-    }
-  };
-
-  const togglePlay = () => {
-    setRevealed(true);
-    const audio = audioRef.current;
-    setPlaying((prev) => {
-      const next = !prev;
-      if (audio) {
-        if (next) audio.play().catch(() => { });
-        else audio.pause();
-      }
-      return next;
-    });
-  };
+  const { mode, playing, revealed, selectMode, togglePlay } = useLoopPlayer(AUDIO_SOURCES_1, "phone");
 
   const curve = CURVES[mode];
 
@@ -303,19 +118,7 @@ function SpeakerTestModule() {
       </p>
 
       <div className="llab-card">
-        <div className="llab-seg" role="group" aria-label="Choose playback system">
-          {SEG_1.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              type="button"
-              className={"llab-seg__btn" + (mode === key ? " active" : "")}
-              onClick={() => selectMode(key)}
-            >
-              <Icon />
-              {label}
-            </button>
-          ))}
-        </div>
+        <SegControl options={SEG_1} value={mode} onSelect={selectMode} label="Choose playback system" />
 
         <div className="llab-curve">
           <div className="llab-curve__label">
@@ -328,18 +131,7 @@ function SpeakerTestModule() {
           <div className="llab-curve__caption">{curve.caption}</div>
         </div>
 
-        <div className="llab-playbar">
-          <button
-            className="llab-play"
-            onClick={togglePlay}
-            type="button"
-            aria-label={playing ? "Pause" : "Play"}
-          >
-            {playing ? <PauseIcon /> : <PlayIcon />}
-          </button>
-          <LevelMeter playing={playing} />
-        </div>
-        {/* <AudioNote>module1-phone/car/studio.mp3</AudioNote> */}
+        <PlayBar playing={playing} onToggle={togglePlay} />
 
         <AhaBox show={revealed}>
           Consumer speakers <em>lie</em> to you on purpose — they boost bass
@@ -352,9 +144,6 @@ function SpeakerTestModule() {
   );
 }
 
-// ============================================================
-// MODULE 2 — Room Acoustics (The Shower-Singer Effect)
-// ============================================================
 const AUDIO_SOURCES_2 = {
   bathroom: "/audio/listening-lab/module2-bathroom.mp3",
   living: "/audio/listening-lab/module2-living.mp3",
@@ -373,56 +162,15 @@ const ROOM_LABELS = {
 
 function RoomAcousticsModule() {
   const [room, setRoom] = useState("bathroom");
-  const [autoRepeat, setAutoRepeat] = useState(false);
-  const [revealed, setRevealed] = useState(false);
-  const audioRef = useRef(null);
-  const autoTimerRef = useRef(null);
+  const { autoRepeat, revealed, setRevealed, audioRef, stopAuto, toggleAuto, play: playNote } = useRepeatPlayer(AUDIO_SOURCES_2.bathroom);
 
-  useEffect(() => {
-    const audio = new Audio();
-    audio.preload = "auto";
-    audio.src = AUDIO_SOURCES_2.bathroom;
-    audioRef.current = audio;
-    return () => {
-      audio.pause();
-      clearInterval(autoTimerRef.current);
-    };
-  }, []);
-
-  const playNote = () => {
-    setRevealed(true);
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.currentTime = 0;
-    audio.play().catch(() => { });
-  };
-
-  const stopAuto = () => {
-    clearInterval(autoTimerRef.current);
-    autoTimerRef.current = null;
-    setAutoRepeat(false);
-    audioRef.current?.pause();
-  };
-
-  // Selecting a room always plays a note in it — same "pick it, hear it"
-  // behavior as module 1/3's segmented toggles.
   const selectRoom = (key) => {
     setRoom(key);
     const audio = audioRef.current;
     if (audio) audio.src = AUDIO_SOURCES_2[key];
     if (autoRepeat) stopAuto();
     setRevealed(true);
-    audio?.play().catch(() => { });
-  };
-
-  const toggleAuto = () => {
-    if (autoRepeat) {
-      stopAuto();
-      return;
-    }
-    setAutoRepeat(true);
-    playNote();
-    autoTimerRef.current = setInterval(playNote, 2000);
+    audio?.play().catch(() => {});
   };
 
   const current = SEG_2.find((r) => r.key === room);
@@ -436,19 +184,7 @@ function RoomAcousticsModule() {
       </p>
 
       <div className="llab-card">
-        <div className="llab-seg" role="group" aria-label="Choose room">
-          {SEG_2.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              type="button"
-              className={"llab-seg__btn" + (room === key ? " active" : "")}
-              onClick={() => selectRoom(key)}
-            >
-              <Icon />
-              {label}
-            </button>
-          ))}
-        </div>
+        <SegControl options={SEG_2} value={room} onSelect={selectRoom} label="Choose room" />
 
         <div className="llab-decay" aria-hidden="true">
           {current.bars.map((h, i) => (
@@ -466,7 +202,6 @@ function RoomAcousticsModule() {
             Repeat
           </label>
         </div>
-        {/* <AudioNote>module2-bathroom/living/closet.mp3</AudioNote> */}
 
         <AhaBox show={revealed}>
           What you're hearing is the room bouncing sound back at you. Tile
@@ -479,18 +214,6 @@ function RoomAcousticsModule() {
   );
 }
 
-// ============================================================
-// MODULE 3 — Stereo Imaging (The Headphone Illusion)
-// ============================================================
-// This module used to let the student "toggle" between a speaker
-// recording and a headphone recording of the same clip, with an
-// illustration of the beams reaching each ear. That didn't actually
-// teach anything real: a browser can't reroute audio to a different
-// physical output on demand, so both "versions" just played out of
-// whatever the student already had plugged in — the toggle changed a
-// file, not what reached their ears. The only way to actually hear the
-// headphone-vs-speaker difference is to change the real-world listening
-// device, so this module just sends the student to do that themselves.
 const AUDIO_SOURCE_3 = "/audio/listening-lab/module3-stereo-demo.mp3";
 
 function StereoImagingModule() {
@@ -513,7 +236,7 @@ function StereoImagingModule() {
     setPlaying((prev) => {
       const next = !prev;
       if (audio) {
-        if (next) audio.play().catch(() => { });
+        if (next) audio.play().catch(() => {});
         else audio.pause();
       }
       return next;
@@ -536,18 +259,7 @@ function StereoImagingModule() {
           </li>
         </ol>
 
-        <div className="llab-playbar">
-          <button
-            className="llab-play"
-            onClick={togglePlay}
-            type="button"
-            aria-label={playing ? "Pause" : "Play"}
-          >
-            {playing ? <PauseIcon /> : <PlayIcon />}
-          </button>
-          <LevelMeter playing={playing} />
-        </div>
-        {/* <AudioNote>module3-stereo-demo.mp3</AudioNote> */}
+        <PlayBar playing={playing} onToggle={togglePlay} />
 
         <AhaBox show={revealed}>
           Same file, same clip — the only thing that changes is the
@@ -563,5 +275,3 @@ function StereoImagingModule() {
     </div>
   );
 }
-
-export default SpeakerListeningLab;

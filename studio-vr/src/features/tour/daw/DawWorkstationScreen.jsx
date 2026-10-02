@@ -22,13 +22,6 @@ import { downloadAudioBufferAsWav } from "../../../audio/wavRender";
 import "../../gear-studio/chapters.css";
 import "./DawWorkstationScreen.css";
 
-// ── DAW-local modules — split out of this file (once 4800+ lines) for
-// maintainability. See ./lib, ./engine and ./components for plain constants, formatting
-// helpers, the live/offline audio-graph builders, and every presentational
-// piece of the screen (InsertRack/SendRack, TopBar, TrackList, Arrangement,
-// EditorDock, MixerView, AddTrackDialog, PluginEditorPopup). This file keeps
-// the state/audio-engine "controller" — the tracks/transport/chain
-// management hooks below — and composes those pieces in its render.
 import { PLUGIN_DEFS, TRACK_COLORS, MIN_REGION_LEN, TRACK_CHAIN_SCOPE, DEMO_CLIPS, VIEW_TABS } from "./lib/constants";
 import { clamp, pickRulerStep } from "./lib/format";
 import { trackIsAudible, computeDryScale, outerScopeId, isOuterScope, baseRegionId } from "./lib/trackHelpers";
@@ -44,67 +37,9 @@ import { MixerView } from "./components/MixerView";
 import { AddTrackDialog } from "./components/AddTrackDialog";
 import { PluginEditorPopup } from "./components/PluginEditorPopup";
 
-// ═══════════════════════════════════════════════════════════════════════════
-// DAW Workstation hotspot — features/tour/daw/DawWorkstationScreen.jsx
-// ═══════════════════════════════════════════════════════════════════════════
-// A multi-track MIX workstation: any number of real audio tracks (each a
-// built-in demo loop, or a file the student uploads) sit side-by-side as
-// mixer channel strips. Each track owns its own ordered insert chain (the
-// same seven Faust-WASM plugin inserts the single-track version used —
-// public/faust/ParamEQ, compressor, limiter, Gate, deesser, delay, reverb —
-// see PLUGIN_DEFS below), applied to the WHOLE track, exactly like the
-// original single-chain version of this screen — click a track in the
-// tracklist to edit it in the bottom dock. On top of that, a track can also
-// have any number of independent, non-overlapping PORTIONS — drag directly
-// on the clip's waveform body to mark one (see
-// beginRegionDrag/onRegionPointerMove/endRegionDrag below) — each with its
-// OWN separate chain that runs IN SERIES AFTER the track's own chain, and
-// ONLY within that portion's own time range (see
-// computeSegments/wireLiveChain below for how the live graph layers these,
-// and buildOfflineTrackOutput for the offline/download equivalent). Both
-// scopes — the track's own chain, and any one of its portions' — are edited
-// through the exact same dock/popup UI and the exact same
-// (trackId, regionId) addressing (see TRACK_CHAIN_SCOPE/getChainArray),
-// just pointed at different chain arrays. Clicking a portion selects it —
-// highlighting it, switching the dock to its own chain, and scoping the
-// transport to a preview loop of just that portion (see
-// getPreviewWindow/playFrom); "✕ Exit Selection" (in the dock or the
-// topbar, or Escape) deselects it, switches the dock back to the track's
-// own whole-track chain, and returns Play to the whole arrangement. The
-// thin strip at the top of each clip (.clip-header) is the drag handle for
-// moving the track's own start position — dragging anywhere in the
-// waveform body below it instead draws a new portion. Tracks can be added
-// (upload or demo), removed, or have their audio replaced at any time
-// (which clears that track's portions, since their time ranges wouldn't
-// line up with new audio — the track's own whole-track chain isn't
-// time-indexed, so it's left alone); each one plays back in sync with the
-// others through its own chain(s) into a shared master bus. Clicking a
-// chain chip opens that plugin's full editor in a popup: each plugin
-// reuses its own standalone chapter lab's exact *EditorPanel component
-// (GateEditorPanel, DeEsserEditorPanel, CompressorEditorPanel,
-// LimiterEditorPanel, DelayEditorPanel, ReverbEditorPanel,
-// EqualizerEditorPanel) — the real controls, curves, meters and live scope
-// each lab already has — driven by this screen's own per-track/per-scope/
-// per-slot Faust node/audio graph (see wireLiveChain/playFrom below)
-// instead of a generic knob renderer. Opening a popup auto-previews by
-// looping the mix (or just the selected portion) so the change is audible
-// immediately.
 function DawWorkstationScreen({ open, onClose }) {
   const isOpen = open?.type === "daw";
 
-  // ── Tracks (multi-track mix) ────────────────────────────────────────────
-  // Each track: { id, name, color, buffer, peaks, duration, loadError,
-  //               regions: [portion...], volume, muted, startAt }. startAt
-  //               (seconds) is where this track's clip begins in the
-  //               arrangement — dragged via its clip's header strip (see
-  //               beginClipDrag et al below). Each portion is
-  //               { id, start, end, chain: [slot...] } — start/end are
-  //               buffer-relative seconds (so a portion stays anchored to
-  //               the same audio content if the clip is later moved), and
-  //               each chain slot carries its own typed params (see
-  //               defaultSlotExtras) so two portions — even on the same
-  //               track — can each run their own independent instance of
-  //               the same plugin. A track with no portions plays back dry.
   const [tracks, setTracks] = useState([]);
   const tracksRef = useRef([]);
   useEffect(() => {
@@ -112,17 +47,9 @@ function DawWorkstationScreen({ open, onClose }) {
   }, [tracks]);
   const trackIdRef = useRef(0);
   const regionIdRef = useRef(0);
-  const demoBufferRef = useRef(null); // synthetic fallback buffer (see createDemoLoopBuffer), lazily created only if a real DEMO_CLIPS fetch fails
-  const demoClipBuffersRef = useRef(new Map()); // DEMO_CLIPS id -> decoded AudioBuffer, so re-picking/re-seeding the same ~20-45MB stem doesn't re-fetch/re-decode it
+  const demoBufferRef = useRef(null);
+  const demoClipBuffersRef = useRef(new Map());
 
-  // ── Mic recording (per-track "Record" button, right next to Upload) ────
-  // Records straight from the mic via MediaRecorder, then decodes the result
-  // through the exact same ctx.decodeAudioData path handleTrackFile uses for
-  // an uploaded file — so a recording lands on the track (peaks, chain
-  // reset, etc.) exactly like any other clip once it's done. Only one track
-  // can record at a time; recordingTrackIdRef mirrors recordingTrackId state
-  // so the async MediaRecorder callbacks (onstop) always see the current id
-  // rather than one captured at record-start time.
   const [recordingTrackId, setRecordingTrackId] = useState(null);
   const recordingTrackIdRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -130,43 +57,23 @@ function DawWorkstationScreen({ open, onClose }) {
   const recordedChunksRef = useRef([]);
   const recordingCounterRef = useRef(0);
 
-  // Each track's own clip can start anywhere in the arrangement (see
-  // track.startAt, seconds — dragged via the clip's header in the
-  // arrangement pane below), so the arrangement's total length is the
-  // latest of every track's own END point (startAt + its own duration), not
-  // just the longest buffer.
   const arrangementDuration = useMemo(
     () => tracks.reduce((max, t) => Math.max(max, (t.startAt ?? 0) + (t.buffer?.duration ?? 0)), 0),
     [tracks],
   );
 
-  // Whether anything in the mix is currently soloed — dims every non-soloed
-  // track row so it's visually obvious why they've gone quiet, same as a
-  // real console's solo-in-place indicator.
   const anySoloed = useMemo(() => tracks.some((t) => t.solo), [tracks]);
 
-  // ── Track selection (the tracklist row that drives which track's clip is
-  // in focus — like clicking a channel in a real DAW) ────────────────────
   const [selectedTrackId, setSelectedTrackId] = useState(null);
   const selectedTrackIdRef = useRef(null);
   useEffect(() => {
     selectedTrackIdRef.current = selectedTrackId;
   }, [selectedTrackId]);
 
-  // ── View: Arrange (tracklist + waveform arrangement, the default) or
-  // Mixer (Logic-style vertical channel strips) — toggled from the topbar
-  // or the X key (same shortcut Logic itself uses for its Mixer). ────────
-  const [viewMode, setViewMode] = useState("arrange"); // "arrange" | "mixer"
+  const [viewMode, setViewMode] = useState("arrange");
   const viewRef = useRef(null);
   useTabTransition(viewRef, viewMode, VIEW_TABS.findIndex((t) => t.id === viewMode));
 
-  // ── "New Track" dialog — Logic Pro's own New Track sheet lets you pick a
-  // type/input/color/name before the track is created; this app is
-  // audio-only (no MIDI/instrument tracks), so the dialog collects the part
-  // that's actually meaningful here — name, color, and a cosmetic source
-  // icon — then creates an empty track exactly like the old one-click
-  // "+ Add Track" row did (upload/demo still happen afterwards, from the
-  // track row itself, same as before). ───────────────────────────────────
   const [addTrackDialogOpen, setAddTrackDialogOpen] = useState(false);
   const [newTrackDraft, setNewTrackDraft] = useState({ name: "", color: TRACK_COLORS[0], icon: "audio", kind: "audio" });
   const openAddTrackDialog = useCallback(() => {
@@ -174,39 +81,19 @@ function DawWorkstationScreen({ open, onClose }) {
     setNewTrackDraft({ name: `Track ${n}`, color: TRACK_COLORS[(n - 1) % TRACK_COLORS.length], icon: "audio", kind: "audio" });
     setAddTrackDialogOpen(true);
   }, []);
-  // confirmAddTrack is defined right after addEmptyTrack below (it closes
-  // over that callback, which isn't declared yet at this point in the
-  // component body).
 
-  // ── Portion (region) selection — the highlighted portion whose own chain
-  // drives the bottom dock's editor. Selecting a portion also scopes the
-  // transport to a preview loop of just that portion (see
-  // getPreviewWindow/playFrom below); "Exit Selection" (or Escape) clears
-  // this and returns Play to the whole arrangement. ──────────────────────
-  const [selectedRegion, setSelectedRegion] = useState(null); // { trackId, regionId } | null
+  const [selectedRegion, setSelectedRegion] = useState(null);
   const selectedRegionRef = useRef(null);
   useEffect(() => {
     selectedRegionRef.current = selectedRegion;
   }, [selectedRegion]);
 
-  // While a portion is selected, the dock can point at either that
-  // portion's own chain ("portion") or the track's outer whole-track chain
-  // ("track") without losing the portion highlight/preview-loop — see the
-  // scope tabs in the dock header. Reset to "portion" whenever selection
-  // changes so the dock always opens on the portion you just picked.
-  const [dockScope, setDockScope] = useState("portion"); // "portion" | "track"
+  const [dockScope, setDockScope] = useState("portion");
 
-  // The portion currently being drawn by dragging on a clip's waveform body
-  // — see beginRegionDrag/onRegionPointerMove/endRegionDrag below.
-  const [draftRegion, setDraftRegion] = useState(null); // { trackId, start, end } | null
+  const [draftRegion, setDraftRegion] = useState(null);
 
-  // Drag-to-reorder the selected portion's insert chain (the ‹ › buttons on
-  // each chip still work too — this is just a faster way to do the same
-  // reorder).
   const [draggingKey, setDraggingKey] = useState(null);
 
-  // Keeps the tracklist (left) and arrangement (right) scrolled together —
-  // they're two independent scroll containers, same as the design mockup.
   const tracklistRef = useRef(null);
   const arrangementRef = useRef(null);
   const syncingScrollRef = useRef(false);
@@ -231,23 +118,6 @@ function DawWorkstationScreen({ open, onClose }) {
     }
   }, []);
 
-  // ── Row-height sync: each .arr-row (right pane) is set to the ACTUAL
-  // measured height of its matching .track-row (left pane), not a shared
-  // guessed constant — a track row's real height can vary slightly (aux vs
-  // audio tracks have a different button count, an error message can wrap
-  // to two lines, fonts/zoom render text at slightly different heights
-  // across machines) and any mismatch, even a couple px, drifts further
-  // apart with every row down the list since the two panes are two
-  // independently-scrolled elements kept in lockstep by copying scrollTop
-  // 1:1 (onTracklistScroll/onArrangementScroll above). --track-row-h in the
-  // CSS is only the fallback used for the very first paint, before this
-  // effect has measured anything. trackRowRefs collects each rendered
-  // .track-row DOM node (see the ref callback on that div below); a
-  // ResizeObserver on every one of them re-measures whenever a row's real
-  // height changes for any reason, and rowSlotHeights[track.id] — the
-  // measured height plus that row's own margin-bottom, i.e. the full
-  // vertical slot it occupies before the next row starts — gets applied as
-  // an inline height on the matching .arr-row (see the arr-rows map below).
   const trackRowRefs = useRef(new Map());
   const [rowSlotHeights, setRowSlotHeights] = useState({});
   useLayoutEffect(() => {
@@ -278,33 +148,23 @@ function DawWorkstationScreen({ open, onClose }) {
     };
   }, [tracks, viewMode]);
 
-  // ── Plugin editor popup (which track + portion + plugin is open) ───────
-  const [activeEditor, setActiveEditor] = useState(null); // { trackId, regionId, key } | null
+  const [activeEditor, setActiveEditor] = useState(null);
   const activeEditorRef = useRef(null);
   useEffect(() => {
     activeEditorRef.current = activeEditor;
   }, [activeEditor]);
-  // Snapshot of every track's `solo` flag from just before the popup
-  // auto-isolated the track being edited (see the isolation effect below,
-  // near handleProcess/handleApply/handleCancel) — restored the moment the
-  // popup closes or switches to a different track, so temporarily isolating
-  // a track to preview its plugin never clobbers whatever solo state the
-  // user actually had set. `null` while no isolation is active.
   const preIsolateSoloRef = useRef(null);
 
-  const engineCacheRef = useRef(new Map()); // plugin key -> compiled Faust factory (shared across all tracks/portions)
-  const slotRuntimeRef = useRef(new Map()); // `${trackId}:${regionId}:${key}` -> { bypassGain, wetGain, scopeAnalyser, inputAnalyser, outputAnalyser } (live, only while playing)
-  const meterValuesRef = useRef(new Map()); // `${trackId}:${regionId}:${key}` -> { [address]: value }
-  const sendIdRef = useRef(0); // per-session unique id counter for sends (see addSend)
-  const sendRuntimeRef = useRef(new Map()); // `${trackId}:${sendId}` -> { sendPanner, sendGain } (live, only while playing — see playFrom's Aux/Sends pass)
-  const eqRuntimeRef = useRef(new Map()); // `${trackId}:${regionId}` -> { outputGainNode, analyser, dryAnalyser } (EQ's extra nodes, live, only while playing)
-  const eqAnalyserRef = useRef(null); // pointed at whichever portion's EQ analyser is currently open in the popup
+  const engineCacheRef = useRef(new Map());
+  const slotRuntimeRef = useRef(new Map());
+  const meterValuesRef = useRef(new Map());
+  const sendIdRef = useRef(0);
+  const sendRuntimeRef = useRef(new Map());
+  const eqRuntimeRef = useRef(new Map());
+  const eqAnalyserRef = useRef(null);
   const eqDryAnalyserRef = useRef(null);
   const eqLiveDynGainRef = useRef({});
 
-  // Small transient UI-only state for whichever plugin's popup is currently
-  // open (only one popup is open at a time, so these don't need to be
-  // per-track/per-portion/per-slot like the audio-affecting params above).
   const [gateIsOpen, setGateIsOpen] = useState(true);
   const [compSelectedBand, setCompSelectedBand] = useState("low");
   const [, setLimiterGainReduction] = useState(0);
@@ -312,7 +172,6 @@ function DawWorkstationScreen({ open, onClose }) {
   const [eqSelectedBandId, setEqSelectedBandId] = useState("peak1");
   const [eqSampleRate, setEqSampleRate] = useState(48000);
 
-  // ── Transport (plays every track in the mix together, in sync) ─────────
   const [isPlaying, setIsPlaying] = useState(false);
   const isPlayingRef = useRef(isPlaying);
   useEffect(() => {
@@ -326,13 +185,11 @@ function DawWorkstationScreen({ open, onClose }) {
   const [playhead, setPlayhead] = useState(0);
   const graphRef = useRef(null);
   const pausedOffsetRef = useRef(0);
-  const endTimeoutRef = useRef(null); // fires when a non-looping mix reaches the end of the longest track
-  const playCallTokenRef = useRef(0); // guards against two concurrent playFrom() calls racing (see playFrom)
+  const endTimeoutRef = useRef(null);
+  const playCallTokenRef = useRef(0);
   const [meterLevel, setMeterLevel] = useState(0);
 
-  // ── Download (individual track / full mix), offline-rendered — see
-  // renderTrackOffline/renderMixOffline above ─────────────────────────────
-  const [downloadingTrackId, setDownloadingTrackId] = useState(null); // id of the track currently being rendered, or null
+  const [downloadingTrackId, setDownloadingTrackId] = useState(null);
   const [downloadingMix, setDownloadingMix] = useState(false);
   const [downloadError, setDownloadError] = useState("");
 
@@ -354,18 +211,10 @@ function DawWorkstationScreen({ open, onClose }) {
       engineCacheRef.current.set(def.key, cached);
     }
     const generator = new FaustMonoDspGenerator();
-    // sp=true: ScriptProcessorNode instead of AudioWorkletNode, since AudioWorkletNode needs a
-    // secure context and this is currently served over plain HTTP. Switch back to false once HTTPS
-    // is in front of the deploy (see offlineRender.js, which stays on AudioWorkletNode/false).
     const node = await generator.createNode(ctx, cached.meta.name, cached.factory, true, 512);
     return { node, meta: cached.meta };
   }, []);
 
-  // Resolves the currently-selected portion (if any) into an absolute
-  // [start, end) window in ARRANGEMENT seconds (i.e. that portion's own
-  // buffer-relative bounds shifted by its track's current startAt) — read
-  // fresh from tracksRef/selectedRegionRef every call, so it never goes
-  // stale if the clip is dragged after the portion was selected.
   const getPreviewWindow = useCallback(() => {
     const sel = selectedRegionRef.current;
     if (sel) {
@@ -376,12 +225,6 @@ function DawWorkstationScreen({ open, onClose }) {
         return { start: startAt + region.start, end: startAt + region.end };
       }
     }
-    // No portion selected — while a track's whole-track chain popup is open
-    // (see the isolation effect near handleProcess), that track is the only
-    // audible one, so scope the loop to just its own duration instead of
-    // the whole arrangement; otherwise a shorter isolated track would keep
-    // "looping" silence for however much longer the longest track in the
-    // arrangement runs before the window wraps back around.
     const ed = activeEditorRef.current;
     if (ed && ed.regionId === TRACK_CHAIN_SCOPE) {
       const track = tracksRef.current.find((t) => t.id === ed.trackId);
@@ -393,15 +236,6 @@ function DawWorkstationScreen({ open, onClose }) {
     return null;
   }, []);
 
-  // currentOffset() reports the shared transport position — a straight line
-  // from startOffset for a single pass, wrapped within [loopStart, loopEnd)
-  // when looping. loopStart/loopEnd span the whole arrangement normally, or
-  // just the selected portion's own window while one is selected (see
-  // getPreviewWindow/playFrom) — the whole arrangement restarts (or the
-  // selected portion loops) together once that window's end is reached (see
-  // the end-of-window timer in playFrom), rather than each track's own
-  // AudioBufferSourceNode looping at its own buffer length; this is just the
-  // shared playhead/scrub clock.
   const currentOffset = useCallback(() => {
     if (!isPlayingRef.current) return pausedOffsetRef.current;
     const ctx = getAudioContext();
@@ -427,19 +261,16 @@ function DawWorkstationScreen({ open, onClose }) {
         try {
           source.stop();
         } catch {
-          /* already stopped */
         }
         try {
           source.disconnect();
         } catch {
-          /* ok */
         }
       });
       extraNodes.forEach((n) => {
         try {
           n.disconnect();
         } catch {
-          /* ok */
         }
       });
     });
@@ -453,12 +284,10 @@ function DawWorkstationScreen({ open, onClose }) {
     try {
       g.masterGain.disconnect();
     } catch {
-      /* ok */
     }
     try {
       g.meterAnalyser.disconnect();
     } catch {
-      /* ok */
     }
     g.speakerBus?.dispose();
     graphRef.current = null;
@@ -468,31 +297,6 @@ function DawWorkstationScreen({ open, onClose }) {
     eqDryAnalyserRef.current = null;
   }, []);
 
-  // Builds a fresh playback graph for every track that has audio loaded and
-  // starts them all at the same instant. Each track gets a single source
-  // spanning its whole buffer, run through that track's own whole-track
-  // chain (the "outer" layer, in order, skipping bypassed slots — see
-  // wireLiveChain) — then fanned out into one gated path per portion (each
-  // running that portion's own chain, layered AFTER the track chain — the
-  // "inner" layer) plus one gated "no portion" path carrying the track-chain
-  // output straight through, so exactly one of those paths is open at any
-  // given moment depending on where the transport is relative to that
-  // track's own portions (see computeSegments) — all summed into that
-  // track's own volume/mute gain, then into a shared master bus. Each
-  // track's clip can start at its own point in the arrangement
-  // (track.startAt, seconds — see setTrackStartAt/the clip drag handlers
-  // below), so where in ITS OWN buffer a track needs to be at the shared
-  // transport position `offset` depends on that track's own startAt: not
-  // started yet (schedule it to begin later), partway through (start now,
-  // partway into the buffer), or already finished this pass (skip it
-  // entirely) — the same reasoning applies to each portion gate's own
-  // on/off schedule. When a portion is selected (see getPreviewWindow), the
-  // transport loops just that portion's own window instead of the whole
-  // arrangement — otherwise it spans [0, arrangementDuration) and follows
-  // the Loop toggle. A single pass plays and, once the loop window's end is
-  // reached, a timer either flips the transport back to stopped (Loop off,
-  // no portion selected) or restarts from the window's start (Loop on, or
-  // any portion selected).
   const playFrom = useCallback(
     async (offset) => {
       const token = ++playCallTokenRef.current;
@@ -500,12 +304,6 @@ function DawWorkstationScreen({ open, onClose }) {
       if (list.length === 0) return;
       const ctx = await ensureContext();
       if (!ctx) return;
-      // If another playFrom() call was made while this one was waiting on
-      // ensureContext(), let that newer call own the rebuild — otherwise
-      // two overlapping calls each tear down and rebuild the graph, and
-      // whichever finishes its (synchronous, post-await) work last wins in
-      // a way that isn't predictable. This is what let adding several
-      // plugins in a row race each other into a silent/inconsistent graph.
       if (token !== playCallTokenRef.current) return;
       teardownPlaybackGraph();
       setEqSampleRate(ctx.sampleRate);
@@ -521,14 +319,6 @@ function DawWorkstationScreen({ open, onClose }) {
       const meterAnalyser = ctx.createAnalyser();
       meterAnalyser.fftSize = 512;
       masterGain.connect(meterAnalyser);
-      // `independent: true` — the DAW's own mix bus stays spatialized
-      // (still sounds like it's coming from the studio monitors, still
-      // turns with the student's head), but skips the shared masterGain/
-      // outputGain stage the panorama tour's own master mute button
-      // controls (see setMuted() in spatialAudioEngine.js and
-      // toggleMasterMute in PanoramaTour.jsx) — muting hotspot narration
-      // from the tour's toolbar shouldn't also reach in and silence
-      // whatever's playing on this screen.
       const speakerBus = createStudioSpeakerBus({ independent: true });
       if (speakerBus) masterGain.connect(speakerBus.input);
       else masterGain.connect(ctx.destination);
@@ -540,17 +330,8 @@ function DawWorkstationScreen({ open, onClose }) {
       list.forEach((track) => {
         const buffer = track.buffer;
         const startAt = track.startAt ?? 0;
-        // This track's clip has already fully played out by the current
-        // transport position — nothing to schedule for it this pass.
         if (clampedOffset >= startAt + buffer.duration) return;
 
-        // A single source spans the WHOLE buffer (same scheduling as
-        // before portions existed) — the track's own chain (the "outer"
-        // layer) runs on it in full, start to finish; there's no need to
-        // slice the buffer per-portion any more, because a portion's own
-        // chain (the "inner" layer, see below) needs to process the
-        // ALREADY track-chain-processed signal, not a fresh copy of the
-        // raw audio.
         let bufferOffset = 0;
         let when = ctx.currentTime;
         if (clampedOffset < startAt) {
@@ -578,15 +359,6 @@ function DawWorkstationScreen({ open, onClose }) {
         const trackGain = ctx.createGain();
         trackGain.gain.value = trackIsAudible(track, tracksRef.current) ? (track.volume ?? 1) : 0;
 
-        // Fan the track-chain output into one path per portion (each
-        // running that portion's own PRIVATE outer chain — see
-        // outerScopeId/OUTER_CHAIN_SUFFIX — then that portion's own chain,
-        // the "inner" layer, both layered AFTER the track's whole-track
-        // chain but never heard outside this one portion) plus one "no
-        // portion" dry-of-the-whole-track-chain path, then gate each path
-        // so only the one matching wherever the transport currently is is
-        // actually audible — see computeSegments for the ordered time
-        // windows these gates follow.
         const dryGate = ctx.createGain();
         dryGate.gain.value = 0;
         trackChainOut.connect(dryGate);
@@ -594,7 +366,7 @@ function DawWorkstationScreen({ open, onClose }) {
         extraNodes.push(dryGate);
 
         const segments = computeSegments(track);
-        const portionGates = new Map(); // regionId -> gate GainNode
+        const portionGates = new Map();
         segments.forEach((seg) => {
           if (seg.region && !portionGates.has(seg.region.id)) {
             const { chainOut: portionOuterOut, extraNodes: portionOuterExtra } = wireLiveChain(
@@ -622,12 +394,6 @@ function DawWorkstationScreen({ open, onClose }) {
           }
         });
 
-        // Schedule each gate's on/off automation across the segments still
-        // ahead of (or straddling) the current transport position — same
-        // "skip anything already fully past, otherwise schedule relative to
-        // ctx.currentTime" reasoning the old per-segment source scheduling
-        // used, just driving gain automation instead of a source's own
-        // start() now that every portion shares the single upstream source.
         const allGates = [{ id: null, gain: dryGate }, ...Array.from(portionGates, ([id, gain]) => ({ id, gain }))];
         segments.forEach((seg) => {
           const segAbsStart = startAt + seg.start;
@@ -640,20 +406,10 @@ function DawWorkstationScreen({ open, onClose }) {
           });
         });
 
-        // Dry/direct path to master — scaled down by however much of this
-        // track's signal its own post-fader Sends are currently diverting
-        // (see computeDryScale), so a send crossfades its portion away from
-        // here instead of just adding a copy on top of an unchanged direct
-        // signal. Live-nudged by updateSend whenever a send's level/mute
-        // changes without a full rebuild — see applyDryGain.
         const dryGain = ctx.createGain();
         dryGain.gain.value = computeDryScale(track);
         extraNodes.push(dryGain);
 
-        // Pan (a channel-strip property, set from the Mixer view's Knob) and
-        // a small per-track analyser (the Mixer view's own meter) both sit
-        // after the volume fader, same position a real channel strip puts
-        // them — see setTrackPan and the mixer-meter poll below.
         const pannerNode = ctx.createStereoPanner();
         pannerNode.pan.value = track.pan ?? 0;
         const trackAnalyser = ctx.createAnalyser();
@@ -665,45 +421,21 @@ function DawWorkstationScreen({ open, onClose }) {
         trackNodes.set(track.id, { sources: [source], extraNodes, trackGain, dryGain, pannerNode, trackAnalyser, trackChainOut });
       });
 
-      // ── Aux buses + Sends ────────────────────────────────────────────────
-      // Every Aux track (see addEmptyTrack's `kind: "aux"`) gets its own
-      // summing input — a plain GainNode nothing but this track's own Sends
-      // feed into — created up front so the loop above's Sends have
-      // somewhere to connect to regardless of tracklist order (an Aux can
-      // sit above or below the tracks that feed it). A track with no buffer
-      // never entered `list`/`trackNodes` above, so Aux tracks are wired in
-      // this second pass instead, reusing the exact same
-      // chain → volume/mute → pan → masterGain pipeline as a real track,
-      // just fed from its input gain instead of an AudioBufferSourceNode.
       const auxTracks = tracksRef.current.filter((t) => t.kind === "aux");
       const auxInputGains = new Map();
       auxTracks.forEach((auxTrack) => auxInputGains.set(auxTrack.id, ctx.createGain()));
 
       list.forEach((track) => {
         const nodes = trackNodes.get(track.id);
-        if (!nodes) return; // this track's clip hadn't started/hasn't finished this pass — see the early `return` above
+        if (!nodes) return;
         (track.sends || []).forEach((send) => {
           const targetInput = auxInputGains.get(send.busId);
-          if (!targetInput) return; // its target Aux was removed, or hasn't loaded yet
+          if (!targetInput) return;
           const tap = send.prePost === "pre" ? nodes.trackChainOut : nodes.trackGain;
           const sendPanner = ctx.createStereoPanner();
-          // FMP ("Follow Main Pan") — this send's pan mirrors the track's
-          // own Pan knob live instead of holding an independent value (see
-          // the send-window's FMP toggle, and setTrackPan's own nudge of
-          // any fmp sends when the track's pan itself moves).
           sendPanner.pan.value = send.fmp ? (track.pan ?? 0) : (send.pan ?? 0);
           const sendGain = ctx.createGain();
-          // Muted still gets a real node graph (gain just parked at 0)
-          // rather than being skipped outright — same "keep the plumbing,
-          // zero the gain" treatment insert Bypass gets (see wireLiveChain's
-          // bypassGain/wetGain) — so un-muting later (see updateSend) can
-          // just ramp this same node back up instead of needing a full
-          // playFrom rebuild to even have a node to ramp.
           sendGain.gain.value = send.muted ? 0 : (send.level ?? 1);
-          // Post-fader tap for the send window's own level meter (see
-          // getSendMeterLevel below) — a small analyser of the actual
-          // signal reaching the bus, the same "tap the node, read it in a
-          // poll" trick trackAnalyser/meterAnalyser already use elsewhere.
           const sendAnalyser = ctx.createAnalyser();
           sendAnalyser.fftSize = 256;
           tap.connect(sendPanner);
@@ -753,10 +485,6 @@ function DawWorkstationScreen({ open, onClose }) {
       };
       setIsPlaying(true);
 
-      // Fires once the loop window's end (the whole arrangement, or just
-      // the selected portion — see loopStart/loopEnd above) is reached.
-      // Loop off (and no portion selected) stops the transport there.
-      // Otherwise it restarts from the window's start.
       const remaining = Math.max(0, loopEnd - clampedOffset);
       endTimeoutRef.current = setTimeout(() => {
         endTimeoutRef.current = null;
@@ -800,17 +528,6 @@ function DawWorkstationScreen({ open, onClose }) {
     }
   }, [isPlaying, playFrom]);
 
-  // Loop on/off is baked into the end-of-window timer at graph-build time
-  // (see the setTimeout in playFrom) — flipping the loopOn state alone
-  // doesn't touch a timer that's already scheduled, which is why the button
-  // used to look like it had no effect on live playback (turning it off
-  // didn't stop an already-looping mix, turning it on didn't make a
-  // single-pass mix start looping). Update loopOnRef synchronously (state
-  // updates apply on the next render, too late for the rebuild below to see
-  // them) and, if already playing, rebuild the graph from the current
-  // position so the new setting takes effect immediately. Has no effect
-  // while a portion is selected — previewing a portion always loops (see
-  // playFrom) until you Exit Selection.
   const toggleLoop = useCallback(() => {
     const next = !loopOnRef.current;
     loopOnRef.current = next;
@@ -818,21 +535,10 @@ function DawWorkstationScreen({ open, onClose }) {
     if (isPlayingRef.current) playFrom(currentOffset());
   }, [playFrom, currentOffset]);
 
-  // Playhead + master meter — each open plugin popup reads its own live
-  // scope/meters directly (via getXLevels/getInputPeak-style host callbacks
-  // called from that plugin's own *EditorPanel animation loop), so this poll
-  // only needs to drive the main transport. Also drives each track's own
-  // little Mixer-view meter (see trackAnalyser in playFrom) — only computed
-  // while the Mixer is actually visible, since nothing else reads it.
   const [trackLevels, setTrackLevels] = useState({});
   useEffect(() => {
     if (!isPlaying) return;
     const id = setInterval(() => {
-      // Skip while a playhead scrub is in progress — the drag handlers own
-      // `playhead` exclusively during that window (see
-      // beginPlayheadDrag/onPlayheadPointerMove below); overwriting it here
-      // with the still-playing-at-the-old-position live clock would fight
-      // the drag and make the line jitter.
       if (!dragPlayheadRef.current) setPlayhead(clamp(currentOffset(), 0, arrangementDuration));
       const g = graphRef.current;
       if (g?.meterAnalyser) {
@@ -867,20 +573,6 @@ function DawWorkstationScreen({ open, onClose }) {
     if (!isPlaying) setTrackLevels({});
   }, [isPlaying]);
 
-  // (Escape-to-exit-selection, plus the rest of the transport/mixer
-  // shortcuts, now live in one combined keydown effect further down — see
-  // the "Transport/mixer keyboard shortcuts" comment below, right before
-  // this component's own `if (!isOpen) return null;`.)
-
-  // ── Track management (add / remove / upload / demo / volume) ───────────
-  // `fixedColor` lets a caller pin a specific swatch (e.g. the default demo
-  // seed below, via DEMO_CLIPS' own `color`) instead of falling back to the
-  // "cycle TRACK_COLORS by running track number" rule — that rule is right
-  // for freshly-added tracks, but trackIdRef's count keeps climbing across a
-  // session as tracks are added/removed, so without a fixed color the three
-  // default tracks would get reassigned different colors any time they're
-  // reseeded after other tracks came and went, instead of always matching
-  // the same teal/amber/blue.
   const addTrackWithBuffer = useCallback(
     (buffer, name, fixedColor) => {
       const n = ++trackIdRef.current;
@@ -901,9 +593,6 @@ function DawWorkstationScreen({ open, onClose }) {
     [playFrom, currentOffset],
   );
 
-  // Backs both the plain "+ Add Track" row (no options) and the Logic-style
-  // New Track dialog (name/color/icon chosen there) — see
-  // addTrackDialogOpen/newTrackDraft/confirmAddTrack below.
   const addEmptyTrack = useCallback((opts) => {
     const n = ++trackIdRef.current;
     const id = `t${n}`;
@@ -922,8 +611,6 @@ function DawWorkstationScreen({ open, onClose }) {
     return id;
   }, []);
 
-  // See addTrackDialogOpen/newTrackDraft/openAddTrackDialog above — the New
-  // Track dialog's own "Create Track" button.
   const confirmAddTrack = useCallback(() => {
     addEmptyTrack(newTrackDraft);
     setAddTrackDialogOpen(false);
@@ -932,9 +619,6 @@ function DawWorkstationScreen({ open, onClose }) {
   const removeTrack = useCallback(
     (id) => {
       const track = tracksRef.current.find((t) => t.id === id);
-      // If this track is the one currently recording, cancel the recording
-      // outright (no onstop decode — its track is about to be gone anyway)
-      // rather than leaving the mic stream open with nowhere to land.
       if (recordingTrackIdRef.current === id) {
         if (mediaRecorderRef.current) mediaRecorderRef.current.onstop = null;
         mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -944,9 +628,6 @@ function DawWorkstationScreen({ open, onClose }) {
         recordingTrackIdRef.current = null;
         setRecordingTrackId(null);
       }
-      // Dropping a track (an Aux bus, most commonly) also has to drop every
-      // OTHER track's send that was routed at it — otherwise those sends
-      // would silently point at a bus id nothing owns any more.
       const next = tracksRef.current
         .filter((t) => t.id !== id)
         .map((t) => (t.sends?.some((s) => s.busId === id) ? { ...t, sends: t.sends.filter((s) => s.busId !== id) } : t));
@@ -973,9 +654,6 @@ function DawWorkstationScreen({ open, onClose }) {
     [playFrom, currentOffset, stop],
   );
 
-  // Fetches + decodes one of DEMO_CLIPS (cached by id — these are real
-  // 20-45MB WAV stems, not worth re-downloading/re-decoding every time the
-  // same one is picked again).
   const loadDemoClip = useCallback(async (ctx, clip) => {
     const cached = demoClipBuffersRef.current.get(clip.id);
     if (cached) return cached;
@@ -987,20 +665,12 @@ function DawWorkstationScreen({ open, onClose }) {
     return decoded;
   }, []);
 
-  // Disconnects every plugin node in a track's own portions and clears any
-  // selection/editor pointed at it — used right before that track's audio
-  // is replaced (see loadDemoForTrack/handleTrackFile below), since a new
-  // buffer invalidates the old portions' buffer-relative time ranges.
   const releaseTrackRegions = useCallback((id) => {
     const track = tracksRef.current.find((t) => t.id === id);
     track?.regions.forEach((region) => {
       disconnectChainSlots(region.chain);
       disconnectChainSlots(region.outerChain || []);
     });
-    // Only close the popup if it was editing one of THIS track's portions
-    // (which are about to be cleared) — the track's own whole-track chain
-    // isn't time-indexed against the old audio, so it (and its popup, if
-    // that's what's open) is left alone.
     if (activeEditorRef.current?.trackId === id && activeEditorRef.current?.regionId !== TRACK_CHAIN_SCOPE) {
       setActiveEditor(null);
     }
@@ -1010,10 +680,6 @@ function DawWorkstationScreen({ open, onClose }) {
     }
   }, []);
 
-  // Loads one of DEMO_CLIPS onto a track — the per-track "D" demo dropdown.
-  // Falls back to the synthetic pad (with a loadError note) if the real
-  // clip can't be fetched/decoded, same spirit as handleTrackFile's own
-  // error handling below.
   const loadDemoForTrack = useCallback(
     async (id, clip) => {
       const ctx = await ensureContext();
@@ -1071,9 +737,6 @@ function DawWorkstationScreen({ open, onClose }) {
     [ensureContext, releaseTrackRegions, playFrom, currentOffset],
   );
 
-  // Stops the mic stream/recorder and clears every recording-related ref —
-  // shared by the normal onstop path below and the hard-cancel path (closing
-  // the DAW, or the track being removed, mid-recording).
   const teardownRecording = useCallback(() => {
     mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
     mediaStreamRef.current = null;
@@ -1085,7 +748,7 @@ function DawWorkstationScreen({ open, onClose }) {
 
   const startRecording = useCallback(
     async (id) => {
-      if (recordingTrackIdRef.current) return; // one track records at a time
+      if (recordingTrackIdRef.current) return;
       const ctx = await ensureContext();
       if (!ctx) {
         setTracks((prev) => prev.map((t) => (t.id === id ? { ...t, loadError: "Could not start the audio engine." } : t)));
@@ -1140,9 +803,6 @@ function DawWorkstationScreen({ open, onClose }) {
     [ensureContext, releaseTrackRegions, teardownRecording, playFrom, currentOffset],
   );
 
-  // The Record button toggles into this once a track is recording (see
-  // TrackList's own record/stop button) — stopping the MediaRecorder fires
-  // its `onstop` above, which does the actual decode/track-update.
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
@@ -1162,11 +822,6 @@ function DawWorkstationScreen({ open, onClose }) {
     }
   }, []);
 
-  // Re-applies every LIVE track's own trackGain from scratch against the
-  // just-updated track list — needed for both Mute and Solo, because
-  // (un)soloing or (un)muting any one track can change whether every OTHER
-  // track is audible too (see trackIsAudible), not just the one that was
-  // clicked.
   const applyMuteSoloGains = useCallback((allTracks) => {
     const g = graphRef.current;
     if (!g) return;
@@ -1187,9 +842,6 @@ function DawWorkstationScreen({ open, onClose }) {
     [applyMuteSoloGains],
   );
 
-  // Solo works exactly like every other DAW's: soloing any track(s) silences
-  // every non-soloed track in the mix (Mute stays independent — a muted
-  // track stays silent even if it's also soloed).
   const toggleTrackSolo = useCallback(
     (id) => {
       const next = tracksRef.current.map((t) => (t.id === id ? { ...t, solo: !t.solo } : t));
@@ -1209,10 +861,6 @@ function DawWorkstationScreen({ open, onClose }) {
     if (nodes?.pannerNode && g) {
       nodes.pannerNode.pan.setTargetAtTime(pan, g.ctx.currentTime, 0.01);
     }
-    // Any of this track's sends with FMP ("Follow Main Pan") on mirror this
-    // same pan value instead of an independent one — see the send-window's
-    // FMP toggle. Nudge their already-wired panners the same way, rather
-    // than waiting on a full playFrom rebuild to pick the new value up.
     if (g) {
       const track = next.find((t) => t.id === id);
       (track?.sends || []).forEach((s) => {
@@ -1223,15 +871,6 @@ function DawWorkstationScreen({ open, onClose }) {
     }
   }, []);
 
-  // ── Move a track's clip start position (drag it anywhere in the
-  // arrangement, like a real DAW) ─────────────────────────────────────────
-  // Plain state update — no live graph rebuild here. A position drag can
-  // fire many times a second; tearing down/rebuilding the whole playback
-  // graph (every track's chains, every Faust node reconnected) on each of
-  // those would be both wasteful and audibly glitchy. Whatever's already
-  // playing keeps playing at its old position until the drag actually ends
-  // (see endClipDrag below), then the graph rebuilds once from the current
-  // transport position with the new startAt baked in.
   const setTrackStartAt = useCallback((id, startAt) => {
     const clamped = Math.max(0, startAt);
     const next = tracksRef.current.map((t) => (t.id === id ? { ...t, startAt: clamped } : t));
@@ -1239,13 +878,6 @@ function DawWorkstationScreen({ open, onClose }) {
     setTracks(next);
   }, []);
 
-  // { trackId, pointerId, startClientX, startAt, secondsPerPixel } while a
-  // clip drag is in progress, else null. secondsPerPixel is snapshotted
-  // once at drag start (from the arrangement pane's current width and the
-  // arrangement's current duration) rather than recomputed every move —
-  // the arrangement can get longer as you drag a clip further right, and
-  // recomputing against that growing length mid-drag would make the clip
-  // fight your own cursor instead of tracking it 1:1.
   const dragClipRef = useRef(null);
 
   const beginClipDrag = useCallback(
@@ -1265,7 +897,6 @@ function DawWorkstationScreen({ open, onClose }) {
       try {
         e.currentTarget.setPointerCapture(e.pointerId);
       } catch {
-        /* ok — dragging still works without capture, just less robust if the pointer leaves the element */
       }
       setSelectedTrackId(track.id);
     },
@@ -1290,17 +921,12 @@ function DawWorkstationScreen({ open, onClose }) {
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {
-        /* ok */
       }
       if (isPlayingRef.current) playFrom(currentOffset());
     },
     [playFrom, currentOffset],
   );
 
-  // ── Portion selection & management ──────────────────────────────────────
-  // Selecting a portion highlights it, points the dock's chain editor at
-  // it, and (if the mix is already playing) immediately switches the
-  // transport to loop just that portion's own window.
   const selectRegion = useCallback(
     (trackId, regionId) => {
       selectedRegionRef.current = { trackId, regionId };
@@ -1312,8 +938,6 @@ function DawWorkstationScreen({ open, onClose }) {
     [playFrom, currentOffset],
   );
 
-  // "✕ Exit Selection" (and Escape) — deselects the portion and returns Play
-  // to covering the whole arrangement again.
   const exitSelection = useCallback(() => {
     selectedRegionRef.current = null;
     setSelectedRegion(null);
@@ -1321,10 +945,6 @@ function DawWorkstationScreen({ open, onClose }) {
     if (isPlayingRef.current) playFrom(currentOffset());
   }, [playFrom, currentOffset]);
 
-  // Carves a new portion out of whichever dry gap (see computeSegments)
-  // contains the drag's anchor point, clamped to that gap so it can never
-  // overlap an existing portion on the same track. Auto-selects the new
-  // portion once created.
   const createRegion = useCallback(
     (trackId, start, end) => {
       const track = tracksRef.current.find((t) => t.id === trackId);
@@ -1336,10 +956,6 @@ function DawWorkstationScreen({ open, onClose }) {
       const e = Math.min(end, gap.end);
       if (e - s < MIN_REGION_LEN) return;
       const id = `${trackId}-r${++regionIdRef.current}`;
-      // outerCustomized: false — a fresh portion's "Outer" scope just reads
-      // through to the track's own chain (see getChainArray) until someone
-      // actually edits it there, at which point forkOuterChainIfNeeded
-      // snapshots a private copy into outerChain and flips this to true.
       const region = { id, start: s, end: e, chain: [], outerChain: [], outerCustomized: false };
       const next = tracksRef.current.map((t) => (t.id === trackId ? { ...t, regions: [...t.regions, region] } : t));
       tracksRef.current = next;
@@ -1362,7 +978,6 @@ function DawWorkstationScreen({ open, onClose }) {
         try {
           slot.node?.disconnect();
         } catch {
-          /* ok */
         }
       });
       if (activeEditorRef.current?.trackId === trackId && activeEditorRef.current?.regionId === regionId) setActiveEditor(null);
@@ -1375,11 +990,6 @@ function DawWorkstationScreen({ open, onClose }) {
     [currentOffset, playFrom],
   );
 
-  // { trackId, pointerId, rectLeft, secondsPerPixel, anchor, duration }
-  // while a portion is being drawn, else null. `anchor` is the buffer-
-  // relative second where the drag started; the draft portion's start/end
-  // are [min, max] of that anchor and the pointer's current position, so
-  // dragging either left or right from the anchor both work.
   const dragRegionRef = useRef(null);
 
   const beginRegionDrag = useCallback((e, track) => {
@@ -1394,7 +1004,6 @@ function DawWorkstationScreen({ open, onClose }) {
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {
-      /* ok — dragging still works without capture, just less robust if the pointer leaves the element */
     }
   }, []);
 
@@ -1415,7 +1024,6 @@ function DawWorkstationScreen({ open, onClose }) {
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {
-        /* ok */
       }
       setDraftRegion((current) => {
         if (current && current.trackId === drag.trackId && current.end - current.start >= MIN_REGION_LEN) {
@@ -1427,17 +1035,6 @@ function DawWorkstationScreen({ open, onClose }) {
     [createRegion],
   );
 
-  // ── Scrub: drag the red playhead line to seek to any position ──────────
-  // Same "update visually every move, only touch the live audio graph once
-  // the drag ends" split as the clip drag above — the mix keeps playing at
-  // wherever it already was while you drag (rebuilding the whole playback
-  // graph on every pointermove would glitch), and jumps to the new
-  // position the moment you let go. Clamped to the selected portion's own
-  // window while one is selected, same as playFrom's own loop bounds.
-  // { pointerId, startClientX, startOffset, secondsPerPixel } while a scrub
-  // is in progress, else null — also checked by the playhead-poll effect
-  // above so it doesn't fight the drag by overwriting `playhead` with the
-  // (stale, pre-seek) live position every tick.
   const dragPlayheadRef = useRef(null);
 
   const beginPlayheadDrag = useCallback(
@@ -1455,7 +1052,6 @@ function DawWorkstationScreen({ open, onClose }) {
       try {
         e.currentTarget.setPointerCapture(e.pointerId);
       } catch {
-        /* ok — dragging still works without capture, just less robust if the pointer leaves the element */
       }
     },
     [arrangementDuration, currentOffset],
@@ -1484,16 +1080,12 @@ function DawWorkstationScreen({ open, onClose }) {
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {
-        /* ok */
       }
       if (isPlayingRef.current) playFrom(pausedOffsetRef.current);
     },
     [playFrom],
   );
 
-  // Renders one track through its own portions + volume (offline, not the
-  // live playback graph) and downloads the result as a WAV — the per-track
-  // "Download" button in the tracklist.
   const handleDownloadTrack = useCallback(async (id) => {
     const track = tracksRef.current.find((t) => t.id === id);
     if (!track || !track.buffer) return;
@@ -1510,15 +1102,7 @@ function DawWorkstationScreen({ open, onClose }) {
     }
   }, []);
 
-  // Renders every track (its own portions + volume + mute) summed into one
-  // mixdown (offline) and downloads it as a WAV — the topbar's "Download
-  // Mix" button.
   const handleDownloadMix = useCallback(async () => {
-    // renderMixOffline does its own filtering (audio tracks with a buffer,
-    // plus every Aux bus any of them sends to) — it needs the FULL track
-    // list, not pre-filtered down to just the buffered ones, or every Aux's
-    // own inserts (e.g. a shared Reverb) would silently drop out of the
-    // download even though they're audible live.
     const all = tracksRef.current;
     if (!all.some((t) => t.buffer)) return;
     const ctx = await ensureContext();
@@ -1536,11 +1120,6 @@ function DawWorkstationScreen({ open, onClose }) {
     }
   }, [ensureContext]);
 
-  // Seed the mix with all three Hungarian Dance No. 5 stems as its default
-  // tracks the first time the screen opens — fetched in parallel (they're
-  // real ~20-45MB files), then added as tracks in a fixed order so the
-  // tracklist/colors come out the same every time regardless of which
-  // fetch happens to resolve first.
   useEffect(() => {
     if (!isOpen || tracksRef.current.length > 0) return;
     (async () => {
@@ -1571,15 +1150,8 @@ function DawWorkstationScreen({ open, onClose }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // Tear everything down on every open<->close transition (unconditional
-  // cleanup keyed on `isOpen` — React runs it right BEFORE re-running this
-  // effect for the new value, i.e. exactly on the open->closed transition
-  // and again on unmount, not lazily on the next reopen).
   useEffect(() => {
     return () => {
-      // Closing the DAW (or unmounting) mid-recording shouldn't leave the
-      // mic stream open in the background — cancel outright, same as
-      // removeTrack does for the track being recorded.
       if (recordingTrackIdRef.current) {
         if (mediaRecorderRef.current) mediaRecorderRef.current.onstop = null;
         mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -1609,21 +1181,6 @@ function DawWorkstationScreen({ open, onClose }) {
     };
   }, [isOpen, teardownPlaybackGraph]);
 
-  // ── Per-portion insert chain management ─────────────────────────────────
-  // Every function below addresses a chain through the same
-  // `(trackId, regionId)` pair — `regionId === TRACK_CHAIN_SCOPE` targets
-  // the track's own whole-track chain, any other regionId targets that
-  // portion's own chain (layered after the track's) — via
-  // getChainArray/withChainArray, so the whole-track chain and every
-  // portion's chain share one implementation instead of two parallel ones.
-
-  // Awaits a plugin's Faust engine, then flips its (already-present, status
-  // "loading") chain slot to "ready" (or "error") in place. Shared by
-  // addOrSelectPlugin (loading a brand-new slot the user just added) and
-  // forkOuterChainIfNeeded (loading fresh engine instances for a portion's
-  // private copy of the track's chain — a live Faust node holds its own
-  // parameter state, so it can't be shared between the track's own signal
-  // path and a portion's forked one; each scope needs its own instance).
   const loadSlotEngineFor = useCallback(
     async (trackId, regionId, def) => {
       const ctx = await ensureContext();
@@ -1646,17 +1203,12 @@ function DawWorkstationScreen({ open, onClose }) {
           try {
             node.disconnect();
           } catch {
-            /* ok */
           }
           return;
         }
         const flatItems = meta.ui?.[0]?.items ?? [];
         const meters = collectMeters(flatItems);
         const addressKey = `${trackId}:${regionId}:${def.key}`;
-        // EQ gets its own dedicated handler straight into eqLiveDynGainRef
-        // (bandId-keyed, matching EqualizerEditorPanel's contract) instead
-        // of the generic address-keyed meterValuesRef every other plugin
-        // here uses for its own getXLevels reads.
         if (def.key === "eq") {
           node.setOutputParamHandler?.((address, value) => {
             const bandId = LIVE_GAIN_ADDR_TO_BAND[address];
@@ -1680,14 +1232,6 @@ function DawWorkstationScreen({ open, onClose }) {
         );
         tracksRef.current = ready;
         setTracks(ready);
-        // Auto-rebuild the live graph once this plugin's Faust engine is
-        // ready, so a plugin added while the mix is already playing becomes
-        // audible immediately without a manual Process click. This used to
-        // race when several plugins were added in a row (each resolving
-        // this success path independently and each tearing down the
-        // previous call's half-built graph); playFrom() is now guarded by
-        // playCallTokenRef so only the most recent call actually rebuilds,
-        // making it safe to trigger from here again.
         if (isPlayingRef.current) playFrom(currentOffset());
       } catch (err) {
         console.error("[DawWorkstationScreen] failed to load plugin", def.key, err);
@@ -1707,21 +1251,6 @@ function DawWorkstationScreen({ open, onClose }) {
     [ensureContext, loadPluginEngine, currentOffset, playFrom],
   );
 
-  // A portion's outer scope starts as a live read-through of the track's own
-  // chain (see getChainArray) rather than an actually-private array — so a
-  // portion nobody has customized still exactly tracks whatever the track
-  // chain becomes later, and nothing needs forking just to look at it. The
-  // first real edit from inside that scope — every mutator below
-  // (addOrSelectPlugin, removePlugin, movePlugin, reorderPlugin,
-  // toggleBypass, updateSlot) calls this first — snapshots the CURRENT
-  // track chain into this portion's own `outerChain`, marks it
-  // `outerCustomized`, and kicks off fresh engine loads for each cloned
-  // slot (the track's own live nodes stay wired into the track's own path
-  // and can't be reused here). After this, the portion's outer chain is
-  // fully independent: it can be edited or have plugins removed freely
-  // without touching the track chain or any other portion, or simply left
-  // alone to keep following the track chain forever. No-ops if already
-  // customized, or if `regionId` isn't an outer scope at all.
   const forkOuterChainIfNeeded = useCallback(
     (trackId, regionId) => {
       if (!isOuterScope(regionId)) return;
@@ -1757,18 +1286,9 @@ function DawWorkstationScreen({ open, onClose }) {
       if (!track || !chainArr) return;
       const existing = chainArr.find((s) => s.key === def.key);
       if (existing) {
-        // Just opening the popup on a plugin that's already there (whether
-        // inherited from the track chain or already private to this
-        // portion) is a look, not an edit — no fork here. Actually changing
-        // anything from inside that popup goes through updateSlot, which
-        // forks on its own the moment a real change happens.
         setActiveEditor({ trackId, regionId, key: def.key });
         return;
       }
-      // A genuinely new plugin (not already inherited or private) is
-      // unambiguously a customization — fork this portion's outer chain
-      // first (a no-op everywhere else, and if it's already customized) so
-      // the new plugin lands in a private copy instead of the track's own.
       forkOuterChainIfNeeded(trackId, regionId);
       const loadingSlot = {
         key: def.key,
@@ -1796,9 +1316,6 @@ function DawWorkstationScreen({ open, onClose }) {
 
   const removePlugin = useCallback(
     (trackId, regionId, key) => {
-      // Removing an inherited (not-yet-customized) plugin from a portion's
-      // outer scope is still a customization — it means "not for this
-      // portion" — so fork first, same as every other mutator here.
       forkOuterChainIfNeeded(trackId, regionId);
       const track = tracksRef.current.find((t) => t.id === trackId);
       const chainArr = getChainArray(track, regionId);
@@ -1818,7 +1335,6 @@ function DawWorkstationScreen({ open, onClose }) {
       try {
         slot?.node?.disconnect();
       } catch {
-        /* ok */
       }
       if (isPlayingRef.current) playFrom(currentOffset());
     },
@@ -1844,7 +1360,6 @@ function DawWorkstationScreen({ open, onClose }) {
     [forkOuterChainIfNeeded, currentOffset, playFrom],
   );
 
-  // Drag-and-drop reorder: moves `fromKey` to sit where `toKey` currently is.
   const reorderPlugin = useCallback(
     (trackId, regionId, fromKey, toKey) => {
       if (fromKey === toKey) return;
@@ -1893,16 +1408,8 @@ function DawWorkstationScreen({ open, onClose }) {
     [forkOuterChainIfNeeded],
   );
 
-  // Generic setter used by every *EditorPanel below to patch fields on
-  // whichever track/portion + plugin slot is open in the popup (mirrors the
-  // plain useState setters the standalone chapter labs pass their own
-  // panels).
   const updateSlot = useCallback(
     (trackId, regionId, key, patch) => {
-      // A param tweak from inside the popup is exactly the kind of edit that
-      // should fork an inherited outer chain into a private one — do it
-      // first so the patch below lands on the portion's own copy, not the
-      // track's.
       forkOuterChainIfNeeded(trackId, regionId);
       setTracks((prev) => {
         const next = prev.map((t) => {
@@ -1919,25 +1426,11 @@ function DawWorkstationScreen({ open, onClose }) {
     [forkOuterChainIfNeeded],
   );
 
-  // ── Sends — each send routes a copy of a track's signal (post- or
-  // pre-fader, per that send's own PRE toggle) at an adjustable level/pan
-  // into an Aux track's own input, exactly like a real console's Aux Sends
-  // section: the Aux itself is just another track (see addEmptyTrack's
-  // `kind: "aux"`) with its own inserts, volume and pan, so "sending" to one
-  // means routing INTO its chain rather than in series with the sending
-  // track's own. Unlike the insert chain, sends have no meaningful order (each
-  // is an independent path to a different bus), so there's no move/reorder
-  // here — just add, remove, and per-send level/pan/pre-post/mute (see
-  // sendRuntimeRef/playFrom for how these become live nodes, and
-  // buildOfflineTrackOutput/renderMixOffline for the offline-render
-  // counterpart). See sendIdRef/sendRuntimeRef, declared earlier alongside
-  // this screen's other per-plugin runtime refs. ─────────────────────────
-
   const addSend = useCallback(
     (trackId, busId) => {
       const next = tracksRef.current.map((t) => {
         if (t.id !== trackId) return t;
-        if ((t.sends || []).some((s) => s.busId === busId)) return t; // already sending to this bus
+        if ((t.sends || []).some((s) => s.busId === busId)) return t;
         const send = { id: `snd${++sendIdRef.current}`, busId, level: 1, pan: 0, prePost: "post", muted: false, fmp: false };
         return { ...t, sends: [...(t.sends || []), send] };
       });
@@ -1959,13 +1452,6 @@ function DawWorkstationScreen({ open, onClose }) {
     [currentOffset, playFrom],
   );
 
-  // Patches a send's fields in state. `live` (default true) additionally
-  // nudges the already-wired send nodes directly — same "don't tear down the
-  // whole graph for a fader drag" treatment setTrackVolume/setTrackPan give
-  // the channel-strip controls — for level/pan/mute, which don't change the
-  // graph's topology; changing `prePost` DOES (it moves which node the send
-  // taps from), so that one always goes through the full playFrom rebuild
-  // instead.
   const updateSend = useCallback((trackId, sendId, patch, { live = true } = {}) => {
     const next = tracksRef.current.map((t) =>
       t.id === trackId ? { ...t, sends: (t.sends || []).map((s) => (s.id === sendId ? { ...s, ...(typeof patch === "function" ? patch(s) : patch) } : s)) } : t,
@@ -1974,11 +1460,6 @@ function DawWorkstationScreen({ open, onClose }) {
     setTracks(next);
     const g = graphRef.current;
     const track = next.find((t) => t.id === trackId);
-    // The dry/direct path's own gain crossfades against however much this
-    // track's post-fader sends now add up to (see computeDryScale) — nudge
-    // it live any time a send's level/mute/prePost changes, same as the
-    // send's own gain/pan just below, so a fader drag doesn't need a full
-    // playFrom rebuild to be heard at the main output.
     const trackNodes = g?.trackNodes.get(trackId);
     if (g && track && trackNodes?.dryGain) {
       trackNodes.dryGain.gain.setTargetAtTime(computeDryScale(track), g.ctx.currentTime, 0.01);
@@ -1988,8 +1469,6 @@ function DawWorkstationScreen({ open, onClose }) {
       const updated = track?.sends.find((s) => s.id === sendId);
       if (updated) {
         rt.sendGain.gain.setTargetAtTime(updated.muted ? 0 : updated.level, g.ctx.currentTime, 0.01);
-        // FMP sends track the channel's own pan, not their own `pan` field
-        // — see the send-window's FMP toggle and setTrackPan's own nudge.
         const effectivePan = updated.fmp ? (track.pan ?? 0) : (updated.pan ?? 0);
         rt.sendPanner.pan.setTargetAtTime(effectivePan, g.ctx.currentTime, 0.01);
       }
@@ -2004,13 +1483,6 @@ function DawWorkstationScreen({ open, onClose }) {
     [updateSend, currentOffset, playFrom],
   );
 
-  // Send-window level meter — reads the send's own post-sendGain analyser
-  // (see the sendAnalyser tapped in playFrom's sends pass) the same
-  // "grab a Uint8Array off an AnalyserNode, RMS it" way the Mixer view's
-  // own per-track meter and the master meter already do, just on demand
-  // (called from SendRack's own poll while a send window is open) rather
-  // than folded into the always-on trackLevels interval, since only one
-  // send window can be open at a time and it's usually none.
   const getSendMeterLevel = useCallback((trackId, sendId) => {
     const rt = sendRuntimeRef.current.get(`${trackId}:${sendId}`);
     if (!rt?.sendAnalyser) return 0;
@@ -2024,10 +1496,6 @@ function DawWorkstationScreen({ open, onClose }) {
     return Math.sqrt(sum / data.length);
   }, []);
 
-  // Push every chain's (the track's own, and every one of its portions')
-  // per-slot typed params onto its live Faust node, via each plugin's own
-  // pushFaustParams (the same functions the standalone chapter labs use) —
-  // runs across the whole mix on every params change.
   useEffect(() => {
     tracks.forEach((t) => {
       const scopes = [
@@ -2057,8 +1525,6 @@ function DawWorkstationScreen({ open, onClose }) {
     });
   }, [tracks]);
 
-  // Point the EQ popup's analyser refs at whichever portion's live EQ nodes
-  // are currently playing (or clear them when no EQ popup is open).
   useEffect(() => {
     if (activeEditor?.key === "eq") {
       const rt = eqRuntimeRef.current.get(`${activeEditor.trackId}:${activeEditor.regionId}`);
@@ -2071,11 +1537,6 @@ function DawWorkstationScreen({ open, onClose }) {
     }
   }, [activeEditor]);
 
-  // ── Live level getters for whichever plugin popup is open ──────────────
-  // Stable identities (useCallback with no deps, reading activeEditorRef at
-  // call time) — every *EditorPanel's own animation-frame effect lists
-  // these in its dependency array, so a fresh function reference every
-  // render would restart that loop constantly.
   const getNow = useCallback(() => graphRef.current?.ctx.currentTime ?? 0, []);
 
   const getGateLevels = useCallback(() => {
@@ -2158,19 +1619,6 @@ function DawWorkstationScreen({ open, onClose }) {
     return live ? analyserPeakLinear(live.outputAnalyser) : null;
   }, []);
 
-  // Opening (or switching between) plugin popups used to auto-start/stop a
-  // preview loop via an effect keyed on `activeEditor`. That fired on EVERY
-  // popup switch — not just open/close — and raced with the plugin-load
-  // completion path below, so adding several plugins in a row and clicking
-  // between their editors could trigger two overlapping playFrom() calls
-  // (each tearing down the other's half-built graph), which is what made
-  // playback appear to "pause" when switching. A new plugin now auto-joins
-  // an already-playing mix as soon as its engine finishes loading (see the
-  // success path in addOrSelectPlugin, guarded by playCallTokenRef so it
-  // can't race), so nothing needs to be clicked for it to become audible.
-  // Process/Apply remain as explicit manual controls: Process (re)starts
-  // the looped preview from the current position, Apply pushes the current
-  // chain/params into an already-playing mix and closes the popup.
   const handleProcess = useCallback(() => {
     if (!loopOnRef.current) {
       setLoopOn(true);
@@ -2179,52 +1627,20 @@ function DawWorkstationScreen({ open, onClose }) {
     playFrom(pausedOffsetRef.current);
   }, [playFrom]);
 
-  // Apply confirms the plugin (pushing it into an already-playing mix if
-  // needed) and closes the popup.
   const handleApply = useCallback(() => {
     if (isPlayingRef.current) playFrom(currentOffset());
     setActiveEditor(null);
   }, [playFrom, currentOffset]);
 
-  // Cancel just closes the popup without applying any pending changes — it
-  // never removes the plugin from the chain, even if it was only just
-  // added, since the plugin auto-processes into the live mix as soon as its
-  // engine is ready. The only way to remove a plugin from the chain is the
-  // explicit Remove button. This same handler backs the × close button and
-  // clicking the backdrop, so every way of dismissing the popup behaves the
-  // same way.
   const handleCancel = useCallback(() => {
     setActiveEditor(null);
   }, []);
 
-  // While the plugin popup is open, temporarily solo the track it belongs
-  // to (see trackIsAudible) so Process/auto-join previews ONLY that track,
-  // not the whole mix — matches the popup's own "so you can hear this
-  // track" copy, and is what makes a short track's preview actually loop
-  // just itself instead of running for however long the longest OTHER
-  // track in the arrangement happens to be (see the loopEnd fallback fix
-  // in getPreviewWindow above). Keyed on the trackId (not the whole
-  // activeEditor, which also changes when switching plugins/portions
-  // within the same track — that shouldn't re-isolate). Snapshots every
-  // track's real `solo` flag right before overriding it, and restores that
-  // exact snapshot the moment the popup closes or moves to a different
-  // track, so this never clobbers a solo the user actually set.
   useEffect(() => {
     const trackId = activeEditor?.trackId;
     if (!trackId) return undefined;
     const prevSolo = new Map(tracksRef.current.map((t) => [t.id, t.solo]));
     preIsolateSoloRef.current = prevSolo;
-    // An Aux bus has no audio of its own — every sample it ever plays comes
-    // from some OTHER track's Send. Isolating it the same way as a real
-    // track (solo just this one, un-solo everything else) starves it of
-    // every one of those feeds, so its own insert editor's scope/waveform
-    // and Process preview would always show silence. A PRE-fader send taps
-    // its track's chain before trackGain (see playFrom's `tap` — same node
-    // solo/mute silence to isolate everything else), so it keeps reaching
-    // the bus either way and needs no help here; only POST-fader feeders
-    // (the default) actually go quiet when un-soloed, so only those need
-    // forcing back on — soloing a pre-only feeder too would just add its
-    // own dry signal straight to master, on top of the Aux preview.
     const target = tracksRef.current.find((t) => t.id === trackId);
     const feederIds =
       target?.kind === "aux"
@@ -2256,15 +1672,6 @@ function DawWorkstationScreen({ open, onClose }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeEditor?.trackId]);
 
-  // ── Transport/mixer keyboard shortcuts — same keys Logic Pro itself uses
-  // (Space play/pause, Home return-to-start, M/S mute/solo the selected
-  // track, X toggle the Mixer). Ignored while a text field, the New Track
-  // dialog, or the plugin popup has focus/is open, and while any menu-style
-  // element (select, button in a form) is focused, so typing a track name
-  // or a number field never gets hijacked. Re-subscribes whenever any of
-  // the actions below change identity (isPlaying/loopOn changing is what
-  // makes togglePlay/rewind/toggleLoop change) so it never fires a stale
-  // closure — cheap, since this is just an addEventListener swap. ────────
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (e) => {
@@ -2318,12 +1725,6 @@ function DawWorkstationScreen({ open, onClose }) {
   if (!isOpen) return null;
 
   const activeTrack = tracks.find((t) => t.id === activeEditor?.trackId);
-  // `activeRegion` is only set for a REAL portion's popup — null for the
-  // track's own whole-track chain (activeEditor.regionId === TRACK_CHAIN_SCOPE),
-  // which the popup below uses to pick its tag text. `activeSlot` itself
-  // resolves through getChainArray so it works for all three scopes.
-  // baseRegionId un-suffixes an outer-scope id back to its region, so a
-  // portion's private outer-chain popup still resolves to that portion.
   const activeRegion =
     activeEditor && activeEditor.regionId !== TRACK_CHAIN_SCOPE
       ? activeTrack?.regions.find((r) => r.id === baseRegionId(activeEditor.regionId))
@@ -2333,14 +1734,6 @@ function DawWorkstationScreen({ open, onClose }) {
   const selectedTrack = tracks.find((t) => t.id === selectedTrackId) || null;
   const selectedRegionTrack = selectedRegion ? tracks.find((t) => t.id === selectedRegion.trackId) || null : null;
   const selectedRegionObj = selectedRegionTrack?.regions.find((r) => r.id === selectedRegion.regionId) || null;
-  // The dock always edits ONE scope at a time. With a portion selected, the
-  // "This portion" / "Track chain" tabs (dockScope) let you flip between
-  // that portion's own chain and that SAME portion's own private outer
-  // chain (outerScopeId — layered before the portion's own chain, after the
-  // track's real whole-track chain, but never heard in gaps or other
-  // portions) WITHOUT losing the portion highlight or preview loop; with no
-  // portion selected there's only one scope, the selected track's real
-  // whole-track chain (TRACK_CHAIN_SCOPE, heard everywhere on the track).
   const dockTrack = selectedRegionObj ? selectedRegionTrack : selectedTrack;
   const dockRegionId = selectedRegionObj
     ? dockScope === "track"
@@ -2348,9 +1741,6 @@ function DawWorkstationScreen({ open, onClose }) {
       : selectedRegionObj.id
     : TRACK_CHAIN_SCOPE;
   const dockChain = dockTrack ? getChainArray(dockTrack, dockRegionId) : undefined;
-  // True only while the dock is showing a selected portion's PRIVATE outer
-  // chain (the "Outer" tab) rather than its own chain or (with nothing
-  // selected) the track's real whole-track chain.
   const dockOnPortionOuterScope = !!selectedRegionObj && dockScope === "track";
   const rulerStep = pickRulerStep(Math.max(1, arrangementDuration));
   const rulerMarks = Array.from(
@@ -2358,11 +1748,6 @@ function DawWorkstationScreen({ open, onClose }) {
     (_, i) => i * rulerStep,
   );
 
-  // ── Shared prop bundles for the presentational subcomponents below (see
-  // ./components/) — TrackList, MixerView and EditorDock all wire the
-  // same InsertRack, and TrackList/MixerView both wire the same SendRack, so
-  // the underlying chain/send-management functions are grouped here once
-  // instead of being re-listed as a dozen individual props in each.
   const chainActions = {
     addOrSelectPlugin,
     setActiveEditor,
@@ -2420,13 +1805,9 @@ function DawWorkstationScreen({ open, onClose }) {
               meterLevel={meterLevel}
             />
 
-            {/* Standard tab-panel motion for the Arrange/Mixer switch (TopBar). */}
             <div ref={viewRef} className="daw-view">
             {viewMode === "arrange" ? (
               <>
-                {/* Body: tracklist (left) + arrangement/waveforms (right) —
-                    same layout as design/daw-workstation-screen-ui.html, just
-                    driven by the real multi-track state instead of mock data. */}
                 <div className="daw-body">
                   <TrackList
                     tracklistRef={tracklistRef}

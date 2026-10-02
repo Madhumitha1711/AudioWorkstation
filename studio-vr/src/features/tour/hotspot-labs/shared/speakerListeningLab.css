@@ -1,16 +1,5 @@
 @import "./hardwareTokens.css";
 
-/* Styles for SpeakerListeningLab.jsx — ported from
-   design/speakek-listening-lab.html. Docks inside the same
-   .svr-tour-gear-panel shell as the gear choice panel and
-   HotspotKnowledgeCheck (see PanoramaTour.css for that shell's
-   position/width/head/body/footer rules) rather than taking over the
-   screen, so opening the lab still reads as "this rail changed activity",
-   not a separate takeover surface — everything below is scaled to fit
-   that panel's ~320px width. Scoped under .llab so it can't collide with
-   anything else. Same amber/green accent pair as SweetSpotLab.css
-   (--sslab-amber/--sslab-green) so the labs read as one family. */
-
 .llab-panel-shell {
   --llab-panel: #1c1c21;
   --llab-panel-alt: #232328;
@@ -20,23 +9,11 @@
   --llab-amber-dim: #6b4a2c;
   --llab-green: #5fd9a0;
   --llab-green-dim: #2c5f49;
-  /* clips the horizontal slide of the tab-panel transition to the panel */
   overflow-x: clip;
 }
-
-/* 10% wider than the shared .svr-tour-gear-panel default (320px) — the
-   compound selector (both classes) outweighs that single-class rule's
-   specificity, so this wins regardless of stylesheet import order. Only
-   this panel gets the extra width; the choice panel and quiz are untouched. */
 .svr-tour-gear-panel.llab-panel-shell {
   width: 352px;
 }
-
-/* `.mono` used to switch lab labels (column headings, status lines,
-   captions, tags) to JetBrains Mono. Per the global typography rule,
-   mono is for numbers only, so the class now renders in the app's sans
-   (Inter) like the rest of the studio screen; the genuinely numeric bits
-   below keep mono. */
 .llab-panel-shell .mono {
   font-family: var(--font-sans);
 }
@@ -49,12 +26,6 @@
   font-size: var(--fs-md);
   background: rgba(var(--led-green-rgb), 0.16);
 }
-
-/* ---------- tab bar ----------
-   The app-wide standard Tabs (components/Tabs), segmented variant with
-   `fill` so every experiment gets an exactly equal share of the width.
-   Only re-skinned here via --tabs-* tokens plus the two-line (number over
-   label) button content. */
 .llab-tabs {
   --tabs-track-bg: transparent;
   --tabs-track-border: transparent;
@@ -100,11 +71,6 @@
   max-width: 100%;
 }
 
-/* ---------- module body ----------
-   Tab-switch motion comes from useTabTransition on the panel body (the
-   app-wide standard, components/Tabs), so .llab-module carries no
-   animation of its own. */
-
 .llab-hook {
   color: var(--llab-text);
   font-size: var(--fs-sm);
@@ -113,16 +79,12 @@
 }
 
 .llab-card {
-  /* Positioning context for .llab-aha-pop below — the take-away overlay
-     covers this card specifically (inset: 0), not the whole panel. */
   position: relative;
   background: var(--llab-panel);
   border: 1px solid var(--llab-border);
   border-radius: 10px;
   padding: 14px;
 }
-
-/* segmented toggle — shared by all three modules */
 .llab-seg {
   display: flex;
   background: rgba(0, 0, 0, 0.22);
@@ -168,8 +130,6 @@
   opacity: 1;
   stroke: var(--llab-amber);
 }
-
-/* frequency-curve visual, module 1 */
 .llab-curve {
   margin-top: 12px;
   background: rgba(0, 0, 0, 0.22);
@@ -200,8 +160,6 @@
   margin-top: 6px;
   line-height: 1.4;
 }
-
-/* transport (play button + level meter), modules 1 and 3 */
 .llab-playbar {
   display: flex;
   align-items: center;
@@ -260,7 +218,6 @@
 }
 
 @keyframes llab-pulse {
-
   0%,
   100% {
     height: 5px;
@@ -270,22 +227,6 @@
     height: 18px;
   }
 }
-
-.llab-audio-note {
-  font-size: var(--fs-3xs);
-  color: var(--llab-text-muted);
-  margin-top: 10px;
-  opacity: 0.7;
-  word-break: break-word;
-}
-
-/* "Take-away" chip + overlay, all three modules — only mounted once
-   revealed (see AhaBox in SpeakerListeningLab.jsx). The chip sits in normal
-   flow so it adds one small, constant bit of height (the same whether its
-   overlay is open or closed); the actual text opens as an overlay on top
-   of the card (position: absolute, relative to .llab-card) instead of an
-   inline block, so reading it never grows the panel or pushes the footer
-   down the way the old always-in-flow box did. */
 .llab-aha-chip {
   display: inline-flex;
   align-items: center;
@@ -383,8 +324,6 @@
 .llab-aha-pop__close:hover {
   background: rgba(255, 255, 255, 0.16);
 }
-
-/* room decay visualization, module 2 */
 .llab-decay {
   display: flex;
   align-items: flex-end;
@@ -450,9 +389,6 @@
   width: 13px;
   height: 13px;
 }
-
-/* real-world A/B task list, module 3 — the student does the actual
-   headphones/speaker swap themselves, this just spells out the two steps. */
 .llab-task-steps {
   margin: 0 0 12px;
   padding: 0 0 0 18px;

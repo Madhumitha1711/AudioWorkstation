@@ -12,28 +12,7 @@ import {
   sliderToFreqPrecise,
   timebaseFor,
 } from "../../shared/soundLabShared";
-
-// Ported from design/what-is-sound-chapter.html's "02 FREQUENCY" panel — a
-// real sine-wave oscillator swept by a log-scale slider (20 Hz–20,000 Hz,
-// matching human hearing range) plus a one-shot 6-second sweep across the
-// whole range. The mockup's freqPlay/freqSweep buttons are one control here
-// (`mode` state) so the two never fight over the same oscillator.
-//
-// `freq` (not the slider position) is the single source of truth here, to
-// 2 decimal places — the slider and the sweep both just set it, and
-// everything else (oscillator pitch, scope trace, slider thumb position,
-// note readout) is derived from it. The Frequency/Note readout boxes
-// double as manual-entry fields (click the pencil to type an exact value
-// in place — no separate "manual entry" section), and committing either
-// one also just sets `freq`, so a typed value lands on the same log-scale
-// slider position and wave a drag to that value would have produced.
-//
-// The scope is a real time-domain plot: its x-axis is labelled in ms/µs
-// (an auto-ranging 1-2-5 "timebase", like a hardware oscilloscope), the
-// trace draws exactly f × window cycles, and a bracket marks one period
-// T = 1/f — so what's on screen always matches the actual frequency, idle
-// or playing. The slider is continuous (step="any") with log-scale tick
-// labels underneath, so the thumb sits exactly at the current frequency.
+import { useInteractOnce } from "../../shared/useInteractOnce";
 
 const SWEEP_DURATION_SEC = 6;
 const IDLE_LABEL = "▶ Play Tone";
@@ -52,9 +31,7 @@ function FrequencyLab({ onInteract }) {
   const scrollRef = useRef(0);
   const oscRef = useRef(null);
   const sweepStartRef = useRef(0);
-  const firedRef = useRef(false);
-  const onInteractRef = useRef(onInteract);
-  onInteractRef.current = onInteract;
+  const markInteracted = useInteractOnce(onInteract);
   const { getCtx, track, stopAll } = useLabAudio();
   const { theme } = useTheme();
   const themeRef = useRef(theme);
@@ -62,21 +39,14 @@ function FrequencyLab({ onInteract }) {
   const colors = scopePalette(theme).colors;
 
   const [freq, setFreq] = useState(() => sliderToFreqPrecise(567));
-  const [mode, setMode] = useState("idle"); // idle | tone | sweep
+  const [mode, setMode] = useState("idle");
   const freqRef = useRef(freq);
   freqRef.current = freq;
-
 
   const [editingFreq, setEditingFreq] = useState(false);
   const [freqDraft, setFreqDraft] = useState("");
   const [editingNote, setEditingNote] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
-
-  const markInteracted = () => {
-    if (firedRef.current) return;
-    firedRef.current = true;
-    onInteractRef.current?.();
-  };
 
   const stop = () => {
     stopAll();
@@ -97,13 +67,11 @@ function FrequencyLab({ onInteract }) {
     });
   }
 
-  // static trace whenever the frequency (or the theme) changes while idle
   useEffect(() => {
     if (mode === "idle") drawFrame(freq, theme);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freq, mode, theme]);
 
-  // the canvas is sized from its CSS box, so redraw on resize too
   useEffect(() => {
     const el = canvasRef.current;
     if (!el || typeof ResizeObserver === "undefined") return undefined;
@@ -112,7 +80,6 @@ function FrequencyLab({ onInteract }) {
     return () => ro.disconnect();
   }, []);
 
-  // retune the live oscillator whenever freq changes during a held tone
   useEffect(() => {
     if (mode === "tone" && oscRef.current) {
       oscRef.current.frequency.setTargetAtTime(freq, getCtx().currentTime, 0.02);
@@ -182,9 +149,6 @@ function FrequencyLab({ onInteract }) {
     tick();
   }
 
-  // Only ever shows a note name it can vouch for exactly (see
-  // exactNoteForFreq) — most frequencies, including nearly everywhere the
-  // slider lands, sit between notes and show nothing here.
   const note = exactNoteForFreq(freq);
   const editingDisabled = mode === "sweep";
 

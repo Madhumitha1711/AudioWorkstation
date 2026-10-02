@@ -4,25 +4,7 @@ import { useLabAudio } from "../../shared/useLabAudio";
 import { useTheme } from "../../../../../theme/ThemeContext";
 import { hiDpiCanvas, scopePalette } from "../../shared/soundLabShared";
 import { canvasFont } from "../../../../../theme/fonts";
-
-// Ported from design/what-is-sound-chapter.html's "06 HARMONICS" panel: a
-// draggable knob (pointer events, matching the mockup's harmKnob handler)
-// adds whole-number-multiple partials on top of a 110 Hz fundamental, each
-// a real oscillator at diminishing gain (1/n). While playing, the spectrum
-// bars read an actual AnalyserNode (getByteFrequencyData) rather than just
-// mirroring the target gains, so what's on screen is what's really in the
-// signal.
-//
-// The mockup itself just switched each partial's gain on/off at a flat
-// level, which sustains like an organ drawbar, not a struck string. Since
-// this chapter's own Timbre lesson (TimbreLab.jsx) makes the point that
-// envelope — not just harmonic content — is a huge part of what makes an
-// instrument sound like itself, Play here runs the whole additive stack
-// through one shared percussive envelope (fast attack, quick initial
-// decay, slow ring-out) instead of a flat sustain — closer to a piano/
-// plucked-string character. It's still additive sines, not a physical
-// string model, so treat "piano-like" as "shaped like a struck note," the
-// same simplified-approximation spirit as TimbreLab's four voices.
+import { useInteractOnce } from "../../shared/useInteractOnce";
 
 const FUNDAMENTAL = 110;
 const MAX_HARMONICS = 8;
@@ -55,12 +37,10 @@ function HarmonicsLab({ onInteract }) {
   const canvasRef = useRef(null);
   const knobRef = useRef(null);
   const rafRef = useRef(null);
-  const oscsRef = useRef([]); // gain nodes, one per partial
+  const oscsRef = useRef([]);
   const analyserRef = useRef(null);
   const dragRef = useRef(null);
-  const firedRef = useRef(false);
-  const onInteractRef = useRef(onInteract);
-  onInteractRef.current = onInteract;
+  const markInteracted = useInteractOnce(onInteract);
   const { getCtx, track, stopAll } = useLabAudio();
   const { theme } = useTheme();
   const themeRef = useRef(theme);
@@ -71,13 +51,6 @@ function HarmonicsLab({ onInteract }) {
   const harmCountRef = useRef(harmCount);
   harmCountRef.current = harmCount;
 
-  const markInteracted = () => {
-    if (firedRef.current) return;
-    firedRef.current = true;
-    onInteractRef.current?.();
-  };
-
-  // static preview bars (target gains, not measured) whenever idle
   useEffect(() => {
     if (playing) return;
     const levels = Array.from({ length: BAR_COUNT }, (_, i) => (i <= harmCount ? 1 / (i + 1) : 0));
@@ -86,7 +59,6 @@ function HarmonicsLab({ onInteract }) {
 
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
-  // live-adjust running oscillator gains as the knob moves
   useEffect(() => {
     if (!playing) return;
     const ctx = getCtx();
@@ -101,18 +73,6 @@ function HarmonicsLab({ onInteract }) {
     const analyser = analyserRef.current;
     const ctx = getCtx();
     if (analyser) {
-      // getByteFrequencyData quantizes into the analyser's fixed
-      // minDecibels..maxDecibels window (default -100..-30 dBFS) and clamps
-      // anything louder than maxDecibels to 255 — at this lab's gain
-      // staging, every active harmonic's bin was landing above that
-      // ceiling, so they all read as "maxed out" regardless of their real
-      // relative level (the bug: bars all the same height while playing,
-      // even though the idle preview correctly tapers them). getFloat-
-      // FrequencyData returns the actual measured dB with no such clamp,
-      // so each harmonic's level can be expressed as a true ratio to the
-      // fundamental's own measured dB — recovering the same ~1/(i+1)
-      // taper the idle preview shows, independent of how loud the overall
-      // (decaying) envelope happens to be at that instant.
       const data = new Float32Array(analyser.frequencyBinCount);
       analyser.getFloatFrequencyData(data);
       const binFor = (harmonicIndex) =>
@@ -149,15 +109,12 @@ function HarmonicsLab({ onInteract }) {
     const ctx = getCtx();
     const master = track(ctx.createGain());
     master.gain.value = 1;
-    // Shared percussive envelope for the whole stack — see the file-top
-    // comment. exponentialRampToValueAtTime needs a strictly-positive
-    // starting value, hence the tiny setValueAtTime floor rather than 0.
     const envelope = track(ctx.createGain());
     const now = ctx.currentTime;
     envelope.gain.setValueAtTime(0.0001, now);
-    envelope.gain.linearRampToValueAtTime(1, now + 0.006); // strike
-    envelope.gain.exponentialRampToValueAtTime(0.45, now + 0.6); // initial decay
-    envelope.gain.exponentialRampToValueAtTime(0.18, now + 4.5); // slow ring-out, held while playing
+    envelope.gain.linearRampToValueAtTime(1, now + 0.006);
+    envelope.gain.exponentialRampToValueAtTime(0.45, now + 0.6);
+    envelope.gain.exponentialRampToValueAtTime(0.18, now + 4.5);
     const analyser = track(ctx.createAnalyser());
     analyser.fftSize = 2048;
     master.connect(envelope);

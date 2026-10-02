@@ -36,8 +36,6 @@
   border-radius: 6px;
   color: var(--tabs-text, var(--text-dim, var(--shell-text-dim)));
   font-family: var(--tabs-font, var(--font-sans));
-  /* +1px over the type scale (and over any per-instance --tabs-font-size),
-     so tab labels read a touch larger everywhere. */
   font-size: calc(var(--tabs-font-size, var(--fs-base)) + 1px);
   font-weight: var(--tabs-weight, 500);
   letter-spacing: var(--tabs-letter-spacing, 0);
@@ -72,7 +70,6 @@
   min-width: 0;
 }
 
-
 .ui-tabs__indicator {
   position: absolute;
   top: 0;
@@ -105,8 +102,6 @@
   white-space: nowrap;
   border: 0;
 }
-
-/* ---------- underline (default) ---------- */
 .ui-tabs--underline {
   box-shadow: inset 0 -1px 0 var(--tabs-line, var(--border-soft, var(--border, var(--shell-border-soft))));
 }
@@ -159,7 +154,6 @@
   }
 }
 
-
 .ui-tabs--segmented {
   display: inline-flex;
   align-items: center;
@@ -204,8 +198,6 @@
     inset 0 0 0 1px var(--tabs-thumb-border, color-mix(in srgb, var(--brand-accent, var(--accent)) 45%, transparent)),
     0 1px 2px rgba(0, 0, 0, 0.12);
 }
-
-/* ---------- sizes ---------- */
 .ui-tabs--sm .ui-tabs__tab {
   --tabs-pad-y: 6px;
   --tabs-pad-x: 10px;
@@ -216,8 +208,6 @@
   --tabs-pad-y: 5px;
   --tabs-pad-x: 10px;
 }
-
-/* ---------- panel ---------- */
 .ui-tabpanel-clip {
   overflow-x: clip;
   min-width: 0;
@@ -234,7 +224,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-
   .ui-tabs.is-ready .ui-tabs__indicator,
   .ui-tabs__tab {
     transition: none;

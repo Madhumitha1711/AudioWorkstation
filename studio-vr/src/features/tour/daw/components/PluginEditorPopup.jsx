@@ -8,14 +8,6 @@ import { EqualizerEditorPanel } from "../../../gear-studio/Equalizer";
 import { fmtTime } from "../lib/format";
 import { PluginIcon } from "./icons";
 
-// Plugin editor — a popup over everything else, per track/portion + plugin.
-// Reuses each plugin's own standalone chapter lab's exact *EditorPanel
-// component (the real controls/curves/meters/scope each lab already has),
-// driven by DawWorkstationScreen's own per-track/per-scope/per-slot Faust
-// node/audio graph via the getXLevels-style `meters` host callbacks and
-// `updateSlot`. Purely presentational + dispatch — every value/callback
-// comes from the container; this component owns no state of its own besides
-// choosing which *EditorPanel to mount for `activeSlot.key`.
 export function PluginEditorPopup({
   activeSlot,
   activeTrack,
@@ -45,6 +37,8 @@ export function PluginEditorPopup({
   meters,
 }) {
   if (!activeSlot || !activeTrack) return null;
+  const setter = (key, field) => (updater) =>
+    updateSlot(activeTrack.id, activeEditor.regionId, key, (s) => ({ [field]: typeof updater === "function" ? updater(s[field]) : updater }));
   const { getGateLevels, getDeEsserInputDb, getDeEsserGainReductionDb, getCompLevels, getLimiterLevels, getDelayInputPeak, getDelayOutputPeak, getReverbInputPeak, getReverbOutputPeak, getNow } = meters;
 
   return (
@@ -101,13 +95,9 @@ export function PluginEditorPopup({
           {activeSlot.status === "ready" && activeSlot.key === "gate" && (
             <GateEditorPanel
               params={activeSlot.params}
-              setParams={(updater) =>
-                updateSlot(activeTrack.id, activeEditor.regionId, "gate", (s) => ({ params: typeof updater === "function" ? updater(s.params) : updater }))
-              }
+              setParams={setter("gate", "params")}
               sidechain={activeSlot.sidechain}
-              setSidechain={(updater) =>
-                updateSlot(activeTrack.id, activeEditor.regionId, "gate", (s) => ({ sidechain: typeof updater === "function" ? updater(s.sidechain) : updater }))
-              }
+              setSidechain={setter("gate", "sidechain")}
               bypass={activeSlot.bypassed}
               isPlaying={isPlaying}
               getLevels={getGateLevels}
@@ -118,9 +108,7 @@ export function PluginEditorPopup({
           {activeSlot.status === "ready" && activeSlot.key === "deess" && (
             <DeEsserEditorPanel
               params={activeSlot.params}
-              setParams={(updater) =>
-                updateSlot(activeTrack.id, activeEditor.regionId, "deess", (s) => ({ params: typeof updater === "function" ? updater(s.params) : updater }))
-              }
+              setParams={setter("deess", "params")}
               bypass={activeSlot.bypassed}
               isPlaying={isPlaying}
               getInputDb={getDeEsserInputDb}
@@ -131,29 +119,17 @@ export function PluginEditorPopup({
           {activeSlot.status === "ready" && activeSlot.key === "comp" && (
             <CompressorEditorPanel
               bands={activeSlot.bands}
-              setBands={(updater) =>
-                updateSlot(activeTrack.id, activeEditor.regionId, "comp", (s) => ({ bands: typeof updater === "function" ? updater(s.bands) : updater }))
-              }
+              setBands={setter("comp", "bands")}
               crossover={activeSlot.crossover}
-              setCrossover={(updater) =>
-                updateSlot(activeTrack.id, activeEditor.regionId, "comp", (s) => ({ crossover: typeof updater === "function" ? updater(s.crossover) : updater }))
-              }
+              setCrossover={setter("comp", "crossover")}
               sidechain={activeSlot.sidechain}
-              setSidechain={(updater) =>
-                updateSlot(activeTrack.id, activeEditor.regionId, "comp", (s) => ({ sidechain: typeof updater === "function" ? updater(s.sidechain) : updater }))
-              }
+              setSidechain={setter("comp", "sidechain")}
               outputGainDb={activeSlot.outputGainDb}
-              setOutputGainDb={(updater) =>
-                updateSlot(activeTrack.id, activeEditor.regionId, "comp", (s) => ({
-                  outputGainDb: typeof updater === "function" ? updater(s.outputGainDb) : updater,
-                }))
-              }
+              setOutputGainDb={setter("comp", "outputGainDb")}
               selectedBand={compSelectedBand}
               setSelectedBand={setCompSelectedBand}
               multibandEnabled={activeSlot.multiband}
-              setMultibandEnabled={(updater) =>
-                updateSlot(activeTrack.id, activeEditor.regionId, "comp", (s) => ({ multiband: typeof updater === "function" ? updater(s.multiband) : updater }))
-              }
+              setMultibandEnabled={setter("comp", "multiband")}
               bypass={activeSlot.bypassed}
               isPlaying={isPlaying}
               getLevels={getCompLevels}
@@ -163,9 +139,7 @@ export function PluginEditorPopup({
           {activeSlot.status === "ready" && activeSlot.key === "limiter" && (
             <LimiterEditorPanel
               params={activeSlot.params}
-              setParams={(updater) =>
-                updateSlot(activeTrack.id, activeEditor.regionId, "limiter", (s) => ({ params: typeof updater === "function" ? updater(s.params) : updater }))
-              }
+              setParams={setter("limiter", "params")}
               bypass={activeSlot.bypassed}
               isPlaying={isPlaying}
               getLevels={getLimiterLevels}
@@ -176,13 +150,9 @@ export function PluginEditorPopup({
           {activeSlot.status === "ready" && activeSlot.key === "delay" && (
             <DelayEditorPanel
               params={activeSlot.params}
-              setParams={(updater) =>
-                updateSlot(activeTrack.id, activeEditor.regionId, "delay", (s) => ({ params: typeof updater === "function" ? updater(s.params) : updater }))
-              }
+              setParams={setter("delay", "params")}
               sync={activeSlot.sync}
-              setSync={(updater) =>
-                updateSlot(activeTrack.id, activeEditor.regionId, "delay", (s) => ({ sync: typeof updater === "function" ? updater(s.sync) : updater }))
-              }
+              setSync={setter("delay", "sync")}
               link={delayLink}
               setLink={setDelayLink}
               isPlaying={isPlaying}
@@ -194,13 +164,9 @@ export function PluginEditorPopup({
           {activeSlot.status === "ready" && activeSlot.key === "reverb" && (
             <ReverbEditorPanel
               params={activeSlot.params}
-              setParams={(updater) =>
-                updateSlot(activeTrack.id, activeEditor.regionId, "reverb", (s) => ({ params: typeof updater === "function" ? updater(s.params) : updater }))
-              }
+              setParams={setter("reverb", "params")}
               preset={activeSlot.preset}
-              setPreset={(updater) =>
-                updateSlot(activeTrack.id, activeEditor.regionId, "reverb", (s) => ({ preset: typeof updater === "function" ? updater(s.preset) : updater }))
-              }
+              setPreset={setter("reverb", "preset")}
               isPlaying={isPlaying}
               getInputPeak={getReverbInputPeak}
               getOutputPeak={getReverbOutputPeak}
@@ -210,17 +176,11 @@ export function PluginEditorPopup({
           {activeSlot.status === "ready" && activeSlot.key === "eq" && (
             <EqualizerEditorPanel
               bands={activeSlot.bands}
-              setBands={(updater) =>
-                updateSlot(activeTrack.id, activeEditor.regionId, "eq", (s) => ({ bands: typeof updater === "function" ? updater(s.bands) : updater }))
-              }
+              setBands={setter("eq", "bands")}
               selectedBandId={eqSelectedBandId}
               setSelectedBandId={setEqSelectedBandId}
               outputGainDb={activeSlot.outputGainDb}
-              setOutputGainDb={(updater) =>
-                updateSlot(activeTrack.id, activeEditor.regionId, "eq", (s) => ({
-                  outputGainDb: typeof updater === "function" ? updater(s.outputGainDb) : updater,
-                }))
-              }
+              setOutputGainDb={setter("eq", "outputGainDb")}
               analyserRef={eqAnalyserRef}
               dryAnalyserRef={eqDryAnalyserRef}
               analyserActive={isPlaying}

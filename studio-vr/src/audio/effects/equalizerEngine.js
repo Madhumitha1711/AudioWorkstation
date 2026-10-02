@@ -1,24 +1,4 @@
-// Shared, non-component Equalizer (ParamEQ) logic: Faust param
-// addresses/defaults, the applyBandsToNode helper that writes typed band
-// state onto a live Faust node, the per-band accessor/setter helpers that
-// drive the curve UI generically, the analytic magnitude-response math used
-// to draw the frequency-response curve, the log-freq/dB <-> fractional-
-// position helpers, presets, and small output-gain helpers.
-//
-// Split out from features/gear-studio/Equalizer.jsx (which exports the EqualizerEditorPanel/
-// BandEditPanel/ParamEQCurve/Equalizer *components*) so that file only
-// exports components — keeps Vite Fast Refresh working there — and gives any
-// other host (e.g. the DAW workstation's insert-chain popup,
-// src/features/tour/daw/DawWorkstationScreen) a plain module to import this from
-// without pulling in component-only concerns. Same split as ./gateEngine for
-// the Noise Gate.
-
-// Uses the real 8-band "ParamEQ" Faust patch in public/faust/ParamEQ/
-// (HPF -> Low Shelf -> 4x Peak -> High Shelf -> LPF), driven by a single
-// Faust AudioWorkletNode whose params are the addresses below.
-
-// ── Param addresses (from public/faust/ParamEQ/dsp-meta.json) ───────────────
-export const ADDR = {
+const ADDR = {
   hpfFreq: '/ParamEQ/HPF_Freq',
   hpfBypass: '/ParamEQ/HPF_Bypass',
   hpfOrder: '/ParamEQ/HPF_Order',
@@ -31,7 +11,7 @@ export const ADDR = {
   lowShelfRange: '/ParamEQ/Low_Shelf_Range',
   lowShelfAttack: '/ParamEQ/Low_Shelf_Attack',
   lowShelfRelease: '/ParamEQ/Low_Shelf_Release',
-  lowShelfLiveGain: '/ParamEQ/Low_Shelf_Live_Gain', // read-only hbargraph output
+  lowShelfLiveGain: '/ParamEQ/Low_Shelf_Live_Gain',
   peak1Freq: '/ParamEQ/Peak1_Freq',
   peak1Gain: '/ParamEQ/Peak1_Gain',
   peak1Q: '/ParamEQ/Peak1_Q',
@@ -41,7 +21,7 @@ export const ADDR = {
   peak1Range: '/ParamEQ/Peak1_Range',
   peak1Attack: '/ParamEQ/Peak1_Attack',
   peak1Release: '/ParamEQ/Peak1_Release',
-  peak1LiveGain: '/ParamEQ/Peak1_Live_Gain', // read-only hbargraph output
+  peak1LiveGain: '/ParamEQ/Peak1_Live_Gain',
   peak2Freq: '/ParamEQ/Peak2_Freq',
   peak2Gain: '/ParamEQ/Peak2_Gain',
   peak2Q: '/ParamEQ/Peak2_Q',
@@ -51,7 +31,7 @@ export const ADDR = {
   peak2Range: '/ParamEQ/Peak2_Range',
   peak2Attack: '/ParamEQ/Peak2_Attack',
   peak2Release: '/ParamEQ/Peak2_Release',
-  peak2LiveGain: '/ParamEQ/Peak2_Live_Gain', // read-only hbargraph output
+  peak2LiveGain: '/ParamEQ/Peak2_Live_Gain',
   peak3Freq: '/ParamEQ/Peak3_Freq',
   peak3Gain: '/ParamEQ/Peak3_Gain',
   peak3Q: '/ParamEQ/Peak3_Q',
@@ -61,7 +41,7 @@ export const ADDR = {
   peak3Range: '/ParamEQ/Peak3_Range',
   peak3Attack: '/ParamEQ/Peak3_Attack',
   peak3Release: '/ParamEQ/Peak3_Release',
-  peak3LiveGain: '/ParamEQ/Peak3_Live_Gain', // read-only hbargraph output
+  peak3LiveGain: '/ParamEQ/Peak3_Live_Gain',
   peak4Freq: '/ParamEQ/Peak4_Freq',
   peak4Gain: '/ParamEQ/Peak4_Gain',
   peak4Q: '/ParamEQ/Peak4_Q',
@@ -71,7 +51,7 @@ export const ADDR = {
   peak4Range: '/ParamEQ/Peak4_Range',
   peak4Attack: '/ParamEQ/Peak4_Attack',
   peak4Release: '/ParamEQ/Peak4_Release',
-  peak4LiveGain: '/ParamEQ/Peak4_Live_Gain', // read-only hbargraph output
+  peak4LiveGain: '/ParamEQ/Peak4_Live_Gain',
   highShelfFreq: '/ParamEQ/High_Shelf_Freq',
   highShelfGain: '/ParamEQ/High_Shelf_Gain',
   highShelfQ: '/ParamEQ/High_Shelf_Q',
@@ -81,14 +61,11 @@ export const ADDR = {
   highShelfRange: '/ParamEQ/High_Shelf_Range',
   highShelfAttack: '/ParamEQ/High_Shelf_Attack',
   highShelfRelease: '/ParamEQ/High_Shelf_Release',
-  highShelfLiveGain: '/ParamEQ/High_Shelf_Live_Gain', // read-only hbargraph output
+  highShelfLiveGain: '/ParamEQ/High_Shelf_Live_Gain',
   lpfFreq: '/ParamEQ/LPF_Freq',
   lpfBypass: '/ParamEQ/LPF_Bypass',
   lpfOrder: '/ParamEQ/LPF_Order',
 };
-// Read-only Live_Gain hbargraph address -> band id, for subscribing to the
-// dynamic engine's actually-applied gain via setOutputParamHandler and
-// routing each update into the right band's slot in a liveDynGainRef.
 export const LIVE_GAIN_ADDR_TO_BAND = {
   [ADDR.lowShelfLiveGain]: 'lowShelf',
   [ADDR.peak1LiveGain]: 'peak1',
@@ -97,23 +74,12 @@ export const LIVE_GAIN_ADDR_TO_BAND = {
   [ADDR.peak4LiveGain]: 'peak4',
   [ADDR.highShelfLiveGain]: 'highShelf',
 };
-// HPF/LPF slope, as a Butterworth order (2/4/6/8 = 12/24/36/48 dB/oct). This
-// is the value stored in BandDef; the underlying Faust nentry only accepts
-// an index 0-3 (see ParamEQDynamic.dsp's hpf_order_sel / lpf_order_sel), so
-// ORDER_VALUES/orderToIndex below convert between them.
-export const ORDER_VALUES = [2, 4, 6, 8];
-export function orderToIndex(order) {
+const ORDER_VALUES = [2, 4, 6, 8];
+function orderToIndex(order) {
   const i = ORDER_VALUES.indexOf(order);
-  return i === -1 ? 1 : i; // default to index 1 (order 4 / 24dB/oct)
+  return i === -1 ? 1 : i;
 }
-// A flat, all-pass-through response and dynamic mode off everywhere. Unlike
-// dsp-meta.json's own `init` values (which leave every band un-bypassed),
-// every band here starts *bypassed* — an empty canvas where nothing shapes
-// the sound until you explicitly turn a band ON, rather than 8 already-active
-// (if currently flat) bands. Range defaults negative (a cut/ducking move once
-// armed) since that's the far more common dynamic-EQ use case (de-essing,
-// taming resonances); flip it positive in the UI to make a band boost instead.
-export const DEFAULT_DYNAMIC = { dynamicOn: false, threshold: -24, range: -6, attack: 0.005, release: 0.15 };
+const DEFAULT_DYNAMIC = { dynamicOn: false, threshold: -24, range: -6, attack: 0.005, release: 0.15 };
 export const DEFAULT_BANDS = {
   hpfFreq: 20, hpfBypass: true, hpfOrder: 4,
   lowShelfFreq: 75, lowShelfGain: 0, lowShelfQ: 0.7, lowShelfBypass: true,
@@ -130,7 +96,7 @@ export const DEFAULT_BANDS = {
   highShelfDynamicOn: DEFAULT_DYNAMIC.dynamicOn, highShelfThreshold: DEFAULT_DYNAMIC.threshold, highShelfRange: DEFAULT_DYNAMIC.range, highShelfAttack: DEFAULT_DYNAMIC.attack, highShelfRelease: DEFAULT_DYNAMIC.release,
   lpfFreq: 20000, lpfBypass: true, lpfOrder: 4,
 };
-export function setBool(node, addr, v) {
+function setBool(node, addr, v) {
   node.setParamValue(addr, v ? 1 : 0);
 }
 export function applyBandsToNode(node, b) {
@@ -195,16 +161,6 @@ export function applyBandsToNode(node, b) {
   setBool(node, ADDR.lpfBypass, b.lpfBypass);
   node.setParamValue(ADDR.lpfOrder, orderToIndex(b.lpfOrder));
 }
-// ── Band descriptors (drives the curve UI generically) ──────────────────────
-// orderKey is present only on HPF/LPF — their slope (Butterworth order
-// 2/4/6/8, i.e. 12/24/36/48 dB/oct) instead of the gain/Q the other bands
-// have. dynamicOnKey/thresholdKey/rangeKey/attackKey/releaseKey are present
-// only on the 6 bands Faust's ParamEQ gives dynamic (level-dependent)
-// processing to — HPF/LPF have no gain stage, so no dynamics.
-// Each band carries two colors: `color` is the bright/pastel tone tuned to
-// glow against the graph's permanently-dark canvas; `lightColor` is a deeper
-// equivalent for panel chrome once that goes light. See uiColor() in
-// Equalizer.jsx.
 export const BAND_DEFS = [
   { id: 'hpf', short: 'HPF', label: 'High-Pass', color: '#9AA5B1', lightColor: '#5b6472', kind: 'hpf', freqKey: 'hpfFreq', bypassKey: 'hpfBypass', orderKey: 'hpfOrder' },
   {
@@ -293,11 +249,8 @@ export function withOrder(b, def, v) {
   if (!def.orderKey) return b;
   return { ...b, [def.orderKey]: v };
 }
-// ── Curve math (analytic magnitude-response approximations, in dB) ──────────
 export const FMIN = 20, FMAX = 20000;
 export const GMIN = -24, GMAX = 24;
-// AnalyserNode's dB floor/ceiling — set on the node itself by the host *and*
-// used by the curve drawer to decode its byte data, so the two stay in sync.
 export const ANALYSER_MIN_DB = -100;
 export const ANALYSER_MAX_DB = -10;
 export function clamp(v, lo, hi) {
@@ -311,46 +264,30 @@ export function butterLowpassDB(f, fc, order) {
   const ratio = Math.pow(f / fc, 2 * order);
   return 10 * Math.log10(Math.max(1 / (1 + ratio), 1e-12));
 }
-// Shelf knee: full gain right at (and past) the corner frequency, tapering
-// to 0 dB over a Q-dependent number of octaves. SHELF_KNEE_OCTAVES is the
-// knee width at SHELF_REF_Q (the default 0.7 shelf Q); Q scales that width
-// inversely.
-export const SHELF_KNEE_OCTAVES = 2;
-export const SHELF_REF_Q = 0.7;
-export function shelfKneeShape(t, q) {
+const SHELF_KNEE_OCTAVES = 2;
+const SHELF_REF_Q = 0.7;
+function shelfKneeShape(t, q) {
   const octaves = SHELF_KNEE_OCTAVES * (SHELF_REF_Q / clamp(q, 0.05, 20));
   if (t <= 0) return 1;
   if (t >= octaves) return 0;
   return 0.5 * (1 + Math.cos((Math.PI * t) / octaves));
 }
-export function lowShelfDB(f, fc, gainDb, q) {
+function lowShelfDB(f, fc, gainDb, q) {
   return gainDb * shelfKneeShape(Math.log2(f / fc), q);
 }
-export function highShelfDB(f, fc, gainDb, q) {
+function highShelfDB(f, fc, gainDb, q) {
   return gainDb * shelfKneeShape(Math.log2(fc / f), q);
 }
-export function peakDB(f, fc, gainDb, q) {
+function peakDB(f, fc, gainDb, q) {
   const x = f / fc;
   const bw = q * (x - 1 / x);
   return gainDb / (1 + bw * bw);
 }
-// The gain a dynamic-enabled band settles on at its most extreme — fully
-// engaged (signal continuously past Threshold). Range is signed and simply
-// adds to the static Gain: negative Range ducks the band down by up to
-// |Range| dB, positive Range lifts it up by up to Range dB — matching the
-// Faust DSP (dyn_gain_db in ParamEQDynamic.dsp). Non-dynamic bands (or
-// dynamic-off bands) just return their static gain unchanged.
-export function dynamicExtremeGain(b, def) {
+function dynamicExtremeGain(b, def) {
   const gain = getGain(b, def);
   if (!getDynamicOn(b, def)) return gain;
   return gain + getRange(b, def);
 }
-// `liveDynGainDb` is this one band's *actually-applied* dynamic gain right
-// now — read straight off the Faust patch's own Live_Gain hbargraph meters
-// (see LIVE_GAIN_ADDR_TO_BAND above), not estimated. It's 0 whenever the
-// band's dynamic engine is off or idle, so adding it unconditionally is
-// always safe; only during active playback, once the envelope crosses
-// Threshold, does it move the curve.
 export function bandResponseDB(def, b, f, useDynamicExtreme = false, liveDynGainDb = 0) {
   if (getBypass(b, def)) return 0;
   const freq = getFreq(b, def);
@@ -369,10 +306,6 @@ export function totalResponseDB(b, f, useDynamicExtreme = false, liveDynGain) {
   for (const def of BAND_DEFS) sum += bandResponseDB(def, b, f, useDynamicExtreme, liveDynGain?.[def.id] ?? 0);
   return sum;
 }
-// Same sum, but skipping HPF/LPF — they always carry some roll-off shape
-// near their own corner even when every actual *gain* control is at 0 dB, so
-// including them would make the "shaded gain region" show a sliver of fill
-// at the edges even on a fully flat setting. This is used for the fill only.
 export function gainOnlyResponseDB(b, f, liveDynGain) {
   let sum = 0;
   for (const def of BAND_DEFS) {
@@ -381,9 +314,6 @@ export function gainOnlyResponseDB(b, f, liveDynGain) {
   }
   return sum;
 }
-// Curve-similarity score: average |dB error| across the audible spectrum,
-// not per-parameter distance — two different freq/Q combos that produce the
-// same overall shape should score the same, which is what the ear judges.
 export function curveRMSErrorDB(a, b) {
   const N = 48;
   let sumSq = 0;
@@ -398,13 +328,10 @@ export function curveRMSErrorDB(a, b) {
 export function scoreFromRMS(rms) {
   return Math.round(clamp(1 - rms / 12, 0, 1) * 100);
 }
-// ── Log-freq / dB <-> fractional-position helpers (0..1, used for % layout) ──
 export function fToFrac(f) { return Math.log10(f / FMIN) / Math.log10(FMAX / FMIN); }
 export function fracToF(t) { return FMIN * Math.pow(FMAX / FMIN, t); }
 export function gainToFrac(g) { return (GMAX - g) / (GMAX - GMIN); }
 export function fracToGain(t) { return GMAX - t * (GMAX - GMIN); }
-// ── EQ presets — used as Test Bench quick-apply buttons and as the hidden
-// target pool for Ear Training (both lab-only concerns) ────────────────────
 export const EQ_PRESETS = [
   { name: 'WARM & ROUND', bands: { hpfFreq: 30, lowShelfGain: 4, peak2Freq: 300, peak2Gain: 2, peak4Freq: 3000, peak4Gain: -3, highShelfGain: -4 } },
   { name: 'BRIGHT & AIRY', bands: { lowShelfGain: -2, peak3Freq: 2000, peak3Gain: 3, highShelfFreq: 9000, highShelfGain: 6 } },
@@ -413,14 +340,9 @@ export const EQ_PRESETS = [
   { name: 'VOCAL PRESENCE', bands: { hpfFreq: 90, lowShelfGain: -2, peak3Freq: 3000, peak3Gain: 5, peak3Q: 0.8, peak4Freq: 6000, peak4Gain: 2 } },
   { name: 'PODCAST CLARITY', bands: { hpfFreq: 80, peak2Freq: 400, peak2Gain: -3, peak2Q: 1.2, peak3Freq: 4000, peak3Gain: 4, highShelfGain: 2 } },
 ];
-export function mergeBands(base, partial) {
+function mergeBands(base, partial) {
   return { ...base, ...partial };
 }
-// Applies a preset on top of `base` and un-bypasses every band the preset
-// actually dials in (freq/gain/Q/order). Needed because DEFAULT_BANDS starts
-// every band bypassed — without this, picking a preset (or loading Ear
-// Training's hidden target, which is a preset too) would silently land on
-// bands that are still switched OFF.
 export function applyPreset(base, preset) {
   let next = mergeBands(base, preset.bands);
   for (const def of BAND_DEFS) {
@@ -433,13 +355,7 @@ export function applyPreset(base, preset) {
 export function pickRandomPreset() {
   return EQ_PRESETS[Math.floor(Math.random() * EQ_PRESETS.length)];
 }
-// ── Output (makeup) gain ─────────────────────────────────────────────────────
 export function dbToLinear(db) { return Math.pow(10, db / 20); }
-// Schedules the GainNode's value properly (cancel + setValueAtTime + a short
-// ramp) instead of a bare `.gain.value = x` assignment — the correct way to
-// change an AudioParam live per the Web Audio spec, and it avoids any click
-// or "value doesn't stick" edge case a plain assignment can hit while audio
-// is actively rendering.
 export function applyOutputGain(node, db, ctx) {
   const target = dbToLinear(db);
   if (!ctx) {

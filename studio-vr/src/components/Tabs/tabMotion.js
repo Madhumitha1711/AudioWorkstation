@@ -1,6 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
 
-
 export function prefersReducedMotion() {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 }
@@ -27,7 +26,6 @@ export function useTabTransition(ref, activeKey, index) {
     const el = ref.current;
     if (!el || typeof el.animate !== "function" || prefersReducedMotion()) return;
     const { duration, easing, shift } = motionTokens(el);
-    // Interrupted mid-animation → continue from where it visibly is.
     const running = el.getAnimations?.().filter((a) => a.id === "ui-tab-panel") || [];
     const fromOpacity = running.length ? Math.min(1, parseFloat(getComputedStyle(el).opacity) || 0) : 0;
     running.forEach((a) => a.cancel());
@@ -42,7 +40,6 @@ export function useTabTransition(ref, activeKey, index) {
     anim.id = "ui-tab-panel";
   }, [ref, activeKey, index]);
 }
-
 
 export function useTabHeightTransition(ref, activeKey) {
   const last = useRef(null);

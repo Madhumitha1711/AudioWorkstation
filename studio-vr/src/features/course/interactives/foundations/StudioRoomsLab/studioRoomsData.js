@@ -51,6 +51,4 @@ export const STUDIO_ROOMS = [
   },
 ];
 
-// Photos aren't shot yet — drop them in public/studio-rooms/<id>.jpg and
-// they appear automatically; until then each tab shows a placeholder frame.
 export const studioRoomImagePath = (id) => `/studio-rooms/${id}.jpg`;

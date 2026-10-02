@@ -1,18 +1,10 @@
 import { clamp } from "../lib/format";
-import { TRACK_CHAIN_SCOPE, VOLUME_FADER_SPEC, PAN_KNOB_SPEC } from "../lib/constants";
+import { VOLUME_FADER_SPEC, PAN_KNOB_SPEC } from "../lib/constants";
 import { TrackIcon } from "./icons";
-import { InsertRack } from "./InsertRack";
-import { SendRack } from "./SendRack";
+import { TrackInsertRack, TrackSendRack } from "./TrackRacks";
 import { Fader } from "../../../../components/controls/Fader";
 import { Knob } from "../../../../components/controls/Knob";
 
-// Mixer view — Logic-style vertical channel strips: one per track, each with
-// its own insert rack (the same InsertRack as the dock/tracklist, just bound
-// to that track's whole-track chain), pan knob, volume fader + meter, and
-// solo/mute — everything the dock+tracklist expose already, laid out the
-// way a real mixing console groups it. `chainActions`/`sendActions` bundle
-// the InsertRack/SendRack wiring functions shared with TrackList/EditorDock
-// (see DawWorkstationScreen's own render for how they're built).
 export function MixerView({ tracks, selectedTrackId, setSelectedTrackId, anySoloed, trackLevels, chainActions, sendActions, setTrackPan, setTrackVolume, toggleTrackSolo, toggleTrackMute }) {
   if (tracks.length === 0) {
     return <div className="mixer-empty-hint">No tracks yet — switch to Arrange and click + Add Track to get started.</div>;
@@ -43,37 +35,9 @@ export function MixerView({ tracks, selectedTrackId, setSelectedTrackId, anySolo
               {track.name}
             </div>
 
-            <InsertRack
-              compact
-              chain={track.chain}
-              onAddPlugin={(def) => chainActions.addOrSelectPlugin(track.id, TRACK_CHAIN_SCOPE, def)}
-              onOpenSlot={(key) => chainActions.setActiveEditor({ trackId: track.id, regionId: TRACK_CHAIN_SCOPE, key })}
-              onToggleBypass={(key) => chainActions.toggleBypass(track.id, TRACK_CHAIN_SCOPE, key)}
-              onMove={(key, dir) => chainActions.movePlugin(track.id, TRACK_CHAIN_SCOPE, key, dir)}
-              onRemove={(key) => chainActions.removePlugin(track.id, TRACK_CHAIN_SCOPE, key)}
-              onReorder={(fromKey, toKey) => chainActions.reorderPlugin(track.id, TRACK_CHAIN_SCOPE, fromKey, toKey)}
-              draggingKey={chainActions.draggingKey}
-              setDraggingKey={chainActions.setDraggingKey}
-            />
+            <TrackInsertRack compact track={track} chainActions={chainActions} />
 
-            <SendRack
-              compact
-              sends={track.sends || []}
-              auxOptions={tracks
-                .filter((t) => t.kind === "aux" && t.id !== track.id && !(t.sends || []).some((s) => s.busId === track.id))
-                .map((t) => ({ id: t.id, name: t.name, color: t.color }))}
-              onAddSend={(busId) => sendActions.addSend(track.id, busId)}
-              onCreateAux={(name) => sendActions.createAux({ kind: "aux", name })}
-              onRemoveSend={(sendId) => sendActions.removeSend(track.id, sendId)}
-              onUpdateSend={(sendId, patch) => sendActions.updateSend(track.id, sendId, patch)}
-              onSetPrePost={(sendId, prePost) => sendActions.setSendPrePost(track.id, sendId, prePost)}
-              trackId={track.id}
-              trackName={track.name}
-              trackPan={track.pan ?? 0}
-              trackSolo={!!track.solo}
-              onToggleTrackSolo={() => toggleTrackSolo(track.id)}
-              getSendMeter={(sendId) => sendActions.getSendMeterLevel(track.id, sendId)}
-            />
+            <TrackSendRack compact track={track} tracks={tracks} sendActions={sendActions} toggleTrackSolo={toggleTrackSolo} />
 
             <div className="mixer-strip__pan" onClick={(e) => e.stopPropagation()}>
               <Knob spec={PAN_KNOB_SPEC} value={track.pan ?? 0} onChange={(v) => setTrackPan(track.id, v)} size={40} />

@@ -1,12 +1,3 @@
-/* Shared "indicator LED" colors reused across the rack-gear lab screens
-   (diffuserPanelLab, lfEmitterLab, mixingConsoleLab, patchbayLab,
-   preampRackLab, soundCardLab, speakerListeningLab). These represent real
-   hardware signal-light colors (red = hot/clip, green = healthy/nominal,
-   amber = warm/active, purple = LF/sub-bass indicator) and are
-   intentionally NOT wired to the brand palette (src/theme/palettes.js) -
-   real gear LEDs don't change color when someone picks a different site
-   theme. Each lab file that uses one of these imports this file once at
-   its own top. */
 :root {
   --led-red: #e8615f;
   --led-red-rgb: 232, 97, 95;

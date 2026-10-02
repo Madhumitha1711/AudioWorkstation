@@ -1,7 +1,5 @@
 import "./VideoPlayer.css";
 
-// mm:ss for a Cloudflare-reported duration; courseData/CMS `duration` strings
-// ("4 min") are used as the fallback when Stream hasn't reported one yet.
 function formatDuration(seconds) {
   if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0) return null;
   const total = Math.round(seconds);
@@ -16,39 +14,6 @@ const STATUS_LABEL = {
   error: "Video encoding failed — check Cloudflare Stream",
 };
 
-/**
- * Renders a lesson/section's Cloudflare Stream video — see studio-cms's
- * `shared.cloudflare-video` component (STRAPI_SCHEMA_NOTES.md) and
- * studio-backend's `CourseVideo` shape (course.types.ts), which is what
- * `video` here is: `{ playbackToken, durationSeconds, thumbnailUrl,
- * captionsUrl, status }`.
- *
- * `playbackToken` is NOT the raw Cloudflare Stream videoUid — it's a
- * short-lived signed token minted per-request by studio-backend (see
- * CloudflareStreamTokenService), because this is a paid course and every
- * video is uploaded with Stream's `requireSignedURLs` flag on
- * (studio-cms's uploadVideoToCloudflareStream). A bare, never-expiring
- * videoUid embedded here would let anyone who captured it from a network
- * request replay it forever, bypassing the payment/auth gate entirely —
- * the signed token expires and has to come fresh from an authenticated,
- * paid /courses request every time.
- *
- * Uses Cloudflare's own Stream Player embed
- * (https://iframe.cloudflarestream.com/<token>) rather than a custom
- * hls.js/<video> player — it already handles adaptive bitrate, a poster
- * frame, fullscreen/PiP, and Cloudflare's own "still encoding" state, so
- * there's no need to reimplement that here. `video.status` (kept in sync by
- * studio-cms's `GET /api/sections/:documentId/video/:blockIndex/status`
- * route) only drives the small badge text below — the embed itself is left
- * to render regardless, since Cloudflare's player already degrades
- * gracefully while a fresh upload is still processing.
- *
- * Most sections don't have a video yet — `video`/`video.playbackToken` is
- * undefined until a content editor uploads one via the CMS admin's "Upload
- * video" button (or `POST /api/sections/:documentId/video/:blockIndex`
- * directly) — so the common case is the "coming soon" placeholder below,
- * not the embed.
- */
 function VideoPlayer({ video, fallbackDuration, posterSrc = "/paranoma.png", title }) {
   const playbackToken = video?.playbackToken;
   const durationLabel = formatDuration(video?.durationSeconds) ?? fallbackDuration ?? null;
@@ -73,12 +38,6 @@ function VideoPlayer({ video, fallbackDuration, posterSrc = "/paranoma.png", tit
 
   return (
     <div className="video-player-wrap">
-      {/* Cloudflare's Stream Player draws its own control bar (play/scrub/
-          fullscreen) along the bottom edge of the iframe — nothing of ours
-          can be absolutely positioned over the video itself without
-          colliding with it, unlike the static placeholder below. So the
-          duration/status/captions row lives outside the frame, not overlaid
-          on it. */}
       <div className="video-player">
         <iframe
           key={playbackToken}

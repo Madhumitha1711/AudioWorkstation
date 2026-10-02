@@ -5,9 +5,6 @@
   --text: #ffffff;
   --text-dim: rgba(255, 255, 255, 0.65);
   --text-dimmer: rgba(255, 255, 255, 0.45);
-  /* See the matching comment in LandingPage.css: these three now read the
-     generic brand palette (src/theme/palettes.js) instead of a hardcoded
-     green, and already track light/dark theme via PaletteContext. */
   --accent: var(--brand-accent);
   --accent2: var(--brand-accent-2);
   --accent-ink: var(--brand-accent-ink);
@@ -290,8 +287,6 @@
     }
   }
 }
-
-/* ── Light theme ─────────────────────────────────────────────────────────── */
 :root[data-theme='light'] .svr-payment {
   --panel: rgba(var(--ink-tint-rgb), 0.04);
   --border: rgba(var(--ink-tint-rgb), 0.14);

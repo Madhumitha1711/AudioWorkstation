@@ -1,9 +1,3 @@
-// Content for "analog-cables-lab" + "digital-cables-lab" (Ch.8 "Connectors,
-// Cables, and Studio Wiring"). `family` decides which lab a section belongs
-// to (CablesLab.jsx filters on it); inside a lab: categories (row-1 tabs) →
-// cables (row-2 tabs) → detail panel (../../shared/GroupedBriefing).
-// `points` are the short takeaways shown in the global KeyPoints list.
-
 export const SECTIONS = [
   {
     n: "01",
@@ -200,14 +194,8 @@ export const SECTIONS = [
   },
 ];
 
-// Photos are served from public/ — drop a 16:9 JPG per cable at
-// public/cables/<id>.jpg. Until a file exists the lab shows the cable's
-// icon and the expected path.
 export const cableImagePath = (id) => `/cables/${id}.jpg`;
 
-// 24×24 stroke icon bodies (inner SVG markup), keyed by cable id — used in
-// the item tabs and as the image placeholder. Each is "plug · wire · plug"
-// with the wire drawn to hint at what's inside.
 export const ICONS = {
   "mic-cable":
     '<rect x="3" y="2" width="5" height="9" rx="2.5"/><path d="M5.5 11v3c0 4 13 1 13 4"/><circle cx="18.5" cy="19.5" r="2.5"/>',

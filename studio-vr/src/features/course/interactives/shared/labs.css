@@ -1,33 +1,5 @@
 .lab {
-  /* No width cap — let the lab (and its 3D canvas) fill the same width as
-     the rest of the course content instead of leaving dead space on wide
-     screens. Prose bits inside individual labs still get their own
-     comfortable max-width via .lab-intro below. */
   max-width: none;
-}
-
-.lab-section-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--accent);
-  margin-bottom: 16px;
-}
-.lab-section-label::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--border-soft);
-}
-
-.lab-divider {
-  height: 1px;
-  background: var(--border-soft);
-  margin: 28px 0 24px;
 }
 
 .lab-intro {
@@ -36,13 +8,6 @@
   color: var(--text-dim);
   margin: 0 0 22px;
   max-width: 720px;
-}
-
-.lab-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  margin-bottom: 22px;
 }
 
 .lab-control-label {
@@ -82,31 +47,6 @@
   color: var(--accent);
 }
 
-.lab-result {
-  border-radius: 12px;
-  border: 1px solid var(--border-soft);
-  background: var(--panel);
-  padding: 18px 20px;
-  font-size: var(--fs-md);
-  line-height: 1.65;
-  color: var(--text-dim);
-  min-height: 24px;
-}
-.lab-result.good {
-  border-color: rgba(var(--brand-accent-rgb), 0.3);
-  background: rgba(var(--brand-accent-rgb), 0.05);
-  color: var(--text);
-}
-.lab-result.caution {
-  border-color: rgba(var(--warning-rgb), 0.4);
-  background: rgba(var(--warning-rgb), 0.06);
-  color: var(--text);
-}
-.lab-result-empty {
-  color: var(--text-dimmer);
-  font-style: italic;
-}
-
 .lab-hint {
   margin-top: 14px;
   font-size: var(--fs-sm);
@@ -118,192 +58,6 @@
   align-items: center;
   gap: 16px;
   margin-top: 20px;
-}
-
-/* --- DAW comping grid --- */
-.comp-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 18px;
-}
-
-.comp-grid-row {
-  display: grid;
-  grid-template-columns: 96px repeat(3, 1fr);
-  gap: 6px;
-  align-items: stretch;
-}
-
-.comp-grid-header {
-  margin-bottom: 2px;
-}
-
-.comp-row-label {
-  display: flex;
-  align-items: center;
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  color: var(--text-dimmer);
-}
-
-.comp-col-label {
-  text-align: center;
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-dimmer);
-  padding-bottom: 4px;
-}
-
-.comp-cell {
-  height: 46px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--accent);
-  font-size: var(--fs-base);
-  font-weight: 800;
-  cursor: pointer;
-  font-family: inherit;
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-.comp-cell:hover {
-  border-color: rgba(var(--brand-accent-rgb), 0.35);
-}
-.comp-cell.selected {
-  border-color: var(--accent);
-  background: rgba(var(--brand-accent-rgb), 0.12);
-}
-
-.comp-result {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  font-size: var(--fs-sm);
-  color: var(--text-dim);
-}
-
-.comp-result-label {
-  font-weight: 700;
-  color: var(--text-dimmer);
-  text-transform: uppercase;
-  font-size: var(--fs-xs);
-  letter-spacing: 0.05em;
-}
-
-.comp-result-chip {
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: var(--panel);
-  border: 1px solid var(--border-soft);
-}
-
-/* --- Sweet Spot 3D lab --- */
-.sweet-spot-canvas-wrap {
-  position: relative;
-  width: 100%;
-  /* Scales with the now-uncapped .lab width instead of a flat 340px, so
-     the 3D view actually grows on wide screens rather than just getting
-     wider and staying just as short. */
-  aspect-ratio: 16 / 7;
-  min-height: 340px;
-  max-height: 560px;
-  border-radius: 12px;
-  border: 1px solid var(--border-soft);
-  background: #08080a;
-  overflow: hidden;
-  touch-action: none;
-  margin-bottom: 14px;
-}
-
-.sweet-spot-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-  cursor: grab;
-}
-
-.sweet-spot-fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: var(--text-dimmer);
-  font-size: var(--fs-md);
-  text-align: center;
-  padding: 0 20px;
-}
-
-.sweet-spot-hint {
-  position: absolute;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: var(--fs-2xs);
-  letter-spacing: 0.02em;
-  color: var(--text-dimmer);
-  background: rgba(5, 5, 7, 0.75);
-  border: 1px solid var(--border-soft);
-  padding: 5px 11px;
-  border-radius: 999px;
-  pointer-events: none;
-  white-space: nowrap;
-}
-
-.sweet-spot-readouts {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.sweet-spot-readout {
-  border-radius: 10px;
-  border: 1px solid var(--border-soft);
-  background: var(--panel);
-  padding: 11px 14px;
-}
-.sweet-spot-readout .lbl {
-  font-size: var(--fs-2xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-dimmer);
-  margin-bottom: 6px;
-}
-.sweet-spot-readout .v {
-  font-size: var(--fs-base);
-  font-weight: 700;
-  color: var(--text);
-}
-.sweet-spot-readout .v.small {
-  font-size: var(--fs-sm);
-  font-weight: 500;
-  line-height: 1.4;
-}
-.sweet-spot-readout.good .v {
-  color: var(--accent);
-}
-.sweet-spot-readout.caution .v {
-  color: var(--warning);
-}
-.sweet-spot-readout.bad .v {
-  color: var(--danger-soft);
-}
-
-.sweet-spot-readout-toe {
-  margin: 12px 0 20px;
-  font-size: var(--fs-sm);
-  color: var(--text-dim);
-  line-height: 1.5;
-}
-
-.lab-control-value {
-  color: var(--accent);
-  font-weight: 700;
-  margin-left: 6px;
 }
 
 .lab-slider {
@@ -333,77 +87,11 @@
   border: 2px solid #050507;
   cursor: pointer;
 }
-
-.sweet-spot-audio-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  border-radius: 999px;
-  cursor: pointer;
-  background: rgba(var(--brand-accent-rgb), 0.08);
-  color: var(--accent);
-  font-weight: 600;
-  font-size: var(--fs-md);
-  border: 1px solid rgba(var(--brand-accent-rgb), 0.3);
-  transition: background 0.2s ease;
-  font-family: inherit;
-}
-.sweet-spot-audio-btn:hover {
-  background: rgba(var(--brand-accent-rgb), 0.14);
-}
-.sweet-spot-audio-btn.playing {
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-
-.lab-file-change {
-  display: inline-block;
-  margin-top: 8px;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--text-dimmer);
-  font-size: var(--fs-xs);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-  font-family: inherit;
-}
-.lab-file-change:hover {
-  color: var(--accent);
-}
-
-.lab-upload-error {
-  margin-top: 8px;
-  font-size: var(--fs-xs);
-  color: var(--danger-soft);
-}
-
-/* ── Light theme ─────────────────────────────────────────────────────────
-   The two spots below hardcode a translucent-white tint meant to sit on a
-   dark page background; on light backgrounds that's nearly invisible, so
-   flip it to a translucent-dark tint instead. The 3D sweet-spot viewport
-   (.sweet-spot-canvas-wrap) intentionally stays dark in both themes, like
-   any WebGL/3D viewport convention. */
 :root[data-theme='light'] .svr-course .lab {
-  .lab-toggle,
-  .comp-cell {
+  .lab-toggle {
     background: rgba(var(--ink-tint-rgb), 0.04);
   }
 }
-
-/* ── "What Is Sound?" concept labs ───────────────────────────────────────
-   Shared chrome for FrequencyLab / AmplitudeLab / WavelengthLab / PhaseLab /
-   HarmonicsLab / TimbreLab (design/what-is-sound-chapter.html's per-lesson
-   panels — canvas-frame, readout-row, slider-row, knob, instrument-grid).
-   Chrome (labels, borders, buttons) follows the app's light/dark CSS
-   variables like the rest of this file. The canvas "screen" itself (and
-   the Harmonics knob's physical dial) used to stay fixed dark colors in
-   both themes, matching every other chapter's oscilloscope/meter — these
-   six labs now get their own light-mode "screen"/knob treatment instead,
-   same call EQ's graph already made (see soundLabShared.js's scopePalette
-   and the light-theme overrides at the bottom of this file). */
 
 .sound-lab-frame {
   background: #0e0e11;
@@ -482,10 +170,6 @@
   margin-bottom: 8px;
   letter-spacing: 0.03em;
 }
-/* Two-line variant used by WavelengthLab — each end of the slider prints
-   the frequency plus what it actually measures out to (wavelength and
-   period), instead of a bare number, so the printed scale visibly matches
-   the log-scale range the slider itself covers. */
 .sound-lab-slider-label {
   display: flex;
   flex-direction: column;
@@ -503,10 +187,6 @@
   font-size: var(--fs-3xs);
   color: var(--text-dimmer);
 }
-
-/* Log-scale tick labels under FrequencyLab's slider. Each tick is placed
-   at its true log position along the thumb's travel (8px inset each side =
-   half the 16px thumb), so the thumb lines up with the printed value. */
 .sound-lab-slider-ticks {
   position: relative;
   height: 22px;
@@ -531,12 +211,6 @@
   height: 4px;
   background: var(--border);
 }
-
-
-/* Inline edit affordance for the Frequency/Note readout boxes above — a
-   pencil toggles that box's value into a text input in place, instead of a
-   separate manual-entry section. Kept visually part of the same box
-   (.sound-lab-readout) rather than its own component. */
 .sound-lab-readout-editable {
   display: flex;
   align-items: center;
@@ -595,7 +269,6 @@
 .sound-lab-readout-input[type="number"] {
   -moz-appearance: textfield;
 }
-
 
 .sound-lab-live-dot {
   width: 6px;
@@ -665,8 +338,6 @@
   opacity: 0.45;
   cursor: not-allowed;
 }
-
-/* --- Harmonics knob --- */
 .sound-lab-knob-wrap {
   display: flex;
   align-items: center;
@@ -674,10 +345,6 @@
   gap: 22px;
   margin-bottom: 18px;
 }
-/* Play button lives in this same row as the knob (rather than its own
-   .lab-actions row below) so the two read as horizontally aligned —
-   pinned to the row's end, vertically centered with the knob, wrapping
-   onto its own line only if the row gets too narrow to hold all three. */
 .sound-lab-knob-play {
   margin-left: auto;
   flex-shrink: 0;
@@ -735,8 +402,6 @@
   color: var(--text-dim);
   margin-top: 4px;
 }
-
-/* --- Timbre instrument grid --- */
 .sound-lab-instrument-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -788,21 +453,11 @@
   .sound-lab-inst-card {
     background: rgba(var(--ink-tint-rgb), 0.04);
   }
-
-  /* Scope/spectrum "screen" — matches the light bg soundLabShared.js's
-     scopePalette() now draws the trace/grid/labels against (#e7eae1, the
-     same "graph paper" tone EQ_GRAPH_PALETTE.light.bg uses), so the JS
-     canvas content and the frame/meter chrome around it read as one
-     consistent light surface instead of a dark rectangle sitting in it. */
   .sound-lab-frame,
   .sound-lab-vu,
   .sound-lab-knob-center {
     background: #e7eae1;
   }
-
-  /* Harmonics knob — brushed-aluminum dial instead of dark plastic, same
-     light-mode metal treatment as the shared components/controls/Knob.jsx and
-     Equalizer.jsx's own local Knob (KNOB_BODY in both). */
   .sound-lab-knob {
     background: radial-gradient(circle at 35% 30%, #fbfcf8, #ccd2c2 75%);
     box-shadow: 0 2px 6px rgba(18, 20, 15, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.85),

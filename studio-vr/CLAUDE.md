@@ -69,13 +69,14 @@ src/
   audio/          # app-wide audio infrastructure (no React UI)
     spatialAudioEngine.js  # singleton Web Audio wrapper: HRTF binaural panning
                             # tied to camera look direction, ambient room bed,
-                            # hotspot narration playback, master mute vs.
+                            # studio-speaker bus, master mute vs.
                             # binaural toggle (two independent, non-interacting
                             # controls — see the comments at the top of the file)
     wavRender.js            # render an AudioBuffer to a downloadable WAV
     effects/                # *Engine.js — Faust param addresses/defaults/meter
-                            # helpers per effect; shared by gear-studio lessons
-                            # AND the DAW insert chain
+                            # helpers per effect; shared by gear-studio panels
+                            # AND the DAW insert chain. ballistics.js = shared
+                            # level/GR meter smoothing
     faust/faustTypes.js     # Faust UI-metadata helpers + compileFaustWasm()
                             # (compileStreaming with a buffered fallback)
   components/     # UI shared by 2+ features only
@@ -87,7 +88,8 @@ src/
                   # private components live together
     landing/                # LandingPage
     auth/                   # Login/Signup/ForgotPassword pages, AuthPage.css,
-                            # components/ (GoogleAuthButton, StudioDoor, RequireAuth)
+                            # components/ (GoogleAuthButton, StudioDoor, RequireAuth,
+                            # AuthFrame/AuthField, DoorAuthPage, useDoorAuth)
     payment/                # PaymentPage, PaymentCompletePage
     discussion/             # DiscussionPage
     course/                 # CoursePage + course content
@@ -102,17 +104,26 @@ src/
       components/             # WelcomeVideoDialog, StudioHotspotsPanel, HotspotPrecheck
       help/                   # QuickHelpPanel + helpHover
       hotspot-labs/<Lab>/     # per-gear hotspot labs; shared/ = hardwareTokens.css,
-                              # speakerListeningLab.css (base), listeningLabShared
+                              # speakerListeningLab.css (base), LabShell (header/
+                              # tabs/footer frame), listeningLabShared (AhaBox,
+                              # SegControl, PlayBar, LineIcon), useLoopPlayer.js
+                              # (useLoopPlayer, useRepeatPlayer). PanoramaTour maps
+                              # gear id → lab via its GEAR_LAB table
       daw/                    # DAW workstation screen opened from the tour
         DawWorkstationScreen.jsx  # state/audio controller
-        components/ engine/ lib/  # presentational pieces / audio-graph + offline
-                                  # render / constants, format, track helpers
-    gear-studio/            # full "gear studio" effect lessons — Compressor,
-                            # Equalizer, DeEsser, Delay, Limiter, NoiseGate, Reverb
-                            # (+ chapters.css); each drives a real Faust WASM patch.
-                            # Also embedded by the DAW plugin popup + course labs.
+        components/ engine/ lib/  # presentational pieces (TrackRacks wraps
+                                  # Insert/SendRack per track) / audio-graph +
+                                  # offline render / constants, format, track
+                                  # helpers, useDismiss (outside-click/Esc close)
+    gear-studio/            # effect editor panels — Compressor, DeEsser, Delay,
+                            # Limiter, NoiseGate, Reverb (*EditorPanel, used by the
+                            # DAW plugin popup) + Equalizer (full lab, also a course
+                            # lab) and chapters.css; each drives a real Faust patch.
+                            # shared/panelUtils.js (hiDpi, drawLevelScope,
+                            # transferFrame, knob math) + shared/PanelControls.jsx
+                            # (KnobGrid, MiniSlider, KnobNumberInput)
   dev-tools/      # /panorama-test, /splat-test, /model-test, /audio-test utility pages
-  _unused/        # not imported anywhere — kept for reference, safe to delete
+                  # (TesterShell = shared upload panel/overlay layout)
 
 public/
   faust/<patch>/dsp-module.wasm + dsp-meta.json   # exported straight from the
@@ -350,8 +361,7 @@ import { Accordion, AccordionItem } from "../../components/Accordion";
   closed), so child state survives. Reduced motion → instant.
 - Re-skin only via tokens on `className`: `--acc-accent` (default
   `--brand-accent`), `--acc-well`, `--acc-border`, `--acc-radius`.
-- Current users: MicSelectionLab. WhyAmplificationLab still has the
-  original private copy (`RevealAnswer`) — migrate it when next touched.
+- Current users: MicSelectionLab, WhyAmplificationLab.
 
 ## Conventions
 
@@ -363,9 +373,13 @@ import { Accordion, AccordionItem } from "../../components/Accordion";
   `src/features/<feature>/`; move it to `src/components/` or `src/audio/`
   only once a second feature needs it. Components with their own CSS or
   sub-parts get their own folder with an `index.js` re-export.
-- Heavy use of explanatory block comments above non-obvious logic (audio
-  routing, knob curve math, theme/state interactions) — match this style
-  when adding similarly non-obvious code, especially anything touching the
-  Web Audio graph.
+- Comments only where necessary: a short note for genuinely non-obvious
+  constraints (e.g. the minify gotcha in `vite.config.js`, the two
+  independent toggles and the elevation cue in `spatialAudioEngine.js`).
+  Don't add narrating or section-divider comments.
+- Before writing a new helper, check the shared modules (`components/`,
+  `audio/effects/ballistics.js`, `gear-studio/shared/`,
+  `tour/hotspot-labs/shared/`, `course/interactives/shared/`) — duplicate
+  logic should be extracted there rather than copied between files.
 - Lint rules of note (`.oxlintrc.json`): `react/rules-of-hooks` is an error;
   `react/only-export-components` is a warning (constant exports allowed).

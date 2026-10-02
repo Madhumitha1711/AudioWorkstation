@@ -1,14 +1,3 @@
-/* Ported from design/soundcraft-discussion.html — the "Main Bus / Talkback"
-   discussion board mockup. Tokens are scoped under .svr-discussion the same
-   way .svr-course/.svr-payment/.svr-landing scope their own palettes (see
-   the note at the top of src/index.css), so this page's amber/green
-   identity doesn't leak into the rest of the shell.
-
-   --amber-deep/--green-deep and --amber-glow/--green-glow are the second
-   gradient stop and box-shadow tint for the amber/green accents. Pulling
-   them out into tokens (rather than hardcoding a second hex per gradient)
-   means the light theme block below only has to override variables, not
-   hunt down every gradient/shadow that referenced the dark-mode hue. */
 .svr-discussion {
   --bg: #0a0a0c;
   --panel: #131317;
@@ -22,25 +11,14 @@
   --green-deep: #3fae7c;
   --green-dim: #1c3a2e;
   --green-glow: rgba(95, 217, 160, 0.35);
-  /* Fixed red "muted/error" accent - separate from the amber/green duo
-     above, same reasoning as --danger elsewhere in the app. */
   --danger: #c94f4f;
   --danger-soft: #e88a8a;
   --danger-rgb: 224, 92, 92;
-  /* Dark ink for text sitting on a solid amber/green fill (mic mute icon,
-     unread badge, etc). */
   --ink-on-amber: #1a1108;
   --ink-on-green: #0c231a;
   --text: #f0ece3;
   --text-dim: #9a9aa0;
   --text-faint: #55545c;
-  /* Solid modal-only surfaces, deliberately separate from --panel/--panel-2:
-     those two are translucent tints in the light theme (meant to sit over
-     the page's opaque --bg), but the modal instead floats over a dark
-     dimmed backdrop (.disc-modal-overlay) — reusing --panel there would let
-     that dark backdrop show through and read as a muddy gray card instead
-     of a clean one. Dark theme's --panel/--panel-2 are already solid hex,
-     so these just mirror them; only the light-theme override below differs. */
   --modal-panel: var(--panel);
   --modal-panel-2: var(--panel-2);
 
@@ -63,20 +41,6 @@
     padding: 40px 20px 100px;
   }
 
-  /* ===== header ===== */
-  .disc-crumb {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--text-faint);
-    margin-bottom: 6px;
-
-    span {
-      color: var(--amber);
-    }
-  }
-
   h1 {
     font-family: var(--font-sans);
     font-weight: 600;
@@ -90,10 +54,6 @@
     color: var(--text-dim);
     margin-bottom: 28px;
   }
-
-  /* ===== channel tabs ===== */
-  /* Channel tabs: app-wide standard Tabs (components/Tabs, underline) —
-     re-skinned via tokens; .dot/.count are this page's tab content. */
   .disc-channels {
     --tabs-line: var(--line);
     --tabs-text: var(--text-faint);
@@ -136,8 +96,6 @@
     align-items: center;
     gap: 6px;
   }
-
-  /* ===== feed ===== */
   .disc-feed {
     display: flex;
     flex-direction: column;
@@ -188,19 +146,7 @@
 
   .disc-name {
     font-size: 13px;
-    font-weight: 600;
-
-    .disc-badge {
-      font-family: var(--font-mono);
-      font-size: 9px;
-      letter-spacing: 0.06em;
-      color: var(--amber);
-      background: var(--amber-dim);
-      padding: 1px 6px;
-      border-radius: 3px;
-      margin-left: 6px;
-      text-transform: uppercase;
-    }
+    font-weight: 600
   }
 
   .disc-meta-line {
@@ -276,12 +222,6 @@
       opacity: 0.5;
     }
   }
-
-  /* per-thread inline reply box, opened by the card's "Reply" action —
-     posts straight to POST /discussions/:id/replies (see
-     src/api/discussions.js) rather than routing through the main
-     composer, since a reply always belongs to the thread it's opened
-     from. */
   .disc-reply-composer {
     margin-top: 12px;
     padding-top: 12px;
@@ -333,11 +273,6 @@
       color: var(--text-faint);
     }
   }
-
-  /* error banner — network failures or a rejected request (e.g. a 403
-     PAYMENT_REQUIRED from studio-backend, or trying to reply into another
-     student's private talkback thread) surface here with the backend's
-     own message rather than failing silently. */
   .disc-error {
     margin: -8px 0 20px;
     padding: 10px 14px;
@@ -348,8 +283,6 @@
     font-size: 12.5px;
     line-height: 1.5;
   }
-
-  /* thread */
   .disc-thread {
     margin-top: 12px;
     padding-top: 12px;
@@ -393,11 +326,6 @@
   .disc-reply-body {
     flex: 1;
   }
-
-  /* Wraps the reply's name/role line together with its own delete button
-     (only rendered when the reply is `canDelete`, see DiscussionPage.jsx)
-     so the ✕ sits at the right edge of that row rather than the whole
-     reply block. */
   .disc-reply-head {
     display: flex;
     align-items: flex-start;
@@ -432,17 +360,10 @@
     line-height: 1.5;
     margin-top: 2px;
   }
-
-  /* empty state */
   .disc-empty {
     text-align: center;
     padding: 50px 20px;
     color: var(--text-faint);
-
-    .disc-empty-icon {
-      margin-bottom: 14px;
-      opacity: 0.5;
-    }
 
     h3 {
       font-family: var(--font-sans);
@@ -459,8 +380,6 @@
       line-height: 1.5;
     }
   }
-
-  /* ===== composer ===== */
   .disc-composer {
     background: var(--panel-2);
     border: 1px solid var(--line);
@@ -509,13 +428,6 @@
     text-transform: uppercase;
     color: var(--text-faint);
   }
-
-  /* ---- routing switch — the "toggle" between Main Bus / Talkback ----
-     Beyond the thumb sliding across, the whole control now gives a bit of
-     tactile feedback: it lifts slightly on hover, settles with a touch of
-     spring overshoot when the thumb lands, and compresses on press — plus
-     a focus ring so it's usable from the keyboard (it's a real toggle, not
-     just a decorative pill). */
   .disc-switch {
     position: relative;
     box-sizing: border-box;
@@ -666,12 +578,6 @@
       transition: none;
     }
   }
-
-  /* delete confirmation modal (ConfirmDialog in DiscussionPage.jsx) —
-     replaces window.confirm so "are you sure you want to delete this" is
-     styled to match the rest of the page instead of popping up as
-     unstyled browser chrome. Fixed + centered over a dimmed backdrop;
-     clicking the backdrop cancels, same as the Cancel button. */
   .disc-modal-overlay {
     position: fixed;
     inset: 0;
@@ -746,13 +652,6 @@
     }
   }
 }
-
-/* ── Light theme ──────────────────────────────────────────────────────────
-   Same pattern as .svr-course/.svr-payment/.svr-landing: override the
-   tokens .svr-discussion defines at the top of this file. The amber/green
-   accent hues themselves are deepened (rather than reused as-is) since the
-   original dark-mode values are far too low-contrast as text/icons on a
-   light background. */
 :root[data-theme='light'] .svr-discussion {
   --bg: #f6f8f6;
   --panel: rgba(var(--ink-tint-rgb), 0.045);
@@ -769,9 +668,6 @@
   --text: #0c130f;
   --text-dim: rgba(12, 19, 15, 0.7);
   --text-faint: rgba(12, 19, 15, 0.5);
-  /* Solid, not translucent — see the comment on these two variables at the
-     top of this file for why the modal can't just reuse --panel/--panel-2
-     here the way disc-card/disc-composer do. */
   --modal-panel: #ffffff;
   --modal-panel-2: #eef0ee;
 
@@ -787,12 +683,6 @@
   .disc-switch:hover {
     box-shadow: 0 4px 14px rgba(var(--ink-tint-rgb), 0.1);
   }
-
-  /* The thumb's amber/green gradient + glow already repaint via the
-     --amber/--green/--amber-deep/--green-deep/--amber-glow/--green-glow
-     token overrides above (see &:not(.talkback)/&.talkback .disc-thumb in
-     the base ruleset) — only the glossy top highlight needs a lighter tint
-     here so it still reads against the paler thumb. */
   .disc-switch:not(.talkback) .disc-thumb {
     box-shadow: 0 2px 10px var(--amber-glow), inset 0 1px 0 rgba(255, 255, 255, 0.35);
   }

@@ -1,136 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { Tabs, useTabTransition } from "../../../../components/Tabs";
-import "../shared/speakerListeningLab.css";
+import { LabShell } from "../shared/LabShell";
 import "./LfEmitterLab.css";
-import { PlayIcon, PauseIcon, LevelMeter, AhaBox, AudioNote } from "../shared/listeningLabShared";
-import { quickHelpHoverProps } from "../../help/helpHover";
+import { AhaBox, LineIcon, PlayBar, SegControl } from "../shared/listeningLabShared";
+import { useLoopPlayer } from "../shared/useLoopPlayer";
 
-// LF Emitter hotspot's "LF Emitter Lab" — same treatment as the Speakers
-// hotspot's Listening Lab (see SpeakerListeningLab.jsx): replaces the
-// generic "Test your knowledge" quiz for the lf-emitter gear panel only
-// (see PanoramaTour.jsx, which renders this instead of
-// HotspotKnowledgeCheck whenever activeGear.id === "lf-emitter"). Ported
-// from design/lf-emitter-lab.html, restructured from that mockup's
-// scroll-with-progress-dots layout into two navigable tabs — one per
-// experiment — same as MixingConsoleLab.jsx/SoundCardLab.jsx.
-//
-// Reuses the exact same docked .svr-tour-gear-panel.llab-panel-shell shell,
-// width, tab bar, and take-away chip/overlay interaction as
-// SpeakerListeningLab (see listeningLabShared.jsx and speakerListeningLab.css
-// for the shared pieces) so this reads as the same "Listening Lab" family,
-// just with different content inside.
-//
-// AUDIO IS UI-ONLY FOR NOW — see SpeakerListeningLab.jsx's own comment for
-// why: every module wires up a real <audio> element pointed at a
-// `public/audio/listening-lab/...` path that doesn't exist yet, play()
-// failures are swallowed, and the "playing" look is driven by React state
-// rather than real playback events.
-function LfEmitterLab({
-  open,
-  onClose,
-  onBackToOverview,
-  onStartCourse,
-  // Reports whatever's currently hovered/focused in this lab up to
-  // PanoramaTour's Quick Help popup (help mode) — see helpHover.js and
-  // QuickHelpPanel.jsx. Called with a short description on hover/focus
-  // and `null` on leave/blur.
-  onQuickHelp,
-}) {
-  const [activeTab, setActiveTab] = useState(0);
-  // Standard tab-panel motion (components/Tabs) on the body, which is
-  // also the scroll container — see useTabTransition.
-  const bodyRef = useRef(null);
-  useTabTransition(bodyRef, activeTab, activeTab);
-
-  // Every visit starts back on experiment one — a fresh "before the lesson"
-  // primer each time it's opened, not a resumable session.
-  useEffect(() => {
-    if (open) setActiveTab(0);
-  }, [open]);
-
-  if (!open) return null;
-
-  const tab = TABS[activeTab];
-
+export default function LfEmitterLab(props) {
   return (
-    <div className="svr-tour-gear-panel llab-panel-shell">
-      <div className="svr-tour-gear-panel__head">
-        <span className="svr-tour-gear-badge llab-badge" aria-hidden="true">
-          🔊
-        </span>
-        <div className="svr-tour-gear-panel__titles">
-          <div className="svr-tour-gear-panel__title">LF Emitter Lab</div>
-          <div className="svr-tour-gear-panel__kicker">
-            {tab.label} · {activeTab + 1} of {TABS.length}
-          </div>
-        </div>
-        <button
-          onClick={onClose}
-          className="svr-tour-gear-panel__close"
-          aria-label="Close LF Emitter Lab"
-          type="button"
-          {...quickHelpHoverProps(onQuickHelp, "Close this lab and go back to the panel.")}
-        >
-          ×
-        </button>
-      </div>
-
-      <Tabs
-        className="llab-tabs"
-        tabClassName="llab-tab"
-        variant="segmented"
-        size="sm"
-        fill
-        items={TABS.map((t) => ({ id: t.id, title: t.label, n: t.n, short: t.short }))}
-        value={tab.id}
-        onChange={(_, i) => setActiveTab(i)}
-        ariaLabel="LF Emitter Lab experiments"
-        idPrefix="llab"
-        renderTab={(t) => (
-          <>
-            <span className="llab-tab__n mono">{t.n}</span>
-            <span className="llab-tab__label">{t.short}</span>
-          </>
-        )}
-      />
-
-      <div
-        ref={bodyRef}
-        className="svr-tour-gear-panel__body"
-        role="tabpanel"
-        id={`lfelab-panel-${tab.id}`}
-        aria-labelledby={`lfelab-tab-${tab.id}`}
-        // Remounting the module on tab switch (via key) stops its audio
-        // automatically — see SpeakerListeningLab.jsx's identical comment.
-        key={tab.id}
-      >
-        {activeTab === 0 && <ThunderModule />}
-        {activeTab === 1 && <RippleTankModule />}
-      </div>
-
-      <div className="svr-tour-gear-panel__footer">
-        <div className="svr-tour-gear-panel__footer-row">
-          <button
-            type="button"
-            className="svr-tour-btn svr-tour-btn-secondary"
-            onClick={onBackToOverview}
-            {...quickHelpHoverProps(onQuickHelp, "Go back to the choose-how-to-start overview.")}
-          >
-            ← Back
-          </button>
-          {onStartCourse && (
-            <button
-              type="button"
-              className="svr-tour-btn svr-tour-btn-primary"
-              onClick={onStartCourse}
-              {...quickHelpHoverProps(onQuickHelp, "Jump straight into the full lesson for this topic.")}
-            >
-              Start course →
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+    <LabShell
+      {...props}
+      icon="🔊"
+      title="LF Emitter Lab"
+      tabs={TABS}
+      modules={[ThunderModule, RippleTankModule]}
+    />
   );
 }
 
@@ -139,72 +21,66 @@ const TABS = [
   { id: "rippletank", n: "02", label: "Wavelength & Room Behavior", short: "Wavelength" },
 ];
 
-// ============================================================
-// Icons
-// ============================================================
 function DesktopSpeakersIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="14" rx="2" />
-      <line x1="8" y1="21" x2="16" y2="21" />
-      <line x1="12" y1="17" x2="12" y2="21" />
-    </svg>
+    <LineIcon>
+    <rect x="3" y="3" width="18" height="14" rx="2" />
+    <line x1="8" y1="21" x2="16" y2="21" />
+    <line x1="12" y1="17" x2="12" y2="21" />
+    </LineIcon>
   );
 }
 function SubwooferIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <rect x="4" y="4" width="16" height="16" rx="1.5" />
-      <circle cx="12" cy="12" r="5" />
-      <circle cx="12" cy="12" r="1.6" />
-    </svg>
+    <LineIcon>
+    <rect x="4" y="4" width="16" height="16" rx="1.5" />
+    <circle cx="12" cy="12" r="5" />
+    <circle cx="12" cy="12" r="1.6" />
+    </LineIcon>
   );
 }
 function HighFreqIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <path d="M2 12c1-3 2-3 3 0s2 3 3 0 2-3 3 0 2 3 3 0 2-3 3 0 2 3 3 0" />
-    </svg>
+    <LineIcon>
+    <path d="M2 12c1-3 2-3 3 0s2 3 3 0 2-3 3 0 2 3 3 0 2-3 3 0 2 3 3 0" />
+    </LineIcon>
   );
 }
 function LowFreqIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <path d="M1 12c3-8 8-8 11 0s8 8 11 0" />
-    </svg>
+    <LineIcon>
+    <path d="M1 12c3-8 8-8 11 0s8 8 11 0" />
+    </LineIcon>
   );
 }
 function SpeakerSourceIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <path d="M4 10v4h3l5 4V6l-5 4H4z" />
-      <path d="M16 9a4 4 0 0 1 0 6" />
-      <path d="M19 6.5a8 8 0 0 1 0 11" />
-    </svg>
+    <LineIcon>
+    <path d="M4 10v4h3l5 4V6l-5 4H4z" />
+    <path d="M16 9a4 4 0 0 1 0 6" />
+    <path d="M19 6.5a8 8 0 0 1 0 11" />
+    </LineIcon>
   );
 }
 function CouchObstacleIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <path d="M4 12v6h16v-6" />
-      <path d="M3 12a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2" />
-      <path d="M4 12v-2.5A1.5 1.5 0 0 1 5.5 8h1A1.5 1.5 0 0 1 8 9.5V12" />
-      <path d="M20 12v-2.5A1.5 1.5 0 0 0 18.5 8h-1A1.5 1.5 0 0 0 16 9.5V12" />
-    </svg>
+    <LineIcon>
+    <path d="M4 12v6h16v-6" />
+    <path d="M3 12a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2" />
+    <path d="M4 12v-2.5A1.5 1.5 0 0 1 5.5 8h1A1.5 1.5 0 0 1 8 9.5V12" />
+    <path d="M20 12v-2.5A1.5 1.5 0 0 0 18.5 8h-1A1.5 1.5 0 0 0 16 9.5V12" />
+    </LineIcon>
   );
 }
 function EarListenerIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <path d="M12 4a6 6 0 0 0-6 6c0 2 1 3 1 5a3 3 0 0 0 3 3" />
-      <path d="M12 4a6 6 0 0 1 6 6c0 4-3 4-3 8" />
-    </svg>
+    <LineIcon>
+    <path d="M12 4a6 6 0 0 0-6 6c0 2 1 3 1 5a3 3 0 0 0 3 3" />
+    <path d="M12 4a6 6 0 0 1 6 6c0 4-3 4-3 8" />
+    </LineIcon>
   );
 }
 
-// ============================================================
-// MODULE 1 — Feeling the Thunder (spectrum + chest rumble)
-// ============================================================
 const AUDIO_SOURCES_1 = {
   desktop: "/audio/listening-lab/thunder-desktop.mp3",
   sub: "/audio/listening-lab/thunder-sub.mp3",
@@ -234,43 +110,7 @@ const SEG_1 = [
 const LOW_BINS = new Set(["b0", "b1", "b2"]);
 
 function ThunderModule() {
-  const [mode, setMode] = useState("desktop");
-  const [playing, setPlaying] = useState(false);
-  const [revealed, setRevealed] = useState(false);
-  const audioRef = useRef(null);
-
-  useEffect(() => {
-    const audio = new Audio();
-    audio.loop = true;
-    audio.preload = "auto";
-    audio.src = AUDIO_SOURCES_1.desktop;
-    audioRef.current = audio;
-    return () => audio.pause();
-  }, []);
-
-  const selectMode = (m) => {
-    setMode(m);
-    setRevealed(true);
-    setPlaying(true);
-    const audio = audioRef.current;
-    if (audio) {
-      audio.src = AUDIO_SOURCES_1[m];
-      audio.play().catch(() => {});
-    }
-  };
-
-  const togglePlay = () => {
-    setRevealed(true);
-    const audio = audioRef.current;
-    setPlaying((prev) => {
-      const next = !prev;
-      if (audio) {
-        if (next) audio.play().catch(() => {});
-        else audio.pause();
-      }
-      return next;
-    });
-  };
+  const { mode, playing, revealed, selectMode, togglePlay } = useLoopPlayer(AUDIO_SOURCES_1, "desktop");
 
   const t = THUNDER_MODES[mode];
 
@@ -284,19 +124,7 @@ function ThunderModule() {
       </p>
 
       <div className="llab-card">
-        <div className="llab-seg" role="group" aria-label="Choose a playback setup">
-          {SEG_1.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              type="button"
-              className={"llab-seg__btn" + (mode === key ? " active" : "")}
-              onClick={() => selectMode(key)}
-            >
-              <Icon />
-              {label}
-            </button>
-          ))}
-        </div>
+        <SegControl options={SEG_1} value={mode} onSelect={selectMode} label="Choose a playback setup" />
 
         <div className="lfelab-spectrum-box">
           <div className="lfelab-spectrum-label mono">
@@ -328,18 +156,7 @@ function ThunderModule() {
           <div className="lfelab-spectrum-caption">{t.caption}</div>
         </div>
 
-        <div className="llab-playbar">
-          <button
-            className="llab-play"
-            onClick={togglePlay}
-            type="button"
-            aria-label={playing ? "Pause" : "Play"}
-          >
-            {playing ? <PauseIcon /> : <PlayIcon />}
-          </button>
-          <LevelMeter playing={playing} />
-        </div>
-        {/* <AudioNote>thunder-desktop/sub.mp3</AudioNote> */}
+        <PlayBar playing={playing} onToggle={togglePlay} />
 
         <AhaBox show={revealed}>
           Standard studio monitors handle clarity, but low-frequency
@@ -352,9 +169,6 @@ function ThunderModule() {
   );
 }
 
-// ============================================================
-// MODULE 2 — The Ripple Tank (wavelength & room behavior)
-// ============================================================
 const AUDIO_SOURCES_2 = {
   high: "/audio/listening-lab/rippletank-high.mp3",
   low: "/audio/listening-lab/rippletank-low.mp3",
@@ -413,9 +227,6 @@ function RippleTankModule() {
     return () => audio.pause();
   }, []);
 
-  // Switching frequency only updates the visual (same "pick it, see it"
-  // treatment as the original mockup) — the actual A/B moment is the
-  // trigger button below.
   const selectMode = (m) => {
     setMode(m);
     setRevealed(true);
@@ -449,19 +260,7 @@ function RippleTankModule() {
       </p>
 
       <div className="llab-card">
-        <div className="llab-seg" role="group" aria-label="Choose a frequency">
-          {SEG_2.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              type="button"
-              className={"llab-seg__btn" + (mode === key ? " active" : "")}
-              onClick={() => selectMode(key)}
-            >
-              <Icon />
-              {label}
-            </button>
-          ))}
-        </div>
+        <SegControl options={SEG_2} value={mode} onSelect={selectMode} label="Choose a frequency" />
 
         <div className="lfelab-wave-box">
           <div className="lfelab-wave-label mono">
@@ -499,7 +298,6 @@ function RippleTankModule() {
             ▶ Play the tone
           </button>
         </div>
-        {/* <AudioNote>rippletank-high/low.mp3</AudioNote> */}
 
         <AhaBox show={revealed}>
           Low-frequency sound waves are massive — often 10 to 30 feet
@@ -512,5 +310,3 @@ function RippleTankModule() {
     </div>
   );
 }
-
-export default LfEmitterLab;

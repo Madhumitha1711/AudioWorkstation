@@ -1,18 +1,4 @@
-// Data + scoring for MicSelectionLab ("Pick the mic for the job") — ported
-// from design/mic-selection-lab.html. The five mic families are the same
-// ids as MIC_TYPES in ../shared/micLabShared.js (labels/portraits come from
-// there); this file only adds what selection needs: per-family attributes,
-// per-source fit, reason copy and the scoring function.
-//
-// SCORING — score = source fit + loudness term + room term + goal term.
-// Every term is (attribute − 3) × weight, attributes 1–5 per family (ATTR),
-// and terms are kept per factor so the UI can explain *why* a mic won
-// ("Why this mic") and what sank the others ("Why not the others").
-// Source fit 0 = not practical (e.g. a contact mic on a vocal) → forced to
-// the bottom of the ranking with a "not practical" reason.
-
-/** Level handling, detail, room rejection, durability, warmth, smooth top, isolation, punch (1–5). */
-export const ATTR = {
+const ATTR = {
   dynamic: { spl: 5, detail: 2, room: 4, durable: 5, warmth: 3, smooth: 3, iso: 3, punch: 5 },
   "condenser-fet": { spl: 3, detail: 5, room: 1, durable: 2, warmth: 2, smooth: 2, iso: 2, punch: 2 },
   "condenser-tube": { spl: 3, detail: 4, room: 1, durable: 1, warmth: 5, smooth: 4, iso: 2, punch: 3 },
@@ -20,7 +6,6 @@ export const ATTR = {
   contact: { spl: 5, detail: 1, room: 5, durable: 4, warmth: 1, smooth: 1, iso: 5, punch: 2 },
 };
 
-/** Spec chips + well-known models shown on the "Best pick" card. */
 export const MIC_INFO = {
   dynamic: {
     sub: "Moving-coil · usually cardioid",
@@ -49,7 +34,6 @@ export const MIC_INFO = {
   },
 };
 
-/** Sources: fit 0–5 per mic (0 = not practical), default loudness, one-line note per mic. */
 export const SEL_SOURCES = [
   {
     id: "lead-vocal", label: "Lead vocal", level: "medium",
@@ -144,7 +128,6 @@ export const GOALS = [
   { id: "punchy", label: "Punchy & upfront" },
 ];
 
-/** Reason copy per factor — pos = why this mic, neg = why not. */
 export const COPY = {
   spl: {
     pos: "Handles high sound pressure without distorting — it won’t clip or get damaged by this level.",
@@ -185,15 +168,10 @@ export const FACTOR_TAG = {
   warmth: "Character", smooth: "Character", iso: "Isolation", punch: "Character",
 };
 
-/** public/audio/mic-selection/<mic>-<source>.mp3 — placeholder until recorded. */
 export const selectionAudioPath = (micId, sourceId) => `/audio/mic-selection/${micId}-${sourceId}.mp3`;
 
 export const sourceById = (id) => SEL_SOURCES.find((s) => s.id === id) ?? SEL_SOURCES[0];
 
-/**
- * Score one mic family for the current answers. Returns the total plus
- * per-factor contributions ({ key, v }) so the UI can explain the result.
- */
 export function scoreMic(micId, { source, level, room, goal }) {
   const a = ATTR[micId];
   const fit = sourceById(source).fit[micId] ?? 0;
@@ -202,11 +180,9 @@ export function scoreMic(micId, { source, level, room, goal }) {
     if (w) merged[key] = (merged[key] || 0) + (a[key] - 3) * w;
   };
 
-  // loudness
   add("spl", { quiet: 0, medium: 0.4, loud: 1.2, "very-loud": 2 }[level]);
   if (level === "quiet") add("detail", 1);
 
-  // room
   if (room === "treated") add("detail", 0.5);
   if (room === "untreated") add("room", 1.8);
   if (room === "stage") {
@@ -218,21 +194,18 @@ export function scoreMic(micId, { source, level, room, goal }) {
     add("iso", 2);
   }
 
-  // goal
   if (goal === "natural") add("detail", 1.1);
   if (goal === "warm") add("warmth", 1.4);
   if (goal === "smooth") add("smooth", 1.4);
   if (goal === "punchy") add("punch", 1.2);
 
   let total = Object.values(merged).reduce((t, v) => t + v, 0);
-  if (fit === 0) total -= 20; // not practical for this source
+  if (fit === 0) total -= 20;
   return { id: micId, total, fit, parts: Object.entries(merged).map(([key, v]) => ({ key, v })) };
 }
 
-/** Map a raw score onto a 0–100 fit meter (fixed range so bars compare across answers). */
 export const fitPercent = (total) => Math.max(4, Math.min(100, Math.round(((total + 14) / 28) * 100)));
 
-/** The four questions, in order — the accordion steps in MicSelectionLab. */
 export const QUESTIONS = [
   { id: "source", num: "01", label: "What are you recording?" },
   {
@@ -245,11 +218,9 @@ export const QUESTIONS = [
   { id: "goal", num: "04", label: "What should it sound like?" },
 ];
 
-/** Ranking status shown on each runner-up card's front. */
 export const rankStatus = (index, fit) =>
   fit === 0 ? { tone: "no", label: "Not practical" } : index < 3 ? { tone: "alt", label: "Good alternative" } : { tone: "weak", label: "Weaker fit" };
 
-/** "How is the pick made?" reveal copy. */
 export const SCORING_NOTE =
   "Each mic family gets a score from your four answers. The source sets the starting point (how often engineers use this kind of mic on it). Loudness rewards mics that cope with high sound pressure. The room rewards mics that reject reflections and noise, and a stage also rewards toughness. Your sound goal rewards detail, warmth, smoothness or punch. The mic with the highest total wins. Anything that just isn’t used on the source drops to the bottom as “not practical”.";
 

@@ -1,13 +1,6 @@
 import { useRef, useState } from "react";
 import "./AssessmentSection.css";
 
-// A question can optionally carry `audioClips`: [{ id, label, url }, ...] —
-// short reference clips a student listens to before answering (e.g. a
-// "Before"/"After" pair for an ear-training question like "which of these
-// has more compression?"). All clips for a single question share one
-// underlying <audio> element so pressing a second clip's button always
-// stops whatever was already playing, rather than layering clips on top of
-// each other.
 function AudioClipRow({ clips }) {
   const audioRef = useRef(null);
   const [playingId, setPlayingId] = useState(null);

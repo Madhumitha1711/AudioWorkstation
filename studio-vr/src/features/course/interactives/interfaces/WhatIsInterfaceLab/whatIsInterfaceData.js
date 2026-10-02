@@ -1,16 +1,3 @@
-// "What Is an Interface?" — content for WhatIsInterfaceLab.
-//
-// One screen, no tabs (same shape as WhatIsMixerLab's data): hero image,
-// lead, labelled facts, then the translator analogy — one row per step,
-// each pairing a translator's job with the interface's job; key points last.
-// Each row's picture is a FlipCard: translator scene on the front, studio
-// equivalent on the back.
-//
-// Pictures: public/audio-interface/<id>.jpg (hero: audio-interface.jpg;
-// rows: front translator-<step>.jpg, back studio-<step>.jpg via
-// `studioImage`). Until a file exists that slot shows a placeholder with
-// the expected path.
-
 export const interfaceImagePath = (id) => `/audio-interface/${id}.jpg`;
 
 export const INTERFACE_CONCEPT = {
@@ -36,36 +23,36 @@ export const INTERFACE_CONCEPT = {
     {
       id: "translator-languages",
       studioImage: "studio-languages",
-      translator: "Two languages",
-      studio: "Analog & digital",
+      from: "Two languages",
+      to: "Analog & digital",
       text: "A guest who only speaks Japanese and a host who only speaks English can't talk to each other directly. The studio has the same problem: mics, guitars and speakers speak analog, a voltage that rises and falls with the sound wave; the computer speaks digital, a stream of numbers.",
     },
     {
       id: "translator-speak-up",
       studioImage: "studio-speak-up",
-      translator: "\"Speak up, please\"",
-      studio: "Inputs & preamps",
+      from: "\"Speak up, please\"",
+      to: "Inputs & preamps",
       text: "A translator can't translate a mumble, so first they make sure they can hear the guest clearly. The interface's inputs take each kind of source on the right socket, and its preamps lift a microphone's tiny signal to a level the converter can measure cleanly (with +48 V phantom power for condenser mics).",
     },
     {
       id: "translator-in",
       studioImage: "studio-in",
-      translator: "Translating in",
-      studio: "A/D converter",
+      from: "Translating in",
+      to: "A/D converter",
       text: "The translator listens and writes each sentence down in the host's language. The analog-to-digital converter measures the incoming voltage thousands of times a second (the sample rate, e.g. 48,000 times) and writes every measurement as a number (the bit depth, e.g. 24-bit) that the DAW can record.",
     },
     {
       id: "translator-out",
       studioImage: "studio-out",
-      translator: "Translating back",
-      studio: "D/A converter",
+      from: "Translating back",
+      to: "D/A converter",
       text: "When the host replies, the translator turns it back into Japanese so the guest can understand. The digital-to-analog converter turns the DAW's numbers back into a smooth voltage for the studio monitors and the headphone outputs, so you hear what you recorded.",
     },
     {
       id: "translator-gestures",
       studioImage: "studio-gestures",
-      translator: "Interpreting gestures",
-      studio: "MIDI interface",
+      from: "Interpreting gestures",
+      to: "MIDI interface",
       text: "Some interpreters translate gestures, not words. MIDI doesn't carry sound at all: it carries performance instructions (which key, how hard, when it was let go) between keyboards, controllers and the computer. A MIDI interface, or the MIDI ports on an audio interface, passes those instructions to the DAW, which plays them on a virtual instrument.",
     },
   ],
