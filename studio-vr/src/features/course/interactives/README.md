@@ -67,10 +67,9 @@ interactives/
                          #   green lights (not connected / connected), hints, "Show me" after
                          #   3 misses. No audio. Mockup: design/cable-connector-sound-quiz.html
     AnalogDigitalConnectionsLab/ # analog-digital-connections-lab: "Analog & Digital Connections" —
-                         #   6 tabs (TopicTabsLab, SubwooferLab look): Signal levels / Balanced &
-                         #   unbalanced / Analog ↔ digital / Digital formats (S/PDIF, AES3, ADAT,
-                         #   MADI) / Clock & sync / Computer & network (USB, Thunderbolt, Dante,
-                         #   AVB/AES67); key points. Photos: public/analog-digital-connections/<id>.jpg
+                         #   primer only (basics the Connectors/Cables labs build on). 4 tabs
+                         #   (TopicTabsLab): Analog vs digital / Signal levels / Balanced &
+                         #   unbalanced / Digital connections; key points. Photos: public/analog-digital-connections/<id>.jpg
   preamps/               # Ch.10 "Preamps, Channel Strips, Mixers, and Input Routing"
     WhyAmplificationLab/ #   why-amplification-lab: "Why Amplification?" — one row per example
                          #   (talking, TV, headlights, AC, studio): its own clip/picture beside
