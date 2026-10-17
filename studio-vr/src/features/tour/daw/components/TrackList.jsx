@@ -2,6 +2,7 @@ import { fmtTime } from "../lib/format";
 import { DEMO_CLIPS } from "../lib/constants";
 import { TrackIcon } from "./icons";
 import { TrackInsertRack, TrackSendRack } from "./TrackRacks";
+import { NEW_TRACK_DROP } from "../lib/fileDrop";
 
 export function TrackList({
   tracklistRef,
@@ -27,9 +28,18 @@ export function TrackList({
   chainActions,
   sendActions,
   openAddTrackDialog,
+  fileDrop,
 }) {
+  const { dropTargetId, onFileDragOver, onFileDragLeave, onFileDrop } = fileDrop;
   return (
-    <div className="tracklist" ref={tracklistRef} onScroll={onTracklistScroll}>
+    <div
+      className="tracklist"
+      ref={tracklistRef}
+      onScroll={onTracklistScroll}
+      onDragOver={(e) => onFileDragOver(e, NEW_TRACK_DROP)}
+      onDragLeave={(e) => onFileDragLeave(e, NEW_TRACK_DROP)}
+      onDrop={(e) => onFileDrop(e, NEW_TRACK_DROP)}
+    >
       <div className="tracklist-head mono">TRACKS</div>
       {tracks.map((track, trackIndex) => (
         <div
@@ -43,9 +53,13 @@ export function TrackList({
             (track.kind === "aux" ? " is-aux" : "") +
             (track.id === selectedTrackId ? " is-selected" : "") +
             (track.solo ? " is-soloed" : "") +
-            (anySoloed && !track.solo ? " is-dimmed" : "")
+            (anySoloed && !track.solo ? " is-dimmed" : "") +
+            (dropTargetId === track.id ? " is-drop-target" : "")
           }
           style={{ "--track-color": `var(--${track.color})` }}
+          onDragOver={(e) => onFileDragOver(e, track.id)}
+          onDragLeave={(e) => onFileDragLeave(e, track.id)}
+          onDrop={(e) => onFileDrop(e, track.id)}
           onClick={() => {
             setSelectedTrackId(track.id);
             if (selectedRegion && selectedRegion.trackId !== track.id) exitSelection();
@@ -105,7 +119,7 @@ export function TrackList({
                     <label
                       htmlFor={`daw-file-${track.id}`}
                       className={"tbtn" + (recordingTrackId === track.id ? " is-disabled" : "")}
-                      title="Upload audio"
+                      title="Upload audio (or drag an audio file onto this track)"
                       onClick={(e) => {
                         e.stopPropagation();
                         if (recordingTrackId === track.id) e.preventDefault();
@@ -243,9 +257,13 @@ export function TrackList({
         </div>
       ))}
 
-      <div className="track-row add-track-row" onClick={openAddTrackDialog} title="New Track…">
+      <div
+        className={"track-row add-track-row" + (dropTargetId === NEW_TRACK_DROP ? " is-drop-target" : "")}
+        onClick={openAddTrackDialog}
+        title="New Track… (or drop audio files here to add them as new tracks)"
+      >
         <span className="add-track-plus">+</span>
-        <span>Add Track</span>
+        <span>{dropTargetId === NEW_TRACK_DROP ? "Drop to add as new track" : "Add Track"}</span>
       </div>
     </div>
   );

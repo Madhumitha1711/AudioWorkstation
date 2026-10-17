@@ -1,7 +1,7 @@
 import { useRef, useEffect } from 'react';
 import { METER_FLOOR_DB } from '../../audio/effects/deEsserEngine';
 import { canvasFont } from "../../theme/fonts";
-import { hiDpi, drawLevelScope } from './shared/panelUtils';
+import { hiDpi, drawLevelScope, themedContext } from './shared/panelUtils';
 import { KnobGrid } from './shared/PanelControls';
 import { clamp, butterHighpassDB, butterLowpassDB } from '../../audio/effects/equalizerEngine';
 import { levelBallistic as ballistic, grReadoutSmooth as smoothGr } from '../../audio/effects/ballistics';
@@ -24,7 +24,8 @@ function drawDeesserCurve(canvas, params, liveAttenDb, active) {
     const hd = hiDpi(canvas);
     if (!hd)
         return;
-    const { ctx, W, H } = hd;
+    const { W, H } = hd;
+    const ctx = themedContext(hd.ctx);
     const toX = (f) => fToFrac(f) * W;
     const toY = (db) => ((ATTEN_MAX - clamp(db, ATTEN_MIN, ATTEN_MAX)) / (ATTEN_MAX - ATTEN_MIN)) * H;
     ctx.fillStyle = '#0D0D0F';
@@ -161,7 +162,7 @@ export function DeEsserEditorPanel({ params, setParams, bypass, isPlaying, getIn
             smoothedAttenDbRef.current = 0;
             onAttenuationChange?.(0);
             if (scopeRef.current) {
-                const c = scopeRef.current.getContext('2d');
+                const c = themedContext(scopeRef.current.getContext('2d'));
                 c.fillStyle = '#0D0D0F';
                 c.fillRect(0, 0, scopeRef.current.width, scopeRef.current.height);
             }
@@ -263,9 +264,9 @@ export function DeEsserEditorPanel({ params, setParams, bypass, isPlaying, getIn
           <canvas ref={scopeRef} width={400} height={150} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
         </div>
         <div className="legend-row" style={{ marginTop: '0.5rem', marginBottom: 0 }}>
-          <div className="legend-item"><span className="legend-line" style={{ background: '#00FF87' }}/>INPUT</div>
-          <div className="legend-item"><span className="legend-line" style={{ background: '#4D9EFF' }}/>OUTPUT</div>
-          <div className="legend-item"><span className="legend-line" style={{ background: '#F5A623' }}/>ATTENUATION</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: 'var(--green)' }}/>INPUT</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: 'var(--blue)' }}/>OUTPUT</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: 'var(--amber)' }}/>ATTENUATION</div>
         </div>
       </div>
     </div>);

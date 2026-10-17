@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { FaustMonoDspGenerator } from "@grame/faustwasm";
 import { compileFaustWasm } from "../../../audio/faust/faustTypes";
-import {
-  initAudio,
-  resumeAudio,
-  getAudioContext,
-  createStudioSpeakerBus,
-} from "../../../audio/spatialAudioEngine";
+import { createAudioContext, MIN_SAMPLE_RATE } from "../../../audio/createAudioContext";
+import { parseHeader } from "../../../audio/audioFileHeader";
 import { ADDR as DEESS_ADDR, pushFaustParams as pushDeEsserParams, analyserPeakDb } from "../../../audio/effects/deEsserEngine";
 import { pushFaustParams as pushGateParams } from "../../../audio/effects/gateEngine";
 import { BAND_IDS as COMP_BAND_IDS, ADDR as COMP_ADDR, pushFaustParams as pushCompParams } from "../../../audio/effects/compressorEngine";
@@ -25,7 +21,8 @@ import "./DawWorkstationScreen.css";
 import { PLUGIN_DEFS, TRACK_COLORS, MIN_REGION_LEN, TRACK_CHAIN_SCOPE, DEMO_CLIPS, VIEW_TABS } from "./lib/constants";
 import { clamp, pickRulerStep } from "./lib/format";
 import { trackIsAudible, computeDryScale, outerScopeId, isOuterScope, baseRegionId } from "./lib/trackHelpers";
-import { createDemoLoopBuffer, computePeaks } from "./engine/audioBuffers";
+import { NEW_TRACK_DROP, isAudioFile, dragHasFiles } from "./lib/fileDrop";
+import { computePeaks, decodeSource, SYNTH_SOURCE, highestSourceRate } from "./engine/audioBuffers";
 import { computeSegments, getChainArray, withChainArray, disconnectChainSlots, wireLiveChain, collectMeters, defaultSlotExtras } from "./engine/chainGraph";
 import { renderTrackOffline, renderMixOffline } from "./engine/offlineRender";
 import { TopBar } from "./components/TopBar";
@@ -47,8 +44,7 @@ function DawWorkstationScreen({ open, onClose }) {
   }, [tracks]);
   const trackIdRef = useRef(0);
   const regionIdRef = useRef(0);
-  const demoBufferRef = useRef(null);
-  const demoClipBuffersRef = useRef(new Map());
+  const demoClipSourcesRef = useRef(new Map());
 
   const [recordingTrackId, setRecordingTrackId] = useState(null);
   const recordingTrackIdRef = useRef(null);
@@ -193,13 +189,45 @@ function DawWorkstationScreen({ open, onClose }) {
   const [downloadingMix, setDownloadingMix] = useState(false);
   const [downloadError, setDownloadError] = useState("");
 
-  const ensureContext = useCallback(async () => {
-    initAudio();
-    resumeAudio();
-    const ctx = getAudioContext();
-    if (!ctx) return null;
-    if (ctx.state === "suspended") await ctx.resume();
-    return ctx;
+  const dawCtxRef = useRef(null);
+  const ctxQueueRef = useRef(Promise.resolve());
+  const rateCeilingRef = useRef(Infinity);
+  const rebuildContextRef = useRef(null);
+  const [engineSampleRate, setEngineSampleRate] = useState(null);
+
+  // The DAW owns its own context so its rate can follow the material: it runs at
+  // the highest native rate of any loaded file (never below 48 kHz), and swaps to
+  // a faster context when a higher-rate file arrives. Calls are serialised so two
+  // loads can't race a swap.
+  const ensureContext = useCallback((minRate = MIN_SAMPLE_RATE) => {
+    const run = ctxQueueRef.current.then(async () => {
+      const wanted = Math.min(Math.max(minRate, highestSourceRate(tracksRef.current)), rateCeilingRef.current);
+      let ctx = dawCtxRef.current;
+      let after = null;
+      if (!ctx || ctx.state === "closed") {
+        ctx = createAudioContext(wanted);
+        if (!ctx) return { ctx: null };
+        if (ctx.sampleRate < wanted) rateCeilingRef.current = ctx.sampleRate;
+        dawCtxRef.current = ctx;
+        setEngineSampleRate(ctx.sampleRate);
+      } else if (ctx.sampleRate < wanted) {
+        const next = createAudioContext(wanted);
+        if (next && next.sampleRate < wanted) rateCeilingRef.current = next.sampleRate;
+        if (next && next.sampleRate > ctx.sampleRate) {
+          after = await rebuildContextRef.current(ctx, next);
+          ctx = next;
+        } else {
+          next?.close().catch(() => {});
+        }
+      }
+      if (ctx.state === "suspended") await ctx.resume().catch(() => {});
+      return { ctx, after };
+    });
+    ctxQueueRef.current = run.catch(() => {});
+    return run.then(({ ctx, after }) => {
+      after?.();
+      return ctx;
+    });
   }, []);
 
   const loadPluginEngine = useCallback(async (ctx, def) => {
@@ -238,8 +266,8 @@ function DawWorkstationScreen({ open, onClose }) {
 
   const currentOffset = useCallback(() => {
     if (!isPlayingRef.current) return pausedOffsetRef.current;
-    const ctx = getAudioContext();
     const g = graphRef.current;
+    const ctx = g?.ctx;
     if (!ctx || !g) return pausedOffsetRef.current;
     const raw = g.startOffset + (ctx.currentTime - g.startCtxTime);
     if (g.loopEnabled) {
@@ -289,7 +317,6 @@ function DawWorkstationScreen({ open, onClose }) {
       g.meterAnalyser.disconnect();
     } catch {
     }
-    g.speakerBus?.dispose();
     graphRef.current = null;
     slotRuntimeRef.current.clear();
     eqRuntimeRef.current.clear();
@@ -319,9 +346,7 @@ function DawWorkstationScreen({ open, onClose }) {
       const meterAnalyser = ctx.createAnalyser();
       meterAnalyser.fftSize = 512;
       masterGain.connect(meterAnalyser);
-      const speakerBus = createStudioSpeakerBus({ independent: true });
-      if (speakerBus) masterGain.connect(speakerBus.input);
-      else masterGain.connect(ctx.destination);
+      masterGain.connect(ctx.destination);
 
       const trackNodes = new Map();
 
@@ -474,7 +499,6 @@ function DawWorkstationScreen({ open, onClose }) {
         ctx,
         masterGain,
         meterAnalyser,
-        speakerBus,
         trackNodes,
         loopEnabled: useLoop,
         loopStart,
@@ -574,13 +598,13 @@ function DawWorkstationScreen({ open, onClose }) {
   }, [isPlaying]);
 
   const addTrackWithBuffer = useCallback(
-    (buffer, name, fixedColor) => {
+    (buffer, name, fixedColor, source) => {
       const n = ++trackIdRef.current;
       const id = `t${n}`;
       const color = fixedColor || TRACK_COLORS[(n - 1) % TRACK_COLORS.length];
       const peaks = computePeaks(buffer);
       const track = {
-        id, name, color, icon: "audio", kind: "audio", buffer, peaks, duration: buffer.duration, loadError: "",
+        id, name, color, icon: "audio", kind: "audio", buffer, peaks, duration: buffer.duration, loadError: "", source,
         chain: [], regions: [], sends: [], volume: 1, pan: 0, muted: false, solo: false, startAt: 0,
       };
       const next = [...tracksRef.current, track];
@@ -601,7 +625,7 @@ function DawWorkstationScreen({ open, onClose }) {
     const name = opts?.name?.trim() || (kind === "aux" ? `Aux ${n}` : `Track ${n}`);
     const icon = kind === "aux" ? "aux" : opts?.icon || "audio";
     const track = {
-      id, name, color, icon, kind, buffer: null, peaks: null, duration: 0, loadError: "",
+      id, name, color, icon, kind, buffer: null, peaks: null, duration: 0, loadError: "", source: null,
       chain: [], regions: [], sends: [], volume: 1, pan: 0, muted: false, solo: false, startAt: 0,
     };
     const next = [...tracksRef.current, track];
@@ -654,16 +678,30 @@ function DawWorkstationScreen({ open, onClose }) {
     [playFrom, currentOffset, stop],
   );
 
-  const loadDemoClip = useCallback(async (ctx, clip) => {
-    const cached = demoClipBuffersRef.current.get(clip.id);
+  const fetchDemoSource = useCallback(async (clip) => {
+    const cached = demoClipSourcesRef.current.get(clip.id);
     if (cached) return cached;
     const res = await fetch(clip.url);
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    const arrayBuffer = await res.arrayBuffer();
-    const decoded = await ctx.decodeAudioData(arrayBuffer);
-    demoClipBuffersRef.current.set(clip.id, decoded);
-    return decoded;
+    const bytes = await res.arrayBuffer();
+    const source = { bytes, rate: parseHeader(bytes)?.sampleRate ?? null };
+    demoClipSourcesRef.current.set(clip.id, source);
+    return source;
   }, []);
+
+  const decodeIntoTrack = useCallback(
+    async (source) => {
+      let ctx = await ensureContext(source.rate ?? MIN_SAMPLE_RATE);
+      if (!ctx) throw new Error("Could not start the audio engine.");
+      let buffer = await decodeSource(ctx, source);
+      if (dawCtxRef.current && dawCtxRef.current !== ctx) {
+        ctx = dawCtxRef.current;
+        buffer = await decodeSource(ctx, source);
+      }
+      return buffer;
+    },
+    [ensureContext],
+  );
 
   const releaseTrackRegions = useCallback((id) => {
     const track = tracksRef.current.find((t) => t.id === id);
@@ -682,30 +720,58 @@ function DawWorkstationScreen({ open, onClose }) {
 
   const loadDemoForTrack = useCallback(
     async (id, clip) => {
-      const ctx = await ensureContext();
-      if (!ctx) return;
       let buffer;
+      let source;
       let name = clip.name;
       let loadError = "";
       try {
-        buffer = await loadDemoClip(ctx, clip);
+        source = await fetchDemoSource(clip);
+        buffer = await decodeIntoTrack(source);
       } catch (err) {
         console.error("[DawWorkstationScreen] failed to load demo clip", clip.id, err);
-        if (!demoBufferRef.current) demoBufferRef.current = createDemoLoopBuffer(ctx);
-        buffer = demoBufferRef.current;
+        source = SYNTH_SOURCE;
+        try {
+          buffer = await decodeIntoTrack(source);
+        } catch {
+          return;
+        }
         name = "Demo Loop";
         loadError = `Couldn't load "${clip.name}" — using a synthetic pad instead.`;
       }
       const peaks = computePeaks(buffer);
       releaseTrackRegions(id);
       const next = tracksRef.current.map((t) =>
-        t.id === id ? { ...t, buffer, peaks, duration: buffer.duration, name, loadError, regions: [] } : t,
+        t.id === id ? { ...t, buffer, peaks, duration: buffer.duration, name, loadError, source, regions: [] } : t,
       );
       tracksRef.current = next;
       setTracks(next);
       if (isPlayingRef.current) playFrom(currentOffset());
     },
-    [ensureContext, loadDemoClip, releaseTrackRegions, playFrom, currentOffset],
+    [fetchDemoSource, decodeIntoTrack, releaseTrackRegions, playFrom, currentOffset],
+  );
+
+  const loadFileOntoTrack = useCallback(
+    async (id, file) => {
+      try {
+        const bytes = await file.arrayBuffer();
+        const source = { bytes, rate: parseHeader(bytes)?.sampleRate ?? null };
+        const decoded = await decodeIntoTrack(source);
+        const peaks = computePeaks(decoded);
+        releaseTrackRegions(id);
+        const next = tracksRef.current.map((t) =>
+          t.id === id ? { ...t, buffer: decoded, peaks, duration: decoded.duration, name: file.name, loadError: "", source, regions: [] } : t,
+        );
+        tracksRef.current = next;
+        setTracks(next);
+        if (isPlayingRef.current) playFrom(currentOffset());
+      } catch (err) {
+        console.error("[DawWorkstationScreen] upload failed", err);
+        const next = tracksRef.current.map((t) => (t.id === id ? { ...t, loadError: "Could not decode that audio file." } : t));
+        tracksRef.current = next;
+        setTracks(next);
+      }
+    },
+    [decodeIntoTrack, releaseTrackRegions, playFrom, currentOffset],
   );
 
   const handleTrackFile = useCallback(
@@ -713,29 +779,81 @@ function DawWorkstationScreen({ open, onClose }) {
       const file = e.target.files?.[0];
       e.target.value = "";
       if (!file) return;
-      const ctx = await ensureContext();
-      if (!ctx) {
-        setTracks((prev) => prev.map((t) => (t.id === id ? { ...t, loadError: "Could not start the audio engine." } : t)));
+      await loadFileOntoTrack(id, file);
+    },
+    [loadFileOntoTrack],
+  );
+
+  const [dropTargetId, setDropTargetId] = useState(null);
+
+  const canDropOn = useCallback((targetId) => {
+    if (targetId === NEW_TRACK_DROP) return true;
+    const track = tracksRef.current.find((t) => t.id === targetId);
+    return !!track && track.kind !== "aux" && recordingTrackIdRef.current !== track.id;
+  }, []);
+
+  const onFileDragOver = useCallback(
+    (e, targetId) => {
+      if (!dragHasFiles(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const ok = canDropOn(targetId);
+      e.dataTransfer.dropEffect = ok ? "copy" : "none";
+      setDropTargetId(ok ? targetId : null);
+    },
+    [canDropOn],
+  );
+
+  const onFileDragLeave = useCallback((e, targetId) => {
+    if (e.currentTarget.contains(e.relatedTarget)) return;
+    setDropTargetId((prev) => (prev === targetId ? null : prev));
+  }, []);
+
+  const onFileDrop = useCallback(
+    async (e, targetId) => {
+      if (!dragHasFiles(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setDropTargetId(null);
+      if (!canDropOn(targetId)) return;
+      const files = Array.from(e.dataTransfer.files || []);
+      const audioFiles = files.filter(isAudioFile);
+      if (audioFiles.length === 0) {
+        if (targetId !== NEW_TRACK_DROP) {
+          const next = tracksRef.current.map((t) =>
+            t.id === targetId ? { ...t, loadError: "Only audio files can be dropped onto a track." } : t,
+          );
+          tracksRef.current = next;
+          setTracks(next);
+        }
         return;
       }
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        const decoded = await ctx.decodeAudioData(arrayBuffer);
-        const peaks = computePeaks(decoded);
-        releaseTrackRegions(id);
-        const next = tracksRef.current.map((t) =>
-          t.id === id ? { ...t, buffer: decoded, peaks, duration: decoded.duration, name: file.name, loadError: "", regions: [] } : t,
-        );
-        tracksRef.current = next;
-        setTracks(next);
-        if (isPlayingRef.current) playFrom(currentOffset());
-      } catch (err) {
-        console.error("[DawWorkstationScreen] upload failed", err);
-        setTracks((prev) => prev.map((t) => (t.id === id ? { ...t, loadError: "Could not decode that audio file." } : t)));
+      let queue = audioFiles;
+      if (targetId !== NEW_TRACK_DROP) {
+        setSelectedTrackId(targetId);
+        await loadFileOntoTrack(targetId, audioFiles[0]);
+        queue = audioFiles.slice(1);
+      }
+      for (const file of queue) {
+        const id = addEmptyTrack({ name: file.name });
+        await loadFileOntoTrack(id, file);
       }
     },
-    [ensureContext, releaseTrackRegions, playFrom, currentOffset],
+    [canDropOn, loadFileOntoTrack, addEmptyTrack],
   );
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const clear = () => setDropTargetId(null);
+    window.addEventListener("dragend", clear);
+    window.addEventListener("drop", clear);
+    return () => {
+      window.removeEventListener("dragend", clear);
+      window.removeEventListener("drop", clear);
+    };
+  }, [isOpen]);
+
+  const fileDrop = { dropTargetId, onFileDragOver, onFileDragLeave, onFileDrop };
 
   const teardownRecording = useCallback(() => {
     mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -759,10 +877,21 @@ function DawWorkstationScreen({ open, onClose }) {
         return;
       }
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Ask for the raw mic. The browser defaults (echo cancellation, noise
+        // suppression, auto gain) are voice-call processing: they muffle and pump
+        // the take, and on macOS they also switch output to voice-processing mode,
+        // which degrades and ducks every other track while recording.
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+        });
         mediaStreamRef.current = stream;
         recordedChunksRef.current = [];
-        const recorder = new MediaRecorder(stream);
+        let recorder;
+        try {
+          recorder = new MediaRecorder(stream, { audioBitsPerSecond: 256000 });
+        } catch {
+          recorder = new MediaRecorder(stream);
+        }
         recorder.ondataavailable = (e) => {
           if (e.data && e.data.size > 0) recordedChunksRef.current.push(e.data);
         };
@@ -773,14 +902,15 @@ function DawWorkstationScreen({ open, onClose }) {
           if (!chunks.length) return;
           try {
             const blob = new Blob(chunks, { type: mimeType });
-            const arrayBuffer = await blob.arrayBuffer();
-            const decoded = await ctx.decodeAudioData(arrayBuffer);
+            const bytes = await blob.arrayBuffer();
+            const source = { bytes, rate: parseHeader(bytes)?.sampleRate ?? null };
+            const decoded = await decodeIntoTrack(source);
             const peaks = computePeaks(decoded);
             recordingCounterRef.current += 1;
             releaseTrackRegions(id);
             const next = tracksRef.current.map((t) =>
               t.id === id
-                ? { ...t, buffer: decoded, peaks, duration: decoded.duration, name: `Recording ${recordingCounterRef.current}`, loadError: "", regions: [] }
+                ? { ...t, buffer: decoded, peaks, duration: decoded.duration, name: `Recording ${recordingCounterRef.current}`, loadError: "", source, regions: [] }
                 : t,
             );
             tracksRef.current = next;
@@ -800,7 +930,7 @@ function DawWorkstationScreen({ open, onClose }) {
         setTracks((prev) => prev.map((t) => (t.id === id ? { ...t, loadError: "Microphone access was denied." } : t)));
       }
     },
-    [ensureContext, releaseTrackRegions, teardownRecording, playFrom, currentOffset],
+    [ensureContext, decodeIntoTrack, releaseTrackRegions, teardownRecording, playFrom, currentOffset],
   );
 
   const stopRecording = useCallback(() => {
@@ -1123,26 +1253,32 @@ function DawWorkstationScreen({ open, onClose }) {
   useEffect(() => {
     if (!isOpen || tracksRef.current.length > 0) return;
     (async () => {
-      const ctx = await ensureContext();
-      if (!ctx) return;
-      const buffers = await Promise.all(
+      const sources = await Promise.all(
         DEMO_CLIPS.map((clip) =>
-          loadDemoClip(ctx, clip).catch((err) => {
+          fetchDemoSource(clip).catch((err) => {
             console.error("[DawWorkstationScreen] failed to load default demo track", clip.id, err);
             return null;
           }),
         ),
       );
+      const ctx = await ensureContext(Math.max(MIN_SAMPLE_RATE, ...sources.map((src) => src?.rate ?? 0)));
+      if (!ctx) return;
+      const loaded = await Promise.all(
+        sources.map(async (source) => {
+          if (source) {
+            try {
+              return { source, buffer: await decodeSource(ctx, source) };
+            } catch (err) {
+              console.error("[DawWorkstationScreen] failed to decode default demo track", err);
+            }
+          }
+          return { source: SYNTH_SOURCE, buffer: await decodeSource(ctx, SYNTH_SOURCE), synthetic: true };
+        }),
+      );
       let firstId = null;
       DEMO_CLIPS.forEach((clip, i) => {
-        let buffer = buffers[i];
-        let name = clip.name;
-        if (!buffer) {
-          if (!demoBufferRef.current) demoBufferRef.current = createDemoLoopBuffer(ctx);
-          buffer = demoBufferRef.current;
-          name = "Demo Loop";
-        }
-        const id = addTrackWithBuffer(buffer, name, clip.color);
+        const { source, buffer, synthetic } = loaded[i];
+        const id = addTrackWithBuffer(buffer, synthetic ? "Demo Loop" : clip.name, clip.color, source);
         if (firstId === null) firstId = id;
       });
       if (firstId !== null) setSelectedTrackId(firstId);
@@ -1162,6 +1298,10 @@ function DawWorkstationScreen({ open, onClose }) {
         setRecordingTrackId(null);
       }
       teardownPlaybackGraph();
+      const ctx = dawCtxRef.current;
+      dawCtxRef.current = null;
+      ctx?.close().catch(() => {});
+      setEngineSampleRate(null);
       tracksRef.current.forEach((t) => {
         disconnectChainSlots(t.chain);
         t.regions.forEach((region) => {
@@ -1250,6 +1390,72 @@ function DawWorkstationScreen({ open, onClose }) {
     },
     [ensureContext, loadPluginEngine, currentOffset, playFrom],
   );
+
+  useEffect(() => {
+    rebuildContextRef.current = async (oldCtx, newCtx) => {
+      playCallTokenRef.current += 1;
+      const resumeAt = isPlayingRef.current ? currentOffset() : null;
+      if (resumeAt !== null) {
+        teardownPlaybackGraph();
+        pausedOffsetRef.current = resumeAt;
+        setIsPlaying(false);
+      }
+      dawCtxRef.current = newCtx;
+      setEngineSampleRate(newCtx.sampleRate);
+
+      const redecoded = new Map();
+      await Promise.all(
+        tracksRef.current.map(async (t) => {
+          if (!t.source) return;
+          try {
+            redecoded.set(t.id, { source: t.source, buffer: await decodeSource(newCtx, t.source) });
+          } catch (err) {
+            console.error("[DawWorkstationScreen] re-decode at new sample rate failed", t.id, err);
+          }
+        }),
+      );
+
+      const reloads = [];
+      const resetChain = (trackId, regionId, chain) =>
+        chain.map((slot) => {
+          if (!slot.node) return slot;
+          try {
+            slot.node.disconnect();
+          } catch {
+          }
+          reloads.push({ trackId, regionId, key: slot.key });
+          return { ...slot, node: null, meta: null, meters: [], status: "loading" };
+        });
+      const next = tracksRef.current.map((t) => {
+        const entry = redecoded.get(t.id);
+        const fresh =
+          entry && entry.source === t.source
+            ? { buffer: entry.buffer, peaks: computePeaks(entry.buffer), duration: entry.buffer.duration }
+            : null;
+        return {
+          ...t,
+          ...fresh,
+          chain: resetChain(t.id, TRACK_CHAIN_SCOPE, t.chain),
+          regions: t.regions.map((r) => ({
+            ...r,
+            chain: resetChain(t.id, r.id, r.chain),
+            outerChain: r.outerChain ? resetChain(t.id, outerScopeId(r.id), r.outerChain) : r.outerChain,
+          })),
+        };
+      });
+      tracksRef.current = next;
+      setTracks(next);
+      oldCtx.close().catch(() => {});
+
+      return () => {
+        reloads.forEach(({ trackId, regionId, key }) => {
+          const def = PLUGIN_DEFS.find((d) => d.key === key);
+          if (def) void loadSlotEngineFor(trackId, regionId, def);
+        });
+        if (resumeAt !== null) void playFrom(resumeAt);
+      };
+    };
+  }, [currentOffset, teardownPlaybackGraph, loadSlotEngineFor, playFrom]);
 
   const forkOuterChainIfNeeded = useCallback(
     (trackId, regionId) => {
@@ -1781,7 +1987,17 @@ function DawWorkstationScreen({ open, onClose }) {
 
   return (
     <div className="chapter-lab daw-root">
-      <div className="daw-overlay is-open">
+      <div
+        className="daw-overlay is-open"
+        onDragOver={(e) => {
+          if (!dragHasFiles(e)) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "none";
+        }}
+        onDrop={(e) => {
+          if (dragHasFiles(e)) e.preventDefault();
+        }}
+      >
         <div className="daw-overlay-backdrop" />
         <div className="monitor-frame">
           <div className="daw-app">
@@ -1803,6 +2019,7 @@ function DawWorkstationScreen({ open, onClose }) {
               downloadingMix={downloadingMix}
               onDownloadMix={handleDownloadMix}
               meterLevel={meterLevel}
+              sampleRate={engineSampleRate}
             />
 
             <div ref={viewRef} className="daw-view">
@@ -1833,6 +2050,7 @@ function DawWorkstationScreen({ open, onClose }) {
                     chainActions={chainActions}
                     sendActions={sendActions}
                     openAddTrackDialog={openAddTrackDialog}
+                    fileDrop={fileDrop}
                   />
 
                   <Arrangement
@@ -1860,6 +2078,7 @@ function DawWorkstationScreen({ open, onClose }) {
                     onPlayheadPointerMove={onPlayheadPointerMove}
                     endPlayheadDrag={endPlayheadDrag}
                     playhead={playhead}
+                    fileDrop={fileDrop}
                   />
                 </div>
 
@@ -1893,6 +2112,35 @@ function DawWorkstationScreen({ open, onClose }) {
               />
             )}
             </div>
+
+            <PluginEditorPopup
+              activeSlot={activeSlot}
+              activeTrack={activeTrack}
+              activeRegion={activeRegion}
+              activeIsPortionOuter={activeIsPortionOuter}
+              activeEditor={activeEditor}
+              isPlaying={isPlaying}
+              gateIsOpen={gateIsOpen}
+              setGateIsOpen={setGateIsOpen}
+              onProcess={handleProcess}
+              onApply={handleApply}
+              onCancel={handleCancel}
+              toggleBypass={toggleBypass}
+              removePlugin={removePlugin}
+              updateSlot={updateSlot}
+              compSelectedBand={compSelectedBand}
+              setCompSelectedBand={setCompSelectedBand}
+              setLimiterGainReduction={setLimiterGainReduction}
+              delayLink={delayLink}
+              setDelayLink={setDelayLink}
+              eqSelectedBandId={eqSelectedBandId}
+              setEqSelectedBandId={setEqSelectedBandId}
+              eqAnalyserRef={eqAnalyserRef}
+              eqDryAnalyserRef={eqDryAnalyserRef}
+              eqSampleRate={eqSampleRate}
+              eqLiveDynGainRef={eqLiveDynGainRef}
+              meters={meters}
+            />
           </div>
         </div>
 
@@ -1903,35 +2151,6 @@ function DawWorkstationScreen({ open, onClose }) {
           setDraft={setNewTrackDraft}
           nextTrackNumber={trackIdRef.current + 1}
           onConfirm={confirmAddTrack}
-        />
-
-        <PluginEditorPopup
-          activeSlot={activeSlot}
-          activeTrack={activeTrack}
-          activeRegion={activeRegion}
-          activeIsPortionOuter={activeIsPortionOuter}
-          activeEditor={activeEditor}
-          isPlaying={isPlaying}
-          gateIsOpen={gateIsOpen}
-          setGateIsOpen={setGateIsOpen}
-          onProcess={handleProcess}
-          onApply={handleApply}
-          onCancel={handleCancel}
-          toggleBypass={toggleBypass}
-          removePlugin={removePlugin}
-          updateSlot={updateSlot}
-          compSelectedBand={compSelectedBand}
-          setCompSelectedBand={setCompSelectedBand}
-          setLimiterGainReduction={setLimiterGainReduction}
-          delayLink={delayLink}
-          setDelayLink={setDelayLink}
-          eqSelectedBandId={eqSelectedBandId}
-          setEqSelectedBandId={setEqSelectedBandId}
-          eqAnalyserRef={eqAnalyserRef}
-          eqDryAnalyserRef={eqDryAnalyserRef}
-          eqSampleRate={eqSampleRate}
-          eqLiveDynGainRef={eqLiveDynGainRef}
-          meters={meters}
         />
       </div>
     </div>

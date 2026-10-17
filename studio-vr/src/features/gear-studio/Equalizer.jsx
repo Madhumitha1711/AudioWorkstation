@@ -8,6 +8,7 @@ import { Tabs, TabPanel } from '../../components/Tabs';
 import { LIVE_GAIN_ADDR_TO_BAND, DEFAULT_BANDS, applyBandsToNode, BAND_DEFS, getFreq, getGain, getQ, getBypass, getDynamicOn, getThreshold, getRange, getAttack, getRelease, getOrder, withFreq, withGain, withQ, withBypass, withDynamicOn, withThreshold, withRange, withAttack, withRelease, withOrder, FMIN, FMAX, GMIN, GMAX, ANALYSER_MIN_DB, ANALYSER_MAX_DB, clamp, bandResponseDB, totalResponseDB, gainOnlyResponseDB, curveRMSErrorDB, scoreFromRMS, fToFrac, fracToF, gainToFrac, fracToGain, EQ_PRESETS, applyPreset, pickRandomPreset, dbToLinear, applyOutputGain } from '../../audio/effects/equalizerEngine';
 import { canvasFont } from "../../theme/fonts";
 import { hiDpi } from './shared/panelUtils';
+import { createAudioContext } from "../../audio/createAudioContext";
 const FAUST_BASE_PATH = '/faust/ParamEQ';
 function uiColor(def, theme) {
     return theme === 'light' ? def.lightColor : def.color;
@@ -1025,7 +1026,7 @@ export default function Equalizer() {
     const [sampleRate, setSampleRate] = useState(44100);
     const ensureAudioCtx = useCallback(() => {
         if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
-            audioCtxRef.current = new AudioContext();
+            audioCtxRef.current = createAudioContext();
             setSampleRate(audioCtxRef.current.sampleRate);
         }
         return audioCtxRef.current;

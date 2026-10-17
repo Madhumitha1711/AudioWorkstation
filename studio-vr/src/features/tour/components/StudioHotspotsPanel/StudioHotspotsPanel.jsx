@@ -5,6 +5,7 @@ import { ICONS, buildDeviceList } from "../../data/hotspotDevices";
 import { powerUp, powerDown } from "../../../../store/controlRoomSlice";
 import { quickHelpHoverProps } from "../../help/helpHover";
 import { useMediaQuery, DRAWER_QUERY } from "../../../../hooks/useMediaQuery";
+import { createAudioContext } from "../../../../audio/createAudioContext";
 
 function buildClue(devices, canonicalIndex) {
   if (canonicalIndex === 0) return "Clue: no dependency — this powers first.";
@@ -130,7 +131,7 @@ function StudioHotspotsPanel({
 
   function getCtx() {
     if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      audioCtxRef.current = createAudioContext();
     }
     return audioCtxRef.current;
   }

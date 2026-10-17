@@ -73,6 +73,12 @@ src/
                             # binaural toggle (two independent, non-interacting
                             # controls — see the comments at the top of the file)
     wavRender.js            # render an AudioBuffer to a downloadable WAV
+    createAudioContext.js   # THE way to make an AudioContext: ≥48 kHz (MIN_SAMPLE_RATE),
+                            # or a requested higher rate, stepping down to what the
+                            # browser accepts. Don't call `new AudioContext()` directly
+    audioFileHeader.js      # parseHeader(): native sample rate / channels / bit depth
+                            # from WAV, AIFF, FLAC, MP3, Ogg, MP4 headers (decodeAudioData
+                            # resamples, so it can't tell you the file's real rate)
     effects/                # *Engine.js — Faust param addresses/defaults/meter
                             # helpers per effect; shared by gear-studio panels
                             # AND the DAW insert chain. ballistics.js = shared
@@ -116,7 +122,13 @@ src/
         components/ engine/ lib/  # presentational pieces (TrackRacks wraps
                                   # Insert/SendRack per track) / audio-graph +
                                   # offline render / constants, format, track
-                                  # helpers, useDismiss (outside-click/Esc close)
+                                  # helpers, useDismiss (outside-click/Esc close),
+                                  # fileDrop (audio file drag-and-drop checks)
+                                  # The DAW owns its own AudioContext (not the tour
+                                  # singleton): it runs at the highest native rate of
+                                  # any loaded file, and a higher-rate load swaps the
+                                  # context, re-decodes every track from its kept
+                                  # source bytes and rebuilds the plugin nodes
     gear-studio/            # effect editor panels — Compressor, DeEsser, Delay,
                             # Limiter, NoiseGate, Reverb (*EditorPanel, used by the
                             # DAW plugin popup) + Equalizer (full lab, also a course

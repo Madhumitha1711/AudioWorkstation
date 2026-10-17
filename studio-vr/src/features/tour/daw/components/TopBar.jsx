@@ -1,5 +1,6 @@
 import { Tabs } from "../../../../components/Tabs";
 import { clamp, fmtTime } from "../lib/format";
+import { fmtRate } from "../../../../audio/audioFileHeader";
 import { VIEW_TABS } from "../lib/constants";
 
 export function TopBar({
@@ -20,6 +21,7 @@ export function TopBar({
   downloadingMix,
   onDownloadMix,
   meterLevel,
+  sampleRate,
 }) {
   return (
     <div className="daw-topbar">
@@ -72,6 +74,11 @@ export function TopBar({
       <div className="timecode">
         <span className="big">{fmtTime(playhead)}</span>
         <span className="bars">/ {fmtTime(arrangementDuration)}</span>
+        {sampleRate && (
+          <span className="bars" title="Engine sample rate: follows the highest-rate file loaded, never below 48 kHz. Playback, plugins and downloads all run at this rate.">
+            · {fmtRate(sampleRate)}
+          </span>
+        )}
       </div>
       {selectedRegionObj && (
         <div className="preview-pill" title="Play is scoped to this portion — Exit to play the whole arrangement again">

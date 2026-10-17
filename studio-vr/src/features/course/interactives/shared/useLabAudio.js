@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createAudioContext } from "../../../../audio/createAudioContext";
 
 export function useLabAudio() {
   const ctxRef = useRef(null);
@@ -6,8 +7,7 @@ export function useLabAudio() {
 
   function getCtx() {
     if (!ctxRef.current) {
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      ctxRef.current = new Ctx();
+      ctxRef.current = createAudioContext();
     }
     if (ctxRef.current.state === "suspended") ctxRef.current.resume();
     return ctxRef.current;

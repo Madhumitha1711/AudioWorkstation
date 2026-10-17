@@ -1,4 +1,5 @@
 import { clamp, fmtTime, fmtRulerMark } from "../lib/format";
+import { NEW_TRACK_DROP } from "../lib/fileDrop";
 
 export function Arrangement({
   arrangementRef,
@@ -25,9 +26,18 @@ export function Arrangement({
   onPlayheadPointerMove,
   endPlayheadDrag,
   playhead,
+  fileDrop,
 }) {
+  const { dropTargetId, onFileDragOver, onFileDragLeave, onFileDrop } = fileDrop;
   return (
-    <div className="arrangement" ref={arrangementRef} onScroll={onArrangementScroll}>
+    <div
+      className={"arrangement" + (dropTargetId === NEW_TRACK_DROP ? " is-drop-new" : "")}
+      ref={arrangementRef}
+      onScroll={onArrangementScroll}
+      onDragOver={(e) => onFileDragOver(e, NEW_TRACK_DROP)}
+      onDragLeave={(e) => onFileDragLeave(e, NEW_TRACK_DROP)}
+      onDrop={(e) => onFileDrop(e, NEW_TRACK_DROP)}
+    >
       <div className="ruler">
         {rulerMarks.map((s) => (
           <span key={s} className="ruler-mark" style={{ left: `${(s / Math.max(arrangementDuration, 1)) * 100}%` }}>
@@ -39,9 +49,18 @@ export function Arrangement({
         {tracks.map((track) => (
           <div
             key={track.id}
-            className="arr-row"
-            style={rowSlotHeights[track.id] ? { height: `${rowSlotHeights[track.id]}px` } : undefined}
+            className={"arr-row" + (dropTargetId === track.id ? " is-drop-target" : "")}
+            style={{
+              ...(rowSlotHeights[track.id] ? { height: `${rowSlotHeights[track.id]}px` } : null),
+              ...(dropTargetId === track.id ? { "--track-color": `var(--${track.color})` } : null),
+            }}
+            onDragOver={(e) => onFileDragOver(e, track.id)}
+            onDragLeave={(e) => onFileDragLeave(e, track.id)}
+            onDrop={(e) => onFileDrop(e, track.id)}
           >
+            {dropTargetId === track.id && (
+              <div className="arr-drop-hint">{track.buffer ? `Drop to replace audio on ${track.name}` : `Drop to load onto ${track.name}`}</div>
+            )}
             {track.peaks ? (
               <div
                 className="clip"
@@ -128,11 +147,13 @@ export function Arrangement({
                 Aux bus — receives Sends
               </div>
             ) : (
-              <div className="arr-row-empty">Upload or use demo</div>
+              <div className="arr-row-empty">Upload, drop an audio file here, or use demo</div>
             )}
           </div>
         ))}
-        <div className="arr-row add-track-row-spacer" />
+        <div className="arr-row add-track-row-spacer">
+          {dropTargetId === NEW_TRACK_DROP && <div className="arr-drop-hint arr-drop-hint--new">Drop to add as new track</div>}
+        </div>
       </div>
       {arrangementDuration > 0 && (
         <div
@@ -145,7 +166,7 @@ export function Arrangement({
           onPointerCancel={endPlayheadDrag}
         />
       )}
-      {tracks.length === 0 && <div className="mixer-empty-hint">No tracks yet — click + Add Track on the left to get started.</div>}
+      {tracks.length === 0 && <div className="mixer-empty-hint">No tracks yet — click + Add Track on the left, or drop audio files here.</div>}
     </div>
   );
 }

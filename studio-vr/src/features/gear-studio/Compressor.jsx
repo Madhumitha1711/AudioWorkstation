@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { BAND_IDS, BAND_LABELS, KNOBS, applyCompression, METER_FLOOR_DB, levelBallistic, grReadoutSmooth, GR_METER_MAX_DB } from '../../audio/effects/compressorEngine';
-import { drawLevelScope, transferFrame } from './shared/panelUtils';
+import { drawLevelScope, transferFrame, themedContext } from './shared/panelUtils';
 import { KnobGrid, MiniSlider } from './shared/PanelControls';
 function drawTransfer(canvas, params) {
     const f = transferFrame(canvas, { inMin: -60, inMax: 0, outMax: 24, xStep: 10, yStep: 12, yFrom: -60, signedY: true });
@@ -92,7 +92,7 @@ export function CompressorEditorPanel({
                     el.style.width = '0%';
             }
             if (scopeRef.current) {
-                const c = scopeRef.current.getContext('2d');
+                const c = themedContext(scopeRef.current.getContext('2d'));
                 c.fillStyle = '#0D0D0F';
                 c.fillRect(0, 0, scopeRef.current.width, scopeRef.current.height);
             }
@@ -196,7 +196,7 @@ export function CompressorEditorPanel({
             <button onClick={() => toggleBandBypass(b)} title={byp ? `${bandLabel(b)} is bypassed — click to re-enable` : `Bypass the ${bandLabel(b)} band (its audio still passes through, unprocessed)`} style={{
                     padding: '0.3rem 0.45rem', border: 'none', borderLeft: `1px solid ${borderColor}`,
                     background: byp ? 'rgba(255,77,106,0.16)' : 'var(--surface)',
-                    color: byp ? '#FF4D6A' : 'var(--text-faint)',
+                    color: byp ? 'var(--red)' : 'var(--text-faint)',
                     fontFamily: 'var(--font-mono)', fontSize: '0.65rem',
                     cursor: 'pointer', transition: 'all 0.15s',
                 }}>
@@ -311,9 +311,9 @@ export function CompressorEditorPanel({
           <canvas ref={scopeRef} width={400} height={150} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
         </div>
         <div className="legend-row" style={{ marginTop: '0.5rem', marginBottom: 0, flexWrap: 'wrap' }}>
-          <div className="legend-item"><span className="legend-line" style={{ background: '#00FF87' }}/>INPUT</div>
-          <div className="legend-item"><span className="legend-line" style={{ background: '#A78BFA' }}/>OUTPUT</div>
-          <div className="legend-item"><span className="legend-line" style={{ background: '#FF4D6A' }}/>{bandLabel(selectedBand)} GAIN REDUCTION</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: 'var(--green)' }}/>INPUT</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: 'var(--purple)' }}/>OUTPUT</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: 'var(--red)' }}/>{bandLabel(selectedBand)} GAIN REDUCTION</div>
         </div>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'var(--text-faint)', marginTop: '0.35rem', lineHeight: 1.5 }}>
           Red is the real Gain_Reduction the Faust patch reports for this band — it shrinks toward nothing as Threshold rises or Bypass is on.

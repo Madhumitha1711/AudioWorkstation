@@ -1,6 +1,7 @@
+import { createAudioContext } from "../../../../audio/createAudioContext";
+
 export function newAudioContext() {
-  const Ctor = window.AudioContext || window.webkitAudioContext;
-  return new Ctor();
+  return createAudioContext();
 }
 
 export function rampGain(gainNode, ctx, target, timeConstant = 0.05) {

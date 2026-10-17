@@ -164,8 +164,8 @@ export function DelayEditorPanel({ params, setParams, sync, setSync, link, setLi
           <canvas ref={scopeRef} width={760} height={150} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
         </div>
         <div className="legend-row" style={{ marginBottom: '1rem' }}>
-          <div className="legend-item"><span className="legend-line" style={{ background: '#F5A623' }}/>DRY INPUT</div>
-          <div className="legend-item"><span className="legend-line" style={{ background: '#2DD4BF' }}/>WET OUTPUT (ECHOES)</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: 'var(--amber)' }}/>DRY INPUT</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: 'var(--teal)' }}/>WET OUTPUT (ECHOES)</div>
         </div>
 
         <div className="canvas-label">SYNC DIVISION</div>

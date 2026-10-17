@@ -1,3 +1,5 @@
+import { createAudioContext } from "../../../../../audio/createAudioContext";
+
 export function createListeningEngine() {
   const E = {
     ctx: null,
@@ -10,8 +12,7 @@ export function createListeningEngine() {
     const gen = E.gen;
     if (!E.readyPromise) {
       E.readyPromise = (async () => {
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        E.ctx = new Ctx();
+        E.ctx = createAudioContext();
       })();
     }
     await E.readyPromise;

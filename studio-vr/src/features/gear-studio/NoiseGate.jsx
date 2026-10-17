@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { METER_FLOOR_DB } from '../../audio/effects/gateEngine';
-import { drawLevelScope, transferFrame } from './shared/panelUtils';
+import { drawLevelScope, transferFrame, themedContext } from './shared/panelUtils';
 import { KnobGrid, MiniSlider } from './shared/PanelControls';
 import { levelBallistic } from '../../audio/effects/ballistics';
 const KNOBS = [
@@ -78,7 +78,7 @@ export function GateEditorPanel({ params, setParams, sidechain, setSidechain, by
             isOpenRef.current = true;
             onOpenChange?.(true);
             if (scopeRef.current) {
-                const c = scopeRef.current.getContext('2d');
+                const c = themedContext(scopeRef.current.getContext('2d'));
                 c.fillStyle = '#0D0D0F';
                 c.fillRect(0, 0, scopeRef.current.width, scopeRef.current.height);
             }
@@ -176,9 +176,9 @@ export function GateEditorPanel({ params, setParams, sidechain, setSidechain, by
           <canvas ref={scopeRef} width={400} height={150} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
         </div>
         <div className="legend-row" style={{ marginTop: '0.5rem', marginBottom: 0 }}>
-          <div className="legend-item"><span className="legend-line" style={{ background: '#00FF87' }}/>INPUT</div>
-          <div className="legend-item"><span className="legend-line" style={{ background: '#4D9EFF' }}/>OUTPUT</div>
-          <div className="legend-item"><span className="legend-line" style={{ background: '#FF4D6A' }}/>GATE REDUCTION</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: 'var(--green)' }}/>INPUT</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: 'var(--blue)' }}/>OUTPUT</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: 'var(--red)' }}/>GATE REDUCTION</div>
         </div>
       </div>
     </div>);

@@ -11,6 +11,10 @@
   --lime-glow: rgba(163, 230, 53, 0.4);
   --ink-on-bright: #04160a;
   --track-row-h: 84px;
+  --daw-well: var(--black);
+  --daw-well-soft: rgba(0, 0, 0, 0.25);
+  --daw-line-soft: rgba(255, 255, 255, 0.08);
+  --daw-scrim: rgba(3, 4, 6, 0.72);
 }
 :root[data-theme='light'] .daw-root {
   --cyan: #0e7f92;
@@ -22,6 +26,10 @@
   --lime: #5c8a0e;
   --lime-dim: rgba(92, 138, 14, 0.22);
   --lime-glow: rgba(92, 138, 14, 0.45);
+  --daw-well: #dde1d6;
+  --daw-well-soft: rgba(18, 20, 15, 0.07);
+  --daw-line-soft: rgba(18, 20, 15, 0.1);
+  --daw-scrim: rgba(40, 44, 36, 0.38);
 }
 
 .daw-overlay {
@@ -58,6 +66,13 @@
   box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
   transform: scale(0.96) translateY(8px);
   transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+:root[data-theme='light'] .daw-overlay-backdrop {
+  background: radial-gradient(ellipse at center, rgba(226, 229, 220, 0.9) 0%, rgba(196, 201, 188, 0.97) 75%);
+}
+:root[data-theme='light'] .monitor-frame {
+  background: linear-gradient(165deg, #d6dacf, #c3c8ba 55%, #b5bbac);
+  box-shadow: 0 40px 90px rgba(40, 44, 36, 0.28), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
 }
 .daw-overlay.is-open .monitor-frame {
   transform: scale(1) translateY(0);
@@ -107,6 +122,7 @@
   letter-spacing: 0.14em;
   color: var(--text-faint);
   margin-top: 3px;
+  white-space: nowrap;
 }
 .daw-crumb b {
   color: var(--text-dim);
@@ -114,7 +130,7 @@
 .daw-topbar {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 14px;
   padding: 12px 18px;
   background: linear-gradient(180deg, var(--console), var(--panel));
   border-bottom: 1px solid var(--border);
@@ -140,7 +156,7 @@
   letter-spacing: 0.02em;
 }
 .view-switch {
-  --tabs-track-bg: var(--black);
+  --tabs-track-bg: var(--daw-well);
   --tabs-track-border: var(--border);
   --tabs-text: var(--text-faint);
   --tabs-text-active: var(--text);
@@ -230,11 +246,13 @@
   display: flex;
   align-items: baseline;
   gap: 8px;
-  background: var(--black);
+  background: var(--daw-well);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 6px 14px;
   font-family: var(--font-mono);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .timecode .big {
   font-size: 15px;
@@ -250,7 +268,7 @@
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
 }
 .master-meter {
   display: flex;
@@ -370,6 +388,11 @@
 }
 .track-row.is-aux {
   border-left: 2px dashed var(--track-color);
+}
+.track-row.is-drop-target {
+  background: color-mix(in srgb, var(--track-color) 18%, var(--panel));
+  border-color: var(--track-color);
+  border-style: dashed;
 }
 .track-num {
   width: 14px;
@@ -851,8 +874,8 @@
   flex-shrink: 0;
 }
 .dock-scope-tabs {
-  --tabs-track-bg: var(--panel-recess, rgba(0, 0, 0, 0.25));
-  --tabs-track-border: var(--line-soft, rgba(255, 255, 255, 0.08));
+  --tabs-track-bg: var(--daw-well-soft);
+  --tabs-track-border: var(--daw-line-soft);
   --tabs-text: var(--text-faint);
   --tabs-text-active: var(--text);
   --tabs-font: var(--font-mono);
@@ -1333,7 +1356,7 @@
   width: 7px;
   flex-shrink: 0;
   border-radius: 3px;
-  background: var(--black);
+  background: var(--daw-well);
   border: 1px solid var(--border);
   display: flex;
   align-items: flex-end;
@@ -1458,7 +1481,7 @@
   align-items: center;
   justify-content: center;
   padding: 3vh 3vw;
-  background: rgba(3, 4, 6, 0.72);
+  background: var(--daw-scrim);
   backdrop-filter: blur(3px);
   animation: daw-popup-fade 0.18s ease;
 }
@@ -1466,10 +1489,14 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
+.daw-app > .plugin-popup-overlay {
+  position: absolute;
+  padding: 0;
+}
 .plugin-popup {
   --pc: var(--teal);
-  width: min(760px, 100%);
-  max-height: 88%;
+  width: 90%;
+  max-height: 90%;
   overflow-y: auto;
   background: linear-gradient(165deg, var(--panel), var(--console));
   border: 1px solid var(--pc);
@@ -1590,7 +1617,7 @@
   font-family: inherit;
   font-size: 12.5px;
   color: var(--text);
-  background: var(--black);
+  background: var(--daw-well);
   border: 1px solid var(--border);
   border-radius: 7px;
   padding: 8px 10px;
@@ -1604,8 +1631,8 @@
   gap: 2px;
   padding: 2px;
   border-radius: 8px;
-  background: var(--panel-recess, rgba(0, 0, 0, 0.25));
-  border: 1px solid var(--line-soft, rgba(255, 255, 255, 0.08));
+  background: var(--daw-well-soft);
+  border: 1px solid var(--daw-line-soft);
 }
 .type-toggle__btn {
   flex: 1;
@@ -1623,8 +1650,8 @@
   color: var(--text);
 }
 .type-toggle__btn.is-selected {
-  background: var(--accent, #e0a458);
-  color: #1a140b;
+  background: var(--amber);
+  color: var(--ink-on-bright);
 }
 
 .swatch-grid,
@@ -1748,7 +1775,7 @@
   width: 8px;
   height: 120px;
   border-radius: 4px;
-  background: var(--black);
+  background: var(--daw-well);
   border: 1px solid var(--border);
   display: flex;
   align-items: flex-end;
@@ -1800,4 +1827,35 @@
     width: 20px;
     font-size: 7px;
   }
+}
+
+.add-track-row.is-drop-target {
+  border-color: var(--teal);
+  border-style: solid;
+  color: var(--teal);
+  background: var(--teal-dim);
+}
+.arr-row.is-drop-target {
+  background-color: color-mix(in srgb, var(--track-color) 10%, transparent);
+}
+.arr-drop-hint {
+  position: absolute;
+  inset: 4px 8px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px dashed var(--track-color);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--track-color) 20%, var(--console));
+  color: var(--text);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  pointer-events: none;
+}
+.arr-drop-hint--new {
+  --track-color: var(--teal);
+}
+.arrangement.is-drop-new {
+  box-shadow: inset 0 0 0 1.5px var(--teal);
 }

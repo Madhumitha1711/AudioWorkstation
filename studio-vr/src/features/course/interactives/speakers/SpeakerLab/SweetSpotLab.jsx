@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import "./SweetSpotLab.css";
 import { useInteractOnce } from "../../shared/useInteractOnce";
+import { createAudioContext } from "../../../../../audio/createAudioContext";
 
 const ROOM = { x: 30, y: 20, w: 740, h: 420 };
 const SPK_Y = 90;
@@ -215,8 +216,7 @@ function SweetSpotLab({ onInteract }) {
   const ensureAudioGraph = () => {
     const a = audioApiRef.current;
     if (a.ctx) return a;
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    const ctx = new Ctx();
+    const ctx = createAudioContext();
     const master = ctx.createGain();
     master.gain.value = 0.2;
     master.connect(ctx.destination);

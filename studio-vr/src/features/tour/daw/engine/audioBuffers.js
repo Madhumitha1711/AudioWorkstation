@@ -97,3 +97,16 @@ export function computePeaks(buffer, buckets = 220) {
   }
   return peaks;
 }
+
+export const SYNTH_SOURCE = { synth: true, rate: null };
+
+// decodeAudioData detaches the buffer it is given, so decode a copy: the original
+// bytes are kept so the track can be re-decoded if the engine's sample rate rises.
+export async function decodeSource(ctx, source) {
+  if (source.synth) return createDemoLoopBuffer(ctx);
+  return ctx.decodeAudioData(source.bytes.slice(0));
+}
+
+export function highestSourceRate(tracks) {
+  return tracks.reduce((max, t) => Math.max(max, t.source?.rate ?? 0), 0);
+}

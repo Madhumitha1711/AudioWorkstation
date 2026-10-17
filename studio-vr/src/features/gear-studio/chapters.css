@@ -56,6 +56,7 @@
   --strip-wood:    #5C2E1A;
 }
 :root[data-theme='light'] .chapter-lab {
+  --black:        #e7eae1;
   --console:      #e7eae1;
   --panel:        #f0f2eb;
   --surface:      #f9faf6;
@@ -96,6 +97,7 @@
   .big-knob { background: radial-gradient(circle at 35% 35%, var(--knob-cream-1), var(--knob-cream-2)); box-shadow: 0 2px 6px rgba(var(--knob-shadow-rgb),0.18), inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -3px 5px rgba(var(--knob-shadow-rgb),0.08); }
   .btn-primary {
     background: var(--amber);
+    color: #fff;
   }
   .btn-primary:hover {
     background: var(--amber-bright);

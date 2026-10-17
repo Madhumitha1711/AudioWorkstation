@@ -1,3 +1,4 @@
+import { createAudioContext } from "./createAudioContext";
 // Singleton audio graph. Master mute (outputGain) and binaural on/off (HRTF vs
 // plain path crossfade) are independent controls — never couple them.
 let audioCtx = null;
@@ -33,10 +34,8 @@ function createElevationShelf(pitchDeg) {
 export function initAudio() {
   if (audioCtx) return audioCtx;
 
-  const Ctx = window.AudioContext || window.webkitAudioContext;
-  if (!Ctx) return null;
-
-  audioCtx = new Ctx();
+  audioCtx = createAudioContext();
+  if (!audioCtx) return null;
 
   outputGain = audioCtx.createGain();
   outputGain.gain.value = fullyMuted ? 0 : 1;
@@ -166,16 +165,10 @@ export function createStudioSpeakerBus({ independent = false } = {}) {
     return { panner, shelf };
   });
 
-  const plainNodes = STUDIO_SPEAKERS.map((_, i) => {
-    if (!audioCtx.createStereoPanner) {
-      input.connect(plainPathGain);
-      return null;
-    }
-    const panNode = audioCtx.createStereoPanner();
-    panNode.pan.value = i === 0 ? -1 : 1;
-    input.connect(panNode).connect(plainPathGain);
-    return panNode;
-  });
+  // Plain (non-binaural) path is a straight stereo pass-through: L goes to the
+  // left speaker, R to the right. Hard-panning the full stereo mix into each
+  // speaker summed L+R (mono, +3 dB), so 4+ tracks clipped the output.
+  input.connect(plainPathGain);
 
   const finalStage = independent ? audioCtx.createGain() : masterGain;
   if (independent) {
@@ -195,10 +188,6 @@ export function createStudioSpeakerBus({ independent = false } = {}) {
       for (const { panner, shelf } of spatialNodes) {
         try { panner.disconnect(); } catch {  }
         try { shelf.disconnect(); } catch {  }
-      }
-      for (const panNode of plainNodes) {
-        if (!panNode) continue;
-        try { panNode.disconnect(); } catch {  }
       }
       try { spatialPathGain.disconnect(); } catch {  }
       try { plainPathGain.disconnect(); } catch {  }

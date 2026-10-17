@@ -2,13 +2,14 @@ import { useRef, useEffect, useCallback } from 'react';
 import { Knob } from '../../components/controls/Knob';
 import { ROOM_PRESETS, PRESET_FREEVERB, PRESET_ORDER, calcEffectiveRt60, METER_FLOOR_DB } from '../../audio/effects/reverbEngine';
 import { canvasFont } from "../../theme/fonts";
-import { hiDpi, drawLevelScope } from './shared/panelUtils';
+import { hiDpi, drawLevelScope, themedContext } from './shared/panelUtils';
 import { levelBallistic } from '../../audio/effects/ballistics';
 function drawIR(canvas, preset, fv) {
     const hd = hiDpi(canvas);
     if (!hd)
         return;
-    const { ctx, W, H } = hd;
+    const { W, H } = hd;
+    const ctx = themedContext(hd.ctx);
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = '#0D0D0F';
     ctx.fillRect(0, 0, W, H);
@@ -248,8 +249,8 @@ export function ReverbEditorPanel({ params, setParams, preset, setPreset, isPlay
           <canvas ref={scopeRef} width={760} height={150} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}/>
         </div>
         <div className="legend-row" style={{ marginBottom: '1rem' }}>
-          <div className="legend-item"><span className="legend-line" style={{ background: '#F5A623' }}/>DRY INPUT</div>
-          <div className="legend-item"><span className="legend-line" style={{ background: '#2DD4BF' }}/>WET OUTPUT (TAIL)</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: 'var(--amber)' }}/>DRY INPUT</div>
+          <div className="legend-item"><span className="legend-line" style={{ background: 'var(--teal)' }}/>WET OUTPUT (TAIL)</div>
         </div>
         <div className="concept-callout" style={{ marginTop: '-0.5rem', marginBottom: '1rem', background: 'rgba(45,212,191,0.05)', borderColor: 'rgba(45,212,191,0.15)' }}>
           The drum groove's near-continuous hi-hat keeps re-triggering the reverb, so SIZE/DECAY/DAMPING
@@ -315,7 +316,7 @@ export function ReverbEditorPanel({ params, setParams, preset, setPreset, isPlay
             gap: '0.5rem',
         }}>
           {['size', 'decay', 'damping', 'diffusion'].map(key => (<div key={key} style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: '#A855F7', fontWeight: 500 }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--purple)', fontWeight: 500 }}>
                 {KNOB_SPECS[key].fmt(params[key])}
               </div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem', color: 'var(--text-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 2 }}>

@@ -1,5 +1,60 @@
 import { canvasFont } from '../../../theme/fonts';
 
+// Canvas can't read CSS variables, so panel drawing code keeps its dark-theme
+// literals and themedContext() swaps them for the light palette at draw time.
+const LIGHT_HEX = {
+  '#0D0D0F': '#e7eae1',
+  '#6A6A7A': '#838a7c',
+  '#8A8A9A': '#565b52',
+  '#2E2E3D': '#98a08c',
+  '#3D3D52': '#98a08c',
+  '#00FF87': '#0f9d58',
+  '#A78BFA': '#7c3aed',
+  '#FF4D6A': '#c0293f',
+  '#F5A623': '#ad6a12',
+  '#4D9EFF': '#2563eb',
+  '#2DD4BF': '#0f9488',
+};
+const LIGHT_RGB = {
+  '167,139,250': '124,58,237',
+  '245,166,35': '173,106,18',
+  '0,255,135': '15,157,88',
+  '255,77,106': '192,41,63',
+  '77,158,255': '37,99,235',
+  '45,212,191': '15,148,136',
+  '138,138,154': '86,91,82',
+};
+
+export const isLightTheme = () => document.documentElement.getAttribute('data-theme') === 'light';
+
+function lightColor(c) {
+  if (typeof c !== 'string') return c;
+  const hex = LIGHT_HEX[c.toUpperCase()];
+  if (hex) return hex;
+  const m = c.replace(/\s+/g, '').match(/^rgba?\((\d+,\d+,\d+)(?:,([\d.]+))?\)$/);
+  if (!m) return c;
+  const a = m[2] === undefined ? 1 : Number(m[2]);
+  if (m[1] === '255,255,255') return `rgba(18,20,15,${Math.min(1, a * 2.2).toFixed(3)})`;
+  const rgb = LIGHT_RGB[m[1]];
+  return rgb ? `rgba(${rgb},${a})` : c;
+}
+
+const COLOR_PROPS = new Set(['fillStyle', 'strokeStyle', 'shadowColor']);
+
+export function themedContext(ctx) {
+  if (!ctx || !isLightTheme()) return ctx;
+  return new Proxy(ctx, {
+    get(target, key) {
+      const v = target[key];
+      return typeof v === 'function' ? v.bind(target) : v;
+    },
+    set(target, key, value) {
+      target[key] = COLOR_PROPS.has(key) ? lightColor(value) : value;
+      return true;
+    },
+  });
+}
+
 export function hiDpi(canvas) {
   const dpr = window.devicePixelRatio || 1;
   const W = canvas.clientWidth || canvas.width;
@@ -55,7 +110,8 @@ export function drawLevelScope(canvas, history, nowT, {
 }) {
   const hd = hiDpi(canvas);
   if (!hd) return;
-  const { ctx, W, H } = hd;
+  const { W, H } = hd;
+  const ctx = themedContext(hd.ctx);
   const toY = (db) => H - ((Math.min(maxDb, Math.max(minDb, db)) - minDb) / (maxDb - minDb)) * H;
   const toX = (t) => ((t - (nowT - windowS)) / windowS) * W;
   ctx.fillStyle = '#0D0D0F';
@@ -129,7 +185,8 @@ function vLine(ctx, x, H, stroke, dash) {
 export function transferFrame(canvas, { inMin, inMax, outMin = inMin, outMax = inMax, xStep, yStep = xStep, yFrom = outMin, signedY = false }) {
   const hd = hiDpi(canvas);
   if (!hd) return null;
-  const { ctx, W, H } = hd;
+  const { W, H } = hd;
+  const ctx = themedContext(hd.ctx);
   const toX = (db) => ((db - inMin) / (inMax - inMin)) * W;
   const toY = (db) => H - ((Math.max(outMin, db) - outMin) / (outMax - outMin)) * H;
   ctx.fillStyle = '#0D0D0F';
