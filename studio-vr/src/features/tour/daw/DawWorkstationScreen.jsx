@@ -18,7 +18,7 @@ import { downloadAudioBufferAsWav } from "../../../audio/wavRender";
 import "../../gear-studio/chapters.css";
 import "./DawWorkstationScreen.css";
 
-import { PLUGIN_DEFS, TRACK_COLORS, MIN_REGION_LEN, TRACK_CHAIN_SCOPE, DEMO_CLIPS, VIEW_TABS } from "./lib/constants";
+import { PLUGIN_DEFS, TRACK_COLORS, MIN_REGION_LEN, TRACK_CHAIN_SCOPE, DEFAULT_CLIPS, VIEW_TABS } from "./lib/constants";
 import { clamp, pickRulerStep } from "./lib/format";
 import { trackIsAudible, computeDryScale, outerScopeId, isOuterScope, baseRegionId } from "./lib/trackHelpers";
 import { NEW_TRACK_DROP, isAudioFile, dragHasFiles } from "./lib/fileDrop";
@@ -1254,7 +1254,7 @@ function DawWorkstationScreen({ open, onClose }) {
     if (!isOpen || tracksRef.current.length > 0) return;
     (async () => {
       const sources = await Promise.all(
-        DEMO_CLIPS.map((clip) =>
+        DEFAULT_CLIPS.map((clip) =>
           fetchDemoSource(clip).catch((err) => {
             console.error("[DawWorkstationScreen] failed to load default demo track", clip.id, err);
             return null;
@@ -1276,7 +1276,7 @@ function DawWorkstationScreen({ open, onClose }) {
         }),
       );
       let firstId = null;
-      DEMO_CLIPS.forEach((clip, i) => {
+      DEFAULT_CLIPS.forEach((clip, i) => {
         const { source, buffer, synthetic } = loaded[i];
         const id = addTrackWithBuffer(buffer, synthetic ? "Demo Loop" : clip.name, clip.color, source);
         if (firstId === null) firstId = id;

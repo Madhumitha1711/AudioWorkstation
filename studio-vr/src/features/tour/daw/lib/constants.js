@@ -53,6 +53,12 @@ export const DEMO_CLIPS = [
   { id: "saxophone", name: "Hungarian Dance No. 5 — Saxophone", url: "/audio/BolzAndKnecht_HungarianDanceNo5_Full/03_Saxophone.wav", color: "blue" },
 ];
 
+// Clips auto-loaded as tracks when the DAW first opens. The DEMO_CLIPS above
+// stay available from each track's "load demo" dropdown.
+export const DEFAULT_CLIPS = [
+  { id: "sampleAudio", name: "Sample Audio", url: "/audio/sample_audio.m4a", color: "teal" },
+];
+
 export const VIEW_TABS = [
   { id: "arrange", label: "Arrange", title: "Arrange view" },
   { id: "mixer", label: "Mixer", title: "Mixer view (X)" },
