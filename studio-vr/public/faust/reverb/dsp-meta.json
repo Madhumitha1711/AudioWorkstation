@@ -1,17 +1,19 @@
 {
-    "name": "reverb",
-    "filename": "reverb.dsp",
+    "name": "reverb_2",
+    "filename": "reverb_2.dsp",
     "version": "2.79.3",
     "compile_options": "-lang wasm-i -ct 1 -es 1 -mcd 16 -mdd 1024 -mdy 33 -single -ftz 2",
     "library_list": [
         "/usr/share/faust/stdfaust.lib",
-        "/usr/share/faust/reverbs.lib",
+        "/usr/share/faust/signals.lib",
         "/usr/share/faust/maths.lib",
         "/usr/share/faust/platform.lib",
-        "/usr/share/faust/filters.lib",
         "/usr/share/faust/delays.lib",
-        "/usr/share/faust/analyzers.lib",
-        "/usr/share/faust/basics.lib"
+        "/usr/share/faust/filters.lib",
+        "/usr/share/faust/reverbs.lib",
+        "/usr/share/faust/basics.lib",
+        "/usr/share/faust/routes.lib",
+        "/usr/share/faust/analyzers.lib"
     ],
     "include_pathnames": [
         "/share/faust",
@@ -19,8 +21,8 @@
         "/usr/share/faust",
         "."
     ],
-    "size": 1106636,
-    "code": "eMdZAZQ9Hw==",
+    "size": 2245640,
+    "code": "8BYcApQ9Hw==",
     "inputs": 2,
     "outputs": 2,
     "meta": [
@@ -46,7 +48,7 @@
             "delays.lib/version": "1.1.0"
         },
         {
-            "filename": "reverb.dsp"
+            "filename": "reverb_2.dsp"
         },
         {
             "filters.lib/allpass_comb:author": "Julius O. Smith III"
@@ -109,7 +111,7 @@
             "filters.lib/low_shelf:license": "MIT-style STK-4.3 license"
         },
         {
-            "filters.lib/lowpass0_highpass1": "MIT-style STK-4.3 license"
+            "filters.lib/lowpass0_highpass1": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
         },
         {
             "filters.lib/lowpass0_highpass1:author": "Julius O. Smith III"
@@ -190,7 +192,7 @@
             "maths.lib/version": "2.8.1"
         },
         {
-            "name": "reverb"
+            "name": "reverb_2"
         },
         {
             "platform.lib/name": "Generic Platform Library"
@@ -199,16 +201,25 @@
             "platform.lib/version": "1.3.0"
         },
         {
-            "reverbs.lib/mono_freeverb:author": "Romain Michon"
-        },
-        {
             "reverbs.lib/name": "Faust Reverb Library"
         },
         {
-            "reverbs.lib/stereo_freeverb:author": "Romain Michon"
+            "reverbs.lib/version": "1.4.0"
         },
         {
-            "reverbs.lib/version": "1.4.0"
+            "routes.lib/hadamard:author": "Remy Muller, revised by Romain Michon"
+        },
+        {
+            "routes.lib/name": "Faust Signal Routing Library"
+        },
+        {
+            "routes.lib/version": "1.2.0"
+        },
+        {
+            "signals.lib/name": "Faust Signal Routing Library"
+        },
+        {
+            "signals.lib/version": "1.6.0"
         }
     ],
     "ui": [
@@ -219,10 +230,10 @@
                 {
                     "type": "hslider",
                     "label": "DAMPING",
-                    "varname": "fHslider8",
+                    "varname": "fHslider5",
                     "shortname": "DAMPING",
                     "address": "/Reverb_Parameters/DAMPING",
-                    "index": 524532,
+                    "index": 262228,
                     "meta": [
                         {
                             "style": "knob"
@@ -236,10 +247,10 @@
                 {
                     "type": "hslider",
                     "label": "DECAY",
-                    "varname": "fHslider7",
+                    "varname": "fHslider4",
                     "shortname": "DECAY",
                     "address": "/Reverb_Parameters/DECAY",
-                    "index": 524528,
+                    "index": 262212,
                     "meta": [
                         {
                             "style": "knob"
@@ -253,10 +264,10 @@
                 {
                     "type": "hslider",
                     "label": "DIFFUSION",
-                    "varname": "fHslider9",
+                    "varname": "fHslider7",
                     "shortname": "DIFFUSION",
                     "address": "/Reverb_Parameters/DIFFUSION",
-                    "index": 754080,
+                    "index": 786660,
                     "meta": [
                         {
                             "style": "knob"
@@ -273,7 +284,7 @@
                     "varname": "fHslider1",
                     "shortname": "HI_CUT_Freq",
                     "address": "/Reverb_Parameters/HI-CUT_Freq",
-                    "index": 262164,
+                    "index": 262180,
                     "meta": [
                         {
                             "scale": "log"
@@ -293,10 +304,10 @@
                 {
                     "type": "hslider",
                     "label": "HI-SHELF Gain",
-                    "varname": "fHslider6",
+                    "varname": "fHslider9",
                     "shortname": "HI_SHELF_Gain",
                     "address": "/Reverb_Parameters/HI-SHELF_Gain",
-                    "index": 262264,
+                    "index": 2245520,
                     "meta": [
                         {
                             "unit": "dB"
@@ -313,7 +324,7 @@
                     "varname": "fHslider2",
                     "shortname": "LO_CUT_Freq",
                     "address": "/Reverb_Parameters/LO-CUT_Freq",
-                    "index": 262168,
+                    "index": 262184,
                     "meta": [
                         {
                             "scale": "log"
@@ -333,10 +344,10 @@
                 {
                     "type": "hslider",
                     "label": "LO-SHELF Gain",
-                    "varname": "fHslider5",
+                    "varname": "fHslider8",
                     "shortname": "LO_SHELF_Gain",
                     "address": "/Reverb_Parameters/LO-SHELF_Gain",
-                    "index": 262212,
+                    "index": 2245468,
                     "meta": [
                         {
                             "unit": "dB"
@@ -350,10 +361,10 @@
                 {
                     "type": "hslider",
                     "label": "PRE-DELAY",
-                    "varname": "fHslider3",
+                    "varname": "fHslider6",
                     "shortname": "PRE_DELAY",
                     "address": "/Reverb_Parameters/PRE-DELAY",
-                    "index": 262176,
+                    "index": 524460,
                     "meta": [
                         {
                             "style": "knob"
@@ -370,10 +381,10 @@
                 {
                     "type": "hslider",
                     "label": "SIZE",
-                    "varname": "fHslider4",
+                    "varname": "fHslider3",
                     "shortname": "SIZE",
                     "address": "/Reverb_Parameters/SIZE",
-                    "index": 262180,
+                    "index": 262200,
                     "meta": [
                         {
                             "style": "knob"
@@ -390,7 +401,7 @@
                     "varname": "fHslider0",
                     "shortname": "WET_DRY",
                     "address": "/Reverb_Parameters/WET-DRY",
-                    "index": 0,
+                    "index": 262160,
                     "meta": [
                         {
                             "style": "knob"
