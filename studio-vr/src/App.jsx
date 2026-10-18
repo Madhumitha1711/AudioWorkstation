@@ -1,4 +1,4 @@
-import { Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import Header from "./components/Header";
 import RequireAuth from "./features/auth/components/RequireAuth";
@@ -34,6 +34,7 @@ function App() {
       <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/index.html" element={<Navigate to="/" replace />} />
           <Route path="/payment" element={<PaymentPage />} />
           <Route path="/payment/complete" element={<PaymentCompletePage />} />
           <Route path="/login" element={<LoginPage />} />

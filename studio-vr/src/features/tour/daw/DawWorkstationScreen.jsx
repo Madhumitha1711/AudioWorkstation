@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { FaustMonoDspGenerator } from "@grame/faustwasm";
-import { compileFaustWasm } from "../../../audio/faust/faustTypes";
+import { compileFaustWasm, createFaustMonoNode } from "../../../audio/faust/faustTypes";
 import { createAudioContext, MIN_SAMPLE_RATE } from "../../../audio/createAudioContext";
 import { parseHeader } from "../../../audio/audioFileHeader";
 import { ADDR as DEESS_ADDR, pushFaustParams as pushDeEsserParams, analyserPeakDb } from "../../../audio/effects/deEsserEngine";
@@ -239,7 +239,7 @@ function DawWorkstationScreen({ open, onClose }) {
       cached = { factory: { module: mod, json: JSON.stringify(metaJson), soundfiles: {} }, meta: metaJson };
       engineCacheRef.current.set(def.key, cached);
     }
-    // AudioWorkletNode (sp=false), not ScriptProcessorNode: a ScriptProcessor runs
+    // AudioWorkletNode where available (HTTPS), not ScriptProcessorNode: a ScriptProcessor runs
     // the DSP on the main thread, so any UI stall (window resize, re-render, canvas
     // redraw) misses its 512-frame deadline and the output clicks. Each plugin gets
     // its own processor name (two DSPs share meta.name "noiseGate"), and the first
@@ -253,7 +253,7 @@ function DawWorkstationScreen({ open, onClose }) {
     const pending = registered.get(def.key);
     if (pending) await pending.catch(() => {});
     const generator = new FaustMonoDspGenerator();
-    const created = generator.createNode(ctx, cached.meta.name, cached.factory, false, 512, `studio-daw-${def.key}`);
+    const created = createFaustMonoNode(generator, ctx, cached.meta.name, cached.factory, `studio-daw-${def.key}`);
     if (!pending) {
       registered.set(def.key, created);
       created.catch(() => registered.delete(def.key));

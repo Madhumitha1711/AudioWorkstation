@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { FaustMonoDspGenerator } from '@grame/faustwasm';
-import { compileFaustWasm } from '../../audio/faust/faustTypes';
+import { compileFaustWasm, createFaustMonoNode } from '../../audio/faust/faustTypes';
 import { downloadBlob, audioBufferToWavBlob } from '../../audio/wavRender';
 import { useTheme } from '../../theme/ThemeContext';
 import './chapters.css';
@@ -16,7 +16,7 @@ function uiColor(def, theme) {
 async function renderParamEQOffline(generator, meta, dspModule, source, bands, outputGainDb = 0) {
     const offlineCtx = new OfflineAudioContext(source.numberOfChannels, source.length, source.sampleRate);
     const factory = { module: dspModule, json: JSON.stringify(meta), soundfiles: {} };
-    const node = await generator.createNode(offlineCtx, meta.name, factory, false, 512);
+    const node = await createFaustMonoNode(generator, offlineCtx, meta.name, factory);
     applyBandsToNode(node, bands);
     const outputGain = offlineCtx.createGain();
     outputGain.gain.value = dbToLinear(outputGainDb);
@@ -1148,7 +1148,7 @@ export default function Equalizer() {
         const factory = { module: dspModuleRef.current, json: JSON.stringify(dspMetaRef.current), soundfiles: {} };
         let node;
         try {
-            node = await generatorRef.current.createNode(ctx, dspMetaRef.current.name, factory, false, 512, 'studio-eq-lab');
+            node = await createFaustMonoNode(generatorRef.current, ctx, dspMetaRef.current.name, factory, 'studio-eq-lab');
         }
         catch (err) {
             console.error('[Chapter2b] failed to build Faust ParamEQ node', err);

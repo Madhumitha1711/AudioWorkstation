@@ -10,3 +10,11 @@ export async function compileFaustWasm(url) {
         return WebAssembly.compile(await res.arrayBuffer());
     }
 }
+
+// AudioWorklet only exists in secure contexts (HTTPS/localhost). On plain HTTP
+// fall back to a ScriptProcessorNode: it runs on the main thread, so it gets a
+// larger buffer to make UI-stall clicks less likely.
+export function createFaustMonoNode(generator, ctx, name, factory, processorName) {
+  const sp = !ctx.audioWorklet;
+  return generator.createNode(ctx, name, factory, sp, sp ? 2048 : 512, processorName);
+}

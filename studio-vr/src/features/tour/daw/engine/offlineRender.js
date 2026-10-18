@@ -1,4 +1,5 @@
 import { FaustMonoDspGenerator } from "@grame/faustwasm";
+import { createFaustMonoNode } from "../../../../audio/faust/faustTypes";
 import { pushFaustParams as pushGateParams } from "../../../../audio/effects/gateEngine";
 import { pushFaustParams as pushDeEsserParams } from "../../../../audio/effects/deEsserEngine";
 import { pushFaustParams as pushCompParams } from "../../../../audio/effects/compressorEngine";
@@ -13,7 +14,7 @@ async function createOfflineSlotNode(offlineCtx, engineCache, slot) {
   const cached = engineCache.get(slot.key);
   if (!cached) return null;
   const generator = new FaustMonoDspGenerator();
-  const node = await generator.createNode(offlineCtx, cached.meta.name, cached.factory, false, 512);
+  const node = await createFaustMonoNode(generator, offlineCtx, cached.meta.name, cached.factory);
   switch (slot.key) {
     case "gate":
       pushGateParams(node, slot.params, slot.sidechain);
