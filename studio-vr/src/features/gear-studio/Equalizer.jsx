@@ -1084,6 +1084,7 @@ export default function Equalizer() {
         if (activeNodeRef.current) {
             try {
                 activeNodeRef.current.disconnect();
+                activeNodeRef.current.destroy?.();
             }
             catch {  }
             activeNodeRef.current = null;
@@ -1147,7 +1148,7 @@ export default function Equalizer() {
         const factory = { module: dspModuleRef.current, json: JSON.stringify(dspMetaRef.current), soundfiles: {} };
         let node;
         try {
-            node = await generatorRef.current.createNode(ctx, dspMetaRef.current.name, factory, true, 512);
+            node = await generatorRef.current.createNode(ctx, dspMetaRef.current.name, factory, false, 512, 'studio-eq-lab');
         }
         catch (err) {
             console.error('[Chapter2b] failed to build Faust ParamEQ node', err);
@@ -1217,6 +1218,7 @@ export default function Equalizer() {
         sourceNodeRef.current?.disconnect();
         try {
             activeNodeRef.current?.disconnect();
+            activeNodeRef.current?.destroy?.();
         }
         catch {  }
         outputGainNodeRef.current?.disconnect();

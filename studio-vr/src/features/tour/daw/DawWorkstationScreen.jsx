@@ -152,6 +152,7 @@ function DawWorkstationScreen({ open, onClose }) {
   const preIsolateSoloRef = useRef(null);
 
   const engineCacheRef = useRef(new Map());
+  const workletRegisteredRef = useRef(new WeakMap());
   const slotRuntimeRef = useRef(new Map());
   const meterValuesRef = useRef(new Map());
   const sendIdRef = useRef(0);
@@ -238,8 +239,27 @@ function DawWorkstationScreen({ open, onClose }) {
       cached = { factory: { module: mod, json: JSON.stringify(metaJson), soundfiles: {} }, meta: metaJson };
       engineCacheRef.current.set(def.key, cached);
     }
+    // AudioWorkletNode (sp=false), not ScriptProcessorNode: a ScriptProcessor runs
+    // the DSP on the main thread, so any UI stall (window resize, re-render, canvas
+    // redraw) misses its 512-frame deadline and the output clicks. Each plugin gets
+    // its own processor name (two DSPs share meta.name "noiseGate"), and the first
+    // node per context registers the processor before others are created, so
+    // parallel loads can't call registerProcessor twice with the same name.
+    let registered = workletRegisteredRef.current.get(ctx);
+    if (!registered) {
+      registered = new Map();
+      workletRegisteredRef.current.set(ctx, registered);
+    }
+    const pending = registered.get(def.key);
+    if (pending) await pending.catch(() => {});
     const generator = new FaustMonoDspGenerator();
-    const node = await generator.createNode(ctx, cached.meta.name, cached.factory, true, 512);
+    const created = generator.createNode(ctx, cached.meta.name, cached.factory, false, 512, `studio-daw-${def.key}`);
+    if (!pending) {
+      registered.set(def.key, created);
+      created.catch(() => registered.delete(def.key));
+    }
+    const node = await created;
+    if (!node) throw new Error(`Faust node for ${def.key} could not be created`);
     return { node, meta: cached.meta };
   }, []);
 
@@ -1107,6 +1127,7 @@ function DawWorkstationScreen({ open, onClose }) {
       region?.chain.forEach((slot) => {
         try {
           slot.node?.disconnect();
+          slot.node?.destroy?.();
         } catch {
         }
       });
@@ -1122,6 +1143,21 @@ function DawWorkstationScreen({ open, onClose }) {
 
   const dragRegionRef = useRef(null);
 
+  // jump the playhead to a time (clamped to the preview window, like dragging);
+  // if audio is playing it carries on from the new spot
+  const seekTo = useCallback(
+    (t) => {
+      const pw = getPreviewWindow();
+      const lo = pw ? pw.start : 0;
+      const hi = pw ? pw.end : arrangementDuration;
+      const next = clamp(t, lo, hi);
+      pausedOffsetRef.current = next;
+      setPlayhead(next);
+      if (isPlayingRef.current) playFrom(next);
+    },
+    [arrangementDuration, getPreviewWindow, playFrom],
+  );
+
   const beginRegionDrag = useCallback((e, track) => {
     if (!track.buffer) return;
     e.stopPropagation();
@@ -1129,7 +1165,7 @@ function DawWorkstationScreen({ open, onClose }) {
     const width = rect.width || 1;
     const secondsPerPixel = track.duration / width;
     const anchor = clamp((e.clientX - rect.left) * secondsPerPixel, 0, track.duration);
-    dragRegionRef.current = { trackId: track.id, pointerId: e.pointerId, rectLeft: rect.left, secondsPerPixel, anchor, duration: track.duration };
+    dragRegionRef.current = { trackId: track.id, pointerId: e.pointerId, rectLeft: rect.left, secondsPerPixel, anchor, duration: track.duration, startClientX: e.clientX, startAt: track.startAt ?? 0 };
     setDraftRegion({ trackId: track.id, start: anchor, end: anchor });
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -1155,6 +1191,12 @@ function DawWorkstationScreen({ open, onClose }) {
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {
       }
+      // a plain click on the waveform (no real drag) moves the playhead there
+      if (Math.abs(e.clientX - drag.startClientX) < 4) {
+        setDraftRegion(null);
+        seekTo(drag.startAt + drag.anchor);
+        return;
+      }
       setDraftRegion((current) => {
         if (current && current.trackId === drag.trackId && current.end - current.start >= MIN_REGION_LEN) {
           createRegion(current.trackId, current.start, current.end);
@@ -1162,7 +1204,7 @@ function DawWorkstationScreen({ open, onClose }) {
         return null;
       });
     },
-    [createRegion],
+    [createRegion, seekTo],
   );
 
   const dragPlayheadRef = useRef(null);
@@ -1214,6 +1256,35 @@ function DawWorkstationScreen({ open, onClose }) {
       if (isPlayingRef.current) playFrom(pausedOffsetRef.current);
     },
     [playFrom],
+  );
+
+  // click on the ruler or empty timeline: jump the playhead there, and keep
+  // holding to scrub (move/up are handled by the playhead drag handlers)
+  const beginSeekAt = useCallback(
+    (e) => {
+      const container = arrangementRef.current;
+      if (e.button !== 0 || !container || arrangementDuration <= 0) return;
+      const rect = container.getBoundingClientRect();
+      const x = e.clientX - rect.left - container.clientLeft + container.scrollLeft;
+      const width = container.clientWidth || 1;
+      const pw = getPreviewWindow();
+      const lo = pw ? pw.start : 0;
+      const hi = pw ? pw.end : arrangementDuration;
+      const t = clamp((x / width) * arrangementDuration, lo, hi);
+      pausedOffsetRef.current = t;
+      setPlayhead(t);
+      dragPlayheadRef.current = {
+        pointerId: e.pointerId,
+        startClientX: e.clientX,
+        startOffset: t,
+        secondsPerPixel: arrangementDuration / width,
+      };
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+      }
+    },
+    [arrangementDuration, getPreviewWindow],
   );
 
   const handleDownloadTrack = useCallback(async (id) => {
@@ -1342,6 +1413,7 @@ function DawWorkstationScreen({ open, onClose }) {
         if (!stillSlot) {
           try {
             node.disconnect();
+            node.destroy?.();
           } catch {
           }
           return;
@@ -1421,6 +1493,7 @@ function DawWorkstationScreen({ open, onClose }) {
           if (!slot.node) return slot;
           try {
             slot.node.disconnect();
+            slot.node.destroy?.();
           } catch {
           }
           reloads.push({ trackId, regionId, key: slot.key });
@@ -1540,6 +1613,7 @@ function DawWorkstationScreen({ open, onClose }) {
       }
       try {
         slot?.node?.disconnect();
+        slot?.node?.destroy?.();
       } catch {
       }
       if (isPlayingRef.current) playFrom(currentOffset());
@@ -2075,6 +2149,7 @@ function DawWorkstationScreen({ open, onClose }) {
                     removeRegion={removeRegion}
                     draftRegion={draftRegion}
                     beginPlayheadDrag={beginPlayheadDrag}
+                    beginSeekAt={beginSeekAt}
                     onPlayheadPointerMove={onPlayheadPointerMove}
                     endPlayheadDrag={endPlayheadDrag}
                     playhead={playhead}

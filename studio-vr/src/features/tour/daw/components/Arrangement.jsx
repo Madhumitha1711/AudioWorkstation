@@ -23,6 +23,7 @@ export function Arrangement({
   removeRegion,
   draftRegion,
   beginPlayheadDrag,
+  beginSeekAt,
   onPlayheadPointerMove,
   endPlayheadDrag,
   playhead,
@@ -38,14 +39,27 @@ export function Arrangement({
       onDragLeave={(e) => onFileDragLeave(e, NEW_TRACK_DROP)}
       onDrop={(e) => onFileDrop(e, NEW_TRACK_DROP)}
     >
-      <div className="ruler">
+      <div
+        className="ruler"
+        title="Click to move the playhead here — hold and drag to scrub"
+        onPointerDown={beginSeekAt}
+        onPointerMove={onPlayheadPointerMove}
+        onPointerUp={endPlayheadDrag}
+        onPointerCancel={endPlayheadDrag}
+      >
         {rulerMarks.map((s) => (
           <span key={s} className="ruler-mark" style={{ left: `${(s / Math.max(arrangementDuration, 1)) * 100}%` }}>
             {fmtRulerMark(s)}
           </span>
         ))}
       </div>
-      <div className="arr-rows">
+      <div
+        className="arr-rows"
+        onPointerDown={beginSeekAt}
+        onPointerMove={onPlayheadPointerMove}
+        onPointerUp={endPlayheadDrag}
+        onPointerCancel={endPlayheadDrag}
+      >
         {tracks.map((track) => (
           <div
             key={track.id}
@@ -85,7 +99,7 @@ export function Arrangement({
                 />
                 <div
                   className="clip-body"
-                  title="Drag on the waveform to select a portion, then add a signal chain to it"
+                  title="Click to move the playhead here — drag on the waveform to select a portion, then add a signal chain to it"
                   onPointerDown={(e) => beginRegionDrag(e, track)}
                   onPointerMove={onRegionPointerMove}
                   onPointerUp={endRegionDrag}

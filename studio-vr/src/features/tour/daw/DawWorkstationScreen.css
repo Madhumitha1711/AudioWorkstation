@@ -663,6 +663,8 @@
   position: sticky;
   top: 0;
   z-index: 2;
+  cursor: pointer;
+  touch-action: none;
   height: 22px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
