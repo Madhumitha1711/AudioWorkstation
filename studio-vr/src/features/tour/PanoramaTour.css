@@ -200,7 +200,12 @@
   padding: 6px;
   backdrop-filter: blur(14px);
   box-shadow: var(--shadow);
-  max-width: calc(100vw - 32px);
+  /* With left:50% an abs-positioned box only gets the remaining half of the
+     container for shrink-to-fit sizing, which squeezed the room pill on
+     smaller screens. Size to content, capped to the container instead. */
+  width: max-content;
+  max-width: calc(100% - 32px);
+  box-sizing: border-box;
   font-family: var(--font-sans);
   z-index: 60;
 }
@@ -210,6 +215,7 @@
   flex-direction: column;
   align-items: center;
   padding: 0 4px;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -229,9 +235,15 @@
   border: 1px solid var(--shell-border);
   border-radius: 999px;
   padding: 3px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .svr-tour-room-toggle__opt {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   border: none;
   background: transparent;
   color: var(--shell-text-dimmer);
@@ -239,10 +251,23 @@
   font-size: var(--fs-sm);
   font-weight: 700;
   white-space: nowrap;
-  padding: 7px 14px;
+  padding: clamp(5px, 0.6vw, 7px) clamp(8px, 1.1vw, 14px);
   border-radius: 999px;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
+}
+
+.svr-tour-room-toggle__short {
+  display: none;
+}
+
+@media (max-width: 960px) {
+  .svr-tour-room-toggle__full {
+    display: none;
+  }
+  .svr-tour-room-toggle__short {
+    display: inline;
+  }
 }
 
 .svr-tour-room-toggle__opt:hover {
@@ -901,6 +926,7 @@
     left: 12px;
     right: 12px;
     transform: none;
+    width: auto;
     max-width: none;
     justify-content: space-between;
     gap: 4px;
@@ -913,10 +939,14 @@
   }
   .svr-tour-room-block {
     padding: 0;
-    flex-shrink: 0;
+    flex: 1 1 auto;
+    align-items: stretch;
+  }
+  .svr-tour-room-toggle {
+    width: 100%;
   }
   .svr-tour-room-toggle__opt {
-    padding: 6px 8px;
+    flex: 1 1 0;
   }
   .svr-tour-divider {
     display: none;

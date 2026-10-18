@@ -616,10 +616,14 @@ function PanoramaTour() {
                       }
                       onClick={() => goToRoom(room.id)}
                       aria-pressed={room.id === currentRoomId}
+                      aria-label={room.name}
                       title={`Go to ${room.name}`}
                       {...quickHelpHoverProps(setHelpMessage, `Walk to the ${room.name}.`)}
                     >
-                      {room.name}
+                      <span className="svr-tour-room-toggle__full">{room.name}</span>
+                      <span className="svr-tour-room-toggle__short" aria-hidden="true">
+                        {room.name.replace(/\s+room$/i, "")}
+                      </span>
                     </button>
                   ))}
                 </div>
