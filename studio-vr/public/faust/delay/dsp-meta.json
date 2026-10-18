@@ -1,17 +1,17 @@
 {
-    "name": "delay",
-    "filename": "delay.dsp",
+    "name": "delay_2",
+    "filename": "delay_2.dsp",
     "version": "2.79.3",
     "compile_options": "-lang wasm-i -ct 1 -es 1 -mcd 16 -mdd 1024 -mdy 33 -single -ftz 2",
     "library_list": [
         "/usr/share/faust/stdfaust.lib",
-        "/usr/share/faust/delays.lib",
+        "/usr/share/faust/basics.lib",
         "/usr/share/faust/signals.lib",
         "/usr/share/faust/maths.lib",
         "/usr/share/faust/platform.lib",
-        "/usr/share/faust/oscillators.lib",
-        "/usr/share/faust/basics.lib",
-        "/usr/share/faust/filters.lib"
+        "/usr/share/faust/delays.lib",
+        "/usr/share/faust/filters.lib",
+        "/usr/share/faust/routes.lib"
     ],
     "include_pathnames": [
         "/share/faust",
@@ -19,8 +19,8 @@
         "/usr/share/faust",
         "."
     ],
-    "size": 4456680,
-    "code": "YBUZAZQ9Hw==",
+    "size": 8389064,
+    "code": "sAY7AZQ9Hw==",
     "inputs": 2,
     "outputs": 2,
     "meta": [
@@ -40,70 +40,25 @@
             "delays.lib/version": "1.1.0"
         },
         {
-            "description": "Chapter 9 - modulated, filtered, ping-pong delay with analog-style saturation"
+            "description": "Stereo delay modelled on the Logic Pro Stereo Delay: per-side input select, delay time, low/high cut, feedback, crossfeed and phase, plus Straight/Crossed/Ping-Pong routing. Every control is de-zippered and delay-time changes crossfade instead of jumping, so nothing clicks while you tweak it."
         },
         {
-            "filename": "delay.dsp"
-        },
-        {
-            "filters.lib/fir:author": "Julius O. Smith III"
-        },
-        {
-            "filters.lib/fir:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
-        },
-        {
-            "filters.lib/fir:license": "MIT-style STK-4.3 license"
-        },
-        {
-            "filters.lib/highpass:author": "Julius O. Smith III"
-        },
-        {
-            "filters.lib/highpass:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
-        },
-        {
-            "filters.lib/iir:author": "Julius O. Smith III"
-        },
-        {
-            "filters.lib/iir:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
-        },
-        {
-            "filters.lib/iir:license": "MIT-style STK-4.3 license"
+            "filename": "delay_2.dsp"
         },
         {
             "filters.lib/lowpass0_highpass1": "MIT-style STK-4.3 license"
         },
         {
-            "filters.lib/lowpass0_highpass1:author": "Julius O. Smith III"
-        },
-        {
-            "filters.lib/lowpass:author": "Julius O. Smith III"
-        },
-        {
-            "filters.lib/lowpass:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
-        },
-        {
-            "filters.lib/lowpass:license": "MIT-style STK-4.3 license"
-        },
-        {
             "filters.lib/name": "Faust Filters Library"
         },
         {
-            "filters.lib/tf2:author": "Julius O. Smith III"
+            "filters.lib/svf:author": "Oleg Nesterov"
         },
         {
-            "filters.lib/tf2:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
+            "filters.lib/svf:copyright": "Copyright (C) 2020 Oleg Nesterov <oleg@redhat.com>"
         },
         {
-            "filters.lib/tf2:license": "MIT-style STK-4.3 license"
-        },
-        {
-            "filters.lib/tf2s:author": "Julius O. Smith III"
-        },
-        {
-            "filters.lib/tf2s:copyright": "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>"
-        },
-        {
-            "filters.lib/tf2s:license": "MIT-style STK-4.3 license"
+            "filters.lib/svf:license": "MIT-style STK-4.3 license"
         },
         {
             "filters.lib/version": "1.7.1"
@@ -124,13 +79,7 @@
             "maths.lib/version": "2.8.1"
         },
         {
-            "name": "delay"
-        },
-        {
-            "oscillators.lib/name": "Faust Oscillator Library"
-        },
-        {
-            "oscillators.lib/version": "1.6.0"
+            "name": "delay_2"
         },
         {
             "platform.lib/name": "Generic Platform Library"
@@ -139,27 +88,56 @@
             "platform.lib/version": "1.3.0"
         },
         {
+            "routes.lib/name": "Faust Signal Routing Library"
+        },
+        {
+            "routes.lib/version": "1.2.0"
+        },
+        {
             "signals.lib/name": "Faust Signal Routing Library"
         },
         {
             "signals.lib/version": "1.6.0"
+        },
+        {
+            "version": "2.0"
         }
     ],
     "ui": [
         {
             "type": "vgroup",
-            "label": "DELAY DESIGN STUDIO",
+            "label": "Stereo Delay",
             "items": [
                 {
-                    "type": "hslider",
-                    "label": "Delay Time",
-                    "varname": "fHslider2",
-                    "shortname": "Delay_Time",
-                    "address": "/DELAY_DESIGN_STUDIO/Delay_Time",
-                    "index": 2359356,
+                    "type": "nentry",
+                    "label": "L Input",
+                    "varname": "fEntry1",
+                    "shortname": "L_Input",
+                    "address": "/Stereo_Delay/L_Input",
+                    "index": 76,
                     "meta": [
                         {
                             "01": ""
+                        },
+                        {
+                            "style": "menu{-Off-:0;-Left-:1;-Right-:2;-L+R-:3;-L-R-:4}"
+                        }
+                    ],
+                    "init": 1,
+                    "min": 0,
+                    "max": 4,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "L Delay Time",
+                    "varname": "fHslider5",
+                    "shortname": "L_Delay_Time",
+                    "address": "/Stereo_Delay/L_Delay_Time",
+                    "index": 4194500,
+                    "meta": [
+                        {
+                            "02": ""
                         },
                         {
                             "unit": "ms"
@@ -167,66 +145,62 @@
                     ],
                     "init": 250,
                     "min": 1,
-                    "max": 2000,
-                    "step": 0.1
+                    "max": 4000,
+                    "step": 0.01
                 },
                 {
                     "type": "hslider",
-                    "label": "Feedback",
+                    "label": "L Low Cut",
                     "varname": "fHslider1",
-                    "shortname": "Feedback",
-                    "address": "/DELAY_DESIGN_STUDIO/Feedback",
-                    "index": 262180,
-                    "meta": [
-                        {
-                            "02": ""
-                        },
-                        {
-                            "unit": "%"
-                        }
-                    ],
-                    "init": 42,
-                    "min": 0,
-                    "max": 95,
-                    "step": 1
-                },
-                {
-                    "type": "hslider",
-                    "label": "Analog Saturation",
-                    "varname": "fHslider7",
-                    "shortname": "Analog_Saturation",
-                    "address": "/DELAY_DESIGN_STUDIO/Analog_Saturation",
-                    "index": 2359448,
+                    "shortname": "L_Low_Cut",
+                    "address": "/Stereo_Delay/L_Low_Cut",
+                    "index": 56,
                     "meta": [
                         {
                             "03": ""
+                        },
+                        {
+                            "scale": "log"
+                        },
+                        {
+                            "unit": "Hz"
                         }
                     ],
-                    "init": 2,
-                    "min": 0,
-                    "max": 10,
+                    "init": 20,
+                    "min": 20,
+                    "max": 20000,
                     "step": 1
                 },
                 {
-                    "type": "checkbox",
-                    "label": "Ping Pong",
-                    "varname": "fCheckbox0",
-                    "shortname": "Ping_Pong",
-                    "address": "/DELAY_DESIGN_STUDIO/Ping_Pong",
-                    "index": 262192,
+                    "type": "hslider",
+                    "label": "L High Cut",
+                    "varname": "fHslider0",
+                    "shortname": "L_High_Cut",
+                    "address": "/Stereo_Delay/L_High_Cut",
+                    "index": 40,
                     "meta": [
                         {
                             "04": ""
+                        },
+                        {
+                            "scale": "log"
+                        },
+                        {
+                            "unit": "Hz"
                         }
-                    ]
+                    ],
+                    "init": 20000,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
                 },
                 {
                     "type": "hslider",
-                    "label": "Mod Depth",
-                    "varname": "fHslider3",
-                    "shortname": "Mod_Depth",
-                    "address": "/DELAY_DESIGN_STUDIO/Mod_Depth",
-                    "index": 2359368,
+                    "label": "L Feedback",
+                    "varname": "fHslider2",
+                    "shortname": "L_Feedback",
+                    "address": "/Stereo_Delay/L_Feedback",
+                    "index": 100,
                     "meta": [
                         {
                             "05": ""
@@ -235,109 +209,287 @@
                             "unit": "%"
                         }
                     ],
-                    "init": 28,
+                    "init": 35,
                     "min": 0,
                     "max": 100,
-                    "step": 1
+                    "step": 0.1
                 },
                 {
                     "type": "hslider",
-                    "label": "Mod Rate",
-                    "varname": "fHslider4",
-                    "shortname": "Mod_Rate",
-                    "address": "/DELAY_DESIGN_STUDIO/Mod_Rate",
-                    "index": 2359384,
+                    "label": "L Crossfeed",
+                    "varname": "fHslider8",
+                    "shortname": "L_Crossfeed",
+                    "address": "/Stereo_Delay/L_Crossfeed",
+                    "index": 4194624,
                     "meta": [
                         {
                             "06": ""
                         },
                         {
-                            "unit": "Hz"
+                            "unit": "%"
                         }
                     ],
-                    "init": 0.6,
-                    "min": 0.05,
-                    "max": 8,
-                    "step": 0.01
+                    "init": 0,
+                    "min": 0,
+                    "max": 100,
+                    "step": 0.1
                 },
                 {
-                    "type": "hslider",
-                    "label": "Hipass",
-                    "varname": "fHslider5",
-                    "shortname": "Hipass",
-                    "address": "/DELAY_DESIGN_STUDIO/Hipass",
-                    "index": 2359400,
+                    "type": "checkbox",
+                    "label": "L Feedback Phase",
+                    "varname": "fCheckbox0",
+                    "shortname": "L_Feedback_Phase",
+                    "address": "/Stereo_Delay/L_Feedback_Phase",
+                    "index": 120,
                     "meta": [
                         {
                             "07": ""
-                        },
-                        {
-                            "unit": "Hz"
                         }
-                    ],
-                    "init": 220,
-                    "min": 20,
-                    "max": 5000,
-                    "step": 1
+                    ]
                 },
                 {
-                    "type": "hslider",
-                    "label": "Lopass",
-                    "varname": "fHslider6",
-                    "shortname": "Lopass",
-                    "address": "/DELAY_DESIGN_STUDIO/Lopass",
-                    "index": 2359424,
+                    "type": "checkbox",
+                    "label": "L Crossfeed Phase",
+                    "varname": "fCheckbox3",
+                    "shortname": "L_Crossfeed_Phase",
+                    "address": "/Stereo_Delay/L_Crossfeed_Phase",
+                    "index": 4194636,
                     "meta": [
                         {
                             "08": ""
-                        },
-                        {
-                            "unit": "Hz"
                         }
-                    ],
-                    "init": 6500,
-                    "min": 200,
-                    "max": 18000,
-                    "step": 1
+                    ]
                 },
                 {
-                    "type": "hslider",
-                    "label": "Dry/Wet",
-                    "varname": "fHslider0",
-                    "shortname": "Dry_Wet",
-                    "address": "/DELAY_DESIGN_STUDIO/Dry_Wet",
-                    "index": 262156,
+                    "type": "nentry",
+                    "label": "R Input",
+                    "varname": "fEntry2",
+                    "shortname": "R_Input",
+                    "address": "/Stereo_Delay/R_Input",
+                    "index": 4194604,
                     "meta": [
                         {
                             "09": ""
                         },
                         {
-                            "unit": "%"
+                            "style": "menu{-Off-:0;-Left-:1;-Right-:2;-L+R-:3;-L-R-:4}"
                         }
                     ],
-                    "init": 28,
+                    "init": 2,
                     "min": 0,
-                    "max": 100,
+                    "max": 4,
                     "step": 1
                 },
                 {
                     "type": "hslider",
-                    "label": "Output",
-                    "varname": "fHslider8",
-                    "shortname": "Output",
-                    "address": "/DELAY_DESIGN_STUDIO/Output",
-                    "index": 4456652,
+                    "label": "R Delay Time",
+                    "varname": "fHslider9",
+                    "shortname": "R_Delay_Time",
+                    "address": "/Stereo_Delay/R_Delay_Time",
+                    "index": 8388952,
                     "meta": [
                         {
                             "10": ""
                         },
                         {
-                            "unit": "dB"
+                            "unit": "ms"
                         }
                     ],
-                    "init": 1,
-                    "min": -24,
-                    "max": 12,
+                    "init": 250,
+                    "min": 1,
+                    "max": 4000,
+                    "step": 0.01
+                },
+                {
+                    "type": "hslider",
+                    "label": "R Low Cut",
+                    "varname": "fHslider7",
+                    "shortname": "R_Low_Cut",
+                    "address": "/Stereo_Delay/R_Low_Cut",
+                    "index": 4194592,
+                    "meta": [
+                        {
+                            "11": ""
+                        },
+                        {
+                            "scale": "log"
+                        },
+                        {
+                            "unit": "Hz"
+                        }
+                    ],
+                    "init": 20,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "R High Cut",
+                    "varname": "fHslider6",
+                    "shortname": "R_High_Cut",
+                    "address": "/Stereo_Delay/R_High_Cut",
+                    "index": 4194580,
+                    "meta": [
+                        {
+                            "12": ""
+                        },
+                        {
+                            "scale": "log"
+                        },
+                        {
+                            "unit": "Hz"
+                        }
+                    ],
+                    "init": 20000,
+                    "min": 20,
+                    "max": 20000,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "R Feedback",
+                    "varname": "fHslider4",
+                    "shortname": "R_Feedback",
+                    "address": "/Stereo_Delay/R_Feedback",
+                    "index": 164,
+                    "meta": [
+                        {
+                            "13": ""
+                        },
+                        {
+                            "unit": "%"
+                        }
+                    ],
+                    "init": 35,
+                    "min": 0,
+                    "max": 100,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "R Crossfeed",
+                    "varname": "fHslider3",
+                    "shortname": "R_Crossfeed",
+                    "address": "/Stereo_Delay/R_Crossfeed",
+                    "index": 140,
+                    "meta": [
+                        {
+                            "14": ""
+                        },
+                        {
+                            "unit": "%"
+                        }
+                    ],
+                    "init": 0,
+                    "min": 0,
+                    "max": 100,
+                    "step": 0.1
+                },
+                {
+                    "type": "checkbox",
+                    "label": "R Feedback Phase",
+                    "varname": "fCheckbox2",
+                    "shortname": "R_Feedback_Phase",
+                    "address": "/Stereo_Delay/R_Feedback_Phase",
+                    "index": 176,
+                    "meta": [
+                        {
+                            "15": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "checkbox",
+                    "label": "R Crossfeed Phase",
+                    "varname": "fCheckbox1",
+                    "shortname": "R_Crossfeed_Phase",
+                    "address": "/Stereo_Delay/R_Crossfeed_Phase",
+                    "index": 152,
+                    "meta": [
+                        {
+                            "16": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "nentry",
+                    "label": "Routing",
+                    "varname": "fEntry0",
+                    "shortname": "Routing",
+                    "address": "/Stereo_Delay/Routing",
+                    "index": 16,
+                    "meta": [
+                        {
+                            "17": ""
+                        },
+                        {
+                            "style": "menu{-Straight-:0;-Crossed-:1;-Ping-Pong-:2}"
+                        }
+                    ],
+                    "init": 0,
+                    "min": 0,
+                    "max": 2,
+                    "step": 1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Output Left",
+                    "varname": "fHslider12",
+                    "shortname": "Output_Left",
+                    "address": "/Stereo_Delay/Output_Left",
+                    "index": 8389052,
+                    "meta": [
+                        {
+                            "18": ""
+                        },
+                        {
+                            "unit": "%"
+                        }
+                    ],
+                    "init": 30,
+                    "min": 0,
+                    "max": 100,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Output Right",
+                    "varname": "fHslider10",
+                    "shortname": "Output_Right",
+                    "address": "/Stereo_Delay/Output_Right",
+                    "index": 8389028,
+                    "meta": [
+                        {
+                            "19": ""
+                        },
+                        {
+                            "unit": "%"
+                        }
+                    ],
+                    "init": 30,
+                    "min": 0,
+                    "max": 100,
+                    "step": 0.1
+                },
+                {
+                    "type": "hslider",
+                    "label": "Dry",
+                    "varname": "fHslider11",
+                    "shortname": "Dry",
+                    "address": "/Stereo_Delay/Dry",
+                    "index": 8389040,
+                    "meta": [
+                        {
+                            "20": ""
+                        },
+                        {
+                            "unit": "%"
+                        }
+                    ],
+                    "init": 100,
+                    "min": 0,
+                    "max": 100,
                     "step": 0.1
                 }
             ]

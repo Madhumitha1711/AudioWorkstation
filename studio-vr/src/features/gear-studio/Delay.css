@@ -1,0 +1,234 @@
+/* Stereo Delay editor. Uses the chapter-lab theme tokens only
+   (--panel, --surface, --black, --border, --text*, --teal, --blue, --amber),
+   so it follows the app's dark and light themes. Left = teal, right = blue. */
+.chapter-lab .sdl {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  user-select: none;
+}
+.chapter-lab .sdl-accent { color: var(--ch, var(--teal)); }
+.chapter-lab .sdl-mini-label {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* ---- scope ---- */
+.chapter-lab .sdl-scope__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.chapter-lab .sdl-scope__head .toggle-btn { white-space: nowrap; }
+.chapter-lab .sdl-scope__sub { color: var(--text-faint); opacity: 0.8; text-transform: none; letter-spacing: 0.02em; }
+.chapter-lab .sdl-scope__canvas {
+  position: relative;
+  height: 150px;
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 0.6rem;
+}
+.chapter-lab .sdl-scope__canvas canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.chapter-lab .sdl-scope .legend-row { margin-bottom: 0; }
+
+/* ---- global strip ---- */
+.chapter-lab .sdl-global {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+  padding: 0.7rem 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.chapter-lab .sdl-global__group { display: flex; align-items: center; gap: 0.6rem; }
+
+/* segmented buttons */
+.chapter-lab .sdl-seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--panel);
+}
+.chapter-lab .sdl-seg__btn {
+  appearance: none;
+  border: 0;
+  border-left: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.chapter-lab .sdl-seg__btn:first-child { border-left: 0; }
+.chapter-lab .sdl-seg__btn:hover:not(.is-active) { color: var(--text); }
+.chapter-lab .sdl-seg__btn.is-active { background: var(--ch-dim, var(--teal-dim)); color: var(--ch, var(--teal)); }
+.chapter-lab .sdl-seg__btn:focus-visible { outline: 2px solid var(--ch, var(--teal)); outline-offset: -2px; }
+
+.chapter-lab .sdl-toggle.on { background: var(--ch-dim, var(--teal-dim)); border-color: var(--ch, var(--teal)); color: var(--ch, var(--teal)); }
+.chapter-lab .sdl-toggle:focus-visible { outline: 2px solid var(--ch, var(--teal)); outline-offset: 1px; }
+
+/* ---- channel cards ---- */
+.chapter-lab .sdl-channels { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.chapter-lab .sdl-card {
+  --ch: var(--teal);
+  --ch-dim: var(--teal-dim);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 0.9rem 1rem 1rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--ch);
+  border-radius: 8px;
+  min-width: 0;
+}
+.chapter-lab .sdl-card.is-right { --ch: var(--blue); --ch-dim: var(--blue-dim); }
+
+.chapter-lab .sdl-card__head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+.chapter-lab .sdl-card__badge {
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 4px;
+  background: var(--ch-dim);
+  color: var(--ch);
+  border: 1px solid var(--ch);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+.chapter-lab .sdl-card__title {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+}
+.chapter-lab .sdl-card__time {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.chapter-lab .sdl-row { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; }
+.chapter-lab .sdl-toggles { display: flex; gap: 0.4rem; }
+
+/* knobs */
+.chapter-lab .sdl-knobs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; align-items: start; }
+.chapter-lab .sdl-knob .knob-val { font-variant-numeric: tabular-nums; }
+.chapter-lab .sdl-knob__dial { position: relative; cursor: ns-resize; touch-action: none; outline: none; border-radius: 50%; }
+.chapter-lab .sdl-knob__dial:focus-visible { box-shadow: 0 0 0 2px var(--ch-dim, var(--teal-dim)); }
+.chapter-lab .sdl-knob__dial svg { position: absolute; inset: 0; overflow: visible; }
+.chapter-lab .sdl-knob__track { fill: none; stroke: var(--border); stroke-width: 3; stroke-linecap: round; }
+.chapter-lab .sdl-knob__arc { fill: none; stroke: var(--ch, var(--teal)); stroke-width: 3; stroke-linecap: round; opacity: 0.9; }
+.chapter-lab .sdl-knob__body { position: absolute; }
+.chapter-lab .sdl-knob__dial:hover .sdl-knob__body,
+.chapter-lab .sdl-knob__dial:active .sdl-knob__body { border-color: var(--ch, var(--teal)); box-shadow: none; }
+.chapter-lab .sdl-knob__tick {
+  position: absolute; top: 50%; left: 50%;
+  width: 3px; margin-top: -2px;
+  background: var(--text);
+  border-radius: 2px;
+  transform-origin: bottom center;
+}
+.chapter-lab .sdl-halfdouble { display: flex; gap: 0.3rem; margin-top: 0.15rem; }
+.chapter-lab .sdl-chip {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  padding: 0.15rem 0.45rem;
+  cursor: pointer;
+}
+.chapter-lab .sdl-chip:hover { border-color: var(--ch, var(--teal)); color: var(--ch, var(--teal)); }
+
+/* repeat filter range */
+.chapter-lab .sdl-cut__head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; margin-bottom: 0.4rem; }
+.chapter-lab .sdl-cut__vals { display: flex; gap: 0.75rem; font-family: var(--font-mono); font-size: 0.55rem; color: var(--text-faint); }
+.chapter-lab .sdl-cut__vals b { font-weight: 500; font-size: 0.65rem; }
+.chapter-lab .sdl-cut__track {
+  position: relative;
+  height: 22px;
+  background: var(--black);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.chapter-lab .sdl-cut__shade { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, transparent 0 4px, rgba(127, 127, 127, 0.12) 4px 5px); }
+.chapter-lab .sdl-cut__band { position: absolute; top: 3px; bottom: 3px; background: var(--ch-dim, var(--teal-dim)); border-radius: 2px; }
+.chapter-lab .sdl-cut__thumb {
+  position: absolute; top: -3px; bottom: -3px;
+  width: 4px; margin-left: -2px;
+  background: var(--ch, var(--teal));
+  border-radius: 2px;
+}
+.chapter-lab .sdl-cut__scale {
+  display: flex; justify-content: space-between;
+  font-family: var(--font-mono); font-size: 0.5rem; color: var(--text-faint);
+  margin-top: 0.25rem;
+}
+
+/* ---- output mix ---- */
+.chapter-lab .sdl-output .subsection-label { margin-bottom: 0.6rem; }
+.chapter-lab .sdl-output__rows { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem 1.25rem; }
+.chapter-lab .sdl-level { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.6rem; }
+.chapter-lab .sdl-level__val { font-family: var(--font-mono); font-size: 0.65rem; color: var(--acc); min-width: 2.6rem; text-align: right; }
+.chapter-lab .sdl-level input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--acc) var(--fill), var(--border) var(--fill));
+  outline: none;
+  cursor: pointer;
+}
+.chapter-lab .sdl-level input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--acc);
+}
+.chapter-lab .sdl-level input[type='range']::-moz-range-thumb {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--acc);
+}
+.chapter-lab .sdl-level input[type='range']:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--border-bright); }
+
+.chapter-lab .sdl-callout { background: var(--teal-dim); border-color: var(--teal-dim); }
+.chapter-lab .sdl-callout strong { color: var(--teal); }
+
+/* ---- narrower windows ---- */
+@media (max-width: 900px) {
+  .chapter-lab .sdl-channels { grid-template-columns: 1fr; }
+  .chapter-lab .sdl-output__rows { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .chapter-lab .sdl-global { flex-direction: column; align-items: stretch; }
+  .chapter-lab .sdl-global__group { justify-content: space-between; }
+  .chapter-lab .sdl-scope__sub { display: none; }
+}
