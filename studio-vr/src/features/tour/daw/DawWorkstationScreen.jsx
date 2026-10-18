@@ -135,12 +135,23 @@ function DawWorkstationScreen({ open, onClose }) {
       });
     };
     remeasure();
-    const ro = new ResizeObserver(remeasure);
+    // Coalesce resize bursts to one re-render per frame: each re-render of the
+    // DAW blocks the main thread, which starves ScriptProcessor DSP on HTTP.
+    let frame = 0;
+    const scheduleRemeasure = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        remeasure();
+      });
+    };
+    const ro = new ResizeObserver(scheduleRemeasure);
     rowEls.forEach((el) => ro.observe(el));
-    window.addEventListener("resize", remeasure);
+    window.addEventListener("resize", scheduleRemeasure);
     return () => {
+      cancelAnimationFrame(frame);
       ro.disconnect();
-      window.removeEventListener("resize", remeasure);
+      window.removeEventListener("resize", scheduleRemeasure);
     };
   }, [tracks, viewMode]);
 

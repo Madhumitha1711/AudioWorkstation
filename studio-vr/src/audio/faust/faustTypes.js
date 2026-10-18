@@ -16,5 +16,5 @@ export async function compileFaustWasm(url) {
 // larger buffer to make UI-stall clicks less likely.
 export function createFaustMonoNode(generator, ctx, name, factory, processorName) {
   const sp = !ctx.audioWorklet;
-  return generator.createNode(ctx, name, factory, sp, sp ? 2048 : 512, processorName);
+  return generator.createNode(ctx, name, factory, sp, sp ? 4096 : 512, processorName);
 }
