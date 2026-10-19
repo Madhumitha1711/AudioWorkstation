@@ -1,4 +1,4 @@
-import { RULER_STEPS, RULER_TARGET_MARKS, VOLUME_FADER_SPEC } from "./constants";
+import { RULER_GRIDS, RULER_MIN_LABEL_PX, VOLUME_FADER_SPEC } from "./constants";
 
 export const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
@@ -9,18 +9,24 @@ export function fmtTime(s) {
   return `${m}:${sec.toFixed(2).padStart(5, "0")}`;
 }
 
-export function pickRulerStep(durationSec) {
-  for (const step of RULER_STEPS) {
-    if (durationSec / step <= RULER_TARGET_MARKS) return step;
+export function pickRulerGrid(pxPerSec) {
+  for (const [major, minor] of RULER_GRIDS) {
+    if (major * pxPerSec >= RULER_MIN_LABEL_PX) return { major, minor };
   }
-  return RULER_STEPS[RULER_STEPS.length - 1];
+  const [major, minor] = RULER_GRIDS[RULER_GRIDS.length - 1];
+  return { major, minor };
 }
 
-export function fmtRulerMark(s) {
-  if (s < 60) return `${s}s`;
+// m:ss, with decimals when the ruler step is below a second
+export function fmtRulerMark(s, step = 1) {
+  s = Math.round(s * 1000) / 1000;
   const m = Math.floor(s / 60);
-  const sec = Math.round(s - m * 60);
-  return `${m}:${String(sec).padStart(2, "0")}`;
+  const sec = s - m * 60;
+  if (step < 1) {
+    const d = step < 0.5 ? 2 : 1;
+    return `${m}:${sec.toFixed(d).padStart(3 + d, "0")}`;
+  }
+  return `${m}:${String(Math.round(sec)).padStart(2, "0")}`;
 }
 
 export function dbTickPct(db) {

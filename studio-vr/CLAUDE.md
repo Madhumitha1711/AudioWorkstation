@@ -123,7 +123,11 @@ src/
                                   # Insert/SendRack per track) / audio-graph +
                                   # offline render / constants, format, track
                                   # helpers, useDismiss (outside-click/Esc close),
-                                  # fileDrop (audio file drag-and-drop checks)
+                                  # fileDrop (audio file drag-and-drop checks),
+                                  # useTimelineZoom (fixed px-per-second scale;
+                                  # the arrangement scrolls horizontally, the
+                                  # ruler is sticky — clip/seek/drag maths use
+                                  # pxPerSecRef, never % of song length)
                                   # The DAW owns its own AudioContext (not the tour
                                   # singleton): it runs at the highest native rate of
                                   # any loaded file, and a higher-rate load swaps the

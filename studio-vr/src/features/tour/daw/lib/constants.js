@@ -18,8 +18,23 @@ export const PLUGIN_DEFS_GROUPED = (() => {
   return PLUGIN_TAG_ORDER.filter((t) => groups.has(t)).map((t) => [t, groups.get(t)]);
 })();
 
-export const RULER_STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600];
-export const RULER_TARGET_MARKS = 24;
+// Timeline zoom, in pixels per second. The scale is fixed (BandLab-style):
+// the song no longer squeezes to fit the window, the arrangement scrolls.
+export const ZOOM_DEFAULT_PPS = 25;
+export const ZOOM_MIN_PPS = 2;
+export const ZOOM_MAX_PPS = 400;
+export const ZOOM_STEP = 1.5;
+// empty timeline kept past the last clip, so clips can be dragged later
+export const TIMELINE_TAIL_SEC = 30;
+
+// [major, minor] ruler grids in seconds; the first whose major step is at
+// least RULER_MIN_LABEL_PX wide at the current zoom is used
+export const RULER_GRIDS = [
+  [0.25, 0.05], [0.5, 0.1], [1, 0.25], [2, 0.5], [5, 1], [10, 2], [15, 5], [30, 5],
+  [60, 10], [120, 30], [300, 60], [600, 120], [900, 300], [1800, 300], [3600, 600],
+];
+export const RULER_MIN_LABEL_PX = 72;
+export const RULER_MIN_TICK_PX = 6;
 
 export const TRACK_COLORS = ["teal", "amber", "blue", "purple", "green", "red", "cyan", "pink", "lime"];
 

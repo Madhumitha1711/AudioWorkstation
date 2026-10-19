@@ -19,7 +19,8 @@ import "../../gear-studio/chapters.css";
 import "./DawWorkstationScreen.css";
 
 import { PLUGIN_DEFS, TRACK_COLORS, MIN_REGION_LEN, TRACK_CHAIN_SCOPE, DEFAULT_CLIPS, VIEW_TABS } from "./lib/constants";
-import { clamp, pickRulerStep } from "./lib/format";
+import { clamp } from "./lib/format";
+import { useTimelineZoom } from "./lib/useTimelineZoom";
 import { trackIsAudible, computeDryScale, outerScopeId, isOuterScope, baseRegionId } from "./lib/trackHelpers";
 import { NEW_TRACK_DROP, isAudioFile, dragHasFiles } from "./lib/fileDrop";
 import { computePeaks, decodeSource, SYNTH_SOURCE, highestSourceRate } from "./engine/audioBuffers";
@@ -92,26 +93,18 @@ function DawWorkstationScreen({ open, onClose }) {
 
   const tracklistRef = useRef(null);
   const arrangementRef = useRef(null);
-  const syncingScrollRef = useRef(false);
+  // vertical scroll sync between the track list and the arrangement. Only
+  // write when the two differ: horizontal timeline scrolls also fire
+  // onArrangementScroll and must not leave a "skip next event" flag behind.
   const onTracklistScroll = useCallback(() => {
-    if (syncingScrollRef.current) {
-      syncingScrollRef.current = false;
-      return;
-    }
-    if (arrangementRef.current && tracklistRef.current) {
-      syncingScrollRef.current = true;
-      arrangementRef.current.scrollTop = tracklistRef.current.scrollTop;
-    }
+    const tl = tracklistRef.current;
+    const arr = arrangementRef.current;
+    if (tl && arr && Math.abs(arr.scrollTop - tl.scrollTop) >= 1) arr.scrollTop = tl.scrollTop;
   }, []);
   const onArrangementScroll = useCallback(() => {
-    if (syncingScrollRef.current) {
-      syncingScrollRef.current = false;
-      return;
-    }
-    if (tracklistRef.current && arrangementRef.current) {
-      syncingScrollRef.current = true;
-      tracklistRef.current.scrollTop = arrangementRef.current.scrollTop;
-    }
+    const tl = tracklistRef.current;
+    const arr = arrangementRef.current;
+    if (tl && arr && Math.abs(tl.scrollTop - arr.scrollTop) >= 1) tl.scrollTop = arr.scrollTop;
   }, []);
 
   const trackRowRefs = useRef(new Map());
@@ -307,6 +300,9 @@ function DawWorkstationScreen({ open, onClose }) {
     }
     return raw;
   }, []);
+
+  const zoom = useTimelineZoom(arrangementRef, currentOffset);
+  const { pxPerSecRef, zoomIn, zoomOut } = zoom;
 
   const teardownPlaybackGraph = useCallback(() => {
     if (endTimeoutRef.current) {
@@ -1043,11 +1039,9 @@ function DawWorkstationScreen({ open, onClose }) {
 
   const beginClipDrag = useCallback(
     (e, track) => {
-      const container = arrangementRef.current;
-      if (!container) return;
+      if (!arrangementRef.current) return;
       e.stopPropagation();
-      const containerWidth = container.clientWidth || 1;
-      const secondsPerPixel = Math.max(arrangementDuration, 1) / containerWidth;
+      const secondsPerPixel = 1 / pxPerSecRef.current;
       dragClipRef.current = {
         trackId: track.id,
         pointerId: e.pointerId,
@@ -1061,7 +1055,7 @@ function DawWorkstationScreen({ open, onClose }) {
       }
       setSelectedTrackId(track.id);
     },
-    [arrangementDuration],
+    [pxPerSecRef],
   );
 
   const onClipPointerMove = useCallback(
@@ -1225,19 +1219,18 @@ function DawWorkstationScreen({ open, onClose }) {
       const container = arrangementRef.current;
       if (!container || arrangementDuration <= 0) return;
       e.stopPropagation();
-      const containerWidth = container.clientWidth || 1;
       dragPlayheadRef.current = {
         pointerId: e.pointerId,
         startClientX: e.clientX,
         startOffset: currentOffset(),
-        secondsPerPixel: arrangementDuration / containerWidth,
+        secondsPerPixel: 1 / pxPerSecRef.current,
       };
       try {
         e.currentTarget.setPointerCapture(e.pointerId);
       } catch {
       }
     },
-    [arrangementDuration, currentOffset],
+    [arrangementDuration, currentOffset, pxPerSecRef],
   );
 
   const onPlayheadPointerMove = useCallback(
@@ -1277,25 +1270,25 @@ function DawWorkstationScreen({ open, onClose }) {
       if (e.button !== 0 || !container || arrangementDuration <= 0) return;
       const rect = container.getBoundingClientRect();
       const x = e.clientX - rect.left - container.clientLeft + container.scrollLeft;
-      const width = container.clientWidth || 1;
+      const pps = pxPerSecRef.current;
       const pw = getPreviewWindow();
       const lo = pw ? pw.start : 0;
       const hi = pw ? pw.end : arrangementDuration;
-      const t = clamp((x / width) * arrangementDuration, lo, hi);
+      const t = clamp(x / pps, lo, hi);
       pausedOffsetRef.current = t;
       setPlayhead(t);
       dragPlayheadRef.current = {
         pointerId: e.pointerId,
         startClientX: e.clientX,
         startOffset: t,
-        secondsPerPixel: arrangementDuration / width,
+        secondsPerPixel: 1 / pps,
       };
       try {
         e.currentTarget.setPointerCapture(e.pointerId);
       } catch {
       }
     },
-    [arrangementDuration, getPreviewWindow],
+    [arrangementDuration, getPreviewWindow, pxPerSecRef],
   );
 
   const handleDownloadTrack = useCallback(async (id) => {
@@ -2005,13 +1998,25 @@ function DawWorkstationScreen({ open, onClose }) {
         case "Escape":
           if (selectedRegionRef.current) exitSelection();
           break;
+        case "=":
+        case "+":
+          if (e.metaKey || e.ctrlKey) return;
+          e.preventDefault();
+          zoomIn();
+          break;
+        case "-":
+        case "_":
+          if (e.metaKey || e.ctrlKey) return;
+          e.preventDefault();
+          zoomOut();
+          break;
         default:
           break;
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, addTrackDialogOpen, activeEditor, togglePlay, rewind, toggleTrackMute, toggleTrackSolo, toggleLoop, exitSelection]);
+  }, [isOpen, addTrackDialogOpen, activeEditor, togglePlay, rewind, toggleTrackMute, toggleTrackSolo, toggleLoop, exitSelection, zoomIn, zoomOut]);
 
   if (!isOpen) return null;
 
@@ -2033,11 +2038,6 @@ function DawWorkstationScreen({ open, onClose }) {
     : TRACK_CHAIN_SCOPE;
   const dockChain = dockTrack ? getChainArray(dockTrack, dockRegionId) : undefined;
   const dockOnPortionOuterScope = !!selectedRegionObj && dockScope === "track";
-  const rulerStep = pickRulerStep(Math.max(1, arrangementDuration));
-  const rulerMarks = Array.from(
-    { length: Math.floor(Math.max(1, Math.ceil(arrangementDuration)) / rulerStep) + 1 },
-    (_, i) => i * rulerStep,
-  );
 
   const chainActions = {
     addOrSelectPlugin,
@@ -2141,7 +2141,7 @@ function DawWorkstationScreen({ open, onClose }) {
                   <Arrangement
                     arrangementRef={arrangementRef}
                     onArrangementScroll={onArrangementScroll}
-                    rulerMarks={rulerMarks}
+                    zoom={zoom}
                     arrangementDuration={arrangementDuration}
                     tracks={tracks}
                     rowSlotHeights={rowSlotHeights}

@@ -75,7 +75,13 @@ export function createDemoLoopBuffer(ctx) {
   return buf;
 }
 
-export function computePeaks(buffer, buckets = 220) {
+// Peak resolution follows clip length (PEAKS_PER_SEC), so the waveform stays
+// detailed when the fixed-scale timeline is zoomed in.
+const PEAKS_PER_SEC = 100;
+const MIN_PEAKS = 220;
+const MAX_PEAKS = 60000;
+
+export function computePeaks(buffer, buckets = Math.min(MAX_PEAKS, Math.max(MIN_PEAKS, Math.ceil(buffer.duration * PEAKS_PER_SEC)))) {
   const chans = [];
   for (let c = 0; c < buffer.numberOfChannels; c++) chans.push(buffer.getChannelData(c));
   const len = buffer.length;
